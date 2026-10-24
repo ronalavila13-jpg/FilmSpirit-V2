@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="__LANG__" data-region="__REGION__" data-theme="light">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{t.meta_title}}</title>
+<meta name="description" content="{{t.meta_desc}}">
+<meta property="og:title" content="{{t.meta_title}}">
+<meta property="og:description" content="{{t.og_desc}}">
+<meta property="og:image" content="__BASE_URL__/portada/og.png">
+<meta name="theme-color" content="#CE0C1C">
+__HREFLANG__
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/marca/FilmSpiritRecorte-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/sitio.css">
+<link rel="stylesheet" href="/portada.css">
+
+<!-- Portada (diseño «Inicio, escritorio», manual de marca 2026): cabecera y portada en el rojo de la marca, con una hoja
+     de guion que se escribe sola y después se puede editar; escribir y producir; planes en filas, con la comparación y las
+     condiciones; preguntas; cierre y pie en negro. Titulares en FilmSpirit Recorte, textos en Archivo, guion en Courier Prime. -->
+<a class="skip" href="#principal">{{t.skip}}</a>
+<header class="top">
+  <div class="wrap top-in">
+    <a href="/" class="top-logo" aria-label="FilmSpirit">__LOGO__</a>
+    <nav class="top-nav" aria-label="{{t.nav_label}}">
+      <a class="top-link wide-only" href="#planes">{{t.nav_plans}}</a>
+      <a class="top-link wide-only" href="/entrar" data-login data-guest>{{t.log_in}}</a>
+      <a class="btn cream top-btn" href="/entrar" data-login data-open="{{t.open_app}}" data-short="{{t.sign_in}}"><span class="wide-only">{{t.free_cta}}</span><span class="narrow-only">{{t.sign_in}}</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="principal">
+  <!-- ============ portada: titular y la hoja de guion ============ -->
+  <section class="hero" id="inicio" aria-labelledby="heroH">
+    <div class="hero-in">
+      <h1 id="heroH" class="rc">{{t.hero_h1}}</h1>
+      <p class="hero-lead">{{t.h_lead}}</p>
+      <p class="note" id="refNote" hidden data-tpl="{{t.ref_note}}"></p>
+      <p class="note" id="goneNote" hidden>{{t.acct_gone}}</p>
+      <p class="sr-only" id="sheetHelp">{{t.ed_sr}}</p>
+      <div class="sheet" id="sheet" role="region" aria-label="{{t.ed_label}}" aria-describedby="sheetHelp" data-title="{{t.ed_title}}">
+        <span class="sheet-n" aria-hidden="true">1.</span>
+        <p class="ln tr">FADE IN:</p>
+        <div class="sheet-lines" id="sheetLines">
+          <p class="ln" data-t="h">{{t.ed_s1}}</p>
+          <p class="ln" data-t="a">{{t.ed_s2}}</p>
+          <p class="ln" data-t="c">{{t.ed_s3}}</p>
+          <p class="ln" data-t="d">{{t.ed_s4}}</p>
+        </div>
+        <div class="sheet-bar">
+          <div class="pills" role="group" aria-label="{{t.ed_types}}" id="sheetTypes">
+            <button type="button" data-t="h" aria-pressed="false" data-aria="{{t.ed_h_aria}}" data-ph="{{t.ed_h_ph}}">{{t.ed_h}}</button>
+            <button type="button" data-t="a" aria-pressed="false" data-aria="{{t.ed_a}}" data-ph="{{t.ed_a_ph}}">{{t.ed_a}}</button>
+            <button type="button" data-t="c" aria-pressed="false" data-aria="{{t.ed_c}}" data-ph="{{t.ed_c_ph}}">{{t.ed_c}}</button>
+            <button type="button" data-t="d" aria-pressed="false" data-aria="{{t.ed_d}}" data-ph="{{t.ed_d_ph}}">{{t.ed_d}}</button>
+          </div>
+          <a class="btn red pill" href="/entrar" data-login data-save>{{t.ed_save}}</a>
+        </div>
+      </div>
+      <p class="hero-hint">{{t.ed_hint}}</p>
+    </div>
+  </section>
+
+  <!-- ============ escribir y producir ============ -->
+  <section class="sec paper" data-studio="__STUDIO_OPEN__" aria-labelledby="t-prod">
+    <div class="wrap split">
+      <div class="split-h">
+        <h2 id="t-prod" class="rc">{{t.p_h2}}</h2>
+        <p class="sub">{{t.p_sub}}</p>
+      </div>
+      <div class="feats">
+        <div class="feat"><h3 class="rc">{{t.p1_h}}</h3><p>{{t.p1_p}}</p></div>
+        <div class="feat"><h3 class="rc">{{t.p2_h}}</h3><span class="tag dark wl-only">{{t.wl_tag}}</span><p>{{t.p2_p}}</p></div>
+        <div class="feat"><h3 class="rc">{{t.p3_h}}</h3><span class="tag dark wl-only">{{t.wl_tag}}</span><p>{{t.p3_p}}</p></div>
+        <div class="feat"><h3 class="rc">{{t.p4_h}}</h3><p>{{t.p4_p}}</p></div>
+      </div>
+    </div>
+  </section>
+
+  __TESTIMONIO__
+
+  <!-- ============ planes ============ -->
+  <!-- Guion (gratis), Indie, Pro y Studio (PLANES-Y-PRECIOS.md). data-founder: precio de fundador vigente;
+       data-studio: Studio a la venta (si no, lista de espera) -->
+  <section class="sec sand" id="planes" data-founder="__FOUNDER__" data-studio="__STUDIO_OPEN__" aria-labelledby="t-planes">
+    <div class="wrap">
+      <div class="plans-h">
+        <div>
+          <h2 id="t-planes" class="rc">{{t.pl_h2}}</h2>
+          <p class="sub">{{t.pl_sub}}</p>
+        </div>
+        <div class="pills region-pick" role="group" aria-label="{{t.region_label}}">
+          <button type="button" data-region="pe">{{t.region_pe}}</button>
+          <button type="button" data-region="intl">{{t.region_intl}}</button>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="row">
+          <div class="row-n"><h3 class="rc">{{t.p_free}}</h3></div>
+          <p class="row-d">{{t.row_free}}</p>
+          <p class="row-p"><b>{{t.free_price}}</b><span>{{t.forever}}</span></p>
+          <div class="row-a"><a class="btn red" href="/entrar" data-login>{{t.free_cta}}</a></div>
+        </li>
+        <li class="row">
+          <div class="row-n"><h3 class="rc">Indie</h3></div>
+          <p class="row-d">{{t.row_in}}</p>
+          <p class="row-p"><b><span class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_IN_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_IN_Y__ {{t.per_year}}">{{t.or}} __P_IN_Y__ {{t.per_year}}</span></p>
+          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.in_cta}}</a></div>
+        </li>
+        <li class="row">
+          <div class="row-n"><h3 class="rc">Pro</h3><span class="tag">{{t.trial_tag}}</span></div>
+          <div class="row-d"><p>{{t.row_pro}}</p><p class="fnd"><span data-only="pe">{{t.fnd_pe}}</span><span data-only="intl">{{t.fnd_intl}}</span></p></div>
+          <p class="row-p"><b><span class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_PRO_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_PRO_Y__ {{t.per_year}}">{{t.or}} __P_PRO_Y__ {{t.per_year}}</span></p>
+          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.pro_cta}}</a></div>
+        </li>
+        <li class="row studio">
+          <div class="row-n"><h3 class="rc">Studio</h3><span class="tag dark wl-only">{{t.wl_tag}}</span></div>
+          <p class="row-d">{{t.row_st}}</p>
+          <p class="row-p"><b><span class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_ST_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_ST_Y__ {{t.per_year}}">{{t.or}} __P_ST_Y__ {{t.per_year}}</span></p>
+          <div class="row-a"><a class="lnk st-buy" href="/entrar" data-login>{{t.st_cta}}</a></div>
+          <form class="wl wl-only" id="wlForm" novalidate>
+            <label class="wl-p" for="wlMail">{{t.wl_p}}</label>
+            <div class="wl-row"><input id="wlMail" type="email" name="email" required autocomplete="email" placeholder="{{t.wl_ph}}"><button class="btn dark" type="submit">{{t.wl_go}}</button></div>
+            <p class="wl-note">{{h.wl_priv}}</p>
+            <p class="wl-msg" role="status" aria-live="polite" data-ok="{{t.wl_ok}}" data-bad="{{t.wl_bad}}"></p>
+          </form>
+        </li>
+      </ul>
+      <p class="pay-note"><span data-only="pe">{{t.pay_pe}}</span><span data-only="intl">{{t.pay_intl}}</span></p>
+
+      <div class="more">
+        <details id="comparar">
+          <summary>{{t.cmp_h}}</summary>
+          <div class="cmp-wrap"><table class="cmp">
+            <thead><tr><th></th><th>{{t.p_free}}</th><th>Indie</th><th>Pro</th><th>Studio</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">{{t.cmp_price}}</th><td>{{t.free_price}}</td><td class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</td><td class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</td><td class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</td></tr>
+              <tr><th scope="row">{{t.cmp_scripts}}</th><td>5</td><td>{{t.cmp_unl}}</td><td>{{t.cmp_unl}}</td><td>{{t.cmp_unl}}</td></tr>
+              <tr><th scope="row">{{t.cmp_cowrite}}</th><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td></tr>
+              <tr><th scope="row">{{t.cmp_active}}</th><td class="n">—</td><td>2</td><td>7</td><td>20</td></tr>
+              <tr><th scope="row">{{t.cmp_archived}}</th><td class="n">—</td><td>20</td><td>60</td><td>200</td></tr>
+              <tr><th scope="row">{{t.cmp_people}}</th><td class="n">—</td><td>{{t.cmp_solo}}</td><td>30</td><td>60</td></tr>
+              <tr><th scope="row">{{t.cmp_space}}</th><td>{{t.cmp_text}}</td><td>5 GB</td><td>20 GB</td><td>100 GB</td></tr>
+              <tr class="sep"><th scope="row">{{t.cmp_editor}}</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_spdf}}</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_prod}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_board}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_photos}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_team}}</th><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_scout}}</th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+              <tr><th scope="row">{{t.cmp_studio}}</th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+            </tbody>
+          </table></div>
+        </details>
+        <details id="condiciones">
+          <summary>{{t.cond_h}}</summary>
+          <ul class="cond">
+            <li>{{t.cond_trial}}</li>
+            <li class="fnd-li"><span data-only="pe">{{t.cond_fnd_pe}}</span><span data-only="intl">{{t.cond_fnd_intl}}</span></li>
+            <li>{{t.cond_year}}</li>
+            <li>{{h.cond_renew}}</li>
+            <li>{{t.cond_down}}</li>
+            <li>{{t.cond_invite}}</li>
+            <li class="wl-only">{{t.cond_studio}}</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ preguntas ============ -->
+  <section class="sec paper" id="preguntas" aria-labelledby="t-faq">
+    <div class="wrap split">
+      <div class="split-h"><h2 id="t-faq" class="rc">{{t.faq_h2}}</h2></div>
+      <div class="faq">
+        <details><summary>{{t.q1}}</summary><p>{{t.a1}}</p></details>
+        <details><summary>{{t.q2}}</summary><p>{{t.a2}}</p></details>
+        <details><summary>{{t.q3}}</summary><p>{{t.a3}}</p></details>
+        <details><summary>{{t.q4}}</summary><p>{{t.a4}}</p></details>
+        <details><summary>{{t.q5}}</summary><p>{{t.a5}}</p></details>
+        <details><summary>{{t.q6}}</summary><p>{{t.a6}}</p></details>
+        <details><summary>{{t.q7}}</summary><p>{{t.a7}}</p></details>
+        <details><summary>{{t.q8}}</summary><p>{{t.a8}}</p></details>
+        <details><summary>{{t.q9}}</summary><p>{{t.a9}}</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ cierre y pie, en negro ============ -->
+<div class="night">
+  <section class="wrap last" aria-labelledby="t-last">
+    <h2 id="t-last" class="rc">{{t.last_h2}}</h2>
+    <a class="btn cream big" href="#inicio" data-write>{{t.last_cta}}</a>
+  </section>
+  <footer class="wrap foot">
+    <div class="foot-a">
+      <span class="foot-logo">__LOGO__</span>
+      <nav aria-label="{{t.legal_label}}"><a href="#planes">{{t.nav_plans}}</a><a href="/entrar" data-login>{{t.log_in}}</a><a href="/terminos">{{t.terms}}</a><a href="/privacidad">{{t.privacy}}</a><a href="/reembolsos">{{t.refunds}}</a><a href="/reclamaciones">{{t.complaints}}</a><a href="/licencias.txt">{{t.licenses}}</a></nav>
+    </div>
+    <div class="foot-b">
+      <p>© 2026 __EMPRESA_PIE__ · Trujillo, Perú · {{t.contact}}: <span class="sel">__CONTACTO__</span></p>
+      <nav class="langs" aria-label="{{t.lang_label}}">__LANG_LINKS__</nav>
+      <p class="fade" aria-hidden="true">FADE OUT.</p>
+    </div>
+  </footer>
+</div>
+<script src="/portada.js" defer></script>
+</html>

@@ -1,0 +1,31 @@
+FILMSPIRIT · ARCHIVOS DE MARCA 2026
+===================================
+
+1-logotipo
+  svg/  Vectores para imprenta, web y edición. Úsalos siempre que puedas.
+  png/  Para presentaciones, documentos y redes. Las versiones sin placa tienen fondo transparente.
+
+  horizontal-roja ............ PRINCIPAL. Placa roja: FILM blanco, SPIRIT naranja.
+  horizontal-naranja ......... Placa naranja: FILM blanco, SPIRIT negro.
+  horizontal-negra ........... Placa negra: todo en blanco.
+  apilada-roja / -naranja .... Placas cuadradas 1:1 (avatar, sello, stories).
+  *-color .................... Sin placa, sobre fondo claro: FILM negro, SPIRIT naranja.
+  *-color-fondo-oscuro ....... Sin placa, sobre fondo oscuro: FILM blanco, SPIRIT naranja.
+  *-negro / *-blanco ......... A una tinta.
+
+  Reglas: el logo va centrado en su placa. Sin placa, deja al menos 2x libres alrededor
+  (x = grosor del asta de la i). Tamaño mínimo: horizontal 120 px, apilada 48 px de ancho.
+
+2-icono
+  Ícono de app "Frente al monolito". Desde 48 px hacia abajo usa la versión simple.
+
+3-tipografia
+  FilmSpirit Recorte 2.0: titulares en mayúsculas, desde 32 px. La i minúscula lleva el punto
+  del logo. OTF/TTF para instalar en la computadora; WOFF2 para la web.
+  Textos: Archivo. Guion y etiquetas: Courier Prime (ambas gratuitas en Google Fonts).
+
+Colores
+  Rojo    #CE0C1C   RGB 206 12 28
+  Naranja #F49B1E   RGB 244 155 30
+  Negro   #212121   RGB 33 33 33
+  Crema   #FFFEF6   RGB 255 254 246   (en el logo, FILM va en blanco #FFFFFF)

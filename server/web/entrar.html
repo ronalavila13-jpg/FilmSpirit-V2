@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="__LANG__">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{t.e_title}}</title>
+<meta name="description" content="{{t.e_desc}}">
+<meta name="google-client-id" content="__GOOGLE_CLIENT_ID__">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/sitio.css">
+<main class="signin">
+  <div class="signin-card">
+    <a href="/" aria-label="FilmSpirit">__LOGO__</a>
+    <div style="display:grid;gap:8px">
+      <h1>{{t.e_h1}}</h1>
+      <p class="hint">{{t.e_hint}}</p>
+    </div>
+    <div class="gbtn" id="gbtn"><span class="hint">{{t.e_loading}}</span></div>
+    <p class="signin-err" id="err" hidden data-cfg="{{t.e_err_cfg}}" data-gsi="{{t.e_err_gsi}}" data-login="{{t.e_err_login}}" data-net="{{t.e_err_net}}" data-reauth="{{t.e_reauth}}"></p>
+    <div class="slate" aria-label="{{t.e_slate_label}}">
+      <b>{{t.sc}} 1</b><span>{{t.e_s1}}</span>
+      <b>{{t.sc}} 2</b><span>{{t.e_s2}}</span>
+      <b>{{t.sc}} 3</b><span>{{t.e_s3}}</span>
+    </div>
+    <p class="signin-foot">{{h.e_foot}}</p>
+    <nav class="langs" aria-label="{{t.lang_label}}">__LANG_LINKS__</nav>
+  </div>
+</main>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="/entrar.js" defer></script>
+</html>

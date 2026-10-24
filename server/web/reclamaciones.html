@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Libro de Reclamaciones · FilmSpirit</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/sitio.css">
+<header class="doc-top"><div class="doc-top-in"><a href="/" aria-label="FilmSpirit, ir a la portada">__LOGO__</a></div></header>
+<main class="doc">
+  <h1>Libro de Reclamaciones</h1>
+  <p class="hint">__EMPRESA__ · RUC __RUC__ · __DOMICILIO__</p>
+  <p>Conforme al Código de Protección y Defensa del Consumidor, este establecimiento cuenta con un Libro de Reclamaciones a tu disposición.</p>
+  <p class="hint"><b>Reclamo:</b> disconformidad con el servicio contratado. <b>Queja:</b> malestar o descontento con la atención, no relacionado con el servicio.</p>
+
+  <form class="form" id="lr" novalidate>
+    <fieldset><legend>1. Tus datos</legend>
+      <label class="fld"><span>Nombre completo *</span><input name="nombre" required autocomplete="name"></label>
+      <label aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">Sitio web<input name="web" tabindex="-1" autocomplete="off"></label>
+      <div class="two">
+        <label class="fld"><span>Documento</span><select name="doc_tipo"><option>DNI</option><option>CE</option><option>Pasaporte</option><option>RUC</option></select></label>
+        <label class="fld"><span>Número *</span><input name="doc_num" required inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <label class="fld"><span>Domicilio *</span><input name="domicilio" required autocomplete="street-address"></label>
+      <div class="two">
+        <label class="fld"><span>Teléfono</span><input name="telefono" type="tel" autocomplete="tel"></label>
+        <label class="fld"><span>Correo * (te enviamos la copia)</span><input name="email" type="email" required autocomplete="email"></label>
+      </div>
+      <label class="radios"><input type="checkbox" name="menor" id="menor"> Soy menor de edad</label>
+      <label class="fld" id="apo" hidden><span>Nombre del padre, madre o apoderado *</span><input name="apoderado" autocomplete="off"></label>
+    </fieldset>
+    <fieldset><legend>2. Lo que contrataste</legend>
+      <div class="radios" role="radiogroup" aria-label="Tipo de bien contratado"><label><input type="radio" name="bien" value="servicio" checked> Servicio</label><label><input type="radio" name="bien" value="producto"> Producto</label></div>
+      <div class="two">
+        <label class="fld"><span>Descripción *</span><input name="descripcion" required value="FilmSpirit Pro"></label>
+        <label class="fld"><span>Monto reclamado (S/)</span><input name="monto" inputmode="decimal"></label>
+      </div>
+    </fieldset>
+    <fieldset><legend>3. Tu reclamo o queja</legend>
+      <div class="radios" role="radiogroup" aria-label="Reclamo o queja"><label><input type="radio" name="tipo" value="reclamo" checked> Reclamo</label><label><input type="radio" name="tipo" value="queja"> Queja</label></div>
+      <label class="fld"><span>Detalle *</span><textarea name="detalle" rows="5" required></textarea></label>
+      <label class="fld"><span>Tu pedido *</span><textarea name="pedido" rows="3" required></textarea></label>
+    </fieldset>
+    <p class="hint" style="margin:0">La formulación del reclamo no impide acudir a otras vías de solución de controversias ni es requisito previo para interponer una denuncia ante el INDECOPI. Te responderemos en un plazo no mayor a quince (15) días hábiles.</p>
+    <p class="hint" style="margin:0">Usamos estos datos solo para registrar tu hoja, enviarte la copia y responderte, como pide la ley. Más detalles en la <a href="/privacidad">Política de privacidad</a>.</p>
+    <p class="signin-err" id="err" role="alert" hidden></p>
+    <div><button class="btn primary" type="submit">Enviar</button></div>
+  </form>
+  <div id="ok" hidden tabindex="-1"></div>
+</main>
+<nav class="doc-links" aria-label="Documentos legales"><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad y cookies</a><a href="/reembolsos">Cancelaciones y reembolsos</a><a href="/reclamaciones" aria-current="page">Libro de Reclamaciones</a></nav>
+<script src="/reclamaciones.js" defer></script>
+</html>

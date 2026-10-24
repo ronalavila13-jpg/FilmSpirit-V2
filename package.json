@@ -1,0 +1,26 @@
+{
+  "name": "filmspirit",
+  "version": "1.0.0",
+  "description": "FilmSpirit: producción audiovisual (web y escritorio)",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "web": "sh build.sh",
+    "escritorio": "cd desktop && node make.js"
+  },
+  "keywords": [],
+  "author": "",
+  "dependencies": {
+    "@xmldom/xmldom": "0.8.15",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.9",
+    "pdfjs-dist": "3.11.174",
+    "three": "0.159.0"
+  },
+  "private": true,
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "meshoptimizer": "1.1.1"
+  }
+}

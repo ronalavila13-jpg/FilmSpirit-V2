@@ -1,0 +1,36 @@
+node_modules
+server/public
+server/areas.js
+desktop/app
+src/s3d-figuras-datos.js
+dist
+server/data
+package-lock.json
+__pycache__/
+.fuentes-descargas/
+
+# secretos y configuración local
+.env
+.env.*
+*.env
+!server/deploy/filmspirit.env.ejemplo
+*.pem
+*.key
+*.p12
+# datos y respaldos (nunca subir datos de clientes)
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.db.gz
+respaldos/
+# compilados y salidas
+build-out/
+out/
+*.zip
+*.log
+# herramientas locales
+graphify-out/
+.impeccable/
+.DS_Store
+Thumbs.db

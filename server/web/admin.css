@@ -1,0 +1,32 @@
+/* Panel de administración: tablas sobrias con los tokens del sitio */
+.wide{max-width:1180px;margin-inline:auto;padding-inline:20px}
+.doc-top-in.wide{max-width:1180px}
+.adm-tag{font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);background:var(--accent-soft);border-radius:999px;padding:4px 12px}
+.adm-tabs{display:flex;gap:4px;overflow-x:auto;padding-block:14px 0;border-bottom:1px solid var(--line)}
+.adm-tabs button{font:inherit;font-size:14.5px;font-weight:600;color:var(--muted);background:none;border:0;padding:10px 14px;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap}
+.adm-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.adm{padding-block:24px 64px;display:grid;gap:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border-radius:14px;padding:14px 16px;box-shadow:var(--sh-1);display:grid;gap:4px}
+.kpi span{font-size:12.5px;color:var(--muted);font-weight:600}
+.kpi b{font-size:26px;font-weight:780;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border-radius:14px;box-shadow:var(--sh-1);padding:16px 18px;display:grid;gap:12px;min-width:0}
+.card h2{font-size:17px;font-weight:750}
+.tbl-wrap{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th,table.t td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+table.t th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+table.t td.wrap{white-space:normal;min-width:220px}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--fill)}
+.pill.pro,.pill.authorized,.pill.activo,.pill.respondido{background:var(--ok-soft);color:var(--ok)}
+.pill.pending,.pill.pendiente,.pill.abierto,.pill.paused{background:var(--accent-soft);color:var(--accent-text)}
+.pill.cancelled,.pill.rechazado{background:var(--fill-2);color:var(--muted)}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn.xs{min-height:30px;padding-inline:12px;font-size:12.5px}
+.inline{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.inline .fld{min-width:140px;flex:1}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:50}
+details.rec{border-top:1px solid var(--line);padding-top:10px}
+details.rec summary{cursor:pointer;font-weight:650}
+.mono{font-family:var(--font-script)}

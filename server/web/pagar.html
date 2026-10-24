@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="__LANG__">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{t.pay_title}}</title>
+<meta name="robots" content="noindex">
+<meta name="paddle-client-token" content="__PADDLE_CLIENT_TOKEN__">
+<meta name="paddle-env" content="__PADDLE_ENV__">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/sitio.css">
+<main class="signin">
+  <div class="signin-card">
+    <a href="/" aria-label="FilmSpirit">__LOGO__</a>
+    <div style="display:grid;gap:8px">
+      <h1>{{t.pay_h1}}</h1>
+      <p class="hint" id="payMsg" data-err="{{t.pay_err}}" data-cfg="{{t.pay_cfg}}">{{t.pay_hint}}</p>
+    </div>
+    <p><a class="btn" href="/app/" id="payBack">{{t.pay_back}}</a></p>
+  </div>
+</main>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script src="/pagar.js" defer></script>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "FilmSpirit",
+  "ext": "fmst",
+  "fileExt": "fsp",
+  "appId": "org.filmspirit.app",
+  "publisher": "FilmSpirit",
+  "version": "1.6.0",
+  "trialDays": 15,
+  "freeProjects": 1,
+  "buyUrl": "",
+  "supportEmail": "",
+  "publicKey": "B5FJ2yzdB5guGaL0usCNCOzymYEDgpYzfG22i1s0wGg=",
+  "site": ""
+}
