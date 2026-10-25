@@ -9,7 +9,7 @@
    ============================================================ */
 const HIST = { base: null, undo: [], redo: [], label: '', frames: null, tab: '', timer: 0, chars: 0 };
 const HIST_MAX = 80, HIST_CHARS = 24e6;
-const TAB_NAME = { build: 'Historia', project: 'Proyecto', script: 'Guion', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
+const TAB_NAME = { build: 'Historia', project: 'Proyecto', script: 'Guion', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Stripboard', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
 // «act» (el registro de actividad sin equipo) no se deshace
 const histKeys = Px => Object.keys(Px).filter(k => k[0] !== '_' && k !== 'id' && k !== 'act' && typeof Px[k] !== 'function');
 function histSnap(Px) { const o = {}; for (const k of histKeys(Px)) o[k] = JSON.stringify(Px[k]); return o; }

@@ -952,7 +952,7 @@ function castNumbers(P, sc, sem) {
   return out;
 }
 
-/* ---------- plan de rodaje ---------- */
+/* ---------- stripboard ---------- */
 /* items del plan, en orden: escenas {k}, eventos {e} (traslados, comidas…) y cortes {d}.
    Cada corte cierra una jornada y guarda sus datos (completada, color, etapa, fecha, hora de cierre).
    Una escena dividida tiene varias filas: la principal {k} y sus partes {k, sp: 'A', e8: octavos}.
@@ -1339,7 +1339,7 @@ function newProject(title, paras) {
 /* ---------- otra versión del guion ----------
    Se alinean los párrafos de las dos versiones como un «diff» (los iguales y únicos hacen de anclas, y entre
    anclas, los iguales en orden; los cambiados se emparejan con su vecino del mismo tipo). Las marcas siguen su
-   texto, los planos sus párrafos y cada escena conserva su número: el plan de rodaje, las notas y la hoja de
+   texto, los planos sus párrafos y cada escena conserva su número: el stripboard, las notas y la hoja de
    script siguen a su escena. Las escenas nuevas toman el número de la anterior con letra (12A); si el archivo trae
    sus propios números, mandan esos. Devuelve cuántas marcas confirmadas no encontraron su texto. */
 function paraAlign(A, B) {

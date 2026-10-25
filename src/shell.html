@@ -687,7 +687,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .chars label:has(input:checked){border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 14%,var(--surface))}
 .chars input{margin:0}
 
-/* ---------- plan de rodaje: cada jornada es una tarjeta; las escenas, filas de una lista sin cuadrícula ----------
+/* ---------- stripboard: cada jornada es una tarjeta; las escenas, filas de una lista sin cuadrícula ----------
    La franja de color de la industria (día, noche, color propio) queda como una barra fina a la izquierda y un tinte suave. */
 .plan{display:grid;gap:16px;min-width:0}
 .pl-start{display:grid;gap:8px;padding:14px 16px;background:var(--surface);border-left:var(--l2) solid var(--accent);font-size:var(--fs-3);color:var(--muted)}
@@ -3825,7 +3825,7 @@ button.np-a:hover{background:var(--fill)}
 @media (pointer:coarse){ .nb::after{content:"";position:absolute;inset:-8px} .nf-acts{opacity:1} .nf-ic{width:30px;height:30px} }
 
 /* ---------- estructura común a todos los estilos (Color, Clásico claro y oscuro) ---------- */
-/* plan de rodaje: los números del reparto como texto de la fila (no parecen botones) y líneas verticales cortas
+/* stripboard: los números del reparto como texto de la fila (no parecen botones) y líneas verticales cortas
    entre columnas, que no llegan a tocar las horizontales */
 .prow .c-cast{gap:2px 10px}
 .prow .c-cast i{min-width:0;height:auto;padding:0;background:none;border-radius:0;font-size:var(--fs-3);font-weight:700}
@@ -5060,6 +5060,43 @@ svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--
 
 /* monocromo y Grafito: los íconos de la marca en grises */
 :root[data-mono] svg.lf :is(.fy,.fo){fill:#8A8A8A} :root[data-mono] svg.lf :is(.fr,.fu,.fk){fill:#3A3A3A}
+
+/* ---------- lote S (25-oct-2026): stripboard con tiempos, hoja de llamado con horas libres, submenú sin opacar ---------- */
+/* el submenú de cada etapa: sus pestañas siempre a todo color (antes, las de una etapa que no era la actual se veían apagadas) */
+#tabs .stg-m .tab,#tabs .stg:not(.on) .stg-m .tab,.pop .stg-drop button{color:var(--ink) !important;opacity:1 !important}
+#tabs .stg-m .tab svg.lf,#tabs .stg:not(.on) .stg-m .tab:not(:hover) svg.lf,.pop .stg-drop:not(.on) button:not(:hover) svg.lf{filter:none !important;opacity:1 !important}
+#tabs .stg-m .stg-mt{color:var(--ink);opacity:.72}
+/* stripboard: la columna «Tiempo» es un campo de duración */
+.prow .c-t input.dur{font-weight:650;font-variant-numeric:tabular-nums;text-align:left;padding-inline:4px}
+.prow .c-t input.dur::placeholder{color:color-mix(in srgb,var(--ink) 62%,transparent);font-weight:550}
+/* hoja de llamado: la nota para el equipo con su título al centro; las horas del cronograma se escriben en la tabla */
+.cl-note h3{text-align:center}
+.cl-t input.tm{width:100%;max-width:64px;font:inherit;font-weight:700;color:inherit;background:transparent;border:1px solid transparent;border-radius:var(--r-xs);padding:2px 4px;font-variant-numeric:tabular-nums}
+.cl-t input.tm:not(:disabled):hover{background:color-mix(in srgb,var(--fill) 85%,transparent)}
+.cl-t input.tm:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+.cl-t input.tm::placeholder{color:inherit;opacity:.92}
+.cl-cr input.tm{width:60px;font:inherit;background:transparent;border:1px solid transparent;border-radius:var(--r-xs);padding:1px 4px;color:inherit}
+.cl-cr input.tm::placeholder{color:inherit}
+.cl-endt input.tm{width:64px;margin-left:10px;font:inherit;font-weight:800;background:transparent;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:var(--r-xs);padding:1px 6px;color:inherit;text-align:center}
+.cl-endt input.tm::placeholder{color:inherit;opacity:.9}
+/* espacios de las celdas: columnas más parejas en las tablas que quedaban apretadas o con huecos */
+.cl-sched .cl-tbl th:nth-child(1){width:92px}.cl-sched .cl-tbl th:nth-child(2){width:26%}.cl-sched .cl-tbl th:nth-child(4){width:12%}
+.cl-tbl td{padding:8px 10px}.cl-tbl th{padding:7px 10px}
+.cl-ctbl td,.cl-ctbl th{padding-inline:8px}
+table.dood{--dd-w:clamp(40px,calc((100cqw - var(--dd-nw) - var(--dd-tt)) / var(--dd-n,1)),128px)}
+details.sec .tbl th:nth-child(2){width:64px}details.sec .tbl th:nth-child(3){width:118px}details.sec .tbl th:nth-child(4){width:96px}details.sec .tbl th:nth-child(5){width:112px}details.sec .tbl th:nth-child(6){width:120px}
+details.sec .tbl td,details.sec .tbl th{padding-inline:10px}
+.prow>*{padding:7px 10px}
+/* miniatura del storyboard: en el stripboard (primer plano de la escena) y en cada plano del cronograma de la hoja */
+.prow .c-hd.th{position:relative;padding-left:96px;min-height:58px}
+.pl-th{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:76px;aspect-ratio:16/9;object-fit:cover;border-radius:3px;background:var(--fill);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
+.cl-tbl td.cl-d.th{position:relative;padding-left:96px;min-height:46px}
+.cl-th{position:absolute;left:10px;top:7px;width:76px;aspect-ratio:16/9;object-fit:cover;border-radius:3px;background:var(--fill);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
+.cl-tbl tr.cl-sh td{height:58px}
+.pl-th.wait,.cl-th.wait{opacity:.5}
+details.sec .tbl td.num,details.sec .tbl th.num{text-align:right}
+details.sec .tbl td.num input{display:block;margin-left:auto}
+.cl .cl-note textarea{text-align:center}
 </style>
 
 <div id="app">
@@ -5087,7 +5124,7 @@ svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--
     <button class="tab" data-g="1" role="tab" id="tab-casting" aria-controls="view" data-tab="casting"><span class="n">7</span>Casting</button>
     <button class="tab" data-g="2" role="tab" id="tab-board" aria-controls="view" data-tab="board"><span class="n">4</span>Storyboard</button>
     <button class="tab" data-g="2" role="tab" id="tab-animatic" aria-controls="view" data-tab="animatic"><span class="n">5</span>Animatic</button>
-    <button class="tab" data-g="3" role="tab" id="tab-plan" aria-controls="view" data-tab="plan"><span class="n">6</span>Plan de rodaje</button>
+    <button class="tab" data-g="3" role="tab" id="tab-plan" aria-controls="view" data-tab="plan"><span class="n">6</span>Stripboard</button>
     <button class="tab" data-g="3" role="tab" id="tab-cal" aria-controls="view" data-tab="cal"><span class="n">7</span>Calendario</button>
     <button class="tab" data-g="3" role="tab" id="tab-budget" aria-controls="view" data-tab="budget"><span class="n">8</span>Presupuesto</button>
     <button class="tab" data-g="3" role="tab" id="tab-gastos" aria-controls="view" data-tab="gastos" hidden><span class="n">9</span>Gastos</button>

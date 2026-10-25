@@ -263,7 +263,7 @@ function pdfRichDraw(doc, d) {
   let y = c.styles.valign === 'middle' ? c.y + (c.height - H) / 2 : c.styles.valign === 'bottom' ? c.y + c.height - c.padding('bottom') - H : c.y + c.padding('top');
   const x0 = c.x + c.padding('left'), col0 = Array.isArray(c.styles.textColor) ? c.styles.textColor : INK;
   for (const L of lines) {
-    let x = x0;
+    let x = c.styles.halign === 'center' ? x0 + (w - L.toks.reduce((a, k) => a + k.w, 0)) / 2 : x0;   // centrada (la nota para el equipo)
     doc.setFontSize(L.fs);
     // como autoTable: la primera línea con su altura de letra, sin el aire extra arriba
     for (const k of L.toks) { doc.setFont(k.font || 'helvetica', k.st || 'normal'); doc.setTextColor(...(k.col || col0)); raw.text(k.t, x, y + L.fs * .02, { baseline: 'top' }); x += k.w; }
@@ -812,13 +812,13 @@ function pdfShotlist() {
   return { doc, name: fileSafe(P.meta.title) + '_guion_tecnico.pdf' };
 }
 
-/* ---------- plan de rodaje ---------- */
+/* ---------- stripboard ---------- */
 function pdfPlan() {
   const doc = newDoc('landscape');
   const S = P.schedule;
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
-  let y = docHeader(doc, 'Plan de rodaje', `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`);
+  let y = docHeader(doc, 'Stripboard', `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`);
   y = pdfLegend(doc, y, lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk))), 30) + 4;
   const NC = 10, INKP = INK;   // sin columna de fecha: la jornada va en su barra, como en la app
   const shade = (hex, k) => rgb(hex).map(v => Math.round(v * k));
@@ -830,14 +830,14 @@ function pdfPlan() {
     if (it.e) {
       const f = pdfHl(it) || rgb(lgCol('plan', 'ev'));
       const st = { fillColor: f, textColor: inkOn(f) };
-      return [{ content: pdfSafe(it.name || 'Evento'), colSpan: 2, styles: { ...st, fontStyle: 'bold' } }, { content: it.t || '', styles: { ...st, fontStyle: 'bold' } }, { content: pdfSafe(it.det || ''), colSpan: 5, styles: st }, { content: pdfSafe(it.tech || ''), styles: st }, { content: pdfSafe(it.obs || ''), styles: st }];
+      return [{ content: pdfSafe(it.name || 'Evento'), colSpan: 2, styles: { ...st, fontStyle: 'bold' } }, { content: fmtDur(num(it.dur) || rowEstDur(it)), styles: { ...st, fontStyle: 'bold' } }, { content: pdfSafe(it.det || ''), colSpan: 5, styles: st }, { content: pdfSafe(it.tech || ''), styles: st }, { content: pdfSafe(it.obs || ''), styles: st }];
     }
     const s = sceneOfKey(it.k);
     const sf = pdfHl(it) || stripRGB(s), st = { fillColor: sf, textColor: inkOn(sf) };   // resaltada, o la tira de día o de noche, entera, como en la app
     const syn = synopsisOf(s);
     // el encabezado en negrita y la sinopsis debajo, más chica y en gris (antes en cursiva, del mismo tamaño)
     const hd = pdfRich([{ t: s.heading + (it.sp ? ` (parte ${it.sp})` : ''), fs: FS, st: 'bold' }, syn ? { t: syn, fs: PF.small - .2, col: mutedOn(sf) } : null], st);
-    return [{ content: pdfSafe(planLoc(it, s)), styles: { ...st, fontStyle: 'bold' } }, { content: rowCode(it), styles: { ...st, fontStyle: 'bold', halign: 'center' } }, { content: it.t || '', styles: st }, hd, { content: pdfSafe(castOf(s)), styles: st },
+    return [{ content: pdfSafe(planLoc(it, s)), styles: { ...st, fontStyle: 'bold' } }, { content: rowCode(it), styles: { ...st, fontStyle: 'bold', halign: 'center' } }, { content: fmtDur(num(it.dur) || rowEstDur(it)), styles: st }, hd, { content: pdfSafe(castOf(s)), styles: st },
       { content: it.fig != null ? String(it.fig) : '', styles: { ...st, halign: 'right' } }, { content: fmtEighths(partEighths(it)), styles: { ...st, halign: 'right' } }, { content: String(D.metrics.page[s.idx]), styles: { ...st, halign: 'right' } }, { content: pdfSafe(it.tech || ''), styles: st }, { content: pdfSafe(it.obs || ''), styles: st }];
   };
   const stages = S.stages || [];
@@ -857,24 +857,22 @@ function pdfPlan() {
     // la jornada en una barra de ancho completo, igual que en la app: «Jornada 1 · Lun. 29 sept. · Llamado 07:00»
     // (o en el color elegido para su cierre); debajo, las escenas
     const jc = pdfHl(d.brk) || rgb(lgCol('plan', 'brk')), jdark = inkOn(jc) !== INK;
-    const own = (((P.call || {}).days || {})[d.id] || {}).crewCall || '';
-    const evCall = d.rows.map(i => S.items[i]).find(it => it && it.e && /llamado/i.test(it.name || '') && it.t);
-    const call = own || (evCall ? evCall.t : (S.call || ''));
+    const tot = planDayTimes(d).total;
     const nsc = d.rows.filter(i => S.items[i] && S.items[i].k).length;
-    const jtxt = [`Jornada ${n + 1}`, dt ? cap1(fmtDate(dt)) : 'Sin fecha', call ? 'Llamado ' + call : '', nsc ? `${nsc} ${nsc === 1 ? 'escena' : 'escenas'}` : '', done ? 'Completada' : ''].filter(Boolean).join('   ·   ');
+    const jtxt = [`Jornada ${n + 1}`, dt ? cap1(fmtDate(dt)) : 'Sin fecha', nsc ? `${nsc} ${nsc === 1 ? 'escena' : 'escenas'}` : '', tot ? fmtDur(tot) : '', done ? 'Completada' : ''].filter(Boolean).join('   ·   ');
     body.push(bar(jtxt, jc, jdark ? (done ? [150, 222, 176] : [242, 242, 242]) : (done ? OKC : INKP), { font: 'title', fontSize: 9.2, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 } }));
     if (!d.rows.length) body.push([{ content: 'Jornada sin escenas', colSpan: NC, styles: { textColor: MUTED } }]);
     d.rows.forEach(i => body.push(rowCells(i)));
     const inf = dayInfo(d.keys, d.rows);
     const cast = [...inf.cast].map(id => S.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
-    body.push(bar(`Cierre de jornada ${n + 1}${d.brk.t ? '  ·  Fin ' + d.brk.t : ''}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
+    body.push(bar(`Cierre de jornada ${n + 1} de ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
       jc, jdark ? [242, 242, 242] : INKP, { fontSize: PF.small }));
     // un poco de aire entre jornada y jornada
     if (n < lastN || (bankOn && bankRows.length)) body.push([{ content: '', colSpan: NC, styles: { fillColor: PDF_WHITE, minCellHeight: 10, cellPadding: 0, lineWidth: 0 } }]);
     blocks.push(body);
   });
   if (bankOn && bankRows.length) blocks.push([bar(`Sin programar (${bank.length})`, PT.fill2, INKP), ...bankRows.map(i => rowCells(i))]);
-  y = pdfBlocks(doc, y, { ...TBL, head: [['Locación (rodaje)', 'Esc.', 'Hora', 'Encabezado de escena', 'Reparto', 'Fig.', '1/8', 'Pág.', 'Notas técnicas', 'Observaciones']],
+  y = pdfBlocks(doc, y, { ...TBL, head: [['Locación (rodaje)', 'Esc.', 'Tiempo', 'Encabezado de escena', 'Reparto', 'Fig.', '1/8', 'Pág.', 'Notas técnicas', 'Observaciones']],
     margin: { left: 30, right: 30, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
     styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, lineColor: PDF_WHITE, lineWidth: { top: 0, right: 0, bottom: 1, left: 0 } },
     columnStyles: { 0: { cellWidth: 96 }, 1: { cellWidth: 30 }, 2: { cellWidth: 40 }, 4: { cellWidth: 70 }, 5: { cellWidth: 26 }, 6: { cellWidth: 30 }, 7: { cellWidth: 28 }, 8: { cellWidth: 112 }, 9: { cellWidth: 104 } } }, blocks);
@@ -884,7 +882,7 @@ function pdfPlan() {
     if (legend.length) doc.autoTable({ ...TBL, startY: y + 6, margin: { left: 30, right: 30, bottom: 44, top: 38 },
       body: [[pdfRich([{ segs: [{ t: 'Reparto   ', st: 'bold', tr: 1 }, ...legend.flatMap(([n, nm], i) => [{ t: n + ' ', st: 'bold' }, { t: nm + (i < legend.length - 1 ? '   ·   ' : ''), col: MUTED }])] }], { lineWidth: 0, cellPadding: { top: 3, bottom: 2, left: 0, right: 0 } })]] });
   }
-  pageNumbers(doc, 'Plan de rodaje');
+  pageNumbers(doc, 'Stripboard');
   return { doc, name: fileSafe(P.meta.title) + '_plan_de_rodaje.pdf' };
 }
 
@@ -1110,9 +1108,9 @@ function pdfCall(opts = {}) {
     const left = X.keys.map(c => `${c.role}: ${c.name}${c.phone ? '   ' + c.phone : ''}`), right = X.heads.map(([k, v]) => `${k}: ${v}`);
     if (left.length || right.length) T({ body: [[pdfRich(left.length ? [lab('Teléfonos'), ...left.map(t => ({ t }))] : [{ t: '' }], { cellPadding: { ...PAD, left: 0 }, lineWidth: 0 }), pdfRich(right.length ? [lab('Jefes de equipo'), ...right.map(t => ({ t }))] : [{ t: '' }], { lineWidth: 0 })]], columnStyles: { 0: { cellWidth: (W - 2 * M) / 2 } } });
     // 3. nota para el equipo: un recuadro amarillo suave, a la izquierda
-    if ((X.dd.notes || '').trim()) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: PF.small, tr: 1 }, { t: X.dd.notes.trim() }], { fillColor: YEL, lineWidth: 0, cellPadding: { top: 8, bottom: 9, left: 10, right: 10 } })]] });
+    if ((X.dd.notes || '').trim()) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: PF.small, tr: 1 }, { t: X.dd.notes.trim() }], { fillColor: YEL, halign: 'center', lineWidth: 0, cellPadding: { top: 8, bottom: 9, left: 10, right: 10 } })]] });
     // 4. cronograma (por plano si el storyboard tiene planos), con su leyenda arriba
-    y = pdfSec(doc, y, 'Cronograma', { right: X.sched.byShot ? 'por plano · horas del plan de rodaje' : 'por escena · horas del plan de rodaje', need: 120 });
+    y = pdfSec(doc, y, 'Cronograma', { right: X.sched.byShot ? 'por plano · horas del stripboard' : 'por escena · horas del stripboard', need: 120 });
     const lu = pdfPlanUsed(X.sched.rows.map(r => r.it));
     lu.note = !!(X.dd.notes || '').trim();
     y = pdfLegend(doc, y - 4, lgDocItems('call', lu).map(([nm, c]) => nm === LG.call.note[0] ? [nm, YEL] : [nm, c]), M) + 4;
@@ -1434,7 +1432,7 @@ async function exportPDF(kind, btn, opts) {
   if ((kind === 'escaleta' || kind === 'tarjetas') && !bItems().length) { toast('Aún no hay escenas: agrega una con «+ Escena» o escribe el guion.', 4200); return; }
   if (kind === 'parte' && !(UI.supDay >= 0 && scheduleDays(P, D.sc).days[UI.supDay])) { toast('Elige una jornada arriba para su parte diario.', 4000); return; }
   if (kind === 'dood' && (!Object.keys(D.castNum).length || !scheduleDays(P, D.sc).days.length)) { toast('Hacen falta personajes marcados y jornadas en el plan.', 4000); return; }
-  if (kind === 'call' && !callDays().days.length) { toast('Aún no hay jornadas: arma el plan de rodaje para generar las hojas de llamado.', 5000); return; }
+  if (kind === 'call' && !callDays().days.length) { toast('Aún no hay jornadas: arma el stripboard para generar las hojas de llamado.', 5000); return; }
   // sin opciones (o con una parte elegida en «Elegir…»): se pregunta si va con la planta de cámara
   if (kind === 'storyboard' && (!opts || (opts.sel && opts.plan == null))) {
     const can = planAllows('planta');

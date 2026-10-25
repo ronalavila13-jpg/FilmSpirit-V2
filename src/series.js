@@ -33,7 +33,7 @@ function epStats() {
 const epDaysTxt = d => !d.length ? '' : d.length === 1 ? 'Jornada ' + d[0] : `Jornadas ${d[0]} a ${d[d.length - 1]}`;
 function epTableHTML(ed) {
   const L = epStats();
-  return `<div class="tbl-wrap epi-tbl"><table class="tbl"><thead><tr><th>Episodio</th><th>Título</th><th class="num">Escenas</th><th class="num">Págs.</th><th class="num">Reparto</th><th>Plan de rodaje</th>${ed ? '<th></th>' : ''}</tr></thead><tbody>
+  return `<div class="tbl-wrap epi-tbl"><table class="tbl"><thead><tr><th>Episodio</th><th>Título</th><th class="num">Escenas</th><th class="num">Págs.</th><th class="num">Reparto</th><th>Stripboard</th>${ed ? '<th></th>' : ''}</tr></thead><tbody>
     ${L.map((e, i) => `<tr><td>${ed ? `<input class="w-sm tnum" value="${esc(e.n)}" data-bind="ep-num" data-ep="${esc(e.n)}" aria-label="Número del episodio ${esc(e.n)}" maxlength="6">` : `<b class="tnum">${esc(e.n)}</b>`}</td>
       <td>${ed ? `<input value="${esc(e.t)}" placeholder="Sin título" data-bind="ep-title" data-ep="${esc(e.n)}" aria-label="Título del episodio ${esc(e.n)}" maxlength="120">` : esc(e.t || '—')}</td>
       <td class="num">${e.sc.length}${e.sc.length ? ` <small class="hint">${esc(e.sc[0].key)}…</small>` : ''}</td><td class="num">${fmtEighths(e.e8)}</td><td class="num">${e.cast}</td>
@@ -46,13 +46,13 @@ function seriesCardHTML() {
   if (!P.paras.length) return '';
   const ed = epCan();
   if (!isSeries(P)) return ed ? `<div class="card pj-card pj-wide epi-card"><h2 class="eyebrow">Serie de TV</h2>
-    <p class="hint" style="margin:0">¿Es una serie? Conviértela y cada episodio tendrá su guion y su numeración de escenas (101-1, 101-2…), con un solo reparto, locaciones, plan de rodaje por bloques y presupuesto para toda la temporada.</p>
+    <p class="hint" style="margin:0">¿Es una serie? Conviértela y cada episodio tendrá su guion y su numeración de escenas (101-1, 101-2…), con un solo reparto, locaciones, stripboard por bloques y presupuesto para toda la temporada.</p>
     <div class="pj-lb"><button class="btn" data-act="ep-convert">Convertir en serie…</button></div></div>` : '';
   const L = epList();
   return `<div class="card pj-card pj-wide epi-card"><h2 class="eyebrow">Serie de TV · ${L.length} ${L.length === 1 ? 'episodio' : 'episodios'}</h2>
     ${epTableHTML(ed)}
     ${ed ? `<div class="pj-lb"><button class="btn" data-act="ep-import">Agregar episodio desde un archivo…</button><button class="btn ghost" data-act="ep-blank">Agregar episodio en blanco</button><button class="btn ghost" data-act="ep-split">Empezar un episodio en una escena…</button></div>` : ''}
-    <p class="hint" style="margin:6px 0 0">El reparto, las locaciones y los elementos son uno solo para toda la serie. En el plan de rodaje, «Bloque» arma jornadas con las escenas de varios episodios juntas, por locación.</p></div>`;
+    <p class="hint" style="margin:6px 0 0">El reparto, las locaciones y los elementos son uno solo para toda la serie. En el stripboard, «Bloque» arma jornadas con las escenas de varios episodios juntas, por locación.</p></div>`;
 }
 function epDialog() {
   if (!isSeries(P)) { epConvertDialog(); return; }
@@ -199,7 +199,7 @@ function epSideHead(e) {
   return `<li class="epi-li" data-q="${esc(('episodio ' + e.n + ' ' + epTitle(P, e.n)).toLowerCase())}"><button data-act="ep-open" title="Episodios de la serie"><b>${esc(e.n)}</b><span>${esc(epTitle(P, e.n) || 'Episodio ' + e.n)}</span><small class="tnum">${n} esc. · ${fmtEighths(e8)}</small></button></li>`;
 }
 
-/* ---------- plan de rodaje: bloques de episodios ----------
+/* ---------- stripboard: bloques de episodios ----------
    Un bloque junta las escenas sin programar de varios episodios y propone jornadas por locación (como «Sugerir
    jornadas»), en una etapa nueva con su nombre («Bloque 2 · Ep. 103, 104»): se rueda por locación aunque las
    escenas sean de distintos episodios. Se puede deshacer y las jornadas se mueven a gusto. */

@@ -32,7 +32,7 @@ function planGate(tab) {
     <div class="eyebrow">${esc(name)}</div>
     <h2>Lleva «${esc(P.meta.title || 'tu guion')}» a producción</h2>
     <p>${esc(TAB_GAIN[tab] || '')}</p>
-    <p class="hint">Este proyecto es un guion: se guarda el texto y lo escriben hasta ${esc(String(L.writers || 4))} personas. En producción se suman el desglose, el storyboard, el animatic, el plan de rodaje, el calendario, la hoja de llamado y el presupuesto. El guion no cambia.</p>
+    <p class="hint">Este proyecto es un guion: se guarda el texto y lo escriben hasta ${esc(String(L.writers || 4))} personas. En producción se suman el desglose, el storyboard, el animatic, el stripboard, el calendario, la hoja de llamado y el presupuesto. El guion no cambia.</p>
     ${admin ? `<div class="kg-go"><button class="btn primary" data-act="kind-produce">${paid ? 'Llevar a producción' : 'Probar Pro 30 días gratis'}</button><span class="hint">${esc(slots)}</span></div>`
       : '<p class="hint"><b>Quien creó el guion puede llevarlo a producción.</b></p>'}
   </div></div></section></div>`;
