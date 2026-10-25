@@ -170,7 +170,7 @@ test('viñeta en blanco: la decide el plano; si no dice nada, el storyboard (sol
 {
   const m = { console, Math, JSON, isFinite, Array };
   vm.createContext(m);
-  vm.runInContext(fs.readFileSync(R + '/src/s3d-plan.js', 'utf8') + '\nObject.assign(globalThis, { measPt, measFmt, measClean });', m);
+  vm.runInContext(fs.readFileSync(R + '/src/s3d-plan.js', 'utf8') + '\nObject.assign(globalThis, { measPt, measFmt, measClean, dofOf, dofFmt });', m);
   const st = { cam: { x: 0, z: 4 }, o: { a0: { x: 0, z: 0 }, a1: { x: 1.5, z: 0 } } };
   const other = { letter: 'B', cam: { x: 3, z: 4 } };
   test('medir: las puntas en la cámara, en una figura o en el piso; la que ya no existe no se dibuja', () => {
@@ -186,6 +186,15 @@ test('viñeta en blanco: la decide el plano; si no dice nada, el storyboard (sol
     assert.strictEqual(m.measFmt(Math.hypot(0 - 0, 0 - 4)), '4.00 m');
     assert.strictEqual(m.measFmt(1.5), '1.50 m');
     assert.strictEqual(m.measFmt(23.456), '23.5 m');
+  });
+  test('medir desde la cámara: profundidad de campo como dofsimulator (lente delgada, CoC = diagonal / 1500)', () => {
+    const a = m.dofOf(50, 2.8, 36, 3);   // full frame, 50 mm, f/2.8, foco a 3 m
+    assert.ok(Math.abs(a.near - 2.74) < .01 && Math.abs(a.far - 3.32) < .01, `${a.near} – ${a.far}`);
+    assert.ok(Math.abs(a.H - 31.0) < .1, 'hiperfocal ' + a.H);
+    const b = m.dofOf(24, 2.8, 24.9, 7);   // Super 35, 24 mm, a 7 m (el caso del reclamo)
+    assert.ok(Math.abs(b.near - 4.18) < .01 && Math.abs(b.far - 21.6) < .1, `${b.near} – ${b.far}`);
+    assert.strictEqual(m.dofOf(24, 8, 36, 10).far, Infinity, 'pasada la hiperfocal, nítido hasta el infinito');
+    assert.strictEqual(m.dofFmt(Infinity), '∞'); assert.strictEqual(m.dofFmt(4.183), '4.18'); assert.strictEqual(m.dofFmt(21.64), '21.6');
   });
   test('medir: al abrir, solo quedan las medidas con dos puntas válidas (y sin datos de más)', () => {
     const L = m.measClean([{ a: { c: 'A' }, b: { o: 'a0' } }, { a: { x: '1', z: 2 }, b: { c: 'A' } }, { a: { c: 'C' }, b: { x: 1, z: 2 } }, { a: { x: 1, z: 2, y: 9 }, b: { c: 'B', mal: 1 } }, null, 'x']);

@@ -173,7 +173,7 @@ function openShotEditor(id, isNew, from2d, waited) {
             <button type="button" class="pl-x" data-pa="exp" aria-haspopup="menu" title="Exportar solo la planta: PDF o imagen PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg><span>Exportar</span></button>
           </div>
           <div class="sx-stage"><canvas id="plC" class="pl-c" title="Planta: arrastra figuras, objetos y la cámara; el círculo blanco gira. Mayúsculas ajusta a 25 cm y 15°. Doble toque: pantalla completa."></canvas><button type="button" id="plPvB" class="pl-pvb" title="Volver al editor (Esc)" aria-label="Volver al editor"><canvas id="plPv" class="pl-pv" aria-hidden="true"></canvas></button>
-            <div class="pl-mh" id="plMh" hidden><span>Arrastra entre dos puntos. Toca una medida para quitarla.</span><button type="button" id="plMclr" hidden>Borrar todas</button></div>
+            <div class="pl-mh" id="plMh" hidden><span>Arrastra entre dos puntos. De la cámara a una figura da la distancia de foco (hasta los ojos) y lo que queda nítido. Toca una medida para quitarla.</span><button type="button" id="plMclr" hidden>Borrar todas</button></div>
             <div class="pl-ov" role="toolbar" aria-label="Planta">
               <button id="plMed" aria-pressed="false" title="Medir distancias en la planta (Esc para terminar)" aria-label="Medir distancias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 15.5 12-12 5 5-12 12z"/><path d="m7 12 2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5 16 6"/></svg></button>
               <button id="plZo" title="Alejar" aria-label="Alejar">−</button><button id="plZi" title="Acercar" aria-label="Acercar">+</button>
@@ -1687,6 +1687,21 @@ function openShotEditor(id, isNew, from2d, waited) {
       };
     });
   }
+  /* desenfoque (profundidad de campo): encenderlo, el diafragma y a quién se enfoca; debajo, lo que queda nítido */
+  function dofRows(st) {
+    const on = !!E.s3.dof;
+    let h = `<label class="opt" style="padding:6px 10px" title="Desenfoca la viñeta como el lente real: con el diafragma, el lente, el sensor y la distancia de foco"><input type="checkbox" data-c="dof" ${on ? 'checked' : ''}><span><b>Desenfoque</b> (profundidad de campo)</span></label>`;
+    if (!on) return h;
+    const f = fRound(dofF(E.s3)), fp = dofFocus(E.s3, st), c = st.cam;
+    const subj = E.s3.objs.filter(o => o.kind === 'actor' || (o.kind !== 'luz' && !o.hold));
+    h += `<label class="rr rr-s"><span>Diafragma</span><select data-c="dofF" class="rr-sel" aria-label="Diafragma">${LUX_F.filter(v => v >= 1.4).map(v => `<option value="${ea(v)}" ${v === f ? 'selected' : ''}>${fTxt(v)}</option>`).join('')}</select></label>
+      <label class="rr rr-s" title="A quién se enfoca: a sus ojos"><span>Foco en</span><select data-c="focus" class="rr-sel" aria-label="Foco en"><option value="">Automático${fp && !E.s3.focus ? ' · ' + esc((E.s3.objs.find(o => o.id === fp.id) || {}).name || 'Figura') : ''}</option>${subj.map(o => `<option value="${ea(o.id)}" ${E.s3.focus === o.id ? 'selected' : ''}>${esc(o.name || 'Figura')}</option>`).join('')}</select></label>`;
+    if (fp) {
+      const s = Math.hypot(fp.x - c.x, fp.z - c.z, fp.y - c.h), Z = dofOf(clamp(c.lens, 8, 600), dofF(E.s3), c.sw || 36, s);
+      h += `<p class="hint rr-eq">Foco a ${measFmt(s)} · nítido de ${dofFmt(Z.near)} a ${dofFmt(Z.far)} m${isFinite(Z.far) ? '' : ' (pasada la hiperfocal)'}.</p>`;
+    }
+    return h;
+  }
   function camPanel(st) {
     const c = st.cam, aim = E.s3.aim, L = Math.round(c.lens), lens = [18, 24, 35, 50, 85, 135];
     const tr = (k, v, t, d) => `<button class="icbtn" data-tr="${k}" data-v="${ea(v)}" title="${ea(t)}" aria-label="${ea(t)}"><svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg></button>`;
@@ -1698,6 +1713,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     return ab + `<label class="rr"><span>Lente</span><input type="range" min="10" max="200" step="1" value="${ea(L)}" data-k="lens" data-u="mm" style="--p:${ea(rangePct(L, 10, 200))}%"><select data-c="lensp" class="rr-sel" aria-label="Lente">${lens.includes(L) ? '' : `<option value="${ea(L)}" selected>${L} mm</option>`}${lens.map(l => `<option value="${ea(l)}" ${l === L ? 'selected' : ''}>${l} mm</option>`).join('')}</select></label>
       <label class="rr rr-s" title="El tamaño del sensor de la cámara: con uno más chico, el mismo lente encuadra más cerrado"><span>Sensor</span><select data-c="sensor" class="rr-sel rr-sens" aria-label="Tamaño del sensor">${SENSORS.map(([k, n, , w]) => `<option value="${ea(k)}" ${sensorOf(E.s3)[0] === k ? 'selected' : ''}>${esc(n)}${k === 'ff' ? '' : ` · ${String(w).replace('.', ',')} mm`}</option>`).join('')}</select></label>
       ${sensorOf(E.s3)[0] === 'ff' ? '' : `<p class="hint rr-eq">${L} mm en ${esc(sensorOf(E.s3)[1])} encuadra como ${Math.round(camFF(c))} mm en full frame.</p>`}
+      ${dofRows(st)}
       ${rangeRow('Altura', 'h', round2(c.h), .1, 20, .05, ' m')}
       <label class="rr rr-s" title="La cámara gira sola para seguir a una figura"><span>Seguir</span><span class="rr-pick"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><select data-c="aim" aria-label="Seguir a"><option value="">Nadie · cámara libre</option>${E.s3.objs.filter(o => o.kind === 'actor').map(o => `<option value="${ea(o.id)}" ${o.id === aim ? 'selected' : ''}>A ${esc(o.name || 'la figura')}</option>`).join('')}</select></span></label>
       ${aim ? rangeRow('Ajuste de tilt', 'aimTilt', E.s3.aimTilt || 0, -30, 30, 1, '°') : rangeRow('Paneo', 'yaw', deg180(c.yaw), -180, 180, 1, '°') + rangeRow('Tilt', 'pitch', Math.round(c.pitch), -89, 89, 1, '°')}
@@ -1920,6 +1936,14 @@ function openShotEditor(id, isNew, from2d, waited) {
       // las puertas y ventanas siguen pegadas a su muro
       for (const ob of E.s3.objs) if ((S3_PROPS[ob.kind] || {}).wall) E.s3.keys.forEach(k => { if (k.o[ob.id]) { const p = k.o[ob.id], hw = R.w / 2, hd = R.d / 2; if (p.rot === 0) p.z = -hd; else if (p.rot === 180) p.z = hd; else if (p.rot === 90) p.x = -hw; else if (p.rot === -90) p.x = hw; } });
       commit(); redraw(); plan.fit(); return;
+    }
+    if (el.dataset.c === 'dof' || el.dataset.c === 'dofF' || el.dataset.c === 'focus') {
+      snapshot(); E.custom = true;
+      if (el.dataset.c === 'dof') { if (el.checked) E.s3.dof = true; else delete E.s3.dof; }
+      // el diafragma es el mismo de Luz › Exposición (elegirlo a mano quita el automático)
+      if (el.dataset.c === 'dofF') { const L = E.s3.light = { mode: 'previs', amb: .22, rig: true, wb: 4300, ...(E.s3.light || {}) }; L.exp = { ...luzExp(E.s3), f: +el.value, auto: false }; }
+      if (el.dataset.c === 'focus') { if (el.value) E.s3.focus = el.value; else delete E.s3.focus; }
+      commit(); redraw(); panel(); return;
     }
     if (el.dataset.c === 'aim') {
       snapshot(); E.custom = true;

@@ -216,6 +216,16 @@ const sensorW = s3 => sensorOf(s3)[3];
 /* el lente equivalente en full frame (lo que usa el 3D para su ángulo de visión) */
 const camFF = cam => Math.max(2, Math.min(2000, Math.max(8, Math.min(600, cam.lens || 35)) * 36 / (cam.sw || 36)));
 const lensEqText = s3 => { const S = sensorOf(s3); return S[0] === 'ff' ? '' : S[2]; };
+/* desenfoque del plano (s3.dof): se enfoca a s3.focus o, si no, a quien sigue la cámara o a la primera figura; el punto
+   es el de sus ojos (un objeto o una luz: su altura). El diafragma es el de Luz › Exposición (f/2.8 si no se eligió) */
+function dofFocus(s3, st) {
+  const has = id => id && st.o[id] && s3.objs.some(o => o.id === id);
+  const id = [s3.focus, s3.aim, ...s3.objs.filter(o => o.kind === 'actor').map(o => o.id)].find(has);
+  if (!id) return null;
+  const p = st.o[id], ob = s3.objs.find(o => o.id === id);
+  return { id, x: p.x, z: p.z, y: ob.kind === 'actor' ? eyeOf(s3, id, p.pose) + liftOf(s3, p) : liftOf(s3, p) };
+}
+const dofF = s3 => { const f = +(((s3.light || {}).exp || {}).f); return f > 0 && isFinite(f) ? f : 2.8; };
 function vfovFor(lens, aspect) {
   const filmH = 36 / Math.max(aspect, 1);
   return 2 * Math.atan(filmH / 2 / lens);

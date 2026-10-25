@@ -663,7 +663,9 @@ function r3Draw(ctx, s3, t, W, H, opts = {}) {
   }
   const now = performance.now();
   if (sg !== R3.shSig && (!(opts.playing || R3.live) || now - (R3.shT || 0) > 120)) { R3.r.shadowMap.needsUpdate = true; R3.shSig = sg; R3.shT = now; }
-  R3.r.render(R3.scene, c);
+  // con desenfoque (s3.dof): la escena a una textura con su profundidad y, encima, el desenfoque de lente
+  if (!V && !plate && s3.dof && !opts.noDof && r3Dof(s3, st, c, W, H)) { }
+  else R3.r.render(R3.scene, c);
   ctx.drawImage(R3.r.domElement, 0, R3.h - H, W, H, 0, 0, W, H);
   if (opts.falseColor && R3.luz) luzFalseColor(ctx, W, H);
   if (opts.labels !== false || opts.poseMenu || (opts.meter && R3.luz)) drawLabels(ctx, s3, st, W, H, opts);
@@ -761,6 +763,7 @@ function r3PoseHit(px, py, W, H) {
 function r3ShotFrustum(cam, ar, d = 1) {
   if (!R3.cam) return null;
   const k = new THREE.PerspectiveCamera(30, ar, .05, 100);
+  k.filmGauge = 36;   // como la cámara de las viñetas: three trae 35 mm y el cuadro salía un 3 % más abierto
   k.setFocalLength(camFF(cam));
   k.position.set(cam.x, cam.h, cam.z);
   k.rotation.set(rad(clamp(cam.pitch, -89.9, 89.9)), rad(cam.yaw), rad(cam.roll || 0));
@@ -1142,4 +1145,65 @@ function thumbFinal(sh) {
   if (typeof FIG3D !== 'undefined' && (FIG3D.failed || figSig(sh).includes('0'))) return false;
   const ps = planSig(sh);
   return !ps || !ps.endsWith(':true:false');                // planta con su imagen de piso aún sin cargar
+}
+
+/* ---------- desenfoque de lente (profundidad de campo), como dofsimulator ----------
+   Cada píxel se desenfoca con su círculo de confusión: c = f² / (N (s − f)) · |z − s| / z en el sensor (f lente real,
+   N diafragma, s foco y z distancia sobre el eje de la cámara), llevado a píxeles con el ancho del sensor. Lo de atrás
+   no se derrama sobre lo nítido de adelante; lo de adelante fuera de foco sí cubre lo de atrás. */
+const DOF_NS = 96;
+function r3Dof(s3, st, c, W, H) {
+  const T = THREE, D = R3.dof || (R3.dof = {});
+  if (D.bad) return false;
+  try {
+    if (!D.rt) {
+      D.rt = new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType, samples: 4, depthTexture: new T.DepthTexture(4, 4) });
+      D.rt.depthTexture.type = T.UnsignedIntType;
+      D.mat = new T.ShaderMaterial({
+        uniforms: { tCol: { value: null }, tDep: { value: null }, res: { value: new T.Vector2() }, cn: { value: .05 }, cf: { value: 500 }, fmm: { value: 35 }, N: { value: 2.8 }, S: { value: 3000 }, pxmm: { value: 10 }, maxR: { value: 20 }, fgR: { value: 0 } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+        fragmentShader: `#include <packing>
+          uniform sampler2D tCol, tDep; uniform vec2 res; uniform float cn, cf, fmm, N, S, pxmm, maxR, fgR; varying vec2 vUv;
+          float zAt(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tDep, uv).x, cn, cf) * 1000.; }
+          float coc(float z) { return min(fmm * fmm / (N * (S - fmm)) * abs(z - S) / z * pxmm * .5, maxR); }
+          void main() {
+            float zc = zAt(vUv), cc = coc(zc), R = max(cc, fgR);
+            vec4 sum = texture2D(tCol, vUv); float ws = 1.;
+            if (R > .6) {
+              float rot = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+              for (int i = 0; i < ${DOF_NS}; i++) {
+                float fi = float(i), r = sqrt((fi + .5) / ${DOF_NS}.) * R, a = fi * 2.3999632 + rot;
+                vec2 uv = vUv + vec2(cos(a), sin(a)) * r / res;
+                float zs = zAt(uv), cs = coc(zs);
+                if (zs > zc) cs = min(cs, cc * 2.);
+                float w = clamp(cs - r + 1., 0., 1.);
+                sum += texture2D(tCol, uv) * w; ws += w;
+              }
+            }
+            gl_FragColor = sum / ws;
+            #include <colorspace_fragment>
+          }`,
+        depthTest: false, depthWrite: false,
+      });
+      D.q = new T.Mesh(new T.PlaneGeometry(2, 2), D.mat); D.q.frustumCulled = false;
+      D.qs = new T.Scene(); D.qs.add(D.q); D.qc = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    }
+    if (D.rt.width !== W || D.rt.height !== H) D.rt.setSize(W, H);
+    const cam = st.cam, f = clamp(cam.lens, 8, 600), sw = cam.sw || 36, N = dofF(s3);
+    // el foco: a lo largo del eje de la cámara, hasta los ojos de quien se enfoca (sin nadie, a 3 m)
+    const fp = dofFocus(s3, st), v = new T.Vector3();
+    let sf = 3;
+    if (fp) { v.set(fp.x, fp.y, fp.z).applyMatrix4(c.matrixWorldInverse); sf = clamp(-v.z, .1, 400); }
+    const S = Math.max(sf * 1000, f * 1.05), pxmm = W / sw, coc = z => f * f / (N * (S - f)) * Math.abs(z - S) / z * pxmm * .5;
+    const maxR = Math.max(1, W * .045);   // hasta un 9 % del ancho de diámetro (85 mm f/1.8 a 2 m: el fondo, como en dofsimulator)
+    // lo que está delante del foco (figuras y objetos): hasta dónde puede cubrir su desenfoque
+    let fgR = 0;
+    for (const id in st.o) { const p = st.o[id]; v.set(p.x, 1, p.z).applyMatrix4(c.matrixWorldInverse); const z = -v.z * 1000; if (z > 50 && z < S) fgR = Math.max(fgR, coc(z)); }
+    const U = D.mat.uniforms;
+    U.cn.value = c.near; U.cf.value = c.far; U.fmm.value = f; U.N.value = N; U.S.value = S; U.pxmm.value = pxmm; U.maxR.value = maxR; U.fgR.value = Math.min(fgR, maxR);
+    U.res.value.set(W, H); U.tCol.value = D.rt.texture; U.tDep.value = D.rt.depthTexture;
+    R3.r.setRenderTarget(D.rt); R3.r.setViewport(0, 0, W, H); R3.r.clear(); R3.r.render(R3.scene, c);
+    R3.r.setRenderTarget(null); R3.r.setViewport(0, 0, W, H); R3.r.render(D.qs, D.qc);
+    return true;
+  } catch (e) { console.warn('desenfoque:', e); D.bad = true; R3.r.setRenderTarget(null); return false; }
 }

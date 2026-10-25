@@ -4986,6 +4986,80 @@ kbd{display:inline-block;min-width:1.6em;padding:1px 6px;border-radius:4px;backg
 .imp-ep{display:flex;gap:6px;margin-top:6px}
 .imp-ep #iepN{width:76px}
 .imp-ep #iepT{flex:1;min-width:0}
+/* ============ los íconos de la marca en las etapas (Film Spirit.svg, octubre de 2026) ============
+   Unidad: todos los íconos (las 5 etapas y las 14 pestañas) son piezas planas en la misma receta del logotipo:
+   cuerpo amarillo, detalles en negro y en rojo.
+   Independencia: cada etapa es dueña de un color de la paleta (Guion negro, Desarrollo rojo, Imagen óxido,
+   Producción amarillo, Rodaje naranja), que va en su placa de la barra de la izquierda y en la franja de sus pestañas.
+   La placa de la etapa elegida dibuja su ícono a una tinta, como el logotipo sobre su placa. */
+:root{--fs-rojo:#CE0C1C;--fs-naranja:#F49B1E;--fs-amarillo:#FFBE0B;--fs-oxido:#AD3A00;--fs-negro:#212121;--fs-crema:#FFFEF6}
+svg.lf .fy{fill:var(--fs-amarillo)} svg.lf .fr{fill:var(--fs-rojo)} svg.lf .fo{fill:var(--fs-naranja)}
+svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--fs-negro)}
+/* de noche, lo negro que queda sobre el fondo (el broche, la franja de la claqueta) se aclara para que se vea */
+:root[data-tone="dark"] svg.lf .fk.ex{fill:#5A5650}
+/* las pestañas, con la misma receta: cuerpo amarillo, detalles en negro, la hoja de atrás en rojo. De noche los
+   detalles que quedan sobre el fondo pasan a rojo (el negro no se vería) */
+:is(.icg0,.icg1,.icg2,.icg3,.icg4){--d:var(--fs-negro);--m:var(--fs-amarillo);--l:var(--fs-rojo);--x:var(--fs-rojo);--ld:var(--fs-negro)}
+:root[data-theme="dark"] :is(.icg0,.icg1,.icg2,.icg3,.icg4){--d:var(--fs-rojo);--m:var(--fs-amarillo);--l:var(--fs-rojo);--x:var(--fs-rojo);--ld:var(--fs-amarillo)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) :is(.icg0,.icg1,.icg2,.icg3,.icg4){--d:var(--fs-rojo);--m:var(--fs-amarillo);--l:var(--fs-rojo);--x:var(--fs-rojo);--ld:var(--fs-amarillo)}}
+
+/* ---------- el color de cada etapa y el subtono de cada pestaña ---------- */
+:root #tabs .stg[data-g="2"]{--sg-sol:#AD3A00;--sg-sol-ink:#FFFEF6;--sg-pt:#FBEFE9;--sg-pt-c:#AD3A00}
+:root #tabs .stg[data-g="4"]{--sg-sol:#F49B1E;--sg-sol-ink:#212121;--sg-pt:#FEF4E6;--sg-pt-c:#A9620A}
+:root[data-tab="board"]{--sx-sol:#AD3A00;--sx-sol-ink:#FFFEF6;--sx-tab:#AD3A00;--sx-tab-ink:#FFFEF6;--sx-pt:#FBEFE9;--sx-pt-deep:#7A2900;--sx-pt-mid:#F3D6C7;--sx-pt-c:#AD3A00;--sx-pt-bar:#FCF2ED}
+:root[data-tab="animatic"]{--sx-sol:#AD3A00;--sx-sol-ink:#FFFEF6;--sx-tab:#8A2E00;--sx-tab-ink:#FFFEF6;--sx-pt:#FBEFE9;--sx-pt-deep:#7A2900;--sx-pt-mid:#EED0C2;--sx-pt-c:#8A2E00;--sx-pt-bar:#FAEFEA}
+:root :is([data-tabgo="board"],.stg-m .tab[data-tab="board"]){--ti-sol:#AD3A00;--ti-sol-ink:#FFFEF6;--ti-pt:#F3D6C7;--ti-pt-c:#AD3A00}
+:root :is([data-tabgo="animatic"],.stg-m .tab[data-tab="animatic"]){--ti-sol:#8A2E00;--ti-sol-ink:#FFFEF6;--ti-pt:#EED0C2;--ti-pt-c:#8A2E00}
+:root[data-tab="gastos"]{--sx-sol:#FFBE0B;--sx-sol-ink:#212121;--sx-tab:#EBA900;--sx-tab-ink:#212121;--sx-pt:#FFF9E9;--sx-pt-deep:#5B430A;--sx-pt-mid:#FBE9BE;--sx-pt-c:#866300;--sx-pt-bar:#FEF8EA}
+:root :is([data-tabgo="gastos"],.stg-m .tab[data-tab="gastos"]){--ti-sol:#EBA900;--ti-sol-ink:#212121;--ti-pt:#FBE9BE;--ti-pt-c:#866300}
+:root[data-tab="call"]{--sx-sol:#F49B1E;--sx-sol-ink:#212121;--sx-tab:#F49B1E;--sx-tab-ink:#212121;--sx-pt:#FEF4E6;--sx-pt-deep:#7A4708;--sx-pt-mid:#FCE1BC;--sx-pt-c:#A9620A;--sx-pt-bar:#FEF6EB}
+:root[data-tab="sup"]{--sx-sol:#F49B1E;--sx-sol-ink:#212121;--sx-tab:#D9800B;--sx-tab-ink:#212121;--sx-pt:#FEF4E6;--sx-pt-deep:#7A4708;--sx-pt-mid:#F6D9B4;--sx-pt-c:#93550A;--sx-pt-bar:#FDF4E9}
+:root :is([data-tabgo="call"],.stg-m .tab[data-tab="call"]){--ti-sol:#F49B1E;--ti-sol-ink:#212121;--ti-pt:#FCE1BC;--ti-pt-c:#A9620A}
+:root :is([data-tabgo="sup"],.stg-m .tab[data-tab="sup"]){--ti-sol:#D9800B;--ti-sol-ink:#212121;--ti-pt:#F6D9B4;--ti-pt-c:#93550A}
+
+/* ---------- la barra de las etapas ---------- */
+/* en reposo, cada ícono en sus colores (sin el gris de antes); al elegirla, la placa de su color y el ícono a una tinta */
+#tabs .stg:not(.on) .stg-h svg.lf{filter:none !important;opacity:1}
+@media (min-width:761px){
+  #tabs .stg.on .stg-h svg.lf .mi{fill:var(--sg-sol-ink)}
+  #tabs .stg.on .stg-h svg.lf .mk{fill:var(--sg-sol)}
+  #tabs .stg.on .stg-h svg.lf .sep{stroke:var(--sg-sol);stroke-width:7;paint-order:stroke}
+  #tabs .stg-h,#tabs .stg-h:hover,#tabs .stg.open .stg-h{border-radius:4px}
+  #tabs .stg-h svg.lf{width:34px;height:34px}
+  #tabs .stg:not(.on) .stg-h:hover{background:var(--fill) !important}
+  #tabs .stg-h .stg-n{font-weight:600}
+}
+/* en el teléfono no hay placa: el ícono elegido en sus colores, los otros callados, y la raya de su color debajo */
+@media (max-width:760px){
+  .topbar #tabs .stg:not(.on) .stg-h svg.lf{opacity:.5;filter:saturate(.6) !important}
+}
+
+/* ---------- el modo oscuro: luz de sala ----------
+   De noche el color no se pinta en grandes paños: queda en la placa pequeña de la etapa (como el boceto de la barra
+   oscura de Film Spirit.svg) y en una línea fina. La franja de pestañas pasa a ser oscura con un velo de su etapa, y la
+   pestaña abierta se marca con la raya de su color. El Guion, que de día es negro, de noche es crema. */
+:root{--sgd-0:#FFFEF6;--sgd-1:#F0444F;--sgd-2:#E46A2E;--sgd-3:#FFBE0B;--sgd-4:#F49B1E}
+:root[data-tone="dark"] #tabs .stg[data-g="0"]{--sg-sol:#FFFEF6;--sg-sol-ink:#212121}
+:root[data-tone="dark"] #tabs .stg[data-g="2"]{--sg-sol:#AD3A00;--sg-sol-ink:#FFFEF6}
+:root[data-tone="dark"] #tabs .stg[data-g="4"]{--sg-sol:#F49B1E;--sg-sol-ink:#212121}
+:root[data-tone="dark"] #tabs .stg:not(.on) .stg-h svg.lf{opacity:.88 !important}
+:root[data-tone="dark"] #tabs .stg:not(.on) .stg-h:hover svg.lf{opacity:1 !important}
+:root[data-tone="dark"] #tabs .stg.on .stg-h .stg-n{color:var(--sg-sol-ink) !important}
+:root[data-tone="dark"][data-tab]{--sx-line:var(--sgd-3)}
+:root[data-tone="dark"]:is([data-tab="build"],[data-tab="script"]){--sx-line:var(--sgd-0)}
+:root[data-tone="dark"]:is([data-tab="lined"],[data-tab="breakdown"],[data-tab="scout"],[data-tab="casting"]){--sx-line:var(--sgd-1)}
+:root[data-tone="dark"]:is([data-tab="board"],[data-tab="animatic"]){--sx-line:var(--sgd-2)}
+:root[data-tone="dark"]:is([data-tab="call"],[data-tab="sup"]){--sx-line:var(--sgd-4)}
+:root[data-tone="dark"][data-tab="project"]{--sx-line:#A8A8A8}
+:root[data-tone="dark"] .tabstrip{background:color-mix(in oklab,var(--sx-line) 7%,var(--chrome));box-shadow:inset 0 -1px 0 color-mix(in oklab,var(--sx-line) 30%,var(--chrome))}
+:root[data-tone="dark"] .tabstrip button{color:var(--muted)}
+:root[data-tone="dark"] .tabstrip button:hover{background:color-mix(in oklab,var(--ink) 7%,transparent);color:var(--ink)}
+:root[data-tone="dark"] .tabstrip button[aria-current="page"]{background:color-mix(in oklab,var(--sx-line) 16%,var(--chrome));color:var(--ink);box-shadow:inset 0 -2px 0 var(--sx-line)}
+:root[data-tone="dark"] .tabstrip button .ts-ic svg.lf,:root[data-tone="dark"]:not([data-sec="pastel"]) .tabstrip button:not([aria-current]) .ts-ic svg.lf{--d:var(--fs-rojo);--m:var(--fs-amarillo);--l:var(--fs-rojo);--x:var(--fs-rojo);--k:var(--chrome)}
+:root[data-tone="dark"] body{--tab:var(--sx-line,#8A8A8A);--tab-deep:var(--sx-line,#C8C8C8)}
+
+/* monocromo y Grafito: los íconos de la marca en grises */
+:root[data-mono] svg.lf :is(.fy,.fo){fill:#8A8A8A} :root[data-mono] svg.lf :is(.fr,.fu,.fk){fill:#3A3A3A}
 </style>
 
 <div id="app">

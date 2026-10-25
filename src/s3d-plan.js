@@ -13,7 +13,7 @@ function planOther(s3, t, letter) {
 /* ---------- medidas en la planta ----------
    s3.meas = [{ a, b }]: cada punta es un punto del piso { x, z } o algo de la escena: { o: id } (figura, objeto o luz) o
    { c: 'A' | 'B' } (la cámara). Las puntas puestas en algo lo siguen cuando se mueve, también en el tiempo del plano.
-   La distancia es la del piso (en planta), en metros */
+   La distancia es la del piso (en planta), en metros; de la cámara a algo de la escena, la de foco (measFocus) */
 const PLAN_MEAS = '#0E7C66';
 function measPt(st, letter, oc, q) {
   if (!q || typeof q !== 'object') return null;
@@ -22,6 +22,21 @@ function measPt(st, letter, oc, q) {
   return typeof q.x === 'number' && typeof q.z === 'number' && isFinite(q.x) && isFinite(q.z) ? [q.x, q.z] : null;
 }
 const measFmt = d => (d < 10 ? d.toFixed(2) : d.toFixed(1)) + ' m';
+/* la distancia de foco, como en un simulador de profundidad de campo (dofsimulator.net): de la cámara a los ojos de la
+   figura (o a la altura del objeto o la luz) en línea recta, no solo por el piso: con la cámara alta o baja es más larga */
+function measFocus(s3, st, cam, q) {
+  const p = q && q.o && st.o[q.o], ob = p && s3.objs.find(o => o.id === q.o); if (!ob) return null;
+  const y = ob.kind === 'actor' ? eyeOf(s3, ob.id, p.pose) + liftOf(s3, p) : liftOf(s3, p);
+  return Math.hypot(p.x - cam.x, p.z - cam.z, y - cam.h);
+}
+/* profundidad de campo (lente delgada, como dofsimulator): f en mm, diafragma N, ancho del sensor en mm, foco a s metros.
+   Círculo de confusión: la diagonal del sensor (3:2) / 1500 (0,029 mm en full frame). Devuelve metros; far = Infinity
+   desde la hiperfocal */
+function dofOf(f, N, sw, s) {
+  const c = sw * Math.hypot(1, 2 / 3) / 1500, H = f * f / (N * c) + f, S = s * 1000;
+  return { near: S * (H - f) / (H + S - 2 * f) / 1000, far: S >= H ? Infinity : S * (H - f) / (H - S) / 1000, H: H / 1000 };
+}
+const dofFmt = v => !isFinite(v) ? '∞' : (v < 10 ? v.toFixed(2) : v.toFixed(1));
 /* sanea lo guardado: solo medidas con dos puntas válidas (para abrir proyectos y lo que llega del equipo) */
 function measClean(list) {
   const ok = q => q && typeof q === 'object' && (typeof q.o === 'string' || q.c === 'A' || q.c === 'B' || (typeof q.x === 'number' && typeof q.z === 'number' && isFinite(q.x) && isFinite(q.z)));
@@ -259,7 +274,8 @@ function makePlan(canvas, ed, opt = {}) {
     ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(-9, -10); ctx.lineTo(9, -10); ctx.lineTo(6, -2); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
     ctx.fillStyle = CC; ctx.font = '700 10.5px Archivo, Arial, sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(`${letter ? letter + ' · ' : ''}${Math.round(cam.lens)}mm · ${cam.h.toFixed(1)} m`, cx + 14, cy + 14);
+    // la altura dice que es altura: «24 mm · 1.1 m» se leía como la distancia al sujeto
+    ctx.fillText(`${letter ? letter + ' · ' : ''}${Math.round(cam.lens)} mm · alt. ${cam.h.toFixed(1)} m`, cx + 14, cy + 14);
     if (!ed.s3.aim && !opt.static) {
       const hx = cx - Math.sin(rad(cam.yaw)) * 46, hy = cy - Math.cos(rad(cam.yaw)) * 46;
       ctx.strokeStyle = CC; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(hx, hy); ctx.stroke();
@@ -267,6 +283,11 @@ function makePlan(canvas, ed, opt = {}) {
     } else {
       const a = st.o[ed.s3.aim];
       if (a) { const [ax, ay] = toS(a.x, a.z); ctx.strokeStyle = CC; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ax, ay); ctx.stroke(); ctx.setLineDash([]); }
+    }
+    // con desenfoque: la zona nítida alrededor de quien se enfoca
+    if (s3.dof && !(s3.meas || []).length) {
+      const fp = dofFocus(s3, st), s = fp && Math.hypot(fp.x - cam.x, fp.z - cam.z, fp.y - cam.h);
+      if (s) dofBand(cam, [fp.x, fp.z], s, dofOf(clamp(cam.lens, 8, 600), dofF(s3), cam.sw || 36, s));
     }
     drawMeas(st);
     // escala
@@ -282,10 +303,22 @@ function makePlan(canvas, ed, opt = {}) {
     if (!L.length) return;
     const letter = ed.camLetter ? ed.camLetter() : '', oc = ed.other ? ed.other() : null;
     ctx.save();
+    const camOf = q => q && q.c ? (q.c === (letter || 'A') ? st.cam : oc && oc.letter === q.c ? oc.cam : null) : null;
     for (const [m, i] of L) {
       const a = measPt(st, letter, oc, m.a), b = measPt(st, letter, oc, m.b); if (!a || !b) continue;
       const [x1, y1] = toS(a[0], a[1]), [x2, y2] = toS(b[0], b[1]), len = Math.hypot(x2 - x1, y2 - y1);
-      const d = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = len ? (x2 - x1) / len : 1, uy = len ? (y2 - y1) / len : 0;
+      let d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const ux = len ? (x2 - x1) / len : 1, uy = len ? (y2 - y1) / len : 0;
+      // de una cámara a una figura, objeto o luz: la distancia de foco y lo que queda nítido con el diafragma del plano
+      const fc = camOf(m.a) && !m.b.c ? [camOf(m.a), m.b, b] : camOf(m.b) && !m.a.c ? [camOf(m.b), m.a, a] : null;
+      const s = fc && measFocus(ed.s3, st, fc[0], fc[1]);
+      let sub = '';
+      if (s) {
+        const N = dofF(ed.s3), Z = dofOf(clamp(fc[0].lens, 8, 600), N, fc[0].sw || 36, s);
+        sub = `${fTxt(fRound(N))} · nítido ${dofFmt(Z.near)}–${dofFmt(Z.far)} m`;
+        if (fc[0] === st.cam) dofBand(fc[0], fc[2], s, Z);
+        d = s;
+      }
       ctx.strokeStyle = PLAN_MEAS; ctx.fillStyle = PLAN_MEAS; ctx.lineWidth = i < 0 ? 2 : 1.5;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
       for (const [x, y] of [[x1, y1], [x2, y2]]) {
@@ -294,16 +327,39 @@ function makePlan(canvas, ed, opt = {}) {
       }
       const t = measFmt(d);
       ctx.font = '700 11px Archivo, Arial, sans-serif';
-      const w = ctx.measureText(t).width + 12, h = 18;
+      let w = ctx.measureText(t).width + 12;
+      if (sub) { ctx.font = '600 9.5px Archivo, Arial, sans-serif'; w = Math.max(w, ctx.measureText(sub).width + 12); }
+      const h = sub ? 30 : 18;
       // en una medida corta, la etiqueta va al costado de la línea (no tapa lo que se midió)
       const off = len < w + 28 ? 15 : 0, nx = uy, ny = -ux, sg = ny > 0 ? -1 : 1;
       const lx = (x1 + x2) / 2 + nx * off * sg, ly = (y1 + y2) / 2 + ny * off * sg;
       ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx - w / 2, ly - h / 2, w, h, 9) : ctx.rect(lx - w / 2, ly - h / 2, w, h); ctx.fill();
       ctx.lineWidth = 1.2; ctx.stroke();
-      ctx.fillStyle = PLAN_MEAS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, lx, ly + .5);
+      ctx.fillStyle = PLAN_MEAS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (sub) { ctx.font = '700 11px Archivo, Arial, sans-serif'; ctx.fillText(t, lx, ly - 5.5); ctx.font = '600 9.5px Archivo, Arial, sans-serif'; ctx.fillText(sub, lx, ly + 7.5); }
+      else ctx.fillText(t, lx, ly + .5);
       ctx.textBaseline = 'alphabetic';
       if (i >= 0) mBoxes.push([lx - w / 2, ly - h / 2, lx + w / 2, ly + h / 2, i]);
     }
+    ctx.restore();
+  }
+  /* la zona nítida en el cono de la cámara: una franja de la distancia cercana a la lejana (llevadas al piso, a lo largo
+     del eje de la cámara) y una raya en el plano de foco, a la altura del sujeto */
+  function dofBand(cam, p, s, Z) {
+    if (Math.abs(cam.pitch) >= 80) return;
+    const fx = -Math.sin(rad(cam.yaw)), fz = -Math.cos(rad(cam.yaw)), ax = (p[0] - cam.x) * fx + (p[1] - cam.z) * fz;
+    const t = (cam.sw || 36) / 2 / clamp(cam.lens, 8, 600);   // la mitad del ancho del cuadro por metro
+    if (ax <= .05 || Math.abs((p[0] - cam.x) * fz - (p[1] - cam.z) * fx) > ax * t * 1.02) return;   // fuera del cuadro
+    const k = ax / s, far = Math.min(isFinite(Z.far) ? Z.far * k : Infinity, (V.W + V.H) / V.sc * 2), near = Z.near * k;
+    const at = (a, sg) => toS(cam.x + fx * a + fz * a * t * sg, cam.z + fz * a - fx * a * t * sg);
+    ctx.save();
+    ctx.fillStyle = planRGBA(PLAN_MEAS, .1); ctx.beginPath();
+    for (const q of [at(near, -1), at(near, 1), at(far, 1), at(far, -1)]) ctx.lineTo(q[0], q[1]);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = planRGBA(PLAN_MEAS, .6); ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    for (const a of isFinite(Z.far) ? [near, far] : [near]) { const [p0, p1] = [at(a, -1), at(a, 1)]; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.lineWidth = 1.6; ctx.strokeStyle = planRGBA(PLAN_MEAS, .85);
+    { const [p0, p1] = [at(ax, -1), at(ax, 1)]; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
     ctx.restore();
   }
   // dónde cae una punta: en la cámara, en una figura, un objeto o una luz (los sigue), o en el piso
