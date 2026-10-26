@@ -468,7 +468,6 @@ function openSetBuilder(opts = {}, done) {
   addEventListener('resize', onRs);
   paint();
   requestAnimationFrame(() => fit());
-  if (view && !ro && !opts.quiet) setTimeout(() => toast('En el teléfono se mira y se asigna; para construir o cambiar muros, ábrelo en la computadora.', 5000), 300);
   return ov;
 }
 /* quién puede construir y asignar: quien puede editar el storyboard (los escenarios viajan con él) */
@@ -490,8 +489,10 @@ function sbScoutBtn(pl) {
 }
 if (typeof ACT !== 'undefined') Object.assign(ACT, {
   'sb-scout': b => {
-    const pl = b.dataset.b, d = sbPlaceSet(pl), L = sbPlaceLocs(pl), ie = ((D.sc && D.sc.scenes) || []).filter(s => (s.locBase || s.loc) === pl).map(s => s.ie);
-    openSetBuilder({ id: d ? d.id : null, loc: (d && L.includes(d.loc) && d.loc) || L[0] || '', name: titleCase(pl), int: !ie.length || ie.some(x => x !== 'EXT') }, () => render());
+    // un escenario nuevo, con la primera locación interior del lugar (el constructor es para interiores)
+    const pl = b.dataset.b, d = sbPlaceSet(pl), L = sbPlaceLocs(pl), sc = ((D.sc && D.sc.scenes) || []).filter(s => (s.locBase || s.loc) === pl);
+    const l0 = (sc.find(s => s.ie !== 'EXT') || sc[0] || {}).loc || L[0] || '';
+    openSetBuilder({ id: d ? d.id : null, loc: (d && L.includes(d.loc) && d.loc) || l0, name: titleCase(pl), int: !sc.length || sc.some(s => s.ie !== 'EXT') }, () => render());
   },
 });
 /* el plano pasa al escenario construido: sus figuras quedan donde estaban; sus luces entran al plano */
