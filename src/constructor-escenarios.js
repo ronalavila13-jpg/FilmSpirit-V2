@@ -389,7 +389,7 @@ function openSetBuilder(opts = {}, done) {
     if (el.dataset.colp) { step(); B.d[el.dataset.colp] = el.value; paint(); draw(); return; }
     if (!el.dataset.n || view) return;
     const v = num(el.value), f = el.dataset.n, S = sel();
-    if (!isFinite(v)) { paint(); return; }
+    if (!String(el.value).trim()) { paint(); return; }
     if (f === 'wt0') { B.wt = clamp(v, .03, 1.5); return; }
     step();
     if (f === 'wh') B.d.wh = clamp(v, 1, 12);
