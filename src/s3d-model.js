@@ -862,6 +862,151 @@ function shotCloneFrom(dst, src, pick) {
 }
 function findPose(s3, id) { for (const k of s3.keys) if (k.o[id]) return k.o[id]; return null; }
 
+/* ---------- lote W · lo que muestra la viñeta 3D: tamaño, ángulo y movimiento ----------
+   Para avisar en el editor cuando la cámara 3D no coincide con el guion técnico. Sin THREE: proyecta con la cámara del
+   plano (posición, altura, paneo, tilt, holandés, lente y sensor) igual que el visor (s3d-render, giros en orden YXZ).
+   TAMAÑO: la figura principal (la que sigue la cámara o, si no, la primera que entra en el cuadro). Sus referencias
+   (coronilla, ojos, mentón, pecho, cintura, rodillas y pies) dicen si entra y si entra su cabeza; el alto del cuadro a la
+   distancia de sus ojos se compara con el que da «Reencuadrar» (s3Frame) con esa misma figura para cada tamaño del
+   lenguaje (GPG … PPP): así lo que arma FilmSpirit se lee siempre como lo anotado. Sin la cabeza en cuadro y muy cerca,
+   un plano detalle. Un objeto de detalle cercano en cuadro: PD o INS.
+   ÁNGULO: cenital o nadir por la inclinación y la altura de la cámara; picado o contrapicado comparando con la
+   inclinación de un plano normal de ese tamaño; holandés si la cámara está girada.
+   MOVIMIENTO: solo cuando es claro (fijo, cámara en mano, travelling, dolly, paneo, tilt, zoom, grúa, arco, drone); si no,
+   null y no se compara. */
+const READ_SIZES = ['GPG', 'PG', 'PC', 'PE', 'PA', 'PM', 'PMC', 'PP', 'PPP'];
+const READ_FREE = ['Subjetivo (POV)', 'Sobre el hombro'];   // ángulos que dependen de dónde está el otro: no se leen
+const READ_LOOSE = ['Seguimiento', 'Plano secuencia', 'Steadicam / gimbal', 'Arco', 'Barrido (step printing)'];
+/* la cámara como proyector: at(x, y, z) da { x, y } en el cuadro (−1 … 1) y z, la distancia sobre su eje */
+function camProj(cam, aspect) {
+  const yw = rad(cam.yaw || 0), p = rad(clamp(cam.pitch || 0, -89.9, 89.9)), r = rad(cam.roll || 0);
+  const R = v => {
+    let [x, y, z] = v;
+    [x, y] = [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+    [y, z] = [y * Math.cos(p) - z * Math.sin(p), y * Math.sin(p) + z * Math.cos(p)];
+    [x, z] = [x * Math.cos(yw) + z * Math.sin(yw), -x * Math.sin(yw) + z * Math.cos(yw)];
+    return [x, y, z];
+  };
+  const rt = R([1, 0, 0]), up = R([0, 1, 0]), bk = R([0, 0, 1]);
+  const tv = Math.tan(vfovFor(camFF(cam), aspect) / 2), th = tv * aspect;
+  return {
+    tv,
+    at(x, y, z) {
+      const d = [x - cam.x, y - cam.h, z - cam.z], dot = a => d[0] * a[0] + d[1] * a[1] + d[2] * a[2], zc = -dot(bk);
+      return { x: dot(rt) / (zc * th), y: dot(up) / (zc * tv), z: zc };
+    },
+  };
+}
+/* las referencias del cuerpo de una figura: alturas (m) sobre donde pisa */
+function figRefs(s3, ob, p) {
+  const lk = lookOf(ob), hv = lk.height * (p.pose === 'sentado' ? .72 : poseDef(p.pose).h), eye = eyeOf(s3, ob.id, p.pose);
+  return { g: liftOf(s3, p), eye, pts: [['coronilla', hv], ['ojos', eye], ['menton', eye - .11 * (lk.s || 1)], ['pecho', hv * .72], ['cintura', hv * .6], ['rodillas', hv * .28], ['pies', .02]] };
+}
+/* la cámara que pone «Reencuadrar» para ese tamaño y ángulo, con solo esa figura u objeto */
+function readCal(s3, st, ob, size, angle) {
+  const red = { v: s3.v, set: s3.set, sensor: s3.sensor, room: s3.room, objs: [ob], keys: [{ t: 0, ease: 'suave', cam: { ...st.cam }, o: { [ob.id]: { ...st.o[ob.id] } } }] };
+  s3Frame(red, size, angle, 0);
+  return red.keys[0].cam;
+}
+function s3Read(s3) {
+  const out = { size: null, angle: null, angles: [], move: null, moves: [], still: true, fig: null };
+  if (!s3 || !Array.isArray(s3.objs) || !Array.isArray(s3.keys) || !s3.keys.length) return out;
+  const q = { ...s3, shake: 0 }, st = s3At(q, 0), ar = aspectOf();
+  const camAt = c => ({ ...c, h: Math.max(c.h, groundAt(s3, c.x, c.z) + CAM_FLOOR) });   // como el visor: nunca dentro del piso
+  const cam = camAt(st.cam), V = camProj(cam, ar);
+  const inF = (x, y, z) => { const v = V.at(x, y, z); return v.z > .05 && Math.abs(v.x) <= 1.02 && Math.abs(v.y) <= 1.02; };
+  // el alto del cuadro (m) a la distancia de un punto, visto con la cámara c
+  const tall = (c, x, y, z) => { const P2 = camProj(camAt(c), ar), v = P2.at(x, y, z); return v.z > .05 ? 2 * v.z * P2.tv : null; };
+  const nearest = (m, cands) => { let best = null, bd = Infinity; for (const [k, v] of cands) { if (!(v > 0)) continue; const d = Math.abs(Math.log(m / v)); if (d < bd) { bd = d; best = k; } } return best; };
+  const camH = cam.h - groundAt(s3, cam.x, cam.z), pitch = cam.pitch || 0;
+  const A0 = pitch <= -65 ? 'Cenital' : pitch >= 55 || (camH <= .18 && pitch >= 4) ? 'Nadir' : null;
+  let size = null, rel = null;
+  // un objeto de detalle cerca, en cuadro: plano detalle o inserto
+  const det = s3.objs.find(o => o.kind === 'detalle' && st.o[o.id]);
+  if (det) {
+    const p = st.o[det.id], y = liftOf(s3, p) + detailFrame(detailModel(det)).cy, m = inF(p.x, y, p.z) ? tall(cam, p.x, y, p.z) : null;
+    if (m && m <= 1) {
+      const c = Object.fromEntries(['PD', 'INS'].map(k => [k, readCal(s3, st, det, k, 'Normal')]));
+      size = nearest(m, Object.entries(c).map(([k, cc]) => [k, tall(cc, p.x, y, p.z)]));
+      rel = pitch <= -10 ? 'Picado' : pitch >= 8 ? 'Contrapicado' : 'Normal';
+    }
+  }
+  if (!size) {
+    const acts = s3.objs.filter(o => o.kind === 'actor' && st.o[o.id]);
+    let fig = null, R = null, vis = null;
+    for (const ob of [...acts.filter(o => o.id === s3.aim), ...acts.filter(o => o.id !== s3.aim)]) {
+      const p = st.o[ob.id], r = figRefs(s3, ob, p), v = r.pts.map(([, y]) => inF(p.x, r.g + y, p.z));
+      if (v.some(Boolean)) { fig = ob; R = r; vis = v; break; }
+    }
+    if (fig) {
+      out.fig = fig.id;
+      const p = st.o[fig.id], ey = R.g + R.eye, m = tall(cam, p.x, ey, p.z);
+      const sizeFor = ang => nearest(m, READ_SIZES.map(k => [k, tall(readCal(s3, st, fig, k, ang), p.x, ey, p.z)]));
+      if (m) {
+        size = sizeFor(A0 || 'Normal');
+        // sin la cabeza en cuadro (ni coronilla, ni ojos, ni mentón) y muy cerca: un detalle del cuerpo
+        if (!vis[0] && !vis[1] && !vis[2] && m < .6) size = 'PD';
+        if (!A0 && size !== 'PD') {
+          const p0 = readCal(s3, st, fig, size, 'Normal').pitch, dp = pitch - p0, low = camH <= .35 * (ey - groundAt(s3, cam.x, cam.z));
+          rel = dp <= -8 ? 'Picado' : dp >= 8 || (dp >= 3 && low) ? 'Contrapicado' : 'Normal';
+          if (rel !== 'Normal') size = sizeFor(rel);
+        } else if (!A0) rel = pitch <= -10 ? 'Picado' : pitch >= 8 ? 'Contrapicado' : 'Normal';
+      }
+    }
+  }
+  out.size = size;
+  const dutch = Math.abs(cam.roll || 0) >= 4;
+  if (A0 || rel) {
+    out.angles = [A0 || rel];
+    if (dutch) out.angles.unshift('Holandés');
+    out.angle = A0 || (dutch ? 'Holandés' : rel);
+  } else if (dutch) { out.angle = 'Holandés'; out.angles = ['Holandés']; }
+  // el movimiento: de la primera clave a la última (con a quién sigue, sin el temblor)
+  const T = Math.max(...s3.keys.map(k => +k.t || 0)), t0 = Math.min(...camKeys(s3).map(k => +k.t || 0)), N = 8;
+  const cs = Array.from({ length: N + 1 }, (_, i) => s3At(q, t0 + (Math.max(t0, T) - t0) * i / N).cam);
+  const a = cs[0], b = cs[N], yw = rad(a.yaw || 0), dx = b.x - a.x, dz = b.z - a.z, hor = Math.hypot(dx, dz);
+  const along = dx * -Math.sin(yw) + dz * -Math.cos(yw), side = dx * Math.cos(yw) + dz * -Math.sin(yw);
+  const dh = b.h - a.h, dyaw = ((b.yaw - a.yaw + 540) % 360) - 180, dpt = b.pitch - a.pitch, lr = (b.lens || 1) / (a.lens || 1);
+  const still = hor < .05 && Math.abs(dh) < .05;
+  let mv = null;
+  if (still && Math.abs(dyaw) < 1 && Math.abs(dpt) < 1 && Math.abs(Math.log(lr)) < .03) mv = 'Fijo';
+  else if (b.h >= 8 && dh >= 4) mv = 'Drone';
+  else {
+    // un arco: la cámara gira alrededor de lo que encuadra, a la misma distancia
+    const tg = s3Target(s3, s3.keys[0]), ang = c => Math.atan2(c.x - tg.x, c.z - tg.z), dist = c => Math.hypot(c.x - tg.x, c.z - tg.z);
+    const sweep = Math.abs(deg(((ang(b) - ang(a)) + Math.PI * 3) % (Math.PI * 2) - Math.PI)), dd = cs.map(dist), d0 = dd[0] || 1;
+    if (hor >= .3 && sweep >= 25 && Math.abs(dyaw) >= sweep * .5 && dd.every(d => d / d0 > .7 && d / d0 < 1.4)) mv = 'Arco';
+    else if (dh >= .8 && hor < .5) mv = 'Grúa';
+    else if (hor >= .3 && Math.abs(along) >= 1.5 * Math.abs(side)) mv = along > 0 ? 'Dolly in' : 'Dolly out';
+    else if (hor >= .3 && Math.abs(side) >= 1.5 * Math.abs(along)) mv = 'Travelling lateral';
+    else if (hor < .15 && lr >= 1.2) mv = 'Zoom in';
+    else if (hor < .15 && lr <= 1 / 1.2) mv = 'Zoom out';
+    else if (hor < .2 && Math.abs(dyaw) >= 8 && Math.abs(dyaw) >= Math.abs(dpt)) mv = 'Paneo';
+    else if (hor < .2 && Math.abs(dpt) >= 6) mv = 'Tilt';
+  }
+  const moves = mv ? [mv] : [], shk = +s3.shake || 0;
+  if (shk >= .08) {
+    // con temblor: cámara en mano (un temblor suave, también steadicam)
+    if (shk < .4) moves.push('Steadicam / gimbal');
+    moves.push('Cámara en mano');
+    if (mv === 'Fijo') { moves.shift(); mv = 'Cámara en mano'; }
+  }
+  if (mv === 'Paneo') moves.push('Barrido (step printing)');
+  // la cámara sigue a una figura que se desplaza: también un seguimiento
+  if (s3.aim && mv && mv !== 'Fijo') moves.push('Seguimiento');
+  out.move = mv; out.moves = [...new Set(moves)]; out.still = still;
+  return out;
+}
+/* qué no coincide con lo anotado (f: tamaño, ángulo y movimiento del guion técnico): [{ k, v (lo de la viñeta), was }] */
+function s3ReadDiff(R, f) {
+  const out = [], det = k => k === 'PD' || k === 'INS';
+  if (!R || !f) return out;
+  if (R.size && f.size && !READ_FREE.includes(f.angle) && R.size !== f.size && !(det(R.size) && det(f.size))) out.push({ k: 'size', v: R.size, was: f.size });
+  if (R.angle && f.angle && !READ_FREE.includes(f.angle) && !R.angles.includes(f.angle)) out.push({ k: 'angle', v: R.angle, was: f.angle });
+  if (R.move && f.move && !R.moves.includes(f.move) && !(READ_LOOSE.includes(f.move) && !R.still)) out.push({ k: 'move', v: R.move, was: f.move });
+  return out;
+}
+
 /* ---------- edición con clave automática ---------- */
 function s3KeyAt(s3, t, create = true) {
   const k = s3.keys.find(k => Math.abs(k.t - t) < .02);
@@ -1034,4 +1179,4 @@ function s3Of(sh) {
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff };
