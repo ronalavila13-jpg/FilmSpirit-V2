@@ -213,6 +213,16 @@ function sanitizeProject(Px) {
     const au = A.audio;
     if (au && typeof au === 'object') for (const k of ['offset', 'vol']) if (au[k] != null && !isFinite(+au[k])) delete au[k];
   }
+  // el máster de la escena y las capas del dibujo 2D (lote U): solo lo que se conoce
+  if (Px.shots && typeof Px.shots === 'object') for (const sh of Object.values(Px.shots)) {
+    if (!sh || typeof sh !== 'object') continue;
+    if ('master' in sh && typeof sh.master !== 'boolean') delete sh.master;
+    if (sh.d2 && typeof sh.d2 === 'object' && Array.isArray(sh.d2.layers)) for (const L of sh.d2.layers) {
+      if (!L || typeof L !== 'object') continue;
+      if ('back' in L && (L.back !== true || L.kind !== 'image')) delete L.back;   // detrás de las figuras: solo imágenes
+      if ('imp' in L && L.imp !== 'ref' && L.imp !== 'anno') delete L.imp;
+    }
+  }
   const N = Px.notes;
   if (N && typeof N === 'object') for (const [id, n] of Object.entries(N)) {
     const on = n && n.on;

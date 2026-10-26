@@ -29,7 +29,81 @@ function d2Draw(ctx, sh, t, W, H) {
   else { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); }
   return true;
 }
-const d2Sig = (sh, t) => sh.ws === '2d' && sh.d2 && sh.d2.frames ? (f => `2d:${sh.d2.rev || 0}:${f.id}:${!!cachedImg(d2CKey(sh.id, f.id))}`)(d2FrameAt(sh.d2, t)) : '';
+/* ---------- el 2D y el 3D juntos (lote U) ----------
+   La escena 3D es una capa más del dibujo: la «Viñeta 3D» (d.base '3d' se ve, 'paper' no; d.baseOp, su opacidad).
+   Las capas encima de ella se superponen; las de debajo son el fondo, detrás de las figuras. Van debajo solo las
+   imágenes que dicen «Detrás de las figuras» (L.back); el dibujo (trazos, flechas y textos) va siempre encima. Lo de
+   antes no tiene back: todo queda encima, como se veía.
+   Con una foto detrás de las figuras, la escena 3D se dibuja sin su entorno (cielo, suelo, muros, habitación), como
+   la foto de referencia «Detrás» del editor 3D: quedan las figuras y los objetos con sus sombras sobre un piso
+   invisible, y la foto hace de fondo real. Si la foto es transparente a medias, debajo se ve el papel.
+   La viñeta del storyboard, el PDF y el animatic muestran las dos cosas juntas, sin elegir entre 2D y 3D (sh.ws solo
+   dice en qué espacio se abre el plano). En el editor 3D se ven en la vista de cámara (shot-editor.js).
+   d.v = 2: dibujos guardados con este modelo. En uno anterior que se dejó en el 3D (sh.ws '3d'), la viñeta mostraba la
+   escena 3D entera: así se sigue viendo (visible y opaca) hasta que se vuelva a guardar en el 2D.
+   L.imp: la capa trajo la foto de referencia ('ref') o la anotación ('anno') del editor 3D; esas no se dibujan otra vez */
+const d2On = sh => !!(sh && sh.d2 && Array.isArray(sh.d2.frames) && sh.d2.frames.length && Array.isArray(sh.d2.layers));
+const d2Back = L => !!(L && L.back && L.kind === 'image');
+/* las capas en el orden en que se ven: primero las de fondo (detrás de las figuras), después las de encima */
+const d2Layers = d => { const L = ((d && d.layers) || []).filter(l => l && l.id); return [...L.filter(d2Back), ...L.filter(l => !d2Back(l))]; };
+const d2Old = (sh, d = sh.d2) => (d.v || 1) < 2 && sh.ws !== '2d';
+/* ¿se ve la escena 3D en la viñeta? (sin dibujo 2D: si el plano no es un dibujo a mano) */
+function shot3D(sh) {
+  if (!d2On(sh)) return !sh || sh.ws !== '2d';
+  return d2Old(sh) || sh.d2.base === '3d';
+}
+const d2Op3D = sh => d2On(sh) && !d2Old(sh) ? clamp(+(sh.d2.baseOp ?? .45) || 0, 0, 1) : 1;
+/* ¿la capa trajo la imagen de referencia o la anotación del editor 3D? (las de antes se reconocen por su nombre) */
+const d2Imp = (d, k) => !!d && ((d.layers || []).some(l => l && (l.imp === k || (l.imp == null && (d.v || 1) < 2 && (k === 'ref' ? l.kind === 'image' && l.name === 'Referencia' : l.name === 'Anotaciones')))));
+/* el editor 3D cambió su referencia o su anotación: desde ahora se ve la nueva (la capa que la trajo queda como una más) */
+function d2Unimp(sh, k) {
+  const d = sh && sh.d2; if (!d || !d2Imp(d, k)) return;
+  if ((d.v || 1) < 2) d2Norm(sh, d);
+  for (const l of d.layers || []) if (l && l.imp === k) delete l.imp;
+  d.rev = (d.rev || 0) + 1;
+}
+/* un dibujo anterior al modelo de capas, puesto como se veía: la Viñeta 3D visible y opaca si se dejó en el 3D; las
+   capas que trajeron la referencia o la anotación, marcadas */
+function d2Norm(sh, d) {
+  if ((d.v || 1) >= 2) return d;
+  if (sh.ws !== '2d') { d.base = '3d'; d.baseOp = 1; }
+  for (const l of d.layers || []) if (l && l.imp == null) { if (l.kind === 'image' && l.name === 'Referencia') l.imp = 'ref'; else if (l.name === 'Anotaciones') l.imp = 'anno'; }
+  d.v = 2;
+  return d;
+}
+/* las imágenes de las capas que se ven en el cuadro del segundo t (todas las de todos los cuadros con t null) */
+function d2LayerKeys(sh, t = 0) {
+  if (!d2On(sh)) return [];
+  const d = sh.d2, Fs = t == null ? d.frames : [d2FrameAt(d, t)], out = [];
+  for (const L of d2Layers(d)) { if (!L.vis) continue; for (const k of L.shared ? [d2Key(sh.id, L.id, 'all')] : Fs.map(F => d2Key(sh.id, L.id, F.id))) if (frameHas(k) && !out.includes(k)) out.push(k); }
+  return out;
+}
+/* las que necesita la viñeta combinada (sin la Viñeta 3D la viñeta es el cuadro ya compuesto, que ya cuenta) */
+const d2ViewKeys = (sh, t = 0) => d2On(sh) && shot3D(sh) ? d2LayerKeys(sh, t) : [];
+/* las imágenes que necesita la viñeta (la del storyboard, el animatic y el PDF) */
+const shotViewKeys = (sh, t = null) => sh ? [...frameViewKeys(sh.id), ...d2ViewKeys(sh, t)] : [];
+/* ¿hay una foto detrás de las figuras en el cuadro F? */
+const d2Under = (sh, F) => d2Layers(sh.d2).some(L => d2Back(L) && L.vis && (L.op ?? 1) > 0 && frameHas(d2Key(sh.id, L.id, L.shared ? 'all' : F.id)));
+/* las capas de fondo (back) o las de encima de un cuadro, con su opacidad, en un lienzo de W×H (alineadas al cuadro) */
+function d2Paint(ctx, sh, F, W, H, back) {
+  const d = sh.d2, [DW, DH] = frameDims(1280);
+  for (const L of d2Layers(d)) {
+    if (!L.vis || d2Back(L) !== !!back) continue;
+    const fk = L.shared ? 'all' : F.id, k = d2Key(sh.id, L.id, fk), op = clamp(+(L.op ?? 1) || 0, 0, 1);
+    if (frameHas(k)) { if (!FRAMES[k]) framesNeed([k]); const im = cachedImg(k); if (im) { ctx.globalAlpha = op; ctx.drawImage(im, 0, 0, W, H); ctx.globalAlpha = 1; } }
+    const objs = d.objs && d.objs[L.id + '~' + fk];
+    if (Array.isArray(objs) && objs.length) { ctx.save(); ctx.scale(W / DW, H / DH); for (const o of objs) if (o && o.type) d2DrawObj(ctx, o, op); ctx.restore(); }
+  }
+}
+const d2Sig = (sh, t) => {
+  if (!d2On(sh)) return '';
+  const d = sh.d2, f = d2FrameAt(d, t);
+  if (!shot3D(sh)) return `2d:${d.rev || 0}:${f.id}:${!!cachedImg(d2CKey(sh.id, f.id))}`;
+  // con la escena 3D: las capas de ese cuadro (y si ya cargaron), la opacidad de la Viñeta 3D y lo que va detrás
+  return `2d3:${d.rev || 0}:${f.id}:${d2ViewKeys(sh, t).map(k => cachedImg(k) ? 1 : 0).join('')}:${d2LaySig(sh)}`;
+};
+/* lo que cambia la viñeta combinada sin depender de qué imágenes ya cargaron (la clave que se guarda en el navegador) */
+const d2LaySig = sh => d2On(sh) ? `${shot3D(sh) ? d2Op3D(sh) : 'p'}:${JSON.stringify(d2Layers(sh.d2).map(L => [L.id, !!L.vis, L.op, d2Back(L), L.imp || 0]))}` : '';
 /* todas las imágenes de un plano: referencia, anotación, capas 2D y cuadros compuestos */
 const shotKeys = id => frameKeysOf(id);   // cargadas o no (con el servidor llegan a medida que hacen falta)
 function delShotFrames(id) {
@@ -187,12 +261,16 @@ let S2 = null;
 function d2New(sh, isNew) {
   const L = (name, o = {}) => ({ id: uid('l'), name, kind: 'draw', vis: true, op: 1, shared: false, ...o });
   const layers = [], imp = [];
-  if (FRAMES[sh.id]) { const l = L('Referencia', { kind: 'image', shared: true, op: .6 }); layers.push(l); imp.push([l.id, sh.id]); }
+  // la foto de referencia del editor 3D: detrás de las figuras si allá iba detrás (opaca, como se veía); delante, para
+  // calcar sobre papel (tapaba la escena)
+  const ref = !!FRAMES[sh.id], back = ref && !!sh.refBack;
+  if (ref) { const l = L('Referencia', { kind: 'image', shared: true, op: back ? 1 : .6, imp: 'ref', ...(back ? { back: true } : {}) }); layers.push(l); imp.push([l.id, sh.id]); }
   const fondo = L('Fondo', { shared: true }), dib = L('Dibujo');
   layers.push(fondo, dib);
-  if (FRAMES[sh.id + '~a']) { const l = L('Anotaciones', { shared: true }); layers.push(l); imp.push([l.id, sh.id + '~a']); }
+  if (FRAMES[sh.id + '~a']) { const l = L('Anotaciones', { shared: true, imp: 'anno' }); layers.push(l); imp.push([l.id, sh.id + '~a']); }
+  // la Viñeta 3D entra entera (es una capa más del cuadro); su opacidad se baja en Capas para calcar
   return {
-    v: 1, rev: 0, base: isNew || FRAMES[sh.id] ? 'paper' : '3d', baseOp: .45, layers, frames: [{ id: uid('f'), hold: 2 }], fps: 12, loop: true,
+    v: 2, rev: 0, base: isNew || (ref && !back) ? 'paper' : '3d', baseOp: 1, layers, frames: [{ id: uid('f'), hold: 2 }], fps: 12, loop: true,
     objs: {}, guides: { type: 'none', vp: null, snap: false, show: true }, onion: { on: false, prev: 1, next: 1, op: .4 }, act: dib.id, _imp: imp,
   };
 }
@@ -207,7 +285,7 @@ async function openShot2D(id, isNew) {
   await framesNeed(frameKeysOf(id));
   const [DW, DH] = frameDims(1280);
   const fresh = !sh.d2;
-  const d = fresh ? d2New(sh, isNew) : JSON.parse(JSON.stringify(sh.d2));
+  const d = fresh ? d2New(sh, isNew) : d2Norm(sh, JSON.parse(JSON.stringify(sh.d2)));
   if (!d.frames || !d.frames.length) d.frames = [{ id: uid('f'), hold: 2 }];
   if (!d.layers || !d.layers.length) d.layers = [{ id: uid('l'), name: 'Dibujo', kind: 'draw', vis: true, op: 1, shared: false }];
   d.objs = d.objs || {}; d.guides = d.guides || { type: 'none', vp: null, snap: false, show: true }; d.onion = d.onion || { on: false, prev: 1, next: 1, op: .32 };
@@ -220,8 +298,9 @@ async function openShot2D(id, isNew) {
     color: ls.get('d2color', '#16171B'), recent: ls.get('d2recent', []), sel: null, float: null, lasso: null, stroke: null, text: null, drag: null,
     // las flechas recuerdan su propio color (rojo de entrada); lápices, pinceles y textos comparten el otro
     colors: { draw: ls.get('d2color', '#16171B'), arrow: ls.get('d2acolor', D2_ARROW_RED) }, mask: null, bsz: null, alt: false,
-    V: { z: 1, x: 0, y: 0 }, hist: [], redo: [], dirty: false, playing: false, BG: null, ver: 0, hover: null, space: false, ro: UI.readOnly,
+    V: { z: 1, x: 0, y: 0 }, hist: [], redo: [], dirty: false, playing: false, BGs: new Map(), v3sel: false, ver: 0, hover: null, space: false, ro: UI.readOnly,
   };
+  d.layers = d2Layers(d);   // las de fondo (detrás de las figuras) primero: el orden de la lista es el que se ve
   if (!D2_TOOLS.some(t => t[0] === E.tool)) E.tool = 'pencil';
   E.color = E.colors[E.tool === 'arrow' ? 'arrow' : 'draw'];
   const list = D.shotsBy[sh.sc] || [];
@@ -274,7 +353,7 @@ async function openShot2D(id, isNew) {
   const putC = (k, src) => { let c = E.R.get(k); if (!c) { c = mk(); E.R.set(k, c); } const g = c.getContext('2d'); g.clearRect(0, 0, DW, DH); g.drawImage(src, 0, 0); c._v++; };
   const snap = () => ({ d: JSON.stringify({ ...d, _imp: undefined }), R: new Map(E.R), fi: E.fi });
   function restore(st) { const nd = JSON.parse(st.d); for (const k of Object.keys(d)) delete d[k]; Object.assign(d, nd); E.R = new Map(st.R); E.fi = clamp(st.fi, 0, d.frames.length - 1); E.sel = null; }
-  function structural(fn) { applyFloat(); commitText(); const a = snap(); fn(); const b = snap(); push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); }
+  function structural(fn) { applyFloat(); commitText(); const a = snap(); fn(); d.layers = d2Layers(d); const b = snap(); push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); }
   function objEdit(before) { const after = JSON.stringify(d.objs); if (after === before) return; push({ undo: () => { d.objs = JSON.parse(before); }, redo: () => { d.objs = JSON.parse(after); } }); }
   function undo() {
     if (E.text) { commitText(); }
@@ -354,13 +433,16 @@ async function openShot2D(id, isNew) {
     return SCR;
   }
   function drawFloat(g, f) { g.save(); g.translate(f.cx, f.cy); g.rotate(f.rot); g.scale(f.sx, f.sy); g.imageSmoothingQuality = 'high'; g.drawImage(f.c, -f.w / 2, -f.h / 2); g.restore(); }
-  /* un cuadro completo: papel, fondo 3D, capas con su opacidad y sus flechas y textos */
+  /* un cuadro completo: papel, las fotos de fondo, la Viñeta 3D (capa de la escena) y encima las demás capas con su
+     opacidad y sus flechas y textos */
   function compose(g, F, o = {}) {
     g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, DW, DH);
-    if (d.base === '3d' && E.BG) { g.globalAlpha = d.baseOp ?? .45; g.drawImage(E.BG, 0, 0, DW, DH); g.globalAlpha = 1; }
-    let onion = o.onion;
-    for (const L of d.layers) {
-      if (!L.vis) continue;
+    const lays = d2Layers(d), nb = lays.filter(d2Back).length;
+    let onion = o.onion, did3 = false;
+    const v3 = () => { did3 = true; if (d.base !== '3d') return; const bg = bgOf(F, plateOf(F)); if (bg) { g.globalAlpha = d.baseOp ?? .45; g.drawImage(bg, 0, 0, DW, DH); g.globalAlpha = 1; } };
+    lays.forEach((L, i) => {
+      if (i === nb) v3();
+      if (!L.vis) return;
       if (onion && !L.shared) { drawOnion(g, F); onion = false; }
       const live = o.live && L.id === d.act && F === curF();
       let src = ras(L, F);
@@ -368,9 +450,14 @@ async function openShot2D(id, isNew) {
       if (src) { g.globalAlpha = L.op; g.drawImage(src, 0, 0); g.globalAlpha = 1; }
       if (live && E.float && E.float.k === rk(L, F)) { g.globalAlpha = L.op; drawFloat(g, E.float); g.globalAlpha = 1; }
       for (const ob of objsOf(L, F)) if (!(o.live && E.text && E.text.id === ob.id)) d2DrawObj(g, ob, L.op);
-    }
+    });
+    if (!did3) v3();
     if (onion) drawOnion(g, F);
   }
+  /* ¿hay una foto detrás de las figuras en el cuadro F? (entonces la escena 3D va sin su entorno) */
+  const plateOf = F => d.layers.some(L => d2Back(L) && L.vis && L.op > 0 && (ras(L, F) || (E.float && E.float.k === rk(L, F))));
+  /* el segundo del plano en que empieza el cuadro F (para ver la escena 3D en ese momento) */
+  const fStart = F => { let n = 0; for (const f of d.frames) { if (f === F) break; n += f.hold || 1; } return Math.max(0, n / (d.fps || 12) - (d.t0 || 0)); };
   function draw() {
     raf = 0;
     const g = cx, z = E.V.z;
@@ -937,17 +1024,17 @@ async function openShot2D(id, isNew) {
       const fc = mk(w, h); fc.getContext('2d').drawImage(im, 0, 0, w, h);
       URL.revokeObjectURL(url);
       let L;
+      // una foto nueva va detrás de las figuras (de fondo), arriba de las otras fotos de fondo; en Capas se pasa delante
       structural(() => {
-        L = { id: uid('l'), name: (file.name || 'Imagen').replace(/\.[^.]+$/, '').slice(0, 40) || 'Imagen', kind: 'image', vis: true, op: .5, shared: true };
-        const ai = d.layers.findIndex(l => l.id === d.act);
-        d.layers.splice(ai >= 0 ? ai + 1 : d.layers.length, 0, L);
-        d.act = L.id;
+        L = { id: uid('l'), name: (file.name || 'Imagen').replace(/\.[^.]+$/, '').slice(0, 40) || 'Imagen', kind: 'image', vis: true, op: .5, shared: true, back: true };
+        d.layers.splice(d.layers.filter(d2Back).length, 0, L);
+        d.act = L.id; E.v3sel = false;
       });
       const k = rk(L, curF()); if (!E.R.get(k)) E.R.set(k, mk());
       setTool('lasso', true);
       E.float = { c: fc, k, before: mk(), cx: DW / 2, cy: DH / 2, w, h, sx: s / Math.min(1.6, s * 1.6), sy: s / Math.min(1.6, s * 1.6), rot: 0 };
       insp(); syncHist(); req();
-      toast('Imagen en una capa nueva al 50 %. Muévela o escálala y pulsa Intro; su opacidad se ajusta en Capas.', 4600);
+      toast('Imagen en una capa nueva al 50 %, detrás de las figuras. Muévela o escálala y pulsa Intro; en Capas cambias su opacidad o la pasas delante.', 5200);
     };
     im.onerror = () => { URL.revokeObjectURL(url); toast('No se pudo leer esa imagen. Prueba con un JPG o un PNG.'); };
     im.src = url;
@@ -1000,10 +1087,12 @@ async function openShot2D(id, isNew) {
   }
   function layersHTML() {
     const F = curF();
-    return `<div class="s2-h"><b>Capas</b><span class="s2-lbtn"><button class="icbtn" data-a="ly-add" title="Capa nueva" aria-label="Capa nueva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="icbtn" data-a="ly-img" title="Cargar una imagen para calcar" aria-label="Cargar una imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg></button></span></div>
-      <div class="s2-lys">${d.layers.slice().reverse().map(L => {
-      const a = L.id === d.act;
-      return `<div class="s2-ly${ea(a ? ' on' : '')}${ea(L.vis ? '' : ' off')}" data-l="${ea(L.id)}">
+    return `<div class="s2-h"><b>Capas</b><span class="s2-lbtn"><button class="icbtn" data-a="ly-add" title="Capa nueva" aria-label="Capa nueva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="icbtn" data-a="ly-img" title="Cargar una imagen: queda de fondo, detrás de las figuras (en la capa se pasa delante o se baja para calcar)" aria-label="Cargar una imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg></button></span></div>
+      <div class="s2-lys">${(() => {
+      // la lista va de arriba abajo: las capas de encima, la Viñeta 3D y las fotos de fondo (detrás de las figuras)
+      const lays = d2Layers(d), row = L => {
+        const a = L.id === d.act && !E.v3sel;
+        return `<div class="s2-ly${ea(a ? ' on' : '')}${ea(L.vis ? '' : ' off')}" data-l="${ea(L.id)}">
           <button class="s2-eye" data-a="ly-vis" aria-pressed="${ea(L.vis)}" aria-label="${ea(L.vis ? 'Ocultar' : 'Mostrar')} «${esc(L.name)}»" title="${ea(L.vis ? 'Ocultar' : 'Mostrar')}">${d2Ico(L.vis ? 'eye' : 'eyeoff')}</button>
           <canvas class="s2-lth" width="64" height="${Math.round(64 / ar)}" data-lth="${ea(L.id)}"></canvas>
           <span class="s2-lnm" title="Doble clic para cambiar el nombre">${esc(L.name)}</span>
@@ -1011,11 +1100,19 @@ async function openShot2D(id, isNew) {
           <button class="s2-lk${ea(L.lock ? ' on' : '')}" data-a="ly-lock" aria-pressed="${ea(!!L.lock)}" title="${ea(L.lock ? 'Desbloquear la capa' : 'Bloquear la capa: no se pinta, borra ni mueve')}" aria-label="${ea(L.lock ? 'Desbloquear' : 'Bloquear')} «${esc(L.name)}»">${d2Ico(L.lock ? 'lock' : 'unlock')}</button>
           <span class="s2-lop">${Math.round(L.op * 100)}%</span>
         </div>${a ? `<div class="s2-lyx">${rr('Opacidad', 'ly-op', L.op, 0, 1, .05, Math.round(L.op * 100) + ' %')}
+          ${L.kind === 'image' ? `<label class="opt-in" title="La foto queda de fondo: las figuras y los objetos de la escena 3D se ven encima, con sus sombras"><input type="checkbox" data-k="ly-back" ${d2Back(L) ? 'checked' : ''}> Detrás de las figuras</label>` : ''}
           <div class="s2-lyb"><label class="opt-in"><input type="checkbox" data-k="ly-sh" ${L.shared ? 'checked' : ''}> Igual en todos los cuadros</label>
           <span class="s2-lya"><button class="icbtn" data-a="ly-dup" title="Duplicar la capa" aria-label="Duplicar la capa">${d2Ico('dup')}</button><button class="icbtn" data-a="ly-clear" ${L.lock ? 'disabled' : ''} title="Vaciar la capa en este cuadro" aria-label="Vaciar la capa">${d2Ico('clear')}</button><button class="icbtn danger" data-a="ly-del" ${d.layers.length < 2 || L.lock ? 'disabled' : ''} title="Eliminar la capa" aria-label="Eliminar la capa">${d2Ico('trash')}</button></span></div></div>` : ''}`;
-    }).join('')}
-        <div class="s2-ly base" title="Lo que hay debajo de todas las capas">${segH('base', [['paper', 'Papel'], ['3d', 'Viñeta 3D']], d.base)}</div>
-        ${d.base === '3d' ? `<div class="s2-lyx">${rr('Opacidad', 'base-op', d.baseOp ?? .45, .05, 1, .05, Math.round((d.baseOp ?? .45) * 100) + ' %')}<p class="hint">La escena 3D del plano, debajo de tus capas, para dibujar encima.</p></div>` : ''}
+      };
+      const on3 = d.base === '3d', op3 = d.baseOp ?? .45, backs = lays.filter(d2Back);
+      const v3 = `<div class="s2-ly v3d${ea(E.v3sel ? ' on' : '')}${ea(on3 ? '' : ' off')}" data-v3="1" title="La escena 3D del plano: las capas de encima se superponen; las de abajo quedan de fondo">
+          <button class="s2-eye" data-a="v3-vis" aria-pressed="${ea(on3)}" aria-label="${ea(on3 ? 'Ocultar la Viñeta 3D' : 'Mostrar la Viñeta 3D')}" title="${ea(on3 ? 'Ocultar la escena 3D (queda el papel)' : 'Mostrar la escena 3D')}">${d2Ico(on3 ? 'eye' : 'eyeoff')}</button>
+          <canvas class="s2-lth" width="64" height="${Math.round(64 / ar)}" data-lth3="1"></canvas>
+          <span class="s2-lnm">Viñeta 3D</span><i></i><i></i>
+          <span class="s2-lop">${on3 ? Math.round(op3 * 100) + '%' : 'Papel'}</span>
+        </div>${E.v3sel ? `<div class="s2-lyx">${on3 ? rr('Opacidad', 'base-op', op3, .05, 1, .05, Math.round(op3 * 100) + ' %') : ''}<p class="hint">${on3 ? 'La escena 3D del plano. Las capas de encima se superponen; las imágenes «Detrás de las figuras» quedan debajo, de fondo.' : 'Oculta: se ve el papel. El ojo la vuelve a mostrar.'}</p></div>` : ''}`;
+      return lays.filter(L => !d2Back(L)).reverse().map(row).join('') + v3 + backs.slice().reverse().map(row).join('');
+    })()}
       </div>`;
   }
   function insp() {
@@ -1036,6 +1133,9 @@ async function openShot2D(id, isNew) {
       for (const o of objsOf(L, F)) d2DrawObj(g, o);
       g.restore();
     }
+    // la de la Viñeta 3D: la escena (sin su entorno si hay una foto detrás)
+    const c3 = ov.querySelector('[data-lth3]');
+    if (c3) { const g = c3.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c3.width, c3.height); const bg = bgOf(F, plateOf(F)); if (bg) g.drawImage(bg, 0, 0, c3.width, c3.height); }
   }
   const setLive = (el, txt) => { const o = el.parentElement.querySelector('output'); if (o) o.textContent = txt; el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%'); };
   let objBefore = null, docBefore = null;
@@ -1073,6 +1173,8 @@ async function openShot2D(id, isNew) {
     }
     if (k === 'ly-op' || k === 'base-op' || k === 'g-sp') { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); return; }
     if (k === 'ly-sh') { toggleShared(actL(), v); return; }
+    // una imagen detrás de las figuras (de fondo) o encima de la escena 3D
+    if (k === 'ly-back') { structural(() => { const L = actL(); if (v && L.kind === 'image') L.back = true; else delete L.back; }); ensureBG(); return; }
     if (k === 'g-snap' || k === 'g-show') { structural(() => { d.guides[k === 'g-snap' ? 'snap' : 'show'] = v; }); return; }
   });
   $o('#s2In').addEventListener('click', e => {
@@ -1082,7 +1184,6 @@ async function openShot2D(id, isNew) {
     if (b.dataset.k) {
       const k = b.dataset.k, v = b.dataset.v;
       if (k === 'g-type') { structural(() => { d.guides.type = v; d.guides.vp = v === 'none' ? null : defaultVP(v); }); return; }
-      if (k === 'base') { structural(() => { d.base = v; }); if (v === '3d') ensureBG(); return; }
       const prop = k.slice(2), tgt = o && (o.type === 'arrow') === k.startsWith('a-') ? o : E.T[k.startsWith('a-') ? 'arrow' : 'text'];
       const before = JSON.stringify(d.objs);
       tgt[prop] = v;
@@ -1093,6 +1194,7 @@ async function openShot2D(id, isNew) {
     const a = b.dataset.a; if (!a) return;
     const row = b.closest('[data-l]');
     if (a === 'ly-vis' && row) { structural(() => { const L = d.layers.find(l => l.id === row.dataset.l); L.vis = !L.vis; }); return; }
+    if (a === 'v3-vis') { structural(() => { d.base = d.base === '3d' ? 'paper' : '3d'; if (!(d.baseOp > 0)) d.baseOp = 1; }); ensureBG(); return; }
     if (a === 'ly-lock' && row) { structural(() => { const L = d.layers.find(l => l.id === row.dataset.l); L.lock = !L.lock; }); return; }
     if (a === 'fl-ok') { applyFloat(); req(); return; }
     if (a === 'fl-x') { cancelFloat(); return; }
@@ -1104,11 +1206,11 @@ async function openShot2D(id, isNew) {
     if (a === 'sel-none') { clearMask(); return; }
     if (a === 'obj-del' && o) { const before = JSON.stringify(d.objs); if (E.text) { E.text = null; TX.hidden = true; } delObj(o.id); E.sel = null; objEdit(before); insp(); req(); return; }
     if (a === 'g-vis') { structural(() => { d.guides.show = d.guides.show === false; }); return; }
-    if (a === 'ly-add') { structural(() => { const L = { id: uid('l'), name: 'Capa ' + (d.layers.length + 1), kind: 'draw', vis: true, op: 1, shared: false }; d.layers.splice(d.layers.indexOf(actL()) + 1, 0, L); d.act = L.id; }); return; }
+    if (a === 'ly-add') { structural(() => { const L = { id: uid('l'), name: 'Capa ' + (d.layers.length + 1), kind: 'draw', vis: true, op: 1, shared: false }; d.layers.splice(d.layers.indexOf(actL()) + 1, 0, L); d.act = L.id; E.v3sel = false; }); return; }
     if (a === 'ly-img') { pickImage(); return; }
     if (a === 'ly-dup') {
       structural(() => {
-        const L = actL(), N = { ...L, id: uid('l'), name: L.name + ' (copia)' };
+        const L = actL(), N = { ...L, id: uid('l'), name: L.name + ' (copia)' }; delete N.imp;
         d.layers.splice(d.layers.indexOf(L) + 1, 0, N);
         for (const [k, c] of [...E.R]) if (k.startsWith(L.id + '~')) E.R.set(N.id + k.slice(L.id.length), cloneC(c));
         for (const [k, arr] of Object.entries(d.objs)) if (k.startsWith(L.id + '~')) d.objs[N.id + k.slice(L.id.length)] = arr.map(x => ({ ...JSON.parse(JSON.stringify(x)), id: uid('o') }));
@@ -1124,9 +1226,12 @@ async function openShot2D(id, isNew) {
     }
   });
   $o('#s2In').addEventListener('pointerdown', e => {
+    // la Viñeta 3D: se elige para ver su opacidad (no se dibuja en ella ni se mueve)
+    const r3 = e.target.closest('.s2-ly.v3d');
+    if (r3 && !e.target.closest('button,input')) { E.v3sel = !E.v3sel; insp(); return; }
     const row = e.target.closest('.s2-ly[data-l]');
     if (!row || e.target.closest('button,input')) return;
-    if (row.dataset.l !== d.act) { applyFloat(); commitText(); d.act = row.dataset.l; E.sel = null; insp(); req(); }
+    if (row.dataset.l !== d.act || E.v3sel) { applyFloat(); commitText(); d.act = row.dataset.l; E.v3sel = false; E.sel = null; insp(); req(); }
     if (E.ro || e.button) return;
     // como las tiras del plan: con el ratón, presionar y mover la arrastra; con el dedo, mantener y arrastrar
     const id = row.dataset.l;
@@ -1134,13 +1239,14 @@ async function openShot2D(id, isNew) {
   });
   function layerDrag(e, id) {
     const box = $o('.s2-lys'), row = box.querySelector(`.s2-ly[data-l="${CSS.escape(id)}"]`); if (!row) return;
-    box.querySelectorAll('.s2-lyx').forEach(x => { if (x.previousElementSibling && x.previousElementSibling.dataset.l) x.remove(); });
+    box.querySelectorAll('.s2-lyx').forEach(x => x.remove());
     const rect = row.getBoundingClientRect(), ghost = row.cloneNode(true);
     ghost.classList.add('s2-ghost'); Object.assign(ghost.style, { width: rect.width + 'px', left: rect.left + 'px', top: rect.top + 'px' });
     document.body.appendChild(ghost); row.classList.add('ph');
     const dy = e.clientY - rect.top, sc = $o('#s2In');
     let lastY = e.clientY, raf = 0;
-    const rows = () => [...box.querySelectorAll('.s2-ly[data-l]')].filter(r => r !== row);
+    // la Viñeta 3D también cuenta como lugar: soltar una imagen debajo de ella la deja detrás de las figuras
+    const rows = () => [...box.querySelectorAll('.s2-ly[data-l], .s2-ly.v3d')].filter(r => r !== row);
     const place = y => {
       ghost.style.top = (y - dy) + 'px';
       const rs = rows(), next = rs.find(r => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2; });
@@ -1155,9 +1261,18 @@ async function openShot2D(id, isNew) {
     const up = () => {
       cancelAnimationFrame(raf); removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
       ghost.remove(); row.classList.remove('ph'); flipClear(rows());
-      const order = [...box.querySelectorAll('.s2-ly[data-l]')].map(r => r.dataset.l).reverse();   // la lista va de arriba (última capa) a abajo
-      if (order.join() !== d.layers.map(l => l.id).join()) structural(() => { d.layers.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); });
-      else insp();
+      // la lista va de arriba (última capa) a abajo; lo que quedó bajo la Viñeta 3D va detrás de las figuras (solo las
+      // imágenes: un dibujo que se suelta ahí queda justo encima de la escena)
+      const all = [...box.querySelectorAll('.s2-ly[data-l], .s2-ly.v3d')], i3 = all.findIndex(r => r.classList.contains('v3d'));
+      const byId = id => d.layers.find(l => l.id === id), top = all.slice(0, i3).map(r => byId(r.dataset.l)), bot = all.slice(i3 + 1).map(r => byId(r.dataset.l));
+      const botImg = bot.filter(L => L.kind === 'image'), botDraw = bot.filter(L => L.kind !== 'image');
+      const order = [...botImg.slice().reverse(), ...botDraw.slice().reverse(), ...top.slice().reverse()].map(L => L.id);
+      const backs = new Set(botImg.map(L => L.id));
+      if (order.join() !== d.layers.map(l => l.id).join() || d.layers.some(L => d2Back(L) !== backs.has(L.id))) {
+        structural(() => { for (const L of d.layers) { if (backs.has(L.id)) L.back = true; else delete L.back; } d.layers.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); });
+        ensureBG();
+        if (botDraw.length) toast('El dibujo va siempre encima de las figuras: detrás solo van imágenes.', 3600);
+      } else insp();
     };
     addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
   }
@@ -1352,7 +1467,7 @@ async function openShot2D(id, isNew) {
     else if (a === 'next' && list[idx + 1]) save(() => openShotEditor(list[idx + 1].id));
     else if (a === 'more') popover(b, `<div class="menu"><button data-m="dup">Duplicar plano</button><button data-m="del">Eliminar plano</button></div>`, p => p.addEventListener('click', ev => {
       const m = ev.target.closest('[data-m]'); if (!m) return; closePop();
-      if (m.dataset.m === 'dup') save(async () => { const nsh = P.shots[id], next = (D.shotsBy[nsh.sc] || [])[(D.shotsBy[nsh.sc] || []).indexOf(nsh) + 1]; const copy = { ...JSON.parse(JSON.stringify(nsh)), id: uid('s'), ord: next ? (nsh.ord + next.ord) / 2 : nsh.ord + 1, done: false }; P.shots[copy.id] = copy; await copyShotFrames(id, copy.id); changed('data'); derive(); render(); openShotEditor(copy.id); toast('Plano duplicado.'); });
+      if (m.dataset.m === 'dup') save(async () => { const nsh = P.shots[id], next = (D.shotsBy[nsh.sc] || [])[(D.shotsBy[nsh.sc] || []).indexOf(nsh) + 1]; const copy = { ...JSON.parse(JSON.stringify(nsh)), id: uid('s'), ord: next ? (nsh.ord + next.ord) / 2 : nsh.ord + 1, done: false }; if (isMaster(nsh) || copy.master) copy.master = false; P.shots[copy.id] = copy; await copyShotFrames(id, copy.id); changed('data'); derive(); render(); openShotEditor(copy.id); toast('Plano duplicado.'); });
       if (m.dataset.m === 'del') { close(true); deleteShot(id); }
     }));
   });
@@ -1423,14 +1538,23 @@ async function openShot2D(id, isNew) {
     if (after) after();
   }
 
-  /* ---------- fondo 3D ---------- */
-  function ensureBG() {
-    if (E.BG) { req(); return; }
-    const c = mk(), g = c.getContext('2d');
-    try { r3Init(); if (!r3Draw(g, s3Of(sh), 0, DW, DH, sh.noNames ? { labels: false } : {})) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
-    catch (e) { drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
-    E.BG = c; thumbsSoon(); req();
+  /* ---------- la Viñeta 3D ----------
+     La escena del plano en el segundo en que empieza el cuadro (si se mueve) y, con una foto detrás de las figuras,
+     sin su entorno (plate). Se dibuja una vez por momento y modo, y se guarda mientras el editor está abierto */
+  function bgOf(F, plate) {
+    const s3 = s3Of(sh), still = (s3.keys || []).length < 2 && !s3.shake, t = still ? 0 : round2(fStart(F)), key = (plate ? 'p' : 'n') + t;
+    let c = E.BGs.get(key);
+    if (c) return c;
+    c = mk(); const g = c.getContext('2d');
+    const o = { plate, atm: typeof sceneOfKey === 'function' ? envFromScene(sceneOfKey(sh.sc)).atm : null };
+    if (sh.noNames) o.labels = false;
+    try { r3Init(); if (!r3Draw(g, s3, t, DW, DH, o) && !plate) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
+    catch (e) { if (!plate) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
+    E.BGs.set(key, c); if (E.BGs.size > 24) E.BGs.delete(E.BGs.keys().next().value);
+    thumbsSoon();
+    return c;
   }
+  function ensureBG() { if (d.base === '3d') { bgOf(curF(), plateOf(curF())); req(); } }
 
   /* ---------- arranque ---------- */
   const roObs = new ResizeObserver(() => sizeStage());
@@ -1453,6 +1577,8 @@ async function openShot2D(id, isNew) {
     E.dirty = true;
   }
   delete d._imp;
+  // la Viñeta 3D se dibuja una vez por momento: antes, que lleguen las figuras articuladas (si no, quedaría el maniquí simple)
+  if (typeof FIG3D !== 'undefined' && FIG3D.ready && !FIG3D.failed) { try { await FIG3D.ready(6000, fig3dBodiesOf([{ ...sh, ws: '3d', d2: null }])); } catch (e) { } E.BGs.clear(); }
   if (d.base === '3d') ensureBG();
   $o('#s2Ld').remove();
   // los cuadros cargados quedan marcados como guardados

@@ -1501,7 +1501,7 @@ async function pdfWarm(kind, opts) {
   if (jobs.length) {
     // solo lo que usan las viñetas que faltan: sus imágenes y los cuerpos de sus figuras
     say('Preparando imágenes…', 0);
-    await framesNeed(jobs.flatMap(sh => frameKeysOf(sh.id).filter(k => !k.includes('~d~'))));
+    await framesNeed(jobs.flatMap(sh => shotViewKeys(sh)));   // (con las capas del dibujo 2D que se ven sobre la escena 3D)
     if (stop) return false;
     if (typeof FIG3D !== 'undefined') await FIG3D.ready(10000, fig3dBodiesOf(jobs));   // con los maniquíes articulados, no los simples
     for (let i = 0; i < jobs.length; i++) {
