@@ -4658,6 +4658,9 @@ html[lang="en"] .tb-lang-c:empty::before{content:"EN"}
   .lk-scrim{position:fixed;inset:0;z-index:69;background:rgba(16,16,16,.32)}
 }
 @media (min-width:701px){.lk-scrim{display:none}}
+/* en Inicio, el panel de notas no va, pero «Personalización» sí (desde el menú del teléfono: solo «Tu pantalla») */
+body.home .np.lk.open{display:flex!important}
+@media (min-width:701px){body.home.np-on:has(#lookPanel.open) #app{margin-right:340px}}
 /* ============ Calendario · vista Meses: hojas de mes como las de un calendario de pared ============ */
 .cm-wrap{gap:8px}
 .cm-sc{flex:1;min-height:0;overflow:auto}
