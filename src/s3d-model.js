@@ -165,8 +165,10 @@ function eyeOf(s3, id, pose) {
   const B = ob ? bodyOf(ob) : S3_BODY.hombre;
   return eyeH(pose) * (ob ? lookOf(ob).s : 1) * (1 - B.hunch * .08);
 }
-/* «int:cocina» y los demás son la habitación con ese ambiente (s3.set = 'int', s3.room.kind = 'cocina') */
-const S3_SETS = [['int', 'Habitación vacía'], ['int:sala', 'Sala'], ['int:comedor', 'Comedor'], ['int:cocina', 'Cocina'], ['int:dormitorio', 'Dormitorio'], ['int:bano', 'Baño'], ['int:oficina', 'Oficina'], ['int:ascensor', 'Ascensor'], ['plano', 'Plano importado'], ['auto', 'Interior de automóvil'], ['ext', 'Exterior abierto'], ['calle', 'Calle'], ['jardin_d', 'Frente de la casa (jardín)'], ['jardin_t', 'Patio trasero (jardín)'], ['parque', 'Parque'], ['bosque', 'Bosque'], ['montana', 'Montaña'], ['playa', 'Playa'], ['mar', 'Mar abierto (en un bote)'], ['desierto', 'Desierto o arenal'], ['canaveral', 'Cañaveral o chacra'], ['vacio', 'Vacío (estudio)']];
+/* «int:cocina» y los demás son la habitación con ese ambiente (s3.set = 'int', s3.room.kind = 'cocina'); «auto:suv» y los
+   demás, el interior de ese vehículo (s3.set = 'auto', s3.car.m = 'suv'; «auto» solo es el sedán) */
+const S3_SETS = [['int', 'Habitación vacía'], ['int:sala', 'Sala'], ['int:comedor', 'Comedor'], ['int:cocina', 'Cocina'], ['int:dormitorio', 'Dormitorio'], ['int:bano', 'Baño'], ['int:oficina', 'Oficina'], ['int:ascensor', 'Ascensor'], ['plano', 'Plano importado'],
+  ['auto', 'Interior de vehículo: sedán'], ['auto:suv', 'Interior de vehículo: SUV'], ['auto:van', 'Interior de vehículo: van o combi'], ['auto:pickup', 'Interior de vehículo: pick-up'], ['auto:bus', 'Interior de vehículo: bus urbano'], ['ext', 'Exterior abierto'], ['calle', 'Calle'], ['jardin_d', 'Frente de la casa (jardín)'], ['jardin_t', 'Patio trasero (jardín)'], ['parque', 'Parque'], ['bosque', 'Bosque'], ['montana', 'Montaña'], ['playa', 'Playa'], ['mar', 'Mar abierto (en un bote)'], ['desierto', 'Desierto o arenal'], ['canaveral', 'Cañaveral o chacra'], ['vacio', 'Vacío (estudio)']];
 const S3_COLORS = ['#C8563F', '#3D6FB6', '#C99A2E', '#4E8F5A', '#8B5BA6', '#3E8F94', '#B5577D', '#6B6F7A'];
 /* ---------- el piso que se pisa ----------
    Casi todo está a nivel 0, pero las veredas de la calle tienen 15 cm. Figuras, objetos y luces se apoyan en
@@ -249,7 +251,7 @@ function estDur(sh) {
 }
 const shotDur = sh => sh.dur && num(sh.dur) > 0 ? num(sh.dur) : estDur(sh);
 
-const VEH_LIKE = /^(moto|taxi|patrullero|limosina|suv|van|bus|deportivo)$/;
+const VEH_LIKE = /^(moto|taxi|patrullero|limosina|suv|pickup|van|bus|deportivo)$/;
 /* ---------- escena por defecto a partir de los datos del plano ---------- */
 /* elementos de la escena: luces, objetos y animales puestos desde la planta general (planta-general.js).
    P.scEls[escena] = [{ ob, pos }]: están en todos sus planos. Los que tienen puesta en escena propia los llevan en su
@@ -281,9 +283,10 @@ function s3Default(sh) {
     const names = [...D.sem[s.idx]].map(id => P.elements[id]).filter(Boolean).map(e => deaccent(e.name.toLowerCase()));
     const want = [];
     // vehículos y animales con nombre propio en el desglose (el taxi como taxi, el perro como perro)
-    const SPEC = [[/mototaxi/, 'moto'], [/\btaxi/, 'taxi'], [/patrull/, 'patrullero'], [/limosina|limusina/, 'limosina'], [/camioneta|\bsuv\b|4x4/, 'suv'], [/\b(van|combi|minivan)\b/, 'van'], [/\b(bus|autobus|omnibus|micro|custer)\b/, 'bus'], [/bicicleta|\bbici\b/, 'bici'], [/triciclo/, 'triciclo'], [/avioneta/, 'avioneta'], [/avion de combate|caza\b/, 'caza'], [/\bavion\b/, 'avion'], [/deportivo/, 'deportivo'], [/auto|carro|coche/, 'auto'],
+    const SPEC = [[/mototaxi/, 'moto'], [/\btaxi/, 'taxi'], [/patrull/, 'patrullero'], [/limosina|limusina/, 'limosina'], [/pick-?\s?up/, 'pickup'], [/^(?!.*pick-?\s?up).*(camioneta|\bsuv\b|4x4)/, 'suv'], [/\b(van|combi|minivan)\b/, 'van'], [/\b(bus|autobus|omnibus|micro|custer)\b/, 'bus'], [/bicicleta|\bbici\b/, 'bici'], [/triciclo/, 'triciclo'], [/avioneta/, 'avioneta'], [/avion de combate|caza\b/, 'caza'], [/\bavion\b/, 'avion'], [/deportivo/, 'deportivo'], [/auto|carro|coche/, 'auto'],
       [/\bperr[oa]/, 'perro'], [/\bgat[oa]\b/, 'gato'], [/caball|yegua/, 'caballo'], [/\btoro\b/, 'toro'], [/\bvaca\b/, 'vaca'], [/\bburr[oa]|\basno\b/, 'burro'], [/\bllama\b|alpaca/, 'llama'], [/\boveja/, 'oveja'], [/\bcerdo|chancho/, 'cerdo'], [/gallin|gallo\b/, 'gallina'], [/dragon/, 'dragon'], [/dinosaurio|t-?rex/, 'dinosaurio']];
-    for (const [re, k] of SPEC) if (S3_PROPS[k] && names.some(x => re.test(x)) && !want.includes(k)) { if (k === 'auto' && want.some(w => VEH_LIKE.test(w))) continue; want.push(k); }
+    // (dentro del interior de vehículo no se pone otro vehículo)
+    for (const [re, k] of SPEC) if (S3_PROPS[k] && names.some(x => re.test(x)) && !want.includes(k)) { if (k === 'auto' && want.some(w => VEH_LIKE.test(w))) continue; if (set === 'auto' && S3_PROPS[k].cat === 'vehiculo') continue; want.push(k); }
     if (names.some(x => /mostrador|vitrina/.test(x))) want.push('mostrador');
     if (names.some(x => /mesa|escritorio/.test(x))) want.push('mesa');
     if (names.some(x => /sofa|sillon/.test(x))) want.push('sofa');
@@ -317,7 +320,7 @@ function s3Default(sh) {
   if (ENV.rain) s3.rain = true;
   // el sensor de la cámara del proyecto (Ajustes del storyboard); full frame no se anota
   if (P && P.meta && P.meta.sensor && P.meta.sensor !== 'ff' && SENSORS.some(x => x[0] === P.meta.sensor)) s3.sensor = P.meta.sensor;
-  if (set === 'auto' && !ms && typeof envSeatCar === 'function') envSeatCar(s3);
+  if (set === 'auto' && !ms && typeof envSeatCar === 'function') { if (ENV.car && ENV.car !== 'sedan') s3.car = { m: ENV.car }; envSeatCar(s3); }
   if (s3.set === 'int' && ENV.room && typeof roomFurnish === 'function') roomFurnish(s3, ENV.room);
   s3Frame(s3, sh.size, sh.angle, num(sh.lens) || 0);
   if (set === 'auto' && !ms && typeof envCarCam === 'function') envCarCam(s3);

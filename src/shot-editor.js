@@ -1734,9 +1734,13 @@ function openShotEditor(id, isNew, from2d, waited) {
     const pls = Object.values(P.plans || {}), curPl = planOf(E.s3);
     const A = S3_ATMS[atmOf(E.s3)], extEnv = !envOf(E.s3).int && !envOf(E.s3).studio;
     const d3 = set3dOf(E.s3);
+    // el color del vehículo (solo la carrocería): los mismos de los vehículos del menú y uno a elección
+    const car = E.s3.set === 'auto' ? carOf(E.s3) : null, own = car && !VEH_COLORS.some(c => c.toLowerCase() === car.c.toLowerCase());
     return `<label class="fld"><span>Escenario</span><select data-c="set">${setOptions().map(([k, n]) => `<option value="${ea(k)}" ${k === setCur() ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+      ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>` : ''}
       ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM(d3.b[2] - d3.b[0])} × ${set3dM(d3.b[3] - d3.b[1])} m · ${d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
-        <button class="btn sm ghost" data-c="edit3d">Ajustar…</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>` : ''}
+        <button class="btn sm ghost" data-c="edit3d">Ajustar…</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
+        ${set3dRoofy(d3) ? '<p class="hint e3-warn">¿El piso quedó en el techo? Muévelo en Piso (Ajustar…).</p>' : ''}` : ''}
       ${E.s3.set === 'vacio' ? '' : `<div class="grid2"><label class="fld"><span>Atmósfera</span><select data-c="atm">${S3_ATM.map(([k, n]) => `<option value="${k}" ${k === atmOf(E.s3) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="opt" style="padding:6px 10px;align-self:end"><input type="checkbox" data-c="rain" ${A.rain || E.s3.rain ? 'checked' : ''} ${A.rain ? 'disabled' : ''}><span><b>Lluvia</b></span></label></div>
       ${A.sun && extEnv ? rangeRow(A.sun.moon ? 'Dirección de la luna' : 'Dirección del sol', 'sunAz', Math.round(deg180(E.s3.sunAz ?? A.sun.az)), -180, 180, 1, '°') : ''}`}
@@ -1746,7 +1750,7 @@ function openShotEditor(id, isNew, from2d, waited) {
         <label class="opt" style="padding:6px 10px" title="Oculta los muros que se interponen entre la cámara y las figuras, como al retirar una pared del set"><input type="checkbox" data-c="wild" ${E.s3.wildWalls ? 'checked' : ''}><span><b>Muros móviles</b></span></label>
         <button class="btn sm" data-c="caminside">Meter la cámara dentro del plano</button>` : ''}
       <button class="btn sm" data-c="importplan">Importar plano de planta…</button>
-      <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb (SketchUp, Blender…), .gltf o .fbx">Importar escenario 3D…</button>
+      <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb, .kmz (SketchUp), .dae, .obj, .gltf o .fbx">Importar escenario 3D…</button>
       ${E.s3.set === 'int' ? `<div class="grid3"><label class="fld"><span>Ancho (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rw" value="${ea(R.w)}"></label><label class="fld"><span>Fondo (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rd" value="${ea(R.d)}"></label><label class="fld"><span>Alto (m)</span><input type="number" min="2" max="12" step="0.1" data-c="rh" value="${ea(R.h)}"></label></div>` : ''}`;
   }
   function panel() {
@@ -1833,6 +1837,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     const el = e.target;
     if (el.dataset.lkc) { const ob = selOb(); if (ob) { el.parentElement.style.setProperty('--sw', el.value); setLook(ob, el.dataset.lkc, el.value, true); } return; }
     if (el.dataset.opc) { const ob = selOb(); if (ob) { el.parentElement.style.setProperty('--sw', el.value); ob.paint = el.value; redraw(); } return; }
+    // el color del vehículo a elección: se ve mientras se elige; al soltar queda (y se puede deshacer)
+    if (el.dataset.cpc) { if (E.carC0 === undefined) E.carC0 = (E.s3.car || {}).c || null; el.parentElement.style.setProperty('--sw', el.value); carSet(E.s3, 'c', el.value); redraw(); return; }
     if (el.type !== 'range') return;
     el.style.setProperty('--p', rangePct(+el.value, +el.min, +el.max) + '%');
     const out = el.parentElement.querySelector('output'), key = el.dataset.k, v = +el.value;
@@ -1861,6 +1867,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (el.dataset.c === 'sensor') { snapshot(); if (el.value && el.value !== 'ff') E.s3.sensor = el.value; else delete E.s3.sensor; E.custom = true; stCache = null; E.tmp = null; redraw(); commit(); return; }
     if (el.dataset.lkc) { const ob = selOb(); if (ob) setLook(ob, el.dataset.lkc, el.value); return; }
     if (el.dataset.opc) { const ob = selOb(); if (ob) { snapshot(); ob.paint = el.value; E.custom = true; commit(); panel(); redraw(); } return; }
+    if (el.dataset.cpc) { if (E.carC0 !== undefined) carSet(E.s3, 'c', E.carC0); delete E.carC0; snapshot(); carSet(E.s3, 'c', el.value); E.custom = true; commit(); panel(); redraw(); return; }
     if (el.type === 'range') { commit(); return; }
     if (el.dataset.lks) { const ob = selOb(); if (ob && ob.el) { const e2 = P.elements[ob.el]; e2.look = { ...(e2.look || {}), sizes: { ...((e2.look || {}).sizes || {}), [el.dataset.lks]: el.value.trim() } }; E.lookDirty = true; } return; }
     if (el.id === 'trM') { E.trM = clamp(num(el.value) || 2, .1, 50); return; }
@@ -2122,6 +2129,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.c === 'import3d') { import3d(); return; }
     if (b.dataset.c === 'edit3d') { const d3 = set3dOf(E.s3); if (d3) import3d(d3.id); return; }
     if (b.dataset.c === 'del3d') { del3d(); return; }
+    if (b.dataset.c === 'carpaint') { snapshot(); E.custom = true; carSet(E.s3, 'c', b.dataset.v); commit(); panel(); redraw(); return; }
     if (b.dataset.c === 'caminside') { snapshot(); E.custom = true; const n = s3CamInside(E.s3); commit(); redraw(); toast(n ? 'Cámara movida delante del muro; el lente se ajustó para mantener el encuadre.' : 'Ningún muro tapa a la figura.'); return; }
     if (b.dataset.c === 'free') { snapshot(); E.custom = true; freeCam(); commit(); redraw(); toast('Cámara libre: ya puedes hacer travellings sin que gire.'); }
     if (b.dataset.tr) { snapshot(); E.custom = true; const end = s3Track(E.s3, b.dataset.tr, (+b.dataset.v) * (E.trM || 2), E.dur); commit(); E.t = end.t; stCache = null; redraw(); panel(); }
@@ -2280,7 +2288,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   $m('#plMclr').onclick = () => ed.measSet([]);
   /* ---------- barra superior de la viñeta: deshacer, rehacer, agregar, entorno, atmósfera y nombres ---------- */
   /* el escenario elegido: «int:cocina» es la habitación amueblada como cocina */
-  function setCur() { return E.s3.set === 'int' && ROOM_KINDS[roomOf(E.s3).kind] ? 'int:' + roomOf(E.s3).kind : E.s3.set === 'modelo' ? 'modelo:' + (E.s3.set3d || '') : E.s3.set; }
+  function setCur() { return E.s3.set === 'int' && ROOM_KINDS[roomOf(E.s3).kind] ? 'int:' + roomOf(E.s3).kind : E.s3.set === 'modelo' ? 'modelo:' + (E.s3.set3d || '') : E.s3.set === 'auto' && carOf(E.s3).m !== 'sedan' ? 'auto:' + carOf(E.s3).m : E.s3.set; }
   /* los escenarios de la lista: los de siempre, los escenarios 3D importados (después del plano) y la opción de importar uno */
   function setOptions(menu) {
     const L = [...S3_SETS], i = L.findIndex(([k]) => k === 'plano') + 1, M = set3dList().map(d => ['modelo:' + d.id, 'Escenario 3D: ' + d.n]);
@@ -2292,16 +2300,20 @@ function openShotEditor(id, isNew, from2d, waited) {
     const [set, kind] = k.split(':');
     if (set === 'modelo') { if (!P.sets3d || !P.sets3d[kind]) { import3d(); return; } snapshot(); E.custom = true; useSet3d(E.s3, kind); commit(); redraw(); plan.fit(); paintTop(); return; }
     snapshot(); E.custom = true;
-    const hadRoom = E.s3.objs.some(o => o.room) || roomOf(E.s3).kind;
+    const hadRoom = E.s3.objs.some(o => o.room) || roomOf(E.s3).kind, wasCar = E.s3.set === 'auto';
     E.s3.set = set; delete E.s3.set3d;
     // el ambiente trae sus muebles; al cambiar de ambiente o salir de la habitación, los de antes se van
-    if (kind) { roomFurnish(E.s3, kind); toast(kind === 'ascensor' ? 'Ascensor: las puertas, la botonera y los pasamanos son parte de la cabina. Las figuras quedan adentro.' : `${ROOM_KINDS[kind].name}: los muebles quedan como objetos, se mueven o se quitan como cualquier otro.`); }
+    if (kind && set === 'int') { roomFurnish(E.s3, kind); toast(kind === 'ascensor' ? 'Ascensor: las puertas, la botonera y los pasamanos son parte de la cabina. Las figuras quedan adentro.' : `${ROOM_KINDS[kind].name}: los muebles quedan como objetos, se mueven o se quitan como cualquier otro.`); }
     else if (hadRoom) roomFurnish(E.s3, '');
-    if (set === 'auto') { envSeatCar(E.s3); if (E.s3.keys.length === 1) envCarCam(E.s3); if (fromPanel) toast('Las figuras se sentaron en el auto: la primera maneja.' + (E.s3.keys.length > 1 ? ' «Reencuadrar» acomoda la cámara.' : '')); }
+    // el interior de vehículo: el modelo elegido (el color se queda); al salir, las figuras bajan de los asientos altos
+    if (set === 'auto') {
+      carSet(E.s3, 'm', kind || 'sedan'); envSeatCar(E.s3); if (E.s3.keys.length === 1) envCarCam(E.s3);
+      if (fromPanel) toast((kind === 'bus' ? 'Las figuras van de pasajeras; el chofer es de relleno.' : 'Las figuras se sentaron en el vehículo: la primera maneja.') + (E.s3.keys.length > 1 ? ' «Reencuadrar» acomoda la cámara.' : ''));
+    } else if (wasCar) { delete E.s3.car; for (const ob of E.s3.objs) if (ob.kind === 'actor') for (const k of E.s3.keys) if (k.o[ob.id]) delete k.o[ob.id].h; }
     if (set === 'plano' && !planOf(E.s3)) E.s3.planId = (P.locPlans && P.plans[P.locPlans[s.loc]] && P.locPlans[s.loc]) || Object.keys(P.plans)[0];
-    commit(); redraw(); if (set === 'plano' || kind) plan.fit();
+    commit(); redraw(); if (set === 'plano' || set === 'auto' || kind) plan.fit();
   }
-  const ENV_SHORT = { jardin_d: 'Frente de casa', jardin_t: 'Patio trasero', int: 'Habitación', plano: 'Plano', auto: 'Auto', ext: 'Exterior', calle: 'Calle', parque: 'Parque', bosque: 'Bosque', montana: 'Montaña', playa: 'Playa', mar: 'Mar', desierto: 'Desierto', canaveral: 'Cañaveral', vacio: 'Estudio' };
+  const ENV_SHORT = { jardin_d: 'Frente de casa', jardin_t: 'Patio trasero', int: 'Habitación', plano: 'Plano', auto: 'Vehículo', ext: 'Exterior', calle: 'Calle', parque: 'Parque', bosque: 'Bosque', montana: 'Montaña', playa: 'Playa', mar: 'Mar', desierto: 'Desierto', canaveral: 'Cañaveral', vacio: 'Estudio' };
   const ATM_SHORT = { dia: 'Día', amanecer: 'Amanecer', dorada: 'Hora dorada', atardecer: 'Atardecer', noche: 'Noche', nublado: 'Nublado', lluvia: 'Lluvia', niebla: 'Niebla' };
   // íconos de la barra para el entorno y la atmósfera elegidos (el nombre va en la ayuda al pasar el mouse)
   const VT_IC = {

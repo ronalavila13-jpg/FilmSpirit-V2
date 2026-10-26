@@ -2,12 +2,14 @@
    VEHÍCULOS · carrocerías de perfil real
    Cada auto se arma a partir de su perfil lateral: la carrocería baja (con los pasos de rueda recortados),
    la cabina encima, las ventanas, el parabrisas y la luneta, llantas con aro, luces, parachoques, espejos
-   y manijas. Con ese mismo armado salen el auto, el taxi, el patrullero, la SUV, el deportivo, la limosina
-   y la van. El autobús, la bicicleta, el triciclo y los aviones tienen su propio armado.
+   y manijas. Con ese mismo armado salen el auto, el taxi, el patrullero, la pick-up, la SUV, el deportivo,
+   la limosina y la van. El autobús, la bicicleta, el triciclo y los aviones tienen su propio armado.
+   El auto (y el taxi y el patrullero) y la pick-up van huecos, con lunas transparentes y el interior completo
+   (s3d-cabinas.js): son los mismos del escenario «Interior de vehículo».
    El frente mira hacia +z (como el resto de los objetos) y el piso es y = 0.
    ============================================================ */
 const VEH_PAINT = {
-  auto: '#7D8C9C', taxi: '#E9B932', patrullero: '#F1F1EE', suv: '#5B6A5E', deportivo: '#B8322B', limosina: '#25272B',
+  auto: '#7D8C9C', taxi: '#E9B932', patrullero: '#F1F1EE', suv: '#5B6A5E', pickup: '#B9BDC2', deportivo: '#B8322B', limosina: '#25272B',
   van: '#E8E6E0', bus: '#E2A53A', bici: '#2F6FA6', triciclo: '#2E7FB8', avioneta: '#F2F1ED', avion: '#F4F4F2', caza: '#8B939C',
 };
 const VEH_COLORS = ['#F1F1EE', '#B9BDC2', '#7D8C9C', '#25272B', '#B8322B', '#E9B932', '#2F5D8C', '#3F7D4E', '#6B4F3A', '#D97A2B'];
@@ -15,7 +17,7 @@ const VEH_KINDS = new Set(Object.keys(VEH_PAINT));
 const isVehicle = k => VEH_KINDS.has(k);
 Object.assign(S3_PROPS, {
   taxi: { name: 'Taxi', w: 1.8, d: 4.5, cat: 'vehiculo' }, patrullero: { name: 'Patrullero', w: 1.8, d: 4.5, cat: 'vehiculo' },
-  suv: { name: 'SUV / camioneta', w: 1.95, d: 4.75, cat: 'vehiculo' }, deportivo: { name: 'Auto deportivo', w: 1.95, d: 4.45, cat: 'vehiculo' },
+  suv: { name: 'SUV / camioneta', w: 1.95, d: 4.75, cat: 'vehiculo' }, pickup: { name: 'Pick-up doble cabina', w: 1.88, d: 5.3, cat: 'vehiculo' }, deportivo: { name: 'Auto deportivo', w: 1.95, d: 4.45, cat: 'vehiculo' },
   limosina: { name: 'Limosina', w: 1.85, d: 7.6, cat: 'vehiculo' }, van: { name: 'Van', w: 1.96, d: 5.15, cat: 'vehiculo' },
   bus: { name: 'Autobús', w: 2.5, d: 11, cat: 'vehiculo' }, bici: { name: 'Bicicleta', w: .6, d: 1.75, cat: 'vehiculo' },
   triciclo: { name: 'Triciclo de carga', w: 1.2, d: 2.2, cat: 'vehiculo' }, avioneta: { name: 'Avioneta', w: 11, d: 8.2, cat: 'vehiculo' },
@@ -122,12 +124,20 @@ const VEH_CARS = {
   // L largo, W ancho, roof alto, wr radio de rueda, yb altura del piso, wheels (centros en z), hoodF/hoodR alto del capó
   // adelante y en el parabrisas, belt cintura, deckR alto de la maletera, zWs/zRf/zRr/zRw: base del parabrisas, techo
   // adelante y atrás, base de la luneta; win ventanas por lado
-  auto: { L: 4.5, W: 1.8, roof: 1.46, wr: .32, yb: .26, wheels: [-1.36, 1.34], hoodF: .76, hoodR: .93, belt: .95, deckR: .96, zWs: .95, zRf: .2, zRr: -.95, zRw: -1.5, nose: .3, tail: .28, win: 2 },
+  // por dentro (s3d-cabinas.js): fh alto del cojín de los asientos; rows filas [z de la cadera, [x de cada puesto]] (la
+  // primera x maneja: a la izquierda, +x); hb hasta dónde llega la cabina hueca (atrás, la maletera es maciza); bed la
+  // tolva abierta de la pick-up [atrás, adelante]; hollow: el objeto del menú también va hueco
+  auto: { L: 4.6, W: 1.8, roof: 1.47, wr: .32, yb: .26, wheels: [-1.42, 1.32], hoodF: .76, hoodR: .93, belt: .95, deckR: .97, zWs: .92, zRf: .14, zRr: -1.3, zRw: -1.84, nose: .3, tail: .28, win: 2,
+    hollow: true, fh: .48, rows: [[-.28, [.37, -.37]], [-1.22, [.4, -.4, 0]]], hb: -1.62 },
   taxi: { base: 'auto' }, patrullero: { base: 'auto' },
-  suv: { L: 4.75, W: 1.92, roof: 1.76, wr: .37, yb: .36, wheels: [-1.45, 1.42], hoodF: .98, hoodR: 1.1, belt: 1.13, deckR: 1.18, zWs: 1.12, zRf: .52, zRr: -2.05, zRw: -2.28, nose: .34, tail: .3, win: 3, boxy: true },
+  suv: { L: 4.75, W: 1.92, roof: 1.76, wr: .37, yb: .36, wheels: [-1.45, 1.42], hoodF: .98, hoodR: 1.1, belt: 1.13, deckR: 1.18, zWs: 1.12, zRf: .52, zRr: -2.05, zRw: -2.28, nose: .34, tail: .3, win: 3, boxy: true,
+    fh: .7, rows: [[-.05, [.38, -.38]], [-1.02, [.42, -.42, 0]]] },
+  pickup: { L: 5.3, W: 1.86, roof: 1.82, wr: .38, yb: .42, wheels: [-1.68, 1.52], hoodF: 1.02, hoodR: 1.13, belt: 1.17, deckR: 1.18, zWs: 1.05, zRf: .45, zRr: -.95, zRw: -1.06, nose: .36, tail: .24, win: 2,
+    hollow: true, fh: .76, rows: [[0, [.38, -.38]], [-.7, [.4, -.4, 0]]], bed: [-2.57, -1.13] },
   deportivo: { L: 4.45, W: 1.95, roof: 1.18, wr: .34, yb: .16, wheels: [-1.38, 1.33], hoodF: .62, hoodR: .8, belt: .82, deckR: .86, zWs: .78, zRf: -.15, zRr: -.75, zRw: -1.55, nose: .2, tail: .22, win: 1, spoiler: true },
   limosina: { L: 7.6, W: 1.85, roof: 1.47, wr: .33, yb: .25, wheels: [-2.6, 2.75], hoodF: .78, hoodR: .94, belt: .96, deckR: .97, zWs: 2.05, zRf: 1.3, zRr: -2.25, zRw: -2.8, nose: .3, tail: .28, win: 4 },
-  van: { L: 5.15, W: 1.96, roof: 2.12, wr: .35, yb: .3, wheels: [-1.8, 1.65], hoodF: .95, hoodR: 1.08, belt: 1.12, deckR: 2.0, zWs: 1.95, zRf: 1.45, zRr: -2.5, zRw: -2.53, nose: .32, tail: .2, win: 3, boxy: true },
+  van: { L: 5.15, W: 1.96, roof: 2.12, wr: .35, yb: .3, wheels: [-1.8, 1.65], hoodF: .95, hoodR: 1.08, belt: 1.12, deckR: 2.0, zWs: 1.95, zRf: 1.45, zRr: -2.5, zRw: -2.53, nose: .32, tail: .2, win: 3, boxy: true,
+    fh: .74, rows: [[1.0, [.42, -.42]], [-.02, [.56, 0, -.56]], [-1.0, [.56, 0, -.56]]] },
 };
 const vehSpec = k => { const s = VEH_CARS[k] || VEH_CARS.auto; return s.base ? { ...VEH_CARS[s.base] } : { ...s }; };
 function vehWheel(par, M, x, y, z, wr, tw, sporty) {
@@ -146,28 +156,36 @@ function vehWheel(par, M, x, y, z, wr, tw, sporty) {
   const hub = new THREE.Mesh(rcyl(rr * .22, .03, .008, 16), M.vChrome); hub.rotation.z = Math.PI / 2; hub.position.x = side * tw * .39; g.add(hub);
   return g;
 }
-function vehCar(kind, inner, paint) {
+/* o.hollow: hueco por dentro (el escenario «Interior de vehículo» lo pide para cualquier modelo); si no, lo que diga su
+   ficha (el auto y la pick-up del menú, sí) */
+function vehCar(kind, inner, paint, o = {}) {
   const M = vehMats(), T = THREE, S = vehSpec(kind);
   S.ra = S.wr + .045;
   const put = (geo, m, x, y, z, par = inner) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); par.add(o); return o; };
   const B = (w, h, d, x, y, z, m, r, par) => put(rbox(w, h, d, r ?? Math.min(.02, Math.min(w, h, d) * .3)), m, x, y, z, par);
-  const W = S.W, cw = W - (S.boxy ? .06 : .14), tw = S.wr * .62;
-  put(vehExtrude(kind + 'lo', vehSmooth(vehLowerProfile(S), 2, .18), W, .08), paint, 0, 0, 0);
-  put(vehExtrude(kind + 'cab', vehSmooth(vehCabinProfile(S), 2, S.boxy ? .12 : .2), cw, S.boxy ? .05 : .09), paint, 0, 0, 0);
-  // ventanas laterales (vidrio que asoma apenas por los dos lados de la cabina)
-  vehSideWindows(S, S.win).forEach((w, i) => put(vehExtrude(kind + 'w' + i, w, cw + .016, 0), M.vGlass, 0, 0, 0));
-  // parabrisas y luneta: placas de vidrio sobre los planos inclinados, apenas por fuera
-  const pane = (za, ya, zb, yb2, wid) => {
-    const dz = zb - za, dy = yb2 - ya, L = Math.hypot(dz, dy);
-    let nz = dy / L, ny = -dz / L; if (ny < 0) { nz = -nz; ny = -ny; }
-    const o = B(wid, .012, L, 0, (ya + yb2) / 2 + ny * .012, (za + zb) / 2 + nz * .012, M.vGlass, .004);
-    o.rotation.x = Math.atan2(-dy, dz); return o;
-  };
-  pane(S.zWs - .1, S.belt + .03, S.zRf + .03, S.roof - .05, cw - .16);
-  pane(S.zRw + .08, S.belt + .03, S.zRr - .03, S.roof - .05, cw - .2);
-  // bajos oscuros (no se ve a través de los pasos de rueda) y forros de los guardabarros
-  B(W - .3, .22, S.L - .5, 0, S.yb + .08, 0, M.vUnder, .04);
-  for (const zc of S.wheels) { const l = put(rcyl(S.wr + .03, W - 2 * tw - .06, .01, 20), M.vUnder, 0, S.wr, zc); l.rotation.z = Math.PI / 2; }
+  const W = S.W, cw = W - (S.boxy ? .06 : .14), tw = S.wr * .62, hollow = o.hollow ?? !!S.hollow;
+  if (hollow) vehShell(kind, S, inner, paint);   // carrocería hueca, lunas transparentes y el interior (s3d-cabinas.js)
+  else {
+    put(vehExtrude(kind + 'lo', vehSmooth(vehLowerProfile(S), 2, .18), W, .08), paint, 0, 0, 0);
+    put(vehExtrude(kind + 'cab', vehSmooth(vehCabinProfile(S), 2, S.boxy ? .12 : .2), cw, S.boxy ? .05 : .09), paint, 0, 0, 0);
+    // ventanas laterales (vidrio que asoma apenas por los dos lados de la cabina)
+    vehSideWindows(S, S.win).forEach((w, i) => put(vehExtrude(kind + 'w' + i, w, cw + .016, 0), M.vGlass, 0, 0, 0));
+    // parabrisas y luneta: placas de vidrio sobre los planos inclinados, apenas por fuera
+    const pane = (za, ya, zb, yb2, wid) => {
+      const dz = zb - za, dy = yb2 - ya, L = Math.hypot(dz, dy);
+      let nz = dy / L, ny = -dz / L; if (ny < 0) { nz = -nz; ny = -ny; }
+      const o = B(wid, .012, L, 0, (ya + yb2) / 2 + ny * .012, (za + zb) / 2 + nz * .012, M.vGlass, .004);
+      o.rotation.x = Math.atan2(-dy, dz); return o;
+    };
+    pane(S.zWs - .1, S.belt + .03, S.zRf + .03, S.roof - .05, cw - .16);
+    pane(S.zRw + .08, S.belt + .03, S.zRr - .03, S.roof - .05, cw - .2);
+  }
+  // bajos oscuros (no se ve a través de los pasos de rueda) y forros de los guardabarros (hueco: los forros van por dentro)
+  if (hollow) B(W - .3, .12, S.L - .5, 0, S.yb + .03, 0, M.vUnder, .04);
+  else {
+    B(W - .3, .22, S.L - .5, 0, S.yb + .08, 0, M.vUnder, .04);
+    for (const zc of S.wheels) { const l = put(rcyl(S.wr + .03, W - 2 * tw - .06, .01, 20), M.vUnder, 0, S.wr, zc); l.rotation.z = Math.PI / 2; }
+  }
   // ruedas
   for (const zc of S.wheels) for (const sx of [-1, 1]) vehWheel(inner, M, sx * (W / 2 - tw / 2 - .02), S.wr, zc, S.wr, tw, kind === 'deportivo');
   // parachoques, parrilla, luces y patentes
@@ -177,16 +195,16 @@ function vehCar(kind, inner, paint) {
   for (const sx of [-1, 1]) {
     B(.36, .1, .05, sx * (W / 2 - .27), S.hoodF - .11, zf - .05, M.vLampF, .03);
     B(.07, .05, .04, sx * (W / 2 - .08), S.hoodF - .15, zf - .07, M.vAmber, .015);
-    B(.34, .12, .05, sx * (W / 2 - .25), S.deckR - .14, zr + .05, M.vLampR, .03);
+    B(.34, .12, .05, sx * (W / 2 - .25), Math.min(S.deckR - .14, S.belt - .05), zr + .05, M.vLampR, .03);
     // espejos y manijas
     const mz = S.zWs - .18; B(.13, .09, .16, sx * (cw / 2 + .06), S.belt + .06, mz, paint, .03); B(.03, .05, .02, sx * (cw / 2 + .12), S.belt + .06, mz + .02, M.vBlack, .008);
     const doors = S.win > 1 ? [S.zWs - .55, (S.zWs - .55 + S.zRw) / 2 - .1] : [S.zWs - .7];
     for (const dz of doors) B(.02, .025, .13, sx * (W / 2 + .004), S.belt - .1, dz, M.vChrome, .008);
   }
-  B(.36, .11, .015, 0, S.yb + .27, zf - .02, M.vPlate, .006); B(.36, .11, .015, 0, S.deckR - .33, zr + .02, M.vPlate, .006);
+  B(.36, .11, .015, 0, S.yb + .27, zf - .02, M.vPlate, .006); B(.36, .11, .015, 0, Math.min(S.deckR - .33, S.belt - .25), zr + .02, M.vPlate, .006);
   if (S.spoiler) { B(W - .3, .03, .22, 0, S.deckR + .16, zr + .18, paint, .012); for (const sx of [-.45, .45]) B(.04, .16, .06, sx, S.deckR + .07, zr + .2, M.vTrim, .01); }
   if (kind === 'suv') for (const sx of [-1, 1]) B(.04, .04, 1.7, sx * (cw / 2 - .1), S.roof + .05, S.zRf - .95, M.vTrim, .012);
-  if (kind === 'van') { for (const sx of [-1, 1]) B(.012, 1.1, .02, sx * (W / 2 + .004), S.yb + .85, S.zWs - 1.15, M.vBlack, .004); B(.015, 1.4, .02, 0, S.yb + .9, zr - .002, M.vBlack, .004); }
+  if (kind === 'van') { for (const sx of [-1, 1]) B(.012, S.belt - S.yb - .12, .02, sx * (W / 2 + .004), (S.belt + S.yb) / 2, S.zWs - 1.15, M.vBlack, .004); B(.015, 1.4, .02, 0, S.yb + .9, zr - .002, M.vBlack, .004); }
   if (kind === 'taxi') {
     const sign = B(.62, .16, .24, 0, S.roof + .1, S.zRf - .55, M.vWhite, .04);
     for (const sz of [-1, 1]) { const t = vehTextMesh('TAXI', .52, .12, '#1B1C1F'); t.position.set(0, S.roof + .1, S.zRf - .55 + sz * .122); if (sz < 0) t.rotation.y = Math.PI; inner.add(t); }
@@ -203,10 +221,11 @@ function vehCar(kind, inner, paint) {
     B(.52, .09, .22, -.28, S.roof + .13, S.zRf - .5, M.vRed, .03); B(.52, .09, .22, .28, S.roof + .13, S.zRf - .5, M.vBlue, .03);
     const t2 = vehTextMesh('POLICÍA', .9, .16, '#1F2C44'); t2.position.set(0, S.hoodR + .012, S.zWs + .35); t2.rotation.x = -Math.PI / 2 + .1; inner.add(t2);
   }
-  // interior apenas visible: asientos y volante
+  if (hollow) return;
+  // interior apenas visible: asientos y volante (se maneja a la izquierda, +x)
   const seatY = S.yb + .25;
   for (const sx of [-.38, .38]) { B(.48, .12, .5, sx, seatY + .1, S.zWs - .9, M.vSeat, .04); B(.48, .55, .12, sx, seatY + .4, S.zWs - 1.15, M.vSeat, .04); }
-  const st = new T.Mesh(new T.TorusGeometry(.17, .02, 6, 20), M.vBlack); st.position.set(-.38, S.belt + .05, S.zWs - .45); st.rotation.x = -1.2; inner.add(st);
+  const st = new T.Mesh(new T.TorusGeometry(.17, .02, 6, 20), M.vBlack); st.position.set(.38, S.belt + .05, S.zWs - .45); st.rotation.x = -1.2; inner.add(st);
 }
 /* ---------- autobús ---------- */
 function vehBus(inner, paint) {
