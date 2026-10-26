@@ -181,7 +181,7 @@ function openSetBuilder(opts = {}, done) {
     R.render(scene, cam);
   }
   // ---------- el panel de la derecha ----------
-  const colorRow = (label, f, list, val) => `<div class="fld"><span>${esc(label)}</span><div class="sws">${list.map(c => `<button class="sw" style="--sw:${ea(c)}" data-col="${f}" data-v="${ea(c)}" aria-pressed="${ea(c.toLowerCase() === String(val).toLowerCase())}" aria-label="${ea(label)} ${ea(c)}" ${view ? 'disabled' : ''}></button>`).join('')}<label class="sw sw-pick" style="--sw:${ea(val)}" title="Otro color"><input type="color" data-colp="${f}" value="${ea(val)}" aria-label="${ea(label)}: otro color" ${view ? 'disabled' : ''}></label></div></div>`;
+  const colorRow = (label, f, list, val) => `<div class="fld"><span>${esc(label)}</span><div class="sws">${list.map(c => `<button class="sw" style="--sw:${ea(c)}" data-col="${f}" data-v="${ea(c)}" aria-pressed="${ea(c.toLowerCase() === String(val).toLowerCase())}" aria-label="${ea(label)} ${ea(c)}" ${view ? 'disabled' : ''}></button>`).join('')}<label class="sw sw-pick" style="--sw:${ea(val)}" title="Otro color"><input type="color" data-colp="${f}" data-nohex value="${ea(val)}" aria-label="${ea(label)}: otro color" ${view ? 'disabled' : ''}></label></div></div>`;
   const numIn = (label, f, val, min, max, st = .01, unit = 'm') => `<label class="fld sb-n"><span>${esc(label)}</span><span class="sb-nu"><input type="number" class="tnum" data-n="${f}" value="${ea(bsR(val))}" min="${min}" max="${max}" step="${st}" ${view ? 'disabled' : ''}><i>${unit}</i></span></label>`;
   function selPanel() {
     const S = sel(); if (!S) return '';
