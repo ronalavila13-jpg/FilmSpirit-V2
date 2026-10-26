@@ -688,7 +688,8 @@ const CHDESC = {
     const B = b.notes || {}, A = a.notes || {}, N = chDiff(B, A);
     if (!N.n) return null;
     const id = N.add[0] || N.mod[0] || N.del[0], n = A[id] || B[id], on = n.on || {};
-    if (on.t === 'ink') return { what: N.add.length ? 'anotó a mano en el guion rayado' : N.del.length ? 'borró una anotación del guion rayado' : 'cambió una anotación del guion rayado' };
+    // con su ref (guion|ink|id): el aviso lo ve solo quien puede leer el guion, como las demás notas
+    if (on.t === 'ink') return { what: N.add.length ? 'anotó a mano en el guion rayado' : N.del.length ? 'borró una anotación del guion rayado' : 'cambió una anotación del guion rayado', ref: `${on.sec || 'guion'}|ink|${on.id || ''}` };
     const where = on.t === 'txt' && typeof mnWhere === 'function' ? mnWhere(on) : noteLabel(on) || 'una pestaña';
     const ref = on.sec ? `${on.sec}|${on.t}|${on.id}` : '';
     if (N.add.length) return { what: n.re ? `respondió en ${where}` : `dejó una nota en ${where}`, ref };

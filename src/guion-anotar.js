@@ -28,7 +28,7 @@ const ANOT_TOOLS = [['p', 'Lápiz'], ['m', 'Marcador'], ['a', 'Flecha'], ['t', '
 const ANOT_W = { p: [9, 15, 24], m: [55, 85, 120], a: [10, 16, 26], t: [95, 120, 150] };
 const ANOT_MAX_STROKES = 80, ANOT_MAX_PTS = 1200;
 const ANOT = { on: false, tool: 'p', c: 'r', w: 1, undo: [], draw: null, pan: null, pen: false, last: null, items: new Map(), sig: '', ta: null };
-{ const m = ls.get('ink', null); if (m && typeof m === 'object') { if (ANOT_TOOLS.some(t => t[0] === m.tool)) ANOT.tool = m.tool; if (ANOT_RGB[m.c]) ANOT.c = m.c; if ([1, 2, 3].includes(m.w)) ANOT.w = m.w; } }
+{ const m = ls.get('ink', null); if (m && typeof m === 'object') { if (ANOT_TOOLS.some(t => t[0] === m.tool)) ANOT.tool = m.tool; if (Object.hasOwn(ANOT_RGB, m.c)) ANOT.c = m.c; if ([1, 2, 3].includes(m.w)) ANOT.w = m.w; } }
 if (UI.mode && UI.mode.ink == null) UI.mode.ink = true;   // la capa «Anotaciones», encendida al abrir
 const anoSaveTool = () => ls.set('ink', { tool: ANOT.tool, c: ANOT.c, w: ANOT.w });
 const anoOn = () => UI.tab === 'lined' && typeof edFormat === 'function' && edFormat() !== 'av' && !!P;
@@ -47,7 +47,7 @@ function anoCleanOn(on) {
     const d = st.d.slice(0, ANOT_MAX_PTS * 2).map(v => Math.round(+v));
     if (!d.length || d.length % 2 || d.some(v => !isFinite(v) || Math.abs(v) > 1e5)) continue;
     if ((st.k === 't' && d.length !== 2) || (st.k === 'a' && d.length !== 4 && d.length !== 6)) continue;
-    const o = { k: st.k, c: ANOT_RGB[st.c] ? st.c : 'r', w: [1, 2, 3].includes(st.w) ? st.w : 1, d };
+    const o = { k: st.k, c: Object.hasOwn(ANOT_RGB, st.c) ? st.c : 'r', w: [1, 2, 3].includes(st.w) ? st.w : 1, d };
     if (st.k === 'p' && Array.isArray(st.z) && st.z.length === d.length / 2) o.z = st.z.map(v => Math.min(100, Math.max(0, Math.round(+v) || 0)));
     if (st.k === 't') { const tx = String(st.tx == null ? '' : st.tx).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, 500); if (!tx.trim()) continue; o.tx = tx; }
     out.push(o);
@@ -545,7 +545,7 @@ function anoPdfPage(doc, list) {
   doc.setLineCap('round'); doc.setLineJoin('round');
   const poly = (pts, y0, mode) => { if (pts.length < 2) return; const s = pts.map(p => [X(p[0]), Y(y0, p[1])]); doc.lines(s.slice(1).map((p, i) => [p[0] - s[i][0], p[1] - s[i][1]]), s[0][0], s[0][1], [1, 1], mode, mode === 'F'); };
   for (const it of list) for (const st of it.n.on.s) {
-    const rgb = ANOT_RGB[st.c] || ANOT_RGB.r, w = (ANOT_W[st.k] || ANOT_W.p)[st.w - 1] || 15;
+    const rgb = (Object.hasOwn(ANOT_RGB, st.c) && ANOT_RGB[st.c]) || ANOT_RGB.r, w = (ANOT_W[st.k] || ANOT_W.p)[st.w - 1] || 15;
     doc.setDrawColor(...rgb); doc.setFillColor(...rgb);
     if (st.k === 't') {
       const b = anoTextBox(st), fx = typeof pdfFontX === 'function' ? pdfFontX(doc, 'shantell') : '';

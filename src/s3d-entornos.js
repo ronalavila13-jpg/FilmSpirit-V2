@@ -79,7 +79,7 @@ function carOf(s3) {
 /* cambiar el modelo o el color (null: el de fábrica); lo de siempre (sedán, su color) no se anota */
 function carSet(s3, f, v) {
   const car = { ...((s3.car && typeof s3.car === 'object') ? s3.car : {}) };
-  if (f === 'm') { if (CAB_MODELS[v] && v !== 'sedan') car.m = v; else delete car.m; }
+  if (f === 'm') { if (typeof v === 'string' && Object.hasOwn(CAB_MODELS, v) && v !== 'sedan') car.m = v; else delete car.m; }
   if (f === 'c') { if (CAR_HEX.test(v || '')) car.c = v.toUpperCase(); else delete car.c; }
   if (Object.keys(car).length) s3.car = car; else delete s3.car;
   return s3;
