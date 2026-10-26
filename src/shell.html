@@ -4452,7 +4452,7 @@ textarea.cand-in{resize:vertical;line-height:1.45}
 .side .sm-pin:is(.st-pick,.st-aprobada,.st-descartada) .b,.sm-lgd .sm-pin:is(.st-pick,.st-aprobada,.st-descartada) .b{stroke:none}
 .sm-lgd .sm-pin .g{display:none}
 :root[data-tone="dark"] .sm-row .sm-pin.st-aprobada .b{fill:#ECECEC}:root[data-tone="dark"] .sm-row .sm-pin.st-aprobada .g{fill:#222}
-.sm-wrap{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--sm-tile-bg)}
+.sm-wrap{position:relative;isolation:isolate;flex:1;min-height:0;overflow:hidden;background:var(--sm-tile-bg)}   /* lo que flota sobre el mapa no tapa el cajón de la lista */
 .sm-host,.sm-map{position:absolute;inset:0}
 .sm-map,.sm-map.leaflet-container{background:var(--sm-tile-bg);font:inherit;z-index:0}
 .sm-load{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
