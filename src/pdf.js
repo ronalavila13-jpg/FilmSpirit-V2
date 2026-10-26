@@ -1153,8 +1153,9 @@ function pdfCallHead(doc, X, V) {
   doc.setFont('title', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...INK); doc.text(pdfSafe(date), xc, yc + 22, { align: 'center' });
   lab('Llamado general', xc, yc + 38, 'center');
   doc.setFont('title', 'bold'); doc.setFontSize(30); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), xc, yc + 66, { align: 'center' });
-  const subl = [X.motor && `Listos motor ${X.motor}`, X.lunch && `Almuerzo ${X.lunch}`, X.dd.craft && `Catering: ${X.dd.craft}`].filter(Boolean);
-  if (subl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(...MUTED); doc.text(pdfSafe(subl.map(t => trDone(tr(t))).join('   ·   ')), xc, yc + 80, { align: 'center' }); }
+  // (lote W) el catering va tal cual lo escribieron (antes, en inglés, «Catering: …» se traducía entero y salía repetido)
+  const subl = [X.motor && trDone(tr(`Listos motor ${X.motor}`)), X.lunch && trDone(tr(`Almuerzo ${X.lunch}`)), X.dd.craft && trDone(tr('Catering') + ': ' + X.dd.craft.trim())].filter(Boolean);
+  if (subl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(...MUTED); doc.text(trDone(pdfSafe(subl.join('   ·   '))), xc, yc + 80, { align: 'center' }); }
   yc += subl.length ? 86 : 74;
   // derecha: el clima, el punto de encuentro (o estacionamiento) y la locación con su mapa, cada uno con su ícono
   let yr = y0 - 6;
