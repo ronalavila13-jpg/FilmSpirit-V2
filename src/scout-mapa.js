@@ -62,3 +62,73 @@ function smPinSVG(st, o = {}) {
   }[st] || '';
   return `<svg class="sm-pin st-${ea(st)}" viewBox="-15 -42 30 44" width="${w}" height="${h}" aria-hidden="true"><path class="b" d="${SM_PIN}"/>${glyph}</svg>`;
 }
+
+/* ---------- la vista ---------- */
+// el mapa vive fuera de la vista: al repintar la pestaña se vuelve a poner en su lugar (no se rehace ni pide teselas)
+const SM = { el: null, map: null, layer: null, tiles: null, mk: new Map(), sel: null, placing: null, pid: null, fit: false, tileOk: false, tileErr: 0, failed: false, ask: new Set() };
+const smEditable = () => scoutEditable();
+function smCandRow(g, c) {
+  const st = smState(g.d, c), geo = candGeo(c), on = SM.sel === c.id;
+  const sub = (st === 'pick' ? 'Elegida' : SM_LABEL[st] || '') + (geo ? '' : ' · sin ubicar');
+  return `<button type="button" class="sm-row${on ? ' on' : ''}${st === 'descartada' ? ' off' : ''}${geo ? '' : ' nogeo'}" data-act="sm-sel" data-id="${ea(c.id)}" ${on ? 'aria-current="true"' : ''}>
+    ${smPinSVG(st, { w: 16 })}<span class="t"><span class="n" data-no-tr>${esc(c.name.trim() || titleCase(g.b))}</span><span class="s${st === 'pick' ? ' pk' : ''}">${esc(sub)}</span></span></button>`;
+}
+/* el recuadro de las candidatas sin ubicar (las descartadas no cuentan) */
+function smMissing(groups) {
+  const L = [];
+  for (const g of groups) for (const c of g.cands) if (c.status !== 'descartada' && !candGeo(c)) L.push({ g, c, why: candGeoWhy(c) });
+  return L;
+}
+function smMissingHTML(L, ed) {
+  if (!L.length) return '';
+  const nm = x => `${esc(x.c.name.trim() || titleCase(x.g.b))} (${esc(titleCase(x.g.b))})`;
+  const WHY = { none: 'no tiene enlace del mapa', short: TARGET === 'server' ? 'leyendo su enlace corto…' : 'su enlace corto no trae el lugar', nolink: 'su enlace no trae el lugar' };
+  const txt = L.length === 1 ? `${nm(L[0])}: ${WHY[L[0].why] || WHY.nolink}.` : `${L.slice(0, 2).map(nm).join(', ')}${L.length > 2 ? ` y ${L.length - 2} más` : ''}.`;
+  return `<div class="sm-miss"><span class="hint"><b>${L.length} sin ubicar</b> · <span data-no-tr>${txt}</span></span>
+    ${ed ? `<button type="button" class="linkbtn sm-place" data-act="sm-place" data-id="${ea(L[0].c.id)}">${ICO.pin}<span>Ubicar en el mapa</span></button>` : ''}</div>`;
+}
+function smLegendHTML(groups) {
+  const n = { pick: 0, aprobada: 0, visitada: 0, visitar: 0, descartada: 0 };
+  for (const g of groups) for (const c of g.cands) if (candGeo(c)) n[smState(g.d, c)]++;
+  return `<div class="sm-lgd" role="list" aria-label="Leyenda">${['pick', 'aprobada', 'visitada', 'visitar', 'descartada'].map(k => `<span role="listitem" class="st-${k}${n[k] ? '' : ' zero'}">${smPinSVG(k, { w: 11 })}<span>${SM_LABEL[k]}</span><b class="tnum">${n[k]}</b></span>`).join('')}</div>`;
+}
+const SM_ICO = {
+  in: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  out: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>',
+  all: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  go: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M9 6h9v9"/></svg>',
+};
+/* la barra de las dos vistas: «Por lugar | Mapa general» */
+const smViewSeg = () => hdSeg([{ label: 'Por lugar', attrs: 'data-act="sc-view" data-v="place"', on: UI.scView !== 'map' }, { label: 'Mapa general', attrs: 'data-act="sc-view" data-v="map"', on: UI.scView === 'map' }], 'Vista');
+function smRender() {
+  const v = $('#view'), ed = smEditable(), groups = smGroups();
+  if (P.id !== SM.pid) { SM.pid = P.id; SM.sel = null; SM.placing = null; SM.fit = false; }
+  if (SM.sel && !scCand(SM.sel)) SM.sel = null;
+  const nC = groups.reduce((a, g) => a + g.cands.length, 0), places = scoutPlaces(), picked = places.filter(p => scPlaceData(p.b).pick).length;
+  const miss = smMissing(groups);
+  smResolveShort(groups);
+  const list = groups.length ? `<ul class="slist sm-list" id="slist">${groups.map(g => `<li data-q="${esc((g.b + ' ' + g.cands.map(c => c.name + ' ' + c.addr).join(' ')).toLowerCase())}"><section class="sm-grp">
+      <div class="sm-gh"><b data-no-tr>${esc(titleCase(g.b))}</b><span class="tnum">${g.gone ? '—' : g.scenes.length + ' esc.'}</span></div>
+      ${g.cands.map(c => smCandRow(g, c)).join('')}</section></li>`).join('')}</ul>`
+    : `<p class="hint sm-none">Aún no hay candidatas. Agrégalas en «Por lugar»: las que tienen el enlace del mapa aparecen aquí solas.</p>`;
+  const side = `${hdSide('Lugares', `${places.length} · ${picked} ${picked === 1 ? 'elegido' : 'elegidos'}`, 'Buscar lugar o candidata')}${list}${smMissingHTML(miss, ed)}`;
+  v.innerHTML = `<div class="ws ws-2 sm-ws">
+    <aside class="side" id="side">${side}</aside>
+    <section class="center">
+      <div class="bar"><button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Lugares</button>${smViewSeg()}<span class="hint hide-sm tnum">${nC === 1 ? '1 candidata' : nC + ' candidatas'} en ${groups.length === 1 ? '1 lugar' : groups.length + ' lugares'}</span><span class="grow"></span>${toolsHTML()}</div>
+      <div class="sm-wrap${SM.placing ? ' placing' : ''}" id="smWrap">
+        <div class="sm-host" id="smHost"></div>
+        <div class="sm-ctl">
+          <button type="button" class="hide-sm" data-act="sm-zoom" data-v="1" aria-label="Acercar" title="Acercar">${SM_ICO.in}</button>
+          <button type="button" class="hide-sm" data-act="sm-zoom" data-v="-1" aria-label="Alejar" title="Alejar">${SM_ICO.out}</button>
+          <button type="button" data-act="sm-all" aria-label="Ver todas" title="Ver todas">${SM_ICO.all}</button>
+        </div>
+        ${smLegendHTML(groups)}
+        <div class="sm-note" id="smNote" role="status" hidden></div>
+        ${SM.placing ? smPlacingHTML() : ''}
+        ${smCardHTML()}
+      </div>
+    </section></div>`;
+  bindView(); bindSceneSearch();
+  smMount(groups);
+}
