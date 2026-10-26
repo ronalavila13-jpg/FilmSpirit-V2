@@ -488,9 +488,11 @@ function openSet3dImporter(opts, done) {
     const build = (keepId, drop) => openSetBuilder({ from: data, loc: opts.loc, name: data.n }, (rid, all) => { if (done) done(rid, all); if (drop) rpDropOriginal(drop, rid); });
     askBox({
       title: 'Replicar como escenario editable', danger: false,
-      text: esc(`Salieron ${r.n.walls} ${r.n.walls === 1 ? 'muro' : 'muros'}, ${r.n.ops} ${r.n.ops === 1 ? 'puerta o ventana' : 'puertas y ventanas'} y ${r.n.vols} ${r.n.vols === 1 ? 'volumen' : 'volúmenes'}; se abren en el constructor para corregirlos. ¿Conservas el modelo 3D original${kb ? ` (${rpKB(kb)})` : ''} o lo borras para liberar espacio?`),
-      ok: 'Conservar el original', cancel: 'Cancelar',
-      alt: { label: 'Borrar el original', fn: () => { if (ed) { close(); build(null, ed.id); } else { S.saved = true; close(); build(); } } },
+      // un modelo ya guardado se puede borrar (con «Deshacer»); uno recién importado, simplemente no se guarda
+      text: esc(`Salieron ${r.n.walls} ${r.n.walls === 1 ? 'muro' : 'muros'}, ${r.n.ops} ${r.n.ops === 1 ? 'puerta o ventana' : 'puertas y ventanas'} y ${r.n.vols} ${r.n.vols === 1 ? 'volumen' : 'volúmenes'}; se abren en el constructor para corregirlos. `
+        + (ed ? `¿Conservas el modelo 3D original${kb ? ` (${rpKB(kb)})` : ''} o lo borras para liberar espacio? Borrarlo se puede deshacer.` : `¿Guardas también el modelo 3D${kb ? ` (${rpKB(kb)})` : ''} o solo el escenario editable?`)),
+      ok: ed ? 'Conservar el original' : 'Guardar los dos', cancel: 'Cancelar',
+      alt: { label: ed ? 'Borrar el original' : 'Solo el editable', fn: () => { if (ed) { close(); build(null, ed.id); } else { S.saved = true; close(); build(); } } },
       onOk: () => { if (ed && !S.changed) { close(); build(ed.id); } else save(id => build(id)); },
     });
   }
