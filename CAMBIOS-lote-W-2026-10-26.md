@@ -1,6 +1,7 @@
 # Lote W · trece observaciones del 26-oct-2026
 
-Base: lote V (que trae los lotes T y U). Se hizo en cinco frentes en paralelo y se unió en la rama `lote-w`. El detalle
+Base: lote V (que trae los lotes T y U) y el lote V · rendimiento del otro chat (PR #4, `CAMBIOS-lote-V-rendimiento-2026-10-26.md`),
+que también quedó unido aquí. Se hizo en cinco frentes en paralelo y se unió en la rama `lote-w`. El detalle
 de cada frente (cómo se usa, decisiones, archivos y pruebas) está en su propia nota:
 
 - [CAMBIOS-lote-W-produccion.md](CAMBIOS-lote-W-produccion.md): observaciones 1, 2 y 3
@@ -9,10 +10,12 @@ de cada frente (cómo se usa, decisiones, archivos y pruebas) está en su propia
 - [CAMBIOS-lote-W-editor3d.md](CAMBIOS-lote-W-editor3d.md): observaciones 6, 8, 9 y 10
 - [CAMBIOS-lote-W-escenarios.md](CAMBIOS-lote-W-escenarios.md): observaciones 11, 12 y 13
 
-**Cómo aplicarlo.** El `filmspirit-servidor.zip` de este lote trae los lotes T, U, V y W. En la VPS, como siempre:
+**Cómo aplicarlo.** El `filmspirit-servidor.zip` de este lote trae los lotes T, U, V (clonar atributos y rendimiento) y W. En la VPS, como siempre:
 `cd /root && unzip -o filmspirit-servidor.zip && cd server && sudo bash deploy/actualizar.sh`.
 El zip viene sin los maniquíes 3D: el actualizador conserva los que ya están instalados. No hay variables nuevas. La
-base de datos suma sola la migración 10 del lote U (si todavía no se aplicó). El servidor suma un servicio nuevo
+base de datos suma solas las migraciones 10 (lote U, racha de escritura) y 11 (lote V · rendimiento, cola de correos)
+si todavía no se aplicaron; el actualizador respalda antes. El paquete trae copias ya comprimidas (.br y .gz); al
+conservar los maniquíes instalados, el servidor vuelve a comprimir solo lo que cambió (probado). El servidor suma un servicio nuevo
 (`POST /api/maps/resolve`, para los enlaces cortos de Google Maps) y su política de seguridad permite las teselas de
 OpenStreetMap; no hay que configurar nada.
 
