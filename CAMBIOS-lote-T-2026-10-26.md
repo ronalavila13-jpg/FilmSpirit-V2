@@ -2,6 +2,11 @@
 
 Base: lote S. Solo la app (storyboard).
 
+**Cómo aplicarlo.** Igual que siempre, en la VPS:
+`cd /root && unzip -o filmspirit-servidor.zip && cd server && sudo bash deploy/actualizar.sh`.
+El zip viene sin los maniquíes 3D: el actualizador conserva los que ya están instalados. No hay migración ni variables
+nuevas.
+
 - **Elegir viñetas**: **Ctrl+clic** (⌘ en Mac) o Mayús+clic en una viñeta la elige o la suelta, sin abrir su editor. Se
   pueden elegir viñetas de cualquier escena. En el teléfono: «⋯ › Elegir para clonar». Las elegidas llevan borde rojo y
   fondo tenue; abajo aparece una barra con cuántas son, sus códigos y «Quitar». Esc o un clic en un espacio vacío sueltan
