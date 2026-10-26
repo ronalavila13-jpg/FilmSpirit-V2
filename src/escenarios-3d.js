@@ -228,6 +228,12 @@ function openSet3dImporter(opts, done) {
         ${opts.loc ? `<label class="opt" style="padding:8px 10px"><input type="checkbox" id="e3Loc" ${S.loc ? 'checked' : ''}><span><b>Usarlo en toda la locación</b><span class="hint">${esc(titleCase(opts.loc))}: los demás planos de esta locación también lo usan.</span></span></label>` : ''}
         <p class="hint" id="e3Stats" style="margin:0"></p>
         <button class="btn sm ghost" id="e3Swap" ${ed ? '' : 'hidden'}>Cambiar el archivo…</button>
+        <div class="e3-w" id="e3W" hidden>
+          <!-- lote W · replicar como escenario editable y versión liviana (escenarios-replica.js) -->
+          <button class="btn sm" id="e3Rep" title="Muros, piso, puertas y ventanas y los volúmenes grandes, en el constructor de escenarios">Replicar como escenario editable</button>
+          <span class="hint">Sirve para interiores de muros rectos.</span>
+          <button class="btn sm" id="e3Lite" title="Menos triángulos y texturas más chicas: casi el mismo aspecto, mucho menos espacio">Versión liviana</button>
+        </div>
       </div></div></div>
     <footer><button class="btn" data-x>Cancelar</button><button class="btn primary" id="e3Ok" disabled>${ed ? 'Guardar' : 'Importar escenario'}</button></footer></div>`;
   document.body.appendChild(ov);
@@ -367,7 +373,11 @@ function openSet3dImporter(opts, done) {
     const H = S.t.H, kb = S.pk ? S.pk.kb : (ed && ed.kb) || Math.round(S.url.length * .75 / 1024);
     const nt = H.texs.length, cut = S.pk ? S.pk.cut && S.pk.from : ed && ed.cut && ed.from;
     $o('#e3Stats').innerHTML = esc(`${(H.tris || 0).toLocaleString('es-PE')} triángulos · ${kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' kB'}${nt ? ` · ${nt} ${nt === 1 ? 'textura' : 'texturas'}` : ''}.`)
-      + (cut ? `<br>${esc(`Se redujo de ${Math.round(cut).toLocaleString('es-PE')} triángulos para que cargue rápido.`)}` : '');
+      + (S.lite ? `<br><b>${esc(`Versión liviana: pesaba ${rpKB(S.lite.from)}, ahora ${rpKB(kb)}.`)}</b>` : cut ? `<br>${esc(`Se redujo de ${Math.round(cut).toLocaleString('es-PE')} triángulos para que cargue rápido.`)}` : '');
+    // lote W · replicar y versión liviana (la liviana, solo si hay algo que aligerar)
+    const wb = $o('#e3W'); wb.hidden = !has || !!S.busy;
+    const light = (H.tris || 0) <= RP_LIGHT.tris * 1.1 && kb <= 1300;
+    const lb = $o('#e3Lite'); lb.disabled = light || !!S.lite; lb.title = light || S.lite ? 'Ya es liviano.' : 'Menos triángulos y texturas más chicas: casi el mismo aspecto, mucho menos espacio';
   }
   function afterLoad(reset) {
     S.fl = set3dFloors(S.t, S.zup);
@@ -417,7 +427,7 @@ function openSet3dImporter(opts, done) {
     R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); S.W = 0; draw();
     return { url: imgUrl(c, { fixed: true }), b: [box.min.x - S.ax, box.min.z - S.az, box.max.x - S.ax, box.max.z - S.az].map(v => Math.round(v * 1000) / 1000), h: Math.round(box.max.y * 100) / 100, dn: Math.round(Math.max(0, -box.min.y) * 100) / 100 };
   }
-  async function save() {
+  async function save(after) {
     if (!S.t || S.busy) return;
     const id = ed ? ed.id : uid('e'), k = m3Key('s', id), pic = renderPic();
     const d = {
@@ -429,6 +439,8 @@ function openSet3dImporter(opts, done) {
     for (const f in d) if (d[f] === undefined) delete d[f];
     const ok = $o('#e3Ok'); ok.disabled = true; S.busy = 'Guardando…'; paint();
     try {
+      // lote W · la versión liviana reemplaza al modelo guardado: el de antes vuelve con «Deshacer»
+      if (S.lite && ed && S.url0) histNote(`Versión liviana de «${ed.n}»`, { [k]: S.url0 }, typeof UI !== 'undefined' ? UI.tab : '');
       if (S.own) {
         await m3Save(k, S.url);
         // la ventana ya lo abrió: queda como la plantilla de esa clave (no se vuelve a abrir)
@@ -443,6 +455,44 @@ function openSet3dImporter(opts, done) {
     if (opts.loc) { P.locSet3d = P.locSet3d || {}; if (applyLoc) P.locSet3d[opts.loc] = id; else if (P.locSet3d[opts.loc] === id) delete P.locSet3d[opts.loc]; }
     S.saved = true; close();
     if (done) done(id, applyLoc);
+    if (S.lite) toast(`Escenario guardado en su versión liviana: pesaba ${rpKB(S.lite.from)}, ahora ${rpKB(d.kb)}.`, 5000);
+    if (after) after(id);
+  }
+  /* ---------- lote W · versión liviana y réplica editable (escenarios-replica.js) ---------- */
+  async function lite() {
+    if (!S.t || S.busy) return;
+    const before = S.pk ? S.pk.kb : (ed && ed.kb) || Math.round((S.url || '').length * .75 / 1024);
+    S.busy = 'Armando la versión liviana…'; paint(); await new Promise(r => setTimeout(r, 30));
+    try {
+      const pk = await rpLightPack(S.t, S.name), t = await m3Parse(pk.url);
+      if (S.own && S.t) m3Dispose(S.t);
+      S.t = t; S.own = true; S.url = pk.url; S.pk = pk; S.changed = true; S.lite = { from: S.lite ? S.lite.from : before };
+      S.busy = ''; afterLoad(false);
+    } catch (e) { console.warn(e); S.busy = ''; paint(); toast('No se pudo armar la versión liviana. Inténtalo de nuevo.', 6000); }
+  }
+  async function replicate() {
+    if (!S.t || S.busy) return;
+    S.busy = 'Leyendo la planta…'; paint(); await new Promise(r => setTimeout(r, 30));
+    let r = null;
+    try {
+      place(); hold.updateMatrixWorld(true);
+      // sin vidrios ni lo transparente: una ventana con vidrio sigue siendo un hueco
+      const L = meshes3.filter((m, i) => m.isMesh && i < S.t.parts.length && !(S.t.H.mats[S.t.parts[i].m] || {}).tr);
+      r = rpReplicate(rpTris(L, S.ax, S.az));
+    } catch (e) { console.warn('réplica:', e); }
+    S.busy = ''; paint();
+    if (!r || r.big || !r.walls.length) { toast(r && r.big ? 'El modelo es muy grande para replicarlo: sirve para interiores.' : 'No se encontraron muros rectos a 1,5 m del piso. Revisa el piso, el giro y las medidas.', 6000); return; }
+    const name = (($o('#e3Name').value || '').trim() || S.name || 'Escenario').slice(0, 68);
+    const data = { ...bsNew(name + ' (editable)', opts.loc), walls: r.walls, floor: r.floor, items: r.items, wh: r.wh, int: S.int };
+    const kb = S.pk ? S.pk.kb : (ed && ed.kb) || 0;
+    const build = (keepId, drop) => openSetBuilder({ from: data, loc: opts.loc, name: data.n }, (rid, all) => { if (done) done(rid, all); if (drop) rpDropOriginal(drop, rid); });
+    askBox({
+      title: 'Replicar como escenario editable', danger: false,
+      text: esc(`Salieron ${r.n.walls} ${r.n.walls === 1 ? 'muro' : 'muros'}, ${r.n.ops} ${r.n.ops === 1 ? 'puerta o ventana' : 'puertas y ventanas'} y ${r.n.vols} ${r.n.vols === 1 ? 'volumen' : 'volúmenes'}; se abren en el constructor para corregirlos. ¿Conservas el modelo 3D original${kb ? ` (${rpKB(kb)})` : ''} o lo borras para liberar espacio?`),
+      ok: 'Conservar el original', cancel: 'Cancelar',
+      alt: { label: 'Borrar el original', fn: () => { if (ed) { close(); build(null, ed.id); } else { S.saved = true; close(); build(); } } },
+      onOk: () => { if (ed && !S.changed) { close(); build(ed.id); } else save(id => build(id)); },
+    });
   }
   // ---------- cerrar ----------
   function close() {
@@ -464,6 +514,8 @@ function openSet3dImporter(opts, done) {
     if (e.target.closest('[data-x]')) { req('x'); return; }
     if (e.target.closest('#e3Pick') || e.target.closest('#e3Swap')) { pick(); return; }
     if (e.target.closest('#e3Ok')) { save(); return; }
+    if (e.target.closest('#e3Lite')) { lite(); return; }   // lote W
+    if (e.target.closest('#e3Rep')) { replicate(); return; }   // lote W
     const v = e.target.closest('[data-v]'); if (v) { S.view = v.dataset.v; paint(); draw(); return; }
     if (!S.t) return;
     const up = e.target.closest('[data-up]');
@@ -530,7 +582,7 @@ function openSet3dImporter(opts, done) {
     m3TplWait(m3Key('s', ed.id)).then(t => {
       S.busy = '';
       if (!t) { paint(); toast('No se pudo abrir el modelo de este escenario. Vuelve a subir el archivo.', 6000); $o('#e3Drop').hidden = false; return; }
-      S.t = t; S.url = FRAMES[m3Key('s', ed.id)] || ''; afterLoad(false);
+      S.t = t; S.url = S.url0 = FRAMES[m3Key('s', ed.id)] || ''; afterLoad(false);
     });
   }
   return ov;
