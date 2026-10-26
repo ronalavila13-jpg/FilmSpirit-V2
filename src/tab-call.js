@@ -473,7 +473,7 @@ RENDER.call = function () {
   const sndHTML = x => edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '');
   const shotRow = (r, x, col) => `<tr class="cl-lsh" style="--rc:${ea(col)}"><td class="cl-ln cl-pc"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td>
     <td colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<span class="cl-shd"><b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</span><span class="cl-sha">${esc(x.act)}</span>
-      <span class="cl-shm"><span class="cl-shl tnum">${esc(x.lens)}</span><span class="cl-shs">${sndHTML(x)}</span><span class="cl-shc tnum">${x.cast.length ? `<span class="cl-mlab">Reparto</span> ${esc(x.cast.join(', '))}` : ''}</span></span></div></td></tr>`;
+      <span class="cl-shm"><span class="cl-shset">${r.set ? `<span class="cl-mlab">Set</span> ${esc(r.set)}` : ''}</span><span class="cl-shl tnum">${esc(x.lens)}</span><span class="cl-shs">${sndHTML(x)}</span><span class="cl-shc tnum">${x.cast.length ? `<span class="cl-mlab">Reparto</span> ${esc(x.cast.join(', '))}` : ''}</span></span></div></td></tr>`;
   const list = [...S.rows, ...S.close];
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
@@ -484,7 +484,7 @@ RENDER.call = function () {
       <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`
       + (r.shots || []).map(x => shotRow(r, x, col)).join('');
   };
-  const shHead = S.byShot ? `<tr class="cl-lhs"><th>Plano</th><th colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? '<span></span>' : ''}<span>Descripción</span><span>Acción</span><span class="cl-shm"><span>Lente</span><span>Sonido</span><span>Personajes</span></span></div></th></tr>` : '';
+  const shHead = S.byShot ? `<tr class="cl-lhs"><th>Plano</th><th colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? '<span></span>' : ''}<span>Descripción</span><span>Acción</span><span class="cl-shm"><span>Set</span><span>Lente</span><span>Sonido</span><span>Personajes</span></span></div></th></tr>` : '';
   const schedHTML = `<table class="cl-list cl-sched"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr>${shHead}</thead><tbody>
     ${list.map(lrow).join('') || '<tr><td colspan="5" class="hint">Jornada sin escenas.</td></tr>'}
     <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${tmIn(dd.end || '', S.end || 'Hora', 'data-bind="cl-end" aria-label="Hora de fin de jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis)}</span>` : `<b class="tnum">${esc(S.end || '')}</b>`}</td><td colspan="3"><b>Fin de jornada</b> <span class="cl-dim">· ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}</span></td><td class="cl-lpg tnum"><small>Total</small> <b>${esc(fmtEighths(inf.e))}</b></td></tr></tbody></table>`;
