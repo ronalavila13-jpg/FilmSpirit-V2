@@ -250,6 +250,7 @@ HELP.scout = [
   ['Lugares', 'A la izquierda, cada lugar que pide el guion (la locación del encabezado de sus escenas), con cuántas candidatas tiene y la elegida (✓).'],
   ['Candidatas', '«+ Candidata» agrega un sitio que visitaste o que vas a visitar: fotos, dirección, enlace al mapa, quién da el permiso, su teléfono, el costo por día y notas (luz, ruido, acceso…).'],
   ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el plan de rodaje, con su dirección; de ahí pasa a la hoja de llamado.'],
+  ['Mapa general', 'En «Mapa general», todas las candidatas de todos los lugares en un mapa: el pin dice su estado (rojo con ✓ la elegida, oscuro la aprobada, blanco la visitada, punteado la que falta visitar, gris chico la descartada). Toca un pin o una candidata de la lista para ver su tarjeta, con «Abrir ficha» y «Cómo llegar». El lugar sale solo del enlace de Google Maps; si el enlace no lo trae, «Ubicar en el mapa» y toca dónde está (el pin se arrastra para corregir).'],
   ['Equipo', 'El scouting viaja con el plan de rodaje: lo edita quien puede editar el plan.'],
   ['Exportar', 'Un dossier en PDF con cada lugar y sus candidatas, con o sin fotos, o solo con las elegidas.'],
 ];
