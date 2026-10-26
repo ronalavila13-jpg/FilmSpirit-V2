@@ -862,6 +862,26 @@ function shotCloneFrom(dst, src, pick) {
 }
 function findPose(s3, id) { for (const k of s3.keys) if (k.o[id]) return k.o[id]; return null; }
 
+/* ---------- lote W · escala de los objetos (obs. 10) ----------
+   ob.sc: cuánto mide un objeto, vehículo, animal o modelo importado como objeto respecto de su tamaño de siempre (1 =
+   100 %, de 10 % a 500 %). Es del objeto en todo el plano (no se anima). Las figuras no: su estatura viene de Personajes;
+   los extras en grupo y las luces tampoco. Se ve en la viñeta (s3d-render), en la planta del plano, en la planta general y
+   en el PDF (su huella: propFoot) */
+const OBJ_SC = [.1, 5];
+const scalable = ob => !!ob && !!ob.kind && ob.kind !== 'actor' && ob.kind !== 'luz' && ob.kind !== 'gente';
+const objSc = ob => { const v = scalable(ob) ? +ob.sc : 1; return v > 0 && isFinite(v) ? clamp(v, OBJ_SC[0], OBJ_SC[1]) : 1; };
+/* la huella del objeto en la planta (ancho y fondo en metros), con su escala */
+function propFoot(ob) {
+  const fp = (typeof S3_PROPS !== 'undefined' && S3_PROPS[ob.kind]) || { w: .5, d: .5, name: ob.kind }, k = objSc(ob);
+  return k === 1 ? fp : { ...fp, w: fp.w * k, d: fp.d * k };
+}
+/* la escala guardada: un número de 0,1 a 5 con dos decimales; 1 (o algo raro) no se anota */
+function objScClean(ob) {
+  if (!ob || typeof ob !== 'object' || !('sc' in ob)) return;
+  const v = +ob.sc;
+  if (scalable(ob) && isFinite(v) && v > 0 && Math.abs(v - 1) > .004) ob.sc = Math.round(clamp(v, OBJ_SC[0], OBJ_SC[1]) * 100) / 100; else delete ob.sc;
+}
+
 /* ---------- lote W · lo que muestra la viñeta 3D: tamaño, ángulo y movimiento ----------
    Para avisar en el editor cuando la cámara 3D no coincide con el guion técnico. Sin THREE: proyecta con la cámara del
    plano (posición, altura, paneo, tilt, holandés, lente y sensor) igual que el visor (s3d-render, giros en orden YXZ).
@@ -1179,4 +1199,4 @@ function s3Of(sh) {
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable };

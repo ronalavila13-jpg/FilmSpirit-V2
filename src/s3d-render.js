@@ -552,7 +552,7 @@ function r3Sync(s3, st, opts) {
     // sobre el suelo que tiene debajo (la vereda) más lo que se subió a mano (figuras y objetos pequeños)
     E.root.position.set(p.x, liftOf(s3, p, !!(S3_PROPS[ob.kind] || {}).small || ob.kind === 'actor'), p.z);
     E.root.rotation.set(0, rad(p.rot || 0), 0);
-    E.root.scale.setScalar(1);
+    E.root.scale.setScalar(objSc(ob));   // lote W · la escala del objeto (1 en figuras y extras)
     E.blob.visible = !sim;
     if (E.kind === 'actor' && E.cut) { E.look = look; }
     else if (E.kind === 'actor') {
@@ -592,7 +592,7 @@ function r3Sync(s3, st, opts) {
     const m = _m4().multiplyMatrices(anchor.matrixWorld, off);
     const pos = new T.Vector3(), q = new T.Quaternion(), sc = new T.Vector3();
     m.decompose(pos, q, sc);
-    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(1);
+    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(objSc(ob));   // lote W · con su escala
     E.blob.visible = false; E.sel.visible = false;
     if (E.parts.hg) objLay(E.parts, true);
   }
@@ -609,7 +609,7 @@ function r3Viewport(W, H) {
 function r3ShadowSig(s3, st) {
   const { keys, objs, aim, shake, ...scene } = s3;     // todo lo del escenario (set, atmósfera, sol, habitación, plano, luz) menos la cámara
   let k = JSON.stringify(scene) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
-  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
+  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.sc ? 's' + o.sc : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
   return k;
 }
 function r3Draw(ctx, s3, t, W, H, opts = {}) {

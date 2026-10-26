@@ -98,6 +98,8 @@ function normalizeProject(Px) {
     if (typeof carClean === 'function') carClean(sh.s3);   // el vehículo del interior: modelo que existe y color válido
     // las medidas de la planta: solo las que tienen dos puntas válidas (s3d-plan.js)
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
+    // lote W · D: la escala de los objetos (s3d-model.js)
+    if (Array.isArray(sh.s3.objs)) for (const o of sh.s3.objs) objScClean(o);
   }
   sanitizeProject(Px);
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas

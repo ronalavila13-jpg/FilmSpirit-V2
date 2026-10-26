@@ -102,7 +102,7 @@ function genteLayout(ob0) {
 function objFoot(ob) {
   if (ob.kind === 'actor') return { w: .52, d: .52, name: ob.name || 'Figura' };
   if (ob.kind === 'gente') { const L = genteLayout(ob); return { w: L.w, d: L.d, name: ob.name || 'Extras' }; }
-  return S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };
+  return typeof propFoot === 'function' ? propFoot(ob) : S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };   // lote W · con su escala
 }
 const genteLabel = ob => `${ob.name || 'Extras'} · ${ob.n} · ${(GENTE_SIT[ob.sit] || GENTE_SIT.concierto).name.toLowerCase()}`;
 

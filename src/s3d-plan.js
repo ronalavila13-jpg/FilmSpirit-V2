@@ -221,7 +221,7 @@ function makePlan(canvas, ed, opt = {}) {
     for (const ob of s3.objs.filter(o => o.kind === 'luz')) drawLight(ob, st.o[ob.id], st);
     for (const ob of s3.objs.filter(o => o.kind !== 'actor' && o.kind !== 'luz' && !o.hold)) {
       const p = st.o[ob.id]; if (!p) continue;
-      const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };
+      const fp = objFoot(ob);   // lote W · con su escala
       const [sx, sy] = toS(p.x, p.z);
       // extras en grupo: un punto por persona dentro de su área (punteada) y un solo nombre
       if (ob.kind === 'gente') {
@@ -244,7 +244,7 @@ function makePlan(canvas, ed, opt = {}) {
       }
       if (ob.kind === 'puerta' || ob.kind === 'ventana') {
         ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot));
-        const w = (ob.kind === 'puerta' ? .9 : 1.3) * V.sc;
+        const w = (ob.kind === 'puerta' ? .9 : 1.3) * objSc(ob) * V.sc;
         ctx.fillStyle = PLAN_C.bg; ctx.fillRect(-w / 2 - 2, -Math.max(3, .15 * V.sc) / 2 - 1, w + 4, Math.max(3, .15 * V.sc) + 2);
         ctx.strokeStyle = sel === ob.id ? PLAN_C.cam : PLAN_C.ink; ctx.lineWidth = sel === ob.id ? 2.2 : 1.3;
         if (ob.kind === 'puerta') {
@@ -264,7 +264,7 @@ function makePlan(canvas, ed, opt = {}) {
       ctx.fillStyle = PLAN_C.prop; ctx.strokeStyle = sel === ob.id ? PLAN_C.cam : PLAN_C.propLine; ctx.lineWidth = sel === ob.id ? 2.4 : 1.2;
       ctx.fillRect(-fp.w * V.sc / 2, -fp.d * V.sc / 2, fp.w * V.sc, fp.d * V.sc); ctx.strokeRect(-fp.w * V.sc / 2, -fp.d * V.sc / 2, fp.w * V.sc, fp.d * V.sc);
       ctx.restore();
-      if (V.sc > 14) { ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(fp.name, sx, sy + 3); }
+      if (V.sc > 14) { ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(fp.name + (objSc(ob) !== 1 ? ` · ${Math.round(objSc(ob) * 100)} %` : ''), sx, sy + 3); }
       if (sel === ob.id) handle(ob, p);
     }
     for (const ob of s3.objs.filter(o => o.kind === 'actor')) {

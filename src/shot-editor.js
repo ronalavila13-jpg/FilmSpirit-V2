@@ -809,7 +809,44 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (rh.front) { g2.fillStyle = '#fff'; g2.strokeStyle = 'rgba(0,0,0,.45)'; g2.lineWidth = 1 * k; g2.beginPath(); g2.arc(rh.x, rh.y, 4.5 * k, 0, Math.PI * 2); g2.fill(); g2.stroke(); }
     g2.restore();
     E.giz = { c: [c.x, c.y], ax, ring, rh: rh.front ? [rh.x, rh.y] : null, k, y0 };
+    drawScCorners(g);
   }
+  /* ---------- lote W · escala con las esquinas (obs. 10) ----------
+     Un objeto, vehículo, animal o modelo elegido lleva cuatro esquinas finas alrededor de lo que ocupa en la viñeta;
+     arrastrar una lo agranda o achica desde su centro (Mayús: de 10 en 10 %). El número va en el panel (Escala) */
+  let _box = null;
+  function drawScCorners(g) {
+    E.scBox = null;
+    if (!g || !scalable(g.ob) || g.ob.hold || E.free) return;
+    const R = R3.objs.get(g.ob.id), inner = R && (R.inner || R.root); if (!inner || !R.root.parent) return;
+    R.root.updateMatrixWorld(true);
+    if (!_box) _box = new THREE.Box3();
+    _box.setFromObject(inner); if (_box.isEmpty()) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const q = r3Project(i & 1 ? _box.max.x : _box.min.x, i & 2 ? _box.max.y : _box.min.y, i & 4 ? _box.max.z : _box.min.z, VW, VH);
+      if (!q.front) return;
+      x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y);
+    }
+    const k = g.k || VW / Math.max(1, vpC.getBoundingClientRect().width), pad = 6 * k;
+    x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+    if (x1 - x0 < 24 * k || y1 - y0 < 24 * k || x1 < 0 || y1 < 0 || x0 > VW || y0 > VH) return;
+    const L = Math.min(16 * k, (x1 - x0) / 3, (y1 - y0) / 3), C = [[x0, y0, 1, 1], [x1, y0, -1, 1], [x1, y1, -1, -1], [x0, y1, 1, -1]], g2 = vctx;
+    g2.save(); g2.lineCap = 'round'; g2.lineJoin = 'round';
+    for (const [w, col] of [[4 * k, 'rgba(0,0,0,.3)'], [2 * k, '#FFFFFF']]) {
+      g2.lineWidth = w; g2.strokeStyle = col;
+      for (const [x, y, sx, sy] of C) { g2.beginPath(); g2.moveTo(x + sx * L, y); g2.lineTo(x, y); g2.lineTo(x, y + sy * L); g2.stroke(); }
+    }
+    g2.restore();
+    E.scBox = { C: C.map(([x, y]) => [x, y]), c: [(x0 + x1) / 2, (y0 + y1) / 2], k };
+  }
+  function scHit(px, py) {
+    const B = E.scBox; if (!B) return null;
+    const i = B.C.findIndex(([x, y]) => Math.hypot(px - x, py - y) < 16 * B.k);
+    return i < 0 ? null : i;
+  }
+  /* la escala del objeto (1 no se anota) */
+  function scSet(ob, v) { v = clamp(v, OBJ_SC[0], OBJ_SC[1]); if (Math.abs(v - 1) < .004) delete ob.sc; else ob.sc = Math.round(v * 100) / 100; }
   function gizmoHit(px, py) {
     const G = E.giz; if (!G) return null;
     const k = G.k, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -849,6 +886,9 @@ function openShotEditor(id, isNew, from2d, waited) {
     const ph = r3PoseHit(px, py, VW, VH);
     if (ph) { vDrag = { t: 'posemenu', id: ph.id, hit: ph, sx: e.clientX, sy: e.clientY, dead: E.poseOpen === ph.id }; return; }
     closePoseMenu();
+    // lote W · una esquina del objeto elegido: agrandar o achicar
+    const sci = scHit(px, py);
+    if (sci != null) { const ob = selOb(), B = E.scBox; vDrag = { t: 'scale', id: E.sel, c: B.c, d0: Math.max(4, Math.hypot(px - B.c[0], py - B.c[1])), s0: objSc(ob), sx: e.clientX, sy: e.clientY }; return; }
     const gz = gizmoHit(px, py);
     if (gz) {
       const p = ed.state().o[E.sel], y0 = E.giz.y0;
@@ -949,11 +989,23 @@ function openShotEditor(id, isNew, from2d, waited) {
       if (e.pointerType !== 'mouse') return;
       const [px, py] = vpPos(e);
       if (E.pring) { const P2 = E.pring; vpC.style.cursor = Math.hypot(px - P2.ef[0], py - P2.ef[1]) < 22 * P2.k || Math.hypot(px - P2.pv[0], py - P2.pv[1]) < P2.r + 10 * P2.k ? 'grab' : ''; return; }
+      const sci = scHit(px, py);
+      if (sci != null) { vpC.style.cursor = sci % 2 ? 'nesw-resize' : 'nwse-resize'; return; }
       if (E.giz) { const h = gizmoHit(px, py); vpC.style.cursor = h ? (h === 'rot' ? 'alias' : h === 'free' ? 'move' : h === 'y' ? 'ns-resize' : 'grab') : ''; }
       return;
     }
     const [px, py, r] = vpPos(e);
     if (vDrag.t === 'posemenu') { if (Math.hypot(e.clientX - vDrag.sx, e.clientY - vDrag.sy) > 8) vDrag.dead = true; return; }
+    if (vDrag.t === 'scale') {
+      const D0 = vDrag, ob = E.s3.objs.find(o => o.id === D0.id); if (!ob) return;
+      if (!D0.moved && Math.hypot(e.clientX - D0.sx, e.clientY - D0.sy) < 3) return;
+      if (!D0.moved) snapshot();
+      let v = D0.s0 * Math.hypot(px - D0.c[0], py - D0.c[1]) / D0.d0;
+      v = e.shiftKey ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100;
+      scSet(ob, v); E.custom = true; D0.moved = true; stCache = null;
+      showZoom(Math.round(objSc(ob) * 100) + ' %'); redraw();
+      return;
+    }
     if (vDrag.t === 'orbit') {
       if (!vDrag.moved && Math.hypot(e.clientX - vDrag.sx, e.clientY - vDrag.sy) < 4) return;
       E.free.yaw -= (e.clientX - vDrag.x) * .4; E.free.pitch = clamp(E.free.pitch + (e.clientY - vDrag.y) * .3, -10, 85);
@@ -1692,8 +1744,11 @@ function openShotEditor(id, isNew, from2d, waited) {
       const hex = /^#[0-9a-f]{6}$/i.test(cur) ? cur : '#808080', own = !list.some(c => c.toLowerCase() === hex.toLowerCase());
       extra += `<div class="fld"><span>${isAnimal(ob.kind) ? 'Pelaje' : 'Color'}</span>${sws(list, 'data-o="paint"', cur, `<label class="sw sw-pick" style="--sw:${ea(hex)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-opc="1" value="${ea(hex)}" aria-label="Otro color"></label>`)}</div>`;
     }
+    // lote W · la escala del objeto (también con las esquinas en la viñeta) y volver a su tamaño
+    const pc = Math.round(objSc(ob) * 100);
+    const scale = `<div class="fp-sc">${rangeRow('Escala', 'osc', pc, OBJ_SC[0] * 100, OBJ_SC[1] * 100, 1, ' %')}<button type="button" class="linkbtn" data-o="screset" ${pc === 100 ? 'disabled' : ''} title="Vuelve al 100 %">Tamaño original</button></div>`;
     return `<div class="fp-head"><select data-o="kind" aria-label="Objeto" title="${ea(fp.wall && E.s3.set === 'int' ? 'Arrástralo en la planta hasta un muro: se encaja y abre un vano' : 'Tipo de objeto')}">${propOptions(ob.kind)}</select><button class="icbtn" data-o="objmenu" aria-haspopup="menu" title="Posición y quitar" aria-label="Más">${SXI.more}</button></div>
-      ${extra}`;
+      ${scale}${extra}`;
   }
   /* extras en grupo: cuántos, en qué situación, qué tan juntos y la ropa; «Mezclar» los reacomoda */
   function gentePanel(ob) {
@@ -1947,6 +2002,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (key === 'shake') { snapshot(); E.s3.shake = v; E.custom = true; edited(); return; }
     if (key === 'sunAz') { snapshot(); E.s3.sunAz = v; E.custom = true; edited(); return; }
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
+    if (key === 'osc') { const ob = selOb(); if (!ob) return; if (!E.gesture) snapshot(); E.custom = true; scSet(ob, v / 100); stCache = null; redraw(); return; }
     if (key.startsWith('lk:')) {
       const ob = selOb(); if (!ob) return;
       if (ob.el && P.elements[ob.el]) { const el = P.elements[ob.el]; el.look = { ...(el.look || {}), [key.slice(3)]: v }; E.lookDirty = true; }
@@ -2157,6 +2213,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.o === 'copyprev') { copyPrev(); return; }
     if (b.dataset.o === 'refollow') { refollow(); return; }
     if (b.dataset.o === 'readuse') { readUse(); return; }
+    if (b.dataset.o === 'screset') { const ob = selOb(); if (!ob || !ob.sc) return; snapshot(); E.custom = true; scSet(ob, 1); commit(); redraw(); toast(`${(S3_PROPS[ob.kind] || {}).name || 'Objeto'}: tamaño original.`); return; }
     if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }
     const ob = selOb();
     if (b.dataset.o === 'exprmenu' && ob) { if (!E.exprOpen) openExprMenu(ob, b); return; }
