@@ -4420,7 +4420,7 @@ input[type=time]::-webkit-calendar-picker-indicator{opacity:1;cursor:pointer;wid
 input:is([type=date],[type=time],[type=datetime-local])::-webkit-calendar-picker-indicator:hover{opacity:.8}
 
 
-/* ============ la leyenda de colores, sus colores y el panel «Apariencia» ============ */
+/* ============ la leyenda de colores, sus colores y el panel «Personalización» ============ */
 /* el grosor de las líneas (en tu pantalla): las finas de tablas y tarjetas, las gruesas del rayado y las reglas */
 :root{--l1:1px;--l2:2px}
 :root[data-lt="fina"]{--l1:.5px}
@@ -4556,7 +4556,7 @@ html[lang="en"] .tb-lang-c:empty::before{content:"EN"}
 .hlch i.hlch-plus{background:none;box-shadow:none;position:relative}
 .hlch i.hlch-plus::before{content:"+";position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-weight:700;line-height:1}
 
-/* «Apariencia»: la columna de la derecha, con dos pestañas: «Tu pantalla» (solo tuya) y «Colores del proyecto» */
+/* «Personalización» (antes «Apariencia»): la columna de la derecha, con dos pestañas: «Tu pantalla» (solo tuya) y «Colores del proyecto» */
 @media (min-width:701px){.np.lk{width:340px}body.np-on:has(#lookPanel.open) #app{margin-right:340px}}
 .lk-title{font-family:var(--font-display);font-size:var(--fs-6)}
 .lk-body{gap:0;padding:6px 16px 24px}
@@ -4638,6 +4638,26 @@ html[lang="en"] .tb-lang-c:empty::before{content:"EN"}
 .lgd .lgd-h+.lgd-pal{margin-left:0}
 .lgd .lgd-pal:hover{color:var(--ink)}
 @media (max-width:700px){.np.lk{height:min(78vh,680px)}}
+/* (lote W) «Personalización»: las pestañas visibles, en dos columnas por etapa (Guion y Preparación a la izquierda,
+   Imagen, Producción y Rodaje a la derecha, según quepan), sin recuadros */
+.lk-tabsv .tabs-pick{display:block;columns:2;column-gap:14px}
+.lk-tabsv .tp-g{break-inside:avoid;padding-bottom:6px}
+.lk-tabsv .tp-n{display:block;margin:2px 0 1px;font-size:var(--fs-2);font-weight:650;color:var(--ink)}
+.lk-tabsv .tabs-pick .opt{padding:4px 4px;gap:8px;border-radius:var(--r-xs)}
+.lk-tabsv .tabs-pick .opt:has(input:disabled){cursor:default;color:var(--muted)}
+.lk-tabsv .tabs-pick .opt:has(input:disabled):hover{background:none}
+/* en el teléfono: una hoja que sube desde abajo, casi a pantalla completa, con su asa; detrás, la pantalla se oscurece
+   un poco y tocarla cierra la hoja (leyenda.js) */
+@media (max-width:700px){
+  .np.lk{height:auto;top:max(56px,env(safe-area-inset-top,0px));border-radius:12px 12px 0 0;background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none;z-index:70}
+  .np.lk .np-head{position:relative;padding:16px 8px 8px 16px}
+  .np.lk .np-head::before{content:"";position:absolute;top:6px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
+  .np.lk .nf-ic{width:36px;height:36px}
+  .lk-body{padding:4px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+  .lk-tabsv .tabs-pick .opt{padding:7px 4px}
+  .lk-scrim{position:fixed;inset:0;z-index:69;background:rgba(16,16,16,.32)}
+}
+@media (min-width:701px){.lk-scrim{display:none}}
 /* ============ Calendario · vista Meses: hojas de mes como las de un calendario de pared ============ */
 .cm-wrap{gap:8px}
 .cm-sc{flex:1;min-height:0;overflow:auto}
@@ -4923,7 +4943,7 @@ svg.lf .i-ln{stroke:var(--ld,var(--d))} svg.lf .i-lm{stroke:var(--m)} svg.lf .i-
    y debajo una línea que cuenta la escena (la sinopsis o el comienzo de la primera acción) */
 .sch,#view .sch{font-family:var(--font-script);text-transform:uppercase;font-weight:700;letter-spacing:0;overflow-wrap:anywhere}
 /* fuera del Guion y del Guion rayado, los encabezados de escena y sus descripciones van en la letra del programa (la que
-   se elige en Apariencia › Letra), en mayúsculas como en el guion. Las citas del guion (el texto de la acción) siguen en
+   se elige en Personalización › Letra), en mayúsculas como en el guion. Las citas del guion (el texto de la acción) siguen en
    Courier */
 :root:not([data-tab="script"]):not([data-tab="lined"]) :is(.sch,#view .sch){font-family:var(--font-ui);font-weight:650;letter-spacing:.01em}
 :root:not([data-tab="script"]):not([data-tab="lined"]) :is([data-bind="synopsis"],.b-syn,.panel .pd,.shv-tx p,.c-hd small){font-family:var(--font-ui)}
@@ -5288,7 +5308,7 @@ body.home #viewH1{display:none}
 .bar-pm .qk-ico svg.lf{width:22px;height:22px}
 .bar-pm button[aria-current="page"]{font-weight:700;background:var(--fill)}
 @media (max-width:760px){ .bar-pick{max-width:38vw;overflow:hidden;text-overflow:ellipsis;padding-inline:8px} .bar-pick>span{overflow:hidden;text-overflow:ellipsis} }
-/* «Pestañas visibles», en el orden de la franja y por etapa */
+/* «Pestañas visibles» (Personalización › Tu pantalla), en el orden de la franja y por etapa */
 .tabs-pick .tp-g{display:grid;gap:0}
 .tabs-pick .tp-n{font-size:var(--fs-1);font-weight:700;color:var(--muted);margin:6px 0 0}
 /* Ir a… (Ctrl + K) */
@@ -5320,7 +5340,7 @@ kbd{display:inline-block;min-width:1.6em;padding:1px 6px;border-radius:4px;backg
    Los títulos en Archivo, como los textos (Recorte queda para el título de Inicio y la edición junto al logo). Los
    botones con esquinas de 6 px; «+ Nuevo» en negro (en el modo oscuro, en claro). Los grupos de opciones al estilo
    Apple, como las pestañas: un carril gris y la elegida en blanco, levantada, con esquinas de 2 px. El logotipo con
-   más aire alrededor y la edición en Recorte, en rojo, al lado. La letra elegida en Apariencia › Letra sigue mandando. */
+   más aire alrededor y la edición en Recorte, en rojo, al lado. La letra elegida en Personalización › Letra sigue mandando. */
 :root{--font-display:'Archivo',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;--fw-display:700;--accent-ink:#FFFEF6;--ed-red:#CE0C1C;--seg-on:var(--surface)}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--ed-red:#E8434B;--seg-on:#3B3B3B} }
 :root[data-theme="dark"]{--ed-red:#E8434B;--seg-on:#3B3B3B}

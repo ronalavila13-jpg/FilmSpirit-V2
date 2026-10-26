@@ -7,7 +7,8 @@ async function boot() {
   paintBrand();
   $('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.tab); });
   tabGroupsBuild();
-  { const tc = document.createElement('button'); tc.type = 'button'; tc.id = 'tabsCfg'; tc.className = 'tabs-cfg'; tc.title = 'Vista: pestañas visibles y apariencia (clara u oscura)'; tc.setAttribute('aria-label', 'Vista: pestañas y apariencia'); tc.innerHTML = ICO.more; tc.onclick = e => tabsMenu(e.currentTarget); $('#tabs').appendChild(tc); }
+  // (lote W) abre el panel «Personalización» (leyenda.js) en «Tu pantalla»: modo, pestañas visibles, colores y letra
+  { const tc = document.createElement('button'); tc.type = 'button'; tc.id = 'tabsCfg'; tc.className = 'tabs-cfg'; tc.title = 'Personalización: modo, pestañas visibles, colores y letra'; tc.setAttribute('aria-label', 'Personalización'); tc.setAttribute('aria-controls', 'lookPanel'); tc.innerHTML = ICO.more; tc.onclick = () => lookToggle('me'); $('#tabs').appendChild(tc); }
   $('#tabs').addEventListener('scroll', tabFade, { passive: true });
   addEventListener('resize', debounce(() => tabInView(false), 200));
   $('#newBtn').onclick = e => newMenu(e.currentTarget);
