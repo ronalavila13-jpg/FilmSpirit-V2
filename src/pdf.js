@@ -1282,7 +1282,7 @@ function pdfCall(opts = {}) {
         styles: { ...TB.styles, fontSize: FS, cellPadding: { top: 2.8, bottom: 2.8, left: 6, right: 6 } },
         columnStyles: { 0: { cellWidth: 38, cellPadding: { top: 2.8, bottom: 2.8, left: 10, right: 4 } }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 58 } } });
     } else {
-      y = pdfSec(doc, y - 4, 'Avance', { need: 40 });
+      y = pdfSec(doc, y - 4, 'Avance de la jornada siguiente', { need: 40 });
       T({ body: [[{ content: 'Fin de rodaje', styles: { font: 'title', fontStyle: 'bold', fontSize: 11, halign: 'center', lineWidth: 0 } }]] });
     }
     // 4. una sola tabla de personas: el reparto y el equipo por área (el área, un separador fino)
