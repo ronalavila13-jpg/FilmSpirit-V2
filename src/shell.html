@@ -5211,15 +5211,16 @@ label:has(>.file-in:focus-visible){outline:2px solid var(--accent);outline-offse
 :root[data-tone="dark"][data-tab="sup"]{--sx-sol:#E8730C;--sx-sol-ink:#222222;--sx-tab:#A94F08;--sx-tab-ink:#FFFEF6;--sx-pt:#332315;--sx-pt-deep:#EC8E3C;--sx-pt-mid:#422712;--sx-pt-c:#C78D5F;--sx-pt-bar:#281D14}
 :root[data-tone="dark"] :is([data-tabgo="sup"],.stg-m .tab[data-tab="sup"]){--ti-sol:#A94F08;--ti-sol-ink:#FFFEF6;--ti-pt:#422712;--ti-pt-c:#C78D5F}
 :root[data-tone="dark"][data-tab="project"]{--sx-sol:#4A4F57;--sx-sol-ink:#FFFFFF;--sx-tab:#4A4F57;--sx-tab-ink:#FFFFFF;--sx-pt:#262626;--sx-pt-deep:#C8C8C8;--sx-pt-mid:#353535;--sx-pt-c:#A8A8A8;--sx-pt-bar:#262626}
-/* «Grafito» (Apariencia › Color de las etapas), sin color: el dibujo de Suaves con todas las etapas y pestañas en grises; los
-   íconos de las etapas también en gris. Los colores del oficio (tiras, categorías, avisos) y el logotipo no cambian */
+/* «Grafito» (Personalización › Color de las etapas), sin color: el dibujo de Suaves con las barras y los acentos de todas
+   las etapas y pestañas en grises. (lote W) Lo que es de la marca queda en su color: el logotipo, los íconos de las etapas
+   (también el de la elegida, entero sobre su placa gris: ver «la barra de las etapas») y los de las pestañas, en la franja,
+   en el menú de cada etapa y en «Ir a…», como ya estaban. Los colores del oficio (tiras, categorías, avisos) no cambian */
 :root[data-secn] #tabs .stg[data-g]{--sg-sol:#2A2A2A;--sg-sol-ink:#FFFFFF;--sg-pt:#EFEFEF;--sg-pt-c:#5A5A5A}
 :root[data-secn][data-tab]{--sx-sol:#2A2A2A;--sx-sol-ink:#FFFFFF;--sx-tab:#4A4A4A;--sx-tab-ink:#FFFFFF;--sx-pt:#F4F4F4;--sx-pt-deep:#2A2A2A;--sx-pt-mid:#E8E8E8;--sx-pt-c:#6A6A6A;--sx-pt-bar:#F5F5F5}
 :root[data-secn] :is([data-tabgo],.stg-m .tab[data-tab]){--ti-sol:#4A4A4A;--ti-sol-ink:#FFFFFF;--ti-pt:#E8E8E8;--ti-pt-c:#6A6A6A}
 :root[data-secn][data-tone="dark"] #tabs .stg[data-g]{--sg-sol:#3D3D3D;--sg-sol-ink:#FFFFFF;--sg-pt:#262626;--sg-pt-c:#B0B0B0}
 :root[data-secn][data-tone="dark"][data-tab]{--sx-sol:#3D3D3D;--sx-sol-ink:#FFFFFF;--sx-tab:#555555;--sx-tab-ink:#FFFFFF;--sx-pt:#242424;--sx-pt-deep:#C8C8C8;--sx-pt-mid:#353535;--sx-pt-c:#A8A8A8;--sx-pt-bar:#262626}
 :root[data-secn][data-tone="dark"] :is([data-tabgo],.stg-m .tab[data-tab]){--ti-sol:#555555;--ti-sol-ink:#FFFFFF;--ti-pt:#353535;--ti-pt-c:#A8A8A8}
-:root[data-secn] :is(#tabs .stg .stg-h svg.lf,.tabstrip .ts-ic svg.lf){filter:grayscale(1) !important}
 /* la etapa elegida en la barra de la izquierda: Sólidos, una baldosa de su color con el nombre y el ícono en su tinta;
    Pastel, su velo y una raya de su color. (!important: le gana a las reglas viejas del modo oscuro) */
 @media (min-width:761px){
@@ -5398,12 +5399,13 @@ svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--
 :root :is([data-tabgo="sup"],.stg-m .tab[data-tab="sup"]){--ti-sol:#D9800B;--ti-sol-ink:#212121;--ti-pt:#F6D9B4;--ti-pt-c:#93550A}
 
 /* ---------- la barra de las etapas ---------- */
-/* en reposo, cada ícono en sus colores (sin el gris de antes); al elegirla, la placa de su color y el ícono a una tinta */
+/* en reposo, cada ícono en sus colores (sin el gris de antes); al elegirla, la placa de su color y el ícono a una tinta.
+   (lote W) En Grafito la placa es gris: el ícono va entero, en sus colores de marca, como en reposo */
 #tabs .stg:not(.on) .stg-h svg.lf{filter:none !important;opacity:1}
 @media (min-width:761px){
-  #tabs .stg.on .stg-h svg.lf .mi{fill:var(--sg-sol-ink)}
-  #tabs .stg.on .stg-h svg.lf .mk{fill:var(--sg-sol)}
-  #tabs .stg.on .stg-h svg.lf .sep{stroke:var(--sg-sol);stroke-width:7;paint-order:stroke}
+  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .mi{fill:var(--sg-sol-ink)}
+  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .mk{fill:var(--sg-sol)}
+  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .sep{stroke:var(--sg-sol);stroke-width:7;paint-order:stroke}
   #tabs .stg-h,#tabs .stg-h:hover,#tabs .stg.open .stg-h{border-radius:4px}
   #tabs .stg-h svg.lf{width:34px;height:34px}
   #tabs .stg:not(.on) .stg-h:hover{background:var(--fill) !important}
@@ -5437,8 +5439,12 @@ svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--
 :root[data-tone="dark"] .tabstrip button[aria-current="page"]{background:color-mix(in oklab,var(--sx-line) 16%,var(--chrome));color:var(--ink);box-shadow:inset 0 -2px 0 var(--sx-line)}
 :root[data-tone="dark"] .tabstrip button .ts-ic svg.lf,:root[data-tone="dark"]:not([data-sec="pastel"]) .tabstrip button:not([aria-current]) .ts-ic svg.lf{--d:var(--fs-rojo);--m:var(--fs-amarillo);--l:var(--fs-rojo);--x:var(--fs-rojo);--k:var(--chrome)}
 :root[data-tone="dark"] body{--tab:var(--sx-line,#8A8A8A);--tab-deep:var(--sx-line,#C8C8C8)}
+/* (lote W) Grafito de noche: la raya y el velo de la franja, y los acentos, también en gris (antes quedaban en el color
+   de la etapa) */
+:root[data-secn][data-tone="dark"][data-tab]{--sx-line:#A8A8A8}
 
-/* monocromo y Grafito: los íconos de la marca en grises */
+/* monocromo (la paleta «Escala de grises» del proyecto, para imprimir en blanco y negro): los íconos de la marca en
+   grises. Grafito, que es solo de tu pantalla, los deja en su color */
 :root[data-mono] svg.lf :is(.fy,.fo){fill:#8A8A8A} :root[data-mono] svg.lf :is(.fr,.fu,.fk){fill:#3A3A3A}
 
 /* ---------- lote S (25-oct-2026): stripboard con tiempos, hoja de llamado con horas libres, submenú sin opacar ---------- */
