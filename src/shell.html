@@ -3086,6 +3086,7 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
   .cl-ptbl td.cl-pn,.cl-vtbl td.cl-pn{flex:1 1 60%;order:1}
   .cl-ptbl td.cl-px,.cl-vtbl td.cl-px{order:2;margin-left:auto}
   .cl-ptbl td.cl-pj,.cl-ptbl td.cl-pr{flex:1 1 100%;order:3}
+  .cl .cl-ptbl :is(.cl-pn,.cl-pr,.cl-pt) input{padding-block:2px}
   .cl-ptbl td.cl-tt,.cl-vtbl td.cl-tt{order:4;display:grid;justify-items:center;padding:0 1px}
   .cl-ptbl td.cl-pt,.cl-vtbl td.cl-pt{order:5;flex:1 1 45%}
   .cl-ptbl td.cl-ob{order:6;flex:1 1 100%}
@@ -3103,7 +3104,8 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
   .cl-shg.th{grid-template-columns:64px minmax(0,1fr)}
   .cl-shg.th .cl-th{width:64px;grid-row:span 2}
   .cl-shg.th .cl-shm{grid-column:1/-1}
-  .cl-shm{grid-template-columns:auto auto auto minmax(0,1fr);gap:8px;align-items:center}
+  .cl-shm{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+  .cl-shs select.cl-snd{width:auto}
   .cl-opts{margin-left:0}
   .cl-foot{grid-template-columns:minmax(0,1fr);gap:12px}
   .cl-sec>header .linkbtn{margin-left:0}
