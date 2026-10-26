@@ -164,10 +164,14 @@ function sanitizeProject(Px) {
       // guion cerrado: dónde empieza cada página ([posición, número])
       if (p.lpg != null) { p.lpg = Array.isArray(p.lpg) ? p.lpg.filter(m => Array.isArray(m) && Number.isInteger(m[0]) && m[0] >= 0 && /^[\w-]{1,16}$/.test(String(m[1]))).map(m => [m[0], String(m[1])]).slice(0, 8) : []; if (!p.lpg.length) delete p.lpg; }
       if (p.rv != null && (typeof p.rv !== 'string' || !/^[a-z]{1,12}$/.test(p.rv))) delete p.rv;
-      // formato (negrita, itálica, subrayado, resaltado): tramos [desde, hasta] dentro del texto
+      // palabras cambiadas en la revisión: tramos [desde, hasta, color] y lo borrado [posición, color] (guion-revision.js)
+      const rvc = c => typeof c === 'string' && /^[a-z]{1,12}$/.test(c);
+      if (p.rvw != null) { p.rvw = Array.isArray(p.rvw) ? p.rvw.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length && rvc(r[2])).map(r => [r[0], r[1], r[2]]).slice(0, 400) : []; if (!p.rvw.length) delete p.rvw; }
+      if (p.rvd != null) { p.rvd = Array.isArray(p.rvd) ? p.rvd.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && r[0] >= 0 && r[0] <= p.x.length && rvc(r[1])).map(r => [r[0], r[1]]).slice(0, 200) : []; if (!p.rvd.length) delete p.rvd; }
+      // formato (negrita, itálica, subrayado, resaltado de seis colores): tramos [desde, hasta] dentro del texto
       if (p.fm != null) {
         if (!p.fm || typeof p.fm !== 'object' || Array.isArray(p.fm)) delete p.fm;
-        else { const o = {}; for (const k of ['b', 'i', 'u', 'h']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
+        else { const o = {}; for (const k of ['b', 'i', 'u', 'h', 'g', 'c', 'r', 'o', 'l']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
       }
     }
   }
@@ -214,6 +218,8 @@ function sanitizeProject(Px) {
     const on = n && n.on;
     if (!NOTE_ID_RE.test(id) || !n || typeof n !== 'object' || !on || typeof on !== 'object' || !/^[a-z]{1,12}$/.test(String(on.t || '')) || !/^[\w:.~-]{0,100}$/.test(String(on.id || ''))
       || (on.t === 'tab' && !/^[a-z]{1,12}$/.test(String(on.id || ''))) || (n.re != null && !NOTE_ID_RE.test(String(n.re)))) { delete N[id]; continue; }
+    // anotación a mano del guion rayado: sus trazos, limpios (guion-anotar.js); sin ninguno válido, se va
+    if (on.t === 'ink' && typeof anoCleanOn === 'function' && !anoCleanOn(on)) { delete N[id]; continue; }
     n.id = id;
     if (typeof n.text !== 'string') n.text = String(n.text ?? '');
     if (typeof n.ts !== 'number' || !isFinite(n.ts)) n.ts = 0;

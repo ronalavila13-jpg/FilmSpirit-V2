@@ -30,6 +30,7 @@ const { HttpError, sendJSON, sendText, redirect, readJSON, rateLimit, setRateHoo
 const { makeSecurity } = require('./lib/seguridad');
 const { open } = require('./lib/db');
 const temas = require('./lib/temas');
+const escritura = require('./lib/escritura');
 const { makeAuth } = require('./lib/auth');
 const { makeApi } = require('./lib/api');
 const { makeLive } = require('./lib/live');
@@ -319,6 +320,19 @@ function createServer(over) {
         const list = temas.cleanThemes(b && b.themes);
         S.run('UPDATE users SET themes=? WHERE id=?', JSON.stringify(list), u.id);
         return sendJSON(res, 200, { themes: list });
+      }
+      // contadores de escritura y racha de la persona (lib/escritura.js): el navegador manda lo que sumó y aquí se suma
+      if (p === '/api/me/writing' && (req.method === 'GET' || req.method === 'POST')) {
+        const u = auth.requireUser(req);
+        if (req.method === 'GET') return sendJSON(res, 200, { writing: escritura.writingOf(S.one('SELECT writing FROM users WHERE id=?', u.id)) });
+        auth.checkWrite(req);
+        rateLimit('writing:' + u.id, 240, 600e3);
+        const b = await readJSON(req, 64 * 1024);
+        // leer, sumar y guardar sin esperas de por medio: dos envíos a la vez no se pisan
+        const cur = S.one('SELECT writing FROM users WHERE id=?', u.id);
+        const W = escritura.merge(cur && cur.writing, b, Date.now());
+        S.run('UPDATE users SET writing=? WHERE id=?', JSON.stringify(W), u.id);
+        return sendJSON(res, 200, { writing: W });
       }
       if (p === '/api/config' && req.method === 'GET') return sendJSON(res, 200, { googleClientId: cfg.googleClientId, supportEmail: cfg.supportEmail || '' });
       // lista de espera de Studio (abre cuando existan el scouting con mapas y el casting): con o sin cuenta

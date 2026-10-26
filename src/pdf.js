@@ -447,6 +447,11 @@ function pdfScript(opts = {}) {
       doc.setTextColor(0, 0, 0); doc.text('Notas al margen con su fecha; la flecha señala el lugar del texto.', 132, ly2 + 15);
       ly2 += 15;
     }
+    if (opts.ink !== false && typeof anoAll === 'function' && anoAll().length) {
+      doc.setDrawColor(214, 48, 38); doc.setLineWidth(1.2); doc.setLineCap('round'); doc.lines([[5, -4], [5, 5], [6, -6]], 106, ly2 + 14, [1, 1], 'S', false); doc.setLineCap('butt');
+      doc.setTextColor(0, 0, 0); doc.text('Anotaciones a mano del equipo.', 132, ly2 + 15);
+      ly2 += 15;
+    }
     if (legend.length && Object.values(P.elements).some(e => e.auto && used.has(e.cat))) {
       doc.setTextColor(...MUTED); doc.text('Subrayado punteado: elemento sugerido sin confirmar.', 132, ly2 + 15);
     }
@@ -460,6 +465,7 @@ function pdfScript(opts = {}) {
   const base = li => TOP + li * 12 + 9.5;
   const ORD = lkRevOrder(), RV = ORD ? {} : P.rev || {};
   const MNI = !clean && typeof mnItems === 'function' ? mnItems() : null;   // notas al margen (guion-margen.js)
+  const INKI = !clean && opts.ink !== false && typeof anoPdfItems === 'function' ? anoPdfItems() : null;   // anotaciones a mano (guion-anotar.js)
   let first = true;
   D.pages.forEach((pg, pi) => {
     if (part && !pdfScriptPageOk(pg, pi)) return;
@@ -544,6 +550,7 @@ function pdfScript(opts = {}) {
       doc.text(lab, x, y1 - 2.4, { align: 'center' });
       doc.setTextColor(0, 0, 0); doc.setFontSize(12);
     }
+    if (INKI && INKI.get(pi)) anoPdfPage(doc, INKI.get(pi));
     if (mnl) mnPdfPage(doc, mnl, { LEFT, CW, base, rev });
   });
   const tail = clean ? '_guion' : tagsOn && covOn ? '_guion_rayado_y_etiquetado' : tagsOn ? '_guion_etiquetado' : '_guion_rayado';
@@ -1532,6 +1539,7 @@ function pdfLinedDialog(btn, opts) {
     body: `<div class="rg">
       ${av ? '' : `<label class="opt"><input type="checkbox" id="plCov" ${cov ? 'checked' : ''}><span><b>Rayado de planos</b><span class="hint">Una línea por plano sobre el texto que cubre, con su número arriba: naranja pendiente, verde rodado.</span></span></label>`}
       <label class="opt"><input type="checkbox" id="plTags" ${tags || av ? 'checked' : ''}><span><b>Etiquetas del desglose</b><span class="hint">El texto marcado con el color de su categoría${av ? ', en la columna Desglose' : ''}.</span></span></label>
+      ${!av && typeof anoAll === 'function' && anoAll().length ? `<label class="opt"><input type="checkbox" id="plInk" ${(UI.tab === 'lined' ? UI.mode.ink !== false : mem.ink !== false) ? 'checked' : ''}><span><b>Anotaciones a mano</b><span class="hint">${typeof anoMineOnly === 'function' && anoMineOnly() ? 'Lo que dibujaste y escribiste sobre el guion (solo las tuyas, como en pantalla).' : 'Lo que el equipo dibujó y escribió sobre el guion.'}</span></span></label>` : ''}
     </div>
     <fieldset class="rg pl-which"><legend>Etiquetas de</legend>
       ${radio('all', 'Todas las áreas')}
@@ -1545,13 +1553,13 @@ function pdfLinedDialog(btn, opts) {
   tg.addEventListener('change', sync); sync();
   $('#plArea', m).addEventListener('change', () => { const r = $('input[name=plw][value=area]', m); if (r) r.checked = true; });
   $('#plGo', m).onclick = () => {
-    const c = !av && $('#plCov', m).checked, t = tg.checked;
-    if (!c && !t) { toast('Elige el rayado, las etiquetas o las dos. El guion sin marcas es «Guion (PDF)».', 4500); return; }
+    const c = !av && $('#plCov', m).checked, t = tg.checked, ik = $('#plInk', m), ink = ik ? ik.checked : undefined;
+    if (!c && !t && !ink) { toast('Elige el rayado, las etiquetas o las dos. El guion sin marcas es «Guion (PDF)».', 4500); return; }
     const w = ($('input[name=plw]:checked', m) || {}).value || 'all', a = $('#plArea', m).value;
     const cats = !t || w === 'all' ? null : w === 'screen' ? linedShown() : SHEET.find(b => b.id === a).cats;
-    ls.set('pdfLined', { cov: c, tags: t, which: w, area: a });
+    ls.set('pdfLined', { cov: c, tags: t, which: w, area: a, ...(ik ? { ink } : {}) });
     closeModal();
-    exportPDF('script', btn, { ...opts, ask: false, cov: c, tags: t, cats, area: t && w === 'area' ? a : null });
+    exportPDF('script', btn, { ...opts, ask: false, cov: c, tags: t, cats, area: t && w === 'area' ? a : null, ink: ink !== false });
   };
 }
 /* ---------- desglose de un área: lo de un departamento, escena por escena ---------- */
