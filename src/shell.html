@@ -4414,7 +4414,9 @@ textarea.cand-in{resize:vertical;line-height:1.45}
 :root{--sm-glass:rgba(255,255,255,.84);--sm-glass-2:rgba(255,255,255,.92);--sm-glass-line:rgba(30,35,41,.08);--sm-tile-bg:#F3F1EC;--sm-pick:#CE0C1C;--sm-ink:#1E2329;--sm-grey:#5F6977;--sm-off:#C9CED6}
 :root[data-tone="dark"]{--sm-glass:rgba(34,34,34,.8);--sm-glass-2:rgba(34,34,34,.9);--sm-glass-line:rgba(255,255,255,.1);--sm-tile-bg:#2A2A2A}
 @media (min-width:761px){.sm-ws>.side{display:flex;flex-direction:column}}
-@media (max-width:760px){.sm-ws>.side.open{display:flex;flex-direction:column}}
+@media (max-width:760px){.sm-ws>.side.open{display:flex;flex-direction:column}
+  /* en el teléfono la vista mide lo que su contenido; el mapa no tiene alto propio: la vista llega hasta abajo */
+  body:not(.home) #app>#view:has(>.sm-ws){grid-row:3/-1}}
 .sm-list{padding:0 8px 8px;display:grid;gap:12px}
 .sm-list>li[hidden]{display:none}
 .sm-grp{display:grid;gap:1px}
