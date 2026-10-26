@@ -20,6 +20,9 @@ const edEditableBase = () => !UI.readOnly && (typeof canEditSec !== 'function' |
 // guion cerrado (guion-cierre.js): solo se escribe con una revisión abierta y el código de la persona
 const edEditable = () => edEditableBase() && (typeof lockWritable !== 'function' || lockWritable());
 const avRow = () => uid('r');
+// contadores de escritura (guion-racha.js): las palabras que suma o resta cada cambio hecho aquí (no lo que llega del equipo)
+const edWords = x => typeof wkWords === 'function' ? wkWords(x) : 0;
+const edWk = n => { if (n && typeof wkDelta === 'function') wkDelta(n); };
 
 /* ---------- deshacer ---------- */
 function edSnap() { return JSON.stringify({ paras: P.paras, tags: P.tags, shots: Object.values(P.shots).map(s => [s.id, s.p0, s.p1, s.sc]), format: P.meta.format || '' }); }
@@ -39,8 +42,9 @@ function edUndo(redo) {
   const from = redo ? ED.redo : ED.undo, to = redo ? ED.undo : ED.redo;
   if (!from.length) return;
   to.push(edSnap());
-  const fmt = edFormat();
+  const fmt = edFormat(), w0 = P.paras.reduce((a, p) => a + edWords(p.x), 0);
   edRestore(from.pop());
+  edWk(P.paras.reduce((a, p) => a + edWords(p.x), 0) - w0);   // deshacer lo escrito lo resta (y rehacer lo suma)
   ED.last = 0;
   edCommit(true);
   if (fmt !== edFormat()) render(); else renderEditorDoc();
@@ -145,13 +149,24 @@ function edRemap(newParas, map) {
   P.paras = newParas;
 }
 const edNear = (map, i, dir, stop) => { for (let k = i; dir > 0 ? k <= stop : k >= stop; k += dir) if (map[k]) return map[k].i; return null; };
-/* cambiar el texto de un párrafo: las marcas antes del cambio quedan, las de después se corren */
-function edSetText(i, x) {
+/* cambiar el texto de un párrafo: las marcas antes del cambio quedan, las de después se corren.
+   hint: dónde quedó el cursor. Escribir o borrar una letra igual a la vecina («a» junto a «a», un espacio junto a otro)
+   se puede leer en dos lugares; el cursor dice cuál fue (así lo nuevo de una revisión se marca justo donde se escribió) */
+function edSetText(i, x, hint) {
   const p = P.paras[i]; if (!p || p.x === x) return false;
-  const a0 = p.x;
+  const a0 = p.x, delta = x.length - a0.length;
   let pre = 0; while (pre < a0.length && pre < x.length && a0[pre] === x[pre]) pre++;
   let suf = 0; while (suf < a0.length - pre && suf < x.length - pre && a0[a0.length - 1 - suf] === x[x.length - 1 - suf]) suf++;
-  const oldEnd = a0.length - suf, delta = x.length - a0.length, newEnd = x.length - suf;
+  if (hint != null && hint >= 0) {
+    if (delta > 0 && a0.length - suf === pre) {   // solo se agregó texto: termina donde está el cursor
+      const q = hint - delta;
+      if (q >= 0 && q < pre && x.slice(0, q) === a0.slice(0, q) && x.slice(q + delta) === a0.slice(q)) { pre = q; suf = a0.length - q; }
+    } else if (delta < 0 && x.length - suf === pre) {   // solo se borró: empezaba donde quedó el cursor
+      const q = hint;
+      if (q >= 0 && q < pre && x.slice(0, q) === a0.slice(0, q) && x.slice(q) === a0.slice(q - delta)) { pre = q; suf = x.length - q; }
+    }
+  }
+  const oldEnd = a0.length - suf, newEnd = x.length - suf;
   P.tags = P.tags.filter(t => {
     if (t.p !== i) return true;
     let s = t.s, e = t.e;
@@ -161,7 +176,9 @@ function edSetText(i, x) {
     t.s = s; t.e = e; return true;
   });
   p.x = x;
+  edWk(edWords(x) - edWords(a0));
   if (p.fm) fmtShift(p, pre, oldEnd, delta);   // negrita, itálica… se corren con el texto (guion-formato.js)
+  rvwShift(p, pre, oldEnd, delta);   // palabras cambiadas en la revisión: se corren y lo nuevo toma su color (guion-revision.js)
   // guion cerrado: si la página empezaba a mitad del párrafo, la marca se corre con el texto de antes
   if (p.lpg) p.lpg = p.lpg.map(m => +m[0] > 0 && +m[0] >= oldEnd ? [Math.max(1, +m[0] + delta), m[1]] : m);
   edRevMark(p);   // en una revisión, el párrafo cambiado queda marcado
@@ -172,6 +189,8 @@ function edSplit(i, o, t2) {
   const np = edRevMark({ t: t2 || ED_NEXT[p.t] || 'a', x: right });
   const lp = o < p.x.length ? edRevMark({ ...p, x: left }) : { ...p, x: left };   // Intro al final: el párrafo no cambió
   if (p.fm) { const [fl, fr] = fmtSplit(p, o); if (fl) lp.fm = fl; else delete lp.fm; if (fr) { np.fm = fr; fmtTidy(np); } fmtTidy(lp); }
+  { const [L, R] = rvwSplit(p, o); rvwPut(lp, L); rvwPut(np, R); }   // lo cambiado en la revisión va con su texto
+  edWk(edWords(left) + edWords(right) - edWords(p.x));
   // guion cerrado: una página que empezaba en la parte de la derecha ahora empieza en el párrafo nuevo
   if (p.lpg) {
     const L = p.lpg.filter(m => !(+m[0] > 0) || +m[0] < o), R = p.lpg.filter(m => +m[0] > 0 && +m[0] >= o).map(m => [+m[0] - o, m[1]]);
@@ -194,6 +213,8 @@ function edMerge(i) {
   const a = P.paras[i - 1], b = P.paras[i], o = a.x.length;
   const ab = edRevMark({ ...a, x: a.x + b.x });
   const fj = fmtJoin(a, b, o); if (fj) { ab.fm = fj; fmtTidy(ab); } else delete ab.fm;
+  rvwPut(ab, rvwJoin(a, b, o));
+  edWk(edWords(ab.x) - edWords(a.x) - edWords(b.x));
   if (b.lpg) ab.lpg = [...(a.lpg || []), ...b.lpg.map(m => [(+m[0] || 0) + o, m[1]])];   // la página sigue empezando donde empezaba
   if (b.ep != null && ab.ep == null) ab.ep = b.ep;   // el comienzo de un episodio no se pierde (edFixKeys lo lleva a su encabezado)
   const out = [...P.paras.slice(0, i - 1), ab, ...P.paras.slice(i + 1)];
@@ -203,7 +224,8 @@ function edMerge(i) {
   return { i: i - 1, o };
 }
 function edInsert(i, list) {
-  list.forEach(edRevMark);
+  // en una revisión, el texto de un párrafo nuevo es todo nuevo (salvo lo que solo se movió: _keep)
+  list.forEach(q => { edRevMark(q); if (q._keep) delete q._keep; else rvwNew(q); edWk(edWords(q.x)); });
   const out = [...P.paras.slice(0, i), ...list, ...P.paras.slice(i)];
   edRemap(out, P.paras.map((_, j) => ({ i: j < i ? j : j + list.length })));
 }
@@ -214,6 +236,7 @@ function edRemove(i, n) {
     const a = String(gone[0][1]).split('-')[0], z = String(gone[gone.length - 1][1]).split('-').pop();
     nx.lpg = [[0, a === z ? a : a + '-' + z], ...(nx.lpg || [])];
   }
+  edWk(-P.paras.slice(i, i + n).reduce((a, p) => a + edWords(p.x), 0));
   const out = [...P.paras.slice(0, i), ...P.paras.slice(i + n)];
   edRemap(out, P.paras.map((_, j) => j < i ? { i: j } : j < i + n ? null : { i: j - n }));
 }
@@ -229,7 +252,8 @@ function edSetType(i, t) {
   const p = P.paras[i]; if (!p || p.t === t) return;
   edLockKeys();
   p.t = t; edRevMark(p);
-  if (ED_UP.has(t)) edSetText(i, p.x.toUpperCase());
+  // cambiar el tipo solo deja el asterisco: pasar a mayúsculas no cuenta como palabras cambiadas
+  if (ED_UP.has(t)) { RVW.quiet = true; try { edSetText(i, p.x.toUpperCase()); } finally { RVW.quiet = false; } }
   if (t === 'h' && !p.n) p.n = edNewKey(i);
   if (t !== 'h') delete p.n;
 }
@@ -241,6 +265,7 @@ function edCommit(structural) {
     for (const sh of Object.values(P.shots)) if (sh.p0 != null && sc.sceneOf[sh.p0] >= 0) sh.sc = sc.scenes[sc.sceneOf[sh.p0]].key;
   }
   changed('script'); changed('data');
+  if (typeof wkCommit === 'function') wkCommit();   // palabras de hoy (guion-racha.js)
   clearTimeout(ED.deriveT);
   ED.stale = true;
   ED.deriveT = setTimeout(edDerive, structural ? 250 : 700);
@@ -399,6 +424,7 @@ function bindEditorDoc() {
   if (ty) ty.onchange = () => { const r = edRange(); if (!r) return; edPush(true); for (let i = r.a.i; i <= r.b.i; i++) edSetType(i, ty.value); edCommit(true); renderEditorDoc(r.a); };
   // límites de página, asteriscos de revisión e ícono del tipo de párrafo (encima de la página, fuera del texto)
   if (!av) { ed.addEventListener('input', () => edDecoPaint()); ed.addEventListener('focus', () => edIcoPaint()); edDecoPaint(); if (document.fonts) document.fonts.ready.then(() => edDecoPaint()); }
+  else { ed.addEventListener('input', () => edDecoPaint()); edDecoPaint(); }   // AV: solo las palabras cambiadas en la revisión
 }
 function edBeforeInput(e, av) {
   const t = e.inputType;
@@ -453,13 +479,14 @@ function edBeforeInput(e, av) {
 function edInput(e, av) {
   const ep = e.target.closest && e.target.closest('.ep') || (getSelection().focusNode && getSelection().focusNode.parentElement && getSelection().focusNode.parentElement.closest('#ed .ep'));
   const targets = ep ? [ep] : $$('#ed .ep');
+  const c0 = edCaret();   // dónde quedó el cursor: dónde se escribió o se borró (edSetText)
   let changedAny = false, struct = false;
   for (const el of targets) {
     edClean(el);
     const i = +el.dataset.i, p = P.paras[i]; if (!p) continue;
     // encabezados, personajes y transiciones se guardan en mayúsculas (como se ven)
     const txt = ED_UP.has(p.t) ? el.textContent.toUpperCase() : el.textContent;
-    if (edSetText(i, txt)) changedAny = true;
+    if (edSetText(i, txt, c0 && c0.i === i ? c0.o : null)) changedAny = true;
     if (!txt) el.innerHTML = '<br>';
     else if (!e.isComposing) edFmtSync(el, p);
     // «INT.» o «EXT.» al empezar una acción: pasa a encabezado de escena
@@ -508,8 +535,10 @@ function edPaste(e, av) {
   const txt = (e.clipboardData && e.clipboardData.getData('text/plain') || '').replace(/\r/g, '');
   if (!txt) return;
   const r = edRange(); if (!r) return;
+  if (av && r.a.i !== r.b.i && !(r.a.i === r.b.i && r.a.o === r.b.o)) return;
   edPush(true); edLockKeys();
-  if (!(r.a.i === r.b.i && r.a.o === r.b.o)) { if (av && r.a.i !== r.b.i) return; edDeleteRange(r.a.i, r.a.o, r.b.i, r.b.o); }
+  if (typeof wkSkipNext === 'function') wkSkipNext();   // lo pegado no cuenta como palabras escritas
+  if (!(r.a.i === r.b.i && r.a.o === r.b.o)) edDeleteRange(r.a.i, r.a.o, r.b.i, r.b.o);
   const p = P.paras[r.a.i];
   if (av || !/\n/.test(txt.trim())) {
     const s = av ? txt : txt.replace(/\n+/g, ' ');
@@ -524,7 +553,7 @@ function edPaste(e, av) {
   const at = p.x ? r.a.i + 1 : r.a.i;
   if (!p.x) edRemove(r.a.i, 1);
   const list = parsed.map(q => ({ t: q.t, x: q.x }));
-  if (tail) list.push({ t: p.t, x: tail });
+  if (tail) list.push({ t: p.t, x: tail, _keep: 1 });   // el resto del párrafo solo se movió
   edInsert(at, list);
   list.forEach((q, k) => { if (q.t === 'h') P.paras[at + k].n = edNewKey(at + k); });
   edCommit(true);
@@ -637,6 +666,7 @@ function avMenu(b) {
 function edConvert(to) {
   if (to === edFormat()) return;
   edPush(true); edLockKeys();
+  if (typeof wkSkipNext === 'function') wkSkipNext();   // cambiar el formato no es escribir
   const out = [], map = [];
   if (to === 'av') {
     let row = null;
@@ -708,7 +738,7 @@ function scriptModeFor(t) {
     const n = autoBreakdown(P, { replaceAuto: false });
     if (n) { changed('data'); setTimeout(() => toast(`${n} ${n === 1 ? 'elemento sugerido' : 'elementos sugeridos'} en el texto nuevo (línea punteada).`, 3600), 300); }
   }
-  if (!!UI.scriptEdit !== on) { ED.stale = true; edDerive(); hideSelTool(); }
+  if (!!UI.scriptEdit !== on) { ED.stale = true; edDerive(); hideSelTool(); if (!on) rvwUnpaint(); }
   UI.scriptEdit = on;
 }
 

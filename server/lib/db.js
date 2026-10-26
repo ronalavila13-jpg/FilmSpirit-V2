@@ -99,6 +99,8 @@ const MIGRATIONS = [
    CREATE TABLE waitlist(email TEXT NOT NULL, plan TEXT NOT NULL, uid TEXT, lang TEXT, country TEXT, ts INTEGER NOT NULL, PRIMARY KEY(email, plan));`,
   // 9 · cuentas eliminadas: solo la huella de la cuenta de Google y si ya usó el mes gratis (para que no se repita)
   `CREATE TABLE gone(h TEXT PRIMARY KEY, trial INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL);`,
+  // 10 · contadores de escritura y racha de cada persona (pestaña Guion · lib/escritura.js)
+  `ALTER TABLE users ADD COLUMN writing TEXT;`,
 ];
 
 function open(dataDir) {
