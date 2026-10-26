@@ -1,6 +1,8 @@
 # Lote V · rendimiento: lo que se ve al instante y un servidor que no se traba (26-oct-2026)
 
-Base: lote U. Revisión de FilmSpirit contra los «cinco errores de una app hecha con IA» (escrituras a la base de datos,
+Segunda parte del lote V, hecha en paralelo con la primera (clonar los atributos de un plano: CAMBIOS-lote-V-2026-10-26.md)
+en otro chat. Base: lote U; después se unió con la rama del clonado (lote-t-clonar-atributos, PR #3), que no toca los
+mismos archivos. Revisión de FilmSpirit contra los «cinco errores de una app hecha con IA» (escrituras a la base de datos,
 optimistic UI, páginas estáticas, dependencias pesadas y peticiones largas sin cola). Ronald eligió cuatro frentes; la
 portada y las páginas legales ya eran estáticas (se arman una vez y quedan en memoria) y no se tocaron.
 
