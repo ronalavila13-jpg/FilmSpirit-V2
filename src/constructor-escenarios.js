@@ -457,13 +457,13 @@ function openSetBuilder(opts = {}, done) {
   // ---------- cerrar ----------
   function close() {
     removeEventListener('keydown', onKey, true); removeEventListener('resize', onRs);
-    if (ro) ro.disconnect();
+    if (rso) rso.disconnect();
     if (hold) bsDispose(hold);
     if (R) { R.dispose(); R.forceContextLoss(); }
     ov.remove();
   }
   const req = guardOverlay(ov, { dirty: () => !B.saved && !view && B.changed, close, save });
-  const ro = new ResizeObserver(() => { resize(); draw(); }); ro.observe(wrap);
+  const rso = new ResizeObserver(() => { resize(); draw(); }); rso.observe(wrap);
   const onRs = () => { if (ov.isConnected) { resize(); draw(); } };
   addEventListener('resize', onRs);
   paint();
