@@ -97,6 +97,7 @@ function makeAuth(S, cfg) {
         S.run('INSERT INTO gone(h,trial,ts) VALUES(?,?,?) ON CONFLICT(h) DO UPDATE SET trial=MAX(trial, excluded.trial), ts=excluded.ts', h, trial, now());
       S.run('DELETE FROM invites WHERE email=?', fresh.email);
       S.run('DELETE FROM waitlist WHERE email=? OR uid=?', fresh.email, u.id);
+      S.run('DELETE FROM outbox WHERE to_addr=?', fresh.email);   // correos en cola (lib/mail.js): no se envían y no queda la dirección
       S.run('DELETE FROM devices WHERE uid=?', u.id);
       S.run('UPDATE codes SET owner=NULL WHERE owner=?', u.id);
       S.run('DELETE FROM users WHERE id=?', u.id);   // en cascada: sesiones, proyectos (secciones, historial, imágenes, equipo), membresías, suscripciones

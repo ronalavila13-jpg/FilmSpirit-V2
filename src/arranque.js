@@ -96,6 +96,7 @@ async function landingScene() {
 /* trabajo que se perdería al cerrar la pestaña */
 function unsavedWork() {
   if (!P || UI.readOnly) return false;
+  if (typeof PHOTO_UP !== 'undefined' && PHOTO_UP.size) return true;   // fotos que se están subiendo (laminas.js)
   if (modalDirty($('#modal')) || (typeof S2 !== 'undefined' && S2 && S2.dirty)) return true;
   if (P._sample && !P._saved) return !!P._touched;
   if (Store.kind === 'mem') return !!P._touched;

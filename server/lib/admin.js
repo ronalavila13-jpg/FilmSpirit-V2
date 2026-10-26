@@ -109,9 +109,9 @@ function makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec) {
       if (!resp) fail(400, 'Escribe la respuesta.', 'missing');
       S.run("UPDATE reclamos SET respuesta=?, resp_ts=?, estado='respondido' WHERE n=?", resp, now(), r.n);
       const d = JSON.parse(r.data);
-      const sent = await mail.send({ to: d.email, subject: `Respuesta a tu ${r.tipo} ${r.code}`, text: `Hola ${d.nombre}:\n\nRespuesta a la hoja ${r.code} del libro de reclamaciones de FilmSpirit:\n\n${resp}\n\n${cfg.business.name || 'FilmSpirit'}` });
+      const sent = await mail.deliver({ kind: 'reclamo-respuesta', to: d.email, subject: `Respuesta a tu ${r.tipo} ${r.code}`, text: `Hola ${d.nombre}:\n\nRespuesta a la hoja ${r.code} del libro de reclamaciones de FilmSpirit:\n\n${resp}\n\n${cfg.business.name || 'FilmSpirit'}` });
       log('reclamo_resp', { n: r.n });
-      return sendJSON(res, 200, { ok: true, emailed: sent.sent });
+      return sendJSON(res, 200, { ok: true, emailed: sent.sent, queued: !!sent.queued });
     }
     // lista de espera de Studio
     if (p === '/api/admin/waitlist' && req.method === 'GET') {

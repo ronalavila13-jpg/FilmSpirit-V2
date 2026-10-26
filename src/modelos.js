@@ -37,10 +37,23 @@ function m3Msg(e) {
   if (/zip data|invalid zip|unexpected EOF|invalid (block|distance|length)/i.test(s)) return 'El archivo comprimido (.kmz o .zip) está dañado o incompleto. Vuelve a exportarlo.';
   return 'No se pudo leer el modelo. Prueba exportarlo de nuevo como .glb.';
 }
+/* los lectores de modelos (src/glb-lib.js, unos 260 kB): en la web con servidor van aparte (lib/glb-lib-<huella>.js, build.sh) y
+   se bajan al importar el primer modelo; en escritorio y en Claude vienen dentro */
+let GLB_P = null;
+function glbLibLoad() {
+  if (typeof glbLib === 'function') return Promise.resolve(glbLib());
+  return GLB_P || (GLB_P = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'lib/glb-lib-' + GLB_V + '.js';
+    s.onload = () => { try { if (typeof glbLib !== 'function') throw new Error('No se pudo cargar el lector de modelos 3D. Recarga la página.'); res(glbLib()); } catch (e) { GLB_P = null; rej(e); } };
+    s.onerror = () => { s.remove(); GLB_P = null; rej(new Error('No se pudo cargar el lector de modelos 3D. Revisa tu conexión.')); };
+    document.head.appendChild(s);
+  }));
+}
 /* extra: los archivos que acompañan al modelo (el .mtl de un .obj, las texturas de un .dae o de un .obj) */
 async function m3Read(file, extra) {
   if (!r3Init()) throw new Error('Este equipo no puede mostrar 3D.');
-  const L = glbLib();
+  const L = await glbLibLoad();
   let name = file.name || '', buf = await file.arrayBuffer();
   if (buf.byteLength > 400 * 1024 * 1024) throw new Error(m3Msg('grande'));
   const res = new Map(), urls = [];
@@ -259,7 +272,7 @@ function m3Merge(parts) {
 async function m3Simplify(parts, budget, keep = 0) {
   const tris = parts.reduce((a, P) => a + P.idx.length / 3, 0);
   if (tris <= budget) return { tris, cut: false };
-  const S = glbLib().MeshoptSimplifier;
+  const S = (await glbLibLoad()).MeshoptSimplifier;
   try { await S.ready; } catch (e) { throw new Error(`El modelo tiene ${Math.round(tris).toLocaleString('es-PE')} triángulos y aquí se acepta hasta ${budget.toLocaleString('es-PE')}. Simplifícalo antes de exportarlo (quita lo que no sale en cámara).`); }
   const small = keep ? parts.reduce((a, P) => a + (P.idx.length / 3 <= keep ? P.idx.length / 3 : 0), 0) : 0;
   const lite = keep && small < budget * .5;

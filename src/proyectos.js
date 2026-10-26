@@ -5,6 +5,11 @@
 /* ---------- proyectos ---------- */
 /* antes de cambiar de proyecto: lo pendiente del que está abierto termina de guardarse (con su equipo y sus permisos) */
 async function settleSave() {
+  // fotos que todavía se están subiendo (laminas.js · photosAdd): se espera a que terminen (hasta 2 minutos)
+  if (typeof PHOTO_UP !== 'undefined' && PHOTO_UP.size) {
+    toast('Terminando de subir las fotos…', 2500);
+    await Promise.race([Promise.all([...PHOTO_UP]), new Promise(r => setTimeout(r, 120e3))]);
+  }
   const wait = async () => { for (let i = 0; saving && i < 150; i++) await new Promise(r => setTimeout(r, 100)); };
   await wait();
   if (P && dirty.size && !UI.readOnly) await flushSave();

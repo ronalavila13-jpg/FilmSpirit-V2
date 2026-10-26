@@ -140,7 +140,7 @@
         const card = b.closest('[data-n]'), txt = card.querySelector('textarea').value.trim();
         if (!txt) return toast('Escribe la respuesta');
         const r = await api('POST', '/api/admin/reclamos/' + card.dataset.n, { respuesta: txt });
-        toast(r.emailed ? 'Respuesta enviada por correo' : 'Respuesta guardada (el correo no está configurado: envíala tú)'); return show('reclamos');
+        toast(r.emailed ? 'Respuesta enviada por correo' : r.queued ? 'Respuesta guardada: el correo falló y se reintentará solo' : 'Respuesta guardada (el correo no está configurado: envíala tú)'); return show('reclamos');
       }
     } catch (er) { toast(er.message); }
   });

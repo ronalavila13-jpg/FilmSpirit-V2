@@ -15,6 +15,11 @@ const pub = path.join(here, 'public');
 const cp = (from, to) => { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); };
 
 execSync('sh build.sh server', { cwd: root, stdio: 'inherit' });
+// las copias comprimidas de la compilación anterior (se rehacen al final)
+const walkAll = d => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walkAll(path.join(d, e.name)) : [path.join(d, e.name)]) : [];
+// (solo las copias de make.js: «app.js.br», «sitio.css.gz»…; los maniquíes de fig/*.gz son datos y se quedan)
+const ZCOPY = /\.(js|css|json|svg|txt|xml|webmanifest)\.(br|gz)$/;
+for (const f of walkAll(pub)) if (ZCOPY.test(f)) fs.rmSync(f);
 cp(path.join(root, 'src', 'areas.js'), path.join(here, 'areas.js'));
 
 for (const [f, t] of [
@@ -62,7 +67,7 @@ cp(path.join(root, 'desktop', 'marca', 'recorte', 'FilmSpiritRecorte-Regular.wof
 {
   const crypto = require('node:crypto');
   const app = path.join(pub, 'app'), files = [];
-  const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const r = rel + '/' + e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else if (e.name !== 'sw.js') files.push(r); } };
+  const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const r = rel + '/' + e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else if (e.name !== 'sw.js' && !ZCOPY.test(e.name)) files.push(r); } };
   walk(app, '/app');
   const h = crypto.createHash('sha256');
   for (const f of files) h.update(f).update(fs.readFileSync(path.join(pub, f)));
@@ -94,6 +99,23 @@ fs.writeFileSync(path.join(pub, 'licencias.txt'),
   // las otras letras de Apariencia › Letra (las mismas de desktop/make.js; las arma tools/fuentes.py)
   [['Newsreader', 'newsreader'], ['Instrument Sans', 'instrument-sans'], ['Archivo Narrow', 'archivo-narrow'], ['Bricolage Grotesque', 'bricolage-grotesque'], ['Rubik', 'rubik'], ['Shantell Sans', 'shantell-sans']]
     .map(([n, slug]) => lic(`Fuente ${n} (SIL Open Font License 1.1)`, path.join(root, 'desktop', 'fuentes', slug + '-OFL.txt'))).join(''));
+
+// copias comprimidas (brotli al máximo y gzip) de lo que se sirve comprimido: el servidor las manda tal cual
+// (server.js · packed) y no tiene que comprimir nada con la app en marcha. Las .html no: se arman en cada pedido
+// (idioma, región y precios)
+{
+  const zlib = require('node:zlib');
+  let n = 0;
+  for (const f of walkAll(pub)) {
+    if (!/\.(js|css|json|svg|txt|xml|webmanifest)$/.test(f)) continue;
+    const raw = fs.readFileSync(f);
+    if (raw.length < 1024) continue;
+    fs.writeFileSync(f + '.br', zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }));
+    fs.writeFileSync(f + '.gz', zlib.gzipSync(raw, { level: 9 }));
+    n++;
+  }
+  console.log(`Comprimidos al compilar: ${n} archivos (.br y .gz).`);
+}
 
 const size = d => fs.readdirSync(d, { withFileTypes: true }).reduce((n, e) => n + (e.isDirectory() ? size(path.join(d, e.name)) : fs.statSync(path.join(d, e.name)).size), 0);
 console.log(`Listo: server/public (${(size(pub) / 1048576).toFixed(1)} MB). Sube la carpeta server/ a la VPS.`);

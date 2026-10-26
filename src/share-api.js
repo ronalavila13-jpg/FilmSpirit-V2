@@ -132,6 +132,26 @@ const OFFLINE = {
   async setLoc(pid, s, json) { const r = await this.get(pid); if (!r) return false; r.loc[s] = json; await this.put(r); return true; },
   async dropLoc(pid, s, json) { const r = await this.get(pid); if (r && r.loc[s] != null && (json == null || r.loc[s] === json)) { delete r.loc[s]; await this.put(r); } },
   async pending() { return (await this.all()).filter(r => Object.keys(r.loc || {}).length); },
+  /* imágenes que esperan subir: las hechas sin conexión y las fotos que se estaban subiendo cuando se cerró la pestaña
+     (laminas.js · photosAdd). false si se cortó la conexión */
+  async flushFrames() {
+    if (this.flushing) return this.flushing;
+    this.flushing = (async () => {
+      let lost = 0, why = '';
+      for (const f of await this.frames()) {
+        if (typeof PHOTO_PEND !== 'undefined' && PHOTO_PEND.has(f.k)) continue;     // la está subiendo photosAdd
+        try { await APITEAM.saveFrame(f.pid, f.k, f.url, true); await this.dropFrame(f.id); }
+        catch (e) {
+          if (e.code === 'offline') { this.set(true); return false; }
+          if (e.status >= 500 || e.code === 'rate_limited') continue;     // se reintenta la próxima vez
+          lost++; why = e.message || ''; await this.dropFrame(f.id);
+        }
+      }
+      if (lost) problem(lost === 1 ? `Una imagen que esperaba en este equipo no se pudo subir${why ? ': ' + why : '.'}` : `${lost} imágenes que esperaban en este equipo no se pudieron subir${why ? ': ' + why : '.'}`);
+      return true;
+    })().finally(() => { this.flushing = null; });
+    return this.flushing;
+  },
   /* imágenes guardadas sin conexión */
   putFrame(pid, k, url) { return this.run('fr', 'readwrite', st => { st.put({ id: pid + '|' + k, pid, k, url }); }); },
   async frames() { return (await this.run('fr', 'readonly', st => st.getAll())) || []; },
@@ -162,16 +182,7 @@ const OFFLINE = {
       clearInterval(this.timer);
       this.set(false);
       // imágenes que esperaban
-      let lost = 0, why = '';
-      for (const f of await this.frames()) {
-        try { await APITEAM.saveFrame(f.pid, f.k, f.url, true); await this.dropFrame(f.id); }
-        catch (e) {
-          if (e.code === 'offline') { this.set(true); return; }
-          if (e.status >= 500 || e.code === 'rate_limited') continue;     // se reintenta la próxima vez
-          lost++; why = e.message || ''; await this.dropFrame(f.id);
-        }
-      }
-      if (lost) problem(`${lost === 1 ? 'Una imagen hecha' : lost + ' imágenes hechas'} sin conexión no se pudo subir${why ? ': ' + why : '.'}`);
+      if (!(await this.flushFrames())) return;
       // proyecto abierto: se vuelve a suscribir y se guarda lo pendiente (shareSave compara con la versión del servidor)
       if (P && P._shared && SHARE && SHARE.pid === P.id) {
         APITEAM.check(P.id);
@@ -215,6 +226,9 @@ const APITEAM = {
   who: [], esTab: '', hereTab: '', hereT: 0, away: false, awayT: 0, whoStale: 0,   // presencia: quién más está, en qué pestaña y si a la vista
   async init() {
     let r;
+    // la lista de proyectos se pide a la vez que la cuenta (antes, una después de la otra); list() la usa una vez
+    this.listP = fetch('/api/projects', { credentials: 'same-origin', cache: 'no-store', headers: { 'X-FS': '1' } })
+      .then(x => x.ok ? x.json() : null).catch(() => null);
     for (let i = 0; ; i++) {
       try { r = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }); break; }
       catch (e) {
@@ -228,6 +242,9 @@ const APITEAM = {
     if (r.status === 401) { location.replace('/entrar?next=' + encodeURIComponent(location.pathname + location.search)); await new Promise(() => { }); }
     this.setMe(await r.json());
     shareInit();
+    // imágenes que quedaron esperando en este equipo (la pestaña se cerró mientras subían, o se hicieron sin conexión y
+    // se volvió a abrir ya con internet): se suben ahora
+    setTimeout(() => { if (!OFFLINE.on) OFFLINE.frames().then(f => { if (f.length) OFFLINE.flushFrames(); }).catch(() => { }); }, 2500);
   },
   setMe(me, cached) {
     this.me = me;
@@ -241,6 +258,9 @@ const APITEAM = {
   on(ev, fn) { this.h[ev] = fn; },
   emit(ev, ...a) { const f = this.h[ev]; if (f) { try { f(...a); } catch (e) { console.warn('equipo:', e); } } },
   async list() {
+    const pre = this.listP ? await this.listP : null;
+    this.listP = null;
+    if (Array.isArray(pre)) { const out = pre.map(x => ({ ...x, shared: x.shared || !x.mine })); ls.set('offList', out); return out; }
     try {
       const r = await apiFetch('GET', '/api/projects');
       const out = r.json.map(x => ({ ...x, shared: x.shared || !x.mine }));
@@ -255,10 +275,19 @@ const APITEAM = {
     }
   },
 
-  /* ---------- abrir ---------- */
+  /* ---------- abrir ----------
+     Se le dice al servidor qué versiones ya están guardadas en este equipo (have): las que siguen igual no se vuelven
+     a bajar (antes, abrir un proyecto bajaba todo cada vez). Llegan como { v, same, n } y se toman de la copia local,
+     comprobando su largo; si algo no cuadra, se pide todo como antes. */
   async open(pid) {
     let r;
-    try { r = await apiFetch('GET', `/api/p/${encodeURIComponent(pid)}?full=1`); }
+    const url = `/api/p/${encodeURIComponent(pid)}?full=1`;
+    const mine = await OFFLINE.get(pid).catch(() => null);
+    const have = mine && mine.srv ? Object.entries(mine.srv).filter(([s, x]) => x && x.v > 0 && typeof x.json === 'string' && s !== 'notas' && s !== 'gastos').map(([s, x]) => s + '.' + x.v).join(',') : '';
+    try {
+      r = await apiFetch('GET', url + (have ? '&have=' + encodeURIComponent(have) : ''));
+      if (have && !(await this.fillSame(pid, r.json))) r = await apiFetch('GET', url);
+    }
     catch (e) {
       if (e.code !== 'offline') return { error: e.message, code: e.code || 'error' };
       const rec = await OFFLINE.get(pid);
@@ -281,6 +310,20 @@ const APITEAM = {
     this.subscribe(pid);
     OFFLINE.mirror(pid, st);
     return st;
+  },
+  /* las secciones que el servidor no envió porque este equipo ya las tiene: se toman de la copia local (false si alguna
+     falta o no coincide su largo en bytes con el del servidor) */
+  async fillSame(pid, st) {
+    const same = Object.entries((st && st.sections) || {}).filter(([, x]) => x && x.same);
+    if (!same.length) return true;
+    const rec = await OFFLINE.get(pid).catch(() => null);
+    const enc = new TextEncoder();
+    for (const [s, x] of same) {
+      const c = rec && rec.srv && rec.srv[s];
+      if (!c || c.v !== x.v || typeof c.json !== 'string' || enc.encode(c.json).length !== x.n) return false;
+      st.sections[s] = { v: x.v, json: c.json };
+    }
+    return true;
   },
   subscribe(pid) {
     if (typeof EventSource === 'undefined') return;
@@ -497,7 +540,10 @@ const APITEAM = {
         if (e.code === 'offline' && !Px._offNew) { Px._offNew = true; OFFLINE.set(true); toast('Sin conexión: este proyecto nuevo se creará en tu cuenta cuando vuelva internet. Mientras tanto, no cierres esta pestaña.', 7000); }
         throw e;
       }
-      OFFLINE.mirror(st.pid, { ...st, sections: Object.fromEntries(Object.entries(sent).map(([s, j]) => [s, { v: (st.vers || {})[s] || 1, json: j }])) });
+      // solo las secciones que el servidor de verdad creó, con su versión (antes, todas con versión 1: una sección que el
+      // servidor no guardó, como Gastos o lo de producción en un guion, quedaba en la copia como si existiera)
+      const vs = st.vers || {};
+      OFFLINE.mirror(st.pid, { ...st, sections: Object.fromEntries(Object.entries(sent).filter(([s]) => vs[s] > 0).map(([s, j]) => [s, { v: vs[s], json: j }])) });
       const oldId = Px.id;
       Px._oldId = oldId; Px.id = st.pid; Px._shared = true; Px._saved = true;
       if (FRAMES_PID === oldId) FRAMES_PID = st.pid;

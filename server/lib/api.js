@@ -43,11 +43,49 @@ function imageSize(b, mime) {
 const DATA_RE = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
 // modelos 3D importados (escenarios y personajes): gzip del formato propio de la app, que empieza con «FSM1»
 const M3_RE = /^data:(model\/x-fsm);base64,([A-Za-z0-9+/]+={0,2})$/;
+/* se revisa por partes, sin trabar el servidor (antes, gunzipSync lo dejaba detenido para todos) y sin guardar el modelo
+   entero en memoria: solo el encabezado; el resto se cuenta (hasta 96 MB) para saber que el archivo está completo.
+   Así varios modelos a la vez no llenan la memoria (descomprimidos enteros eran hasta 96 MB cada uno) */
+const M3_RAW_MAX = 96 * 1024 * 1024, M3_HEAD_MAX = 16 * 1024 * 1024;
 function m3Ok(b) {
-  if (b.length < 20 || b[0] !== 0x1f || b[1] !== 0x8b) return false;
-  try { const raw = require('node:zlib').gunzipSync(b, { maxOutputLength: 96 * 1024 * 1024 }); if (raw.toString('latin1', 0, 4) !== 'FSM1') return false; const n = raw.readUInt32LE(4); if (n < 2 || 8 + n > raw.length) return false; const h = JSON.parse(raw.toString('utf8', 8, 8 + n)); return !!(h && Array.isArray(h.parts)); } catch (e) { return false; }
+  if (b.length < 20 || b[0] !== 0x1f || b[1] !== 0x8b) return Promise.resolve(false);
+  return new Promise(resolve => {
+    const z = require('node:zlib').createGunzip();
+    const parts = [];
+    let have = 0, need = 8, total = 0, done = false, head8 = null;
+    const end = ok => { if (done) return; done = true; z.removeAllListeners('data'); z.on('error', () => { }); z.destroy(); resolve(ok); };
+    z.on('data', c => {
+      if (done) return;
+      total += c.length;
+      if (total > M3_RAW_MAX) return end(false);
+      let off = 0;
+      while (off < c.length && have < need) {
+        const take = Math.min(need - have, c.length - off);
+        parts.push(c.subarray(off, off + take)); have += take; off += take;
+        if (need === 8 && have === 8) {
+          head8 = Buffer.concat(parts);
+          if (head8.toString('latin1', 0, 4) !== 'FSM1') return end(false);
+          const n = head8.readUInt32LE(4);
+          if (n < 2 || n > M3_HEAD_MAX) return end(false);
+          need = 8 + n;
+        }
+      }
+    });
+    z.on('error', () => end(false));
+    z.on('end', () => {
+      if (done) return;
+      if (!head8 || have < need) return end(false);
+      try { const h = JSON.parse(Buffer.concat(parts).toString('utf8', 8, need)); end(!!(h && Array.isArray(h.parts))); } catch (e) { end(false); }
+    });
+    z.end(b);
+  });
 }
-const HIST_KEEP = 40;
+/* historial de cada sección: una copia de la versión anterior como mucho cada 5 minutos (antes, en cada guardado:
+   mientras se escribía el guion se archivaba el guion entero cada 1,2 s y las 40 copias cubrían solo los últimos
+   minutos). Al volver a editar después de una pausa se guarda la versión de antes de empezar. Si otra persona guarda
+   encima de lo tuyo, tu versión se copia aunque no hayan pasado los 5 minutos (como mucho una vez por minuto: dos
+   personas escribiendo a la vez no vuelven a copiar en cada guardado). */
+const HIST_KEEP = 40, HIST_GAP = 5 * 60e3, HIST_GAP_OTHER = 60e3;
 const SECNAME = { guion: 'Guion', desglose: 'Desglose', storyboard: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', calendario: 'Calendario', llamado: 'Hoja de llamado', presupuesto: 'Presupuesto', hoja: 'Hoja de script', notas: 'Notas', gastos: 'Gastos' };
 const MAX_GA_FRAME = 2 * MB;   // la foto de un recibo llega comprimida a unos 300 kB
 const ACT_GAP = 180e3, ACT_KEEP = 3000;
@@ -160,7 +198,19 @@ function makeApi(S, auth, live, cfg) {
      cuenta no pueda trabar el servidor pidiendo lo mismo una y otra vez */
   const readCost = (u, bytes) => rateLimit('rd:' + u.id, 1.5e9, 300e3, bytes);
 
-  function state(p, u, r, full) {
+  /* «have»: las versiones que el navegador ya tiene guardadas (?have=guion.12,desglose.5). Al abrir el proyecto, esas
+     secciones no se vuelven a enviar si siguen en la misma versión: va { v, same: 1, n } (n: su largo en bytes, para que
+     el navegador compruebe su copia). Las notas y Gastos se envían siempre: cada persona recibe su propia vista. */
+  const HAVE_RE = /^([a-z]{1,20})\.(\d{1,9})$/;
+  function parseHave(str) {
+    const out = {};
+    for (const x of String(str || '').split(',').slice(0, 24)) {
+      const m = HAVE_RE.exec(x);
+      if (m && P.DATA_SECS.includes(m[1]) && m[1] !== P.NOTES && m[1] !== P.GASTOS) out[m[1]] = +m[2];
+    }
+    return out;
+  }
+  function state(p, u, r, full, have) {
     const kind = P.kindOf(p), script = kind === 'guion';
     const read = script ? new Set(['guion']) : P.readSet(r), owner = userById(p.owner), plan = P.planOf(owner);
     const perms = script ? { guion: r.admin ? 'editar' : (r.perms || {}).guion === 'editar' ? 'editar' : 'ver' } : r.admin ? P.ALLP : r.perms;
@@ -171,10 +221,14 @@ function makeApi(S, auth, live, cfg) {
       limits: { members: P.peopleLimit(plan, kind), photos: !script && P.PLANS[plan].photos, gastos: !script && !!P.PLANS[plan].gastos, projects: P.PLANS[plan].projects, scripts: P.PLANS[plan].scripts, writers: P.PLANS[plan].writers },
     };
     if (full) out.sections = {};
-    for (const s of S.all(`SELECT sec, v${full ? ', json' : ''} FROM sections WHERE pid=?`, p.id)) {
+    const hv = have || {};
+    for (const s of S.all('SELECT sec, v FROM sections WHERE pid=?', p.id)) {
       if (!readable(p, r, s.sec)) continue;
       out.vers[s.sec] = s.v;
-      if (full) out.sections[s.sec] = { json: s.sec === P.NOTES ? P.notesView(s.json, r) : s.sec === P.GASTOS ? gaViewJson(p, s.json, r, u.id) : s.json, v: s.v };
+      if (!full) continue;
+      if (hv[s.sec] === s.v) { out.sections[s.sec] = { v: s.v, same: 1, n: S.one('SELECT length(CAST(json AS BLOB)) n FROM sections WHERE pid=? AND sec=?', p.id, s.sec).n }; continue; }
+      const json = S.one('SELECT json FROM sections WHERE pid=? AND sec=?', p.id, s.sec).json;
+      out.sections[s.sec] = { json: s.sec === P.NOTES ? P.notesView(json, r) : s.sec === P.GASTOS ? gaViewJson(p, json, r, u.id) : json, v: s.v };
     }
     // gastos sin guardar todavía: vacío (versión 0), para que se pueda guardar el primero
     if (full && !script && !out.sections[P.GASTOS]) out.sections[P.GASTOS] = { json: gaViewJson(p, null, r, u.id), v: 0 };
@@ -261,8 +315,10 @@ function makeApi(S, auth, live, cfg) {
 
   on('GET', /^\/api\/p\/([\w-]+)$/, (req, res, u, m, url) => {
     const { p, r } = access(m[1], u), full = url.searchParams.get('full') === '1';
-    if (full) readCost(u, S.one('SELECT COALESCE(SUM(LENGTH(json)),0) b FROM sections WHERE pid=?', p.id).b);
-    sendJSON(res, 200, state(p, u, r, full));
+    const have = full ? parseHave(url.searchParams.get('have')) : null;
+    // lo que de verdad se envía (lo que el navegador ya tiene no cuenta)
+    if (full) readCost(u, S.all('SELECT sec, v, LENGTH(json) n FROM sections WHERE pid=?', p.id).reduce((b, s) => b + (have[s.sec] === s.v ? 0 : s.n), 0));
+    sendJSON(res, 200, state(p, u, r, full, have));
   });
 
   on('DELETE', /^\/api\/p\/([\w-]+)$/, (req, res, u, m) => {
@@ -360,18 +416,21 @@ function makeApi(S, auth, live, cfg) {
     const grow = json.length - (cur ? cur.json.length : 0);
     if (grow > 0 && storageOf(p.owner) + grow > P.PLANS[ownerPlan(p)].storageMB * MB) fail(413, quotaMsg, 'quota');
     const v = curV + 1, t = now();
-    let act = null;
+    let act = null, snap = false;
     S.tx(() => {
-      if (cur) {
+      const last = cur ? S.one('SELECT ts FROM history WHERE pid=? AND sec=? ORDER BY v DESC LIMIT 1', p.id, sec) : null;
+      if (cur && (!last || t - last.ts >= HIST_GAP || (cur.by !== u.id && t - last.ts >= HIST_GAP_OTHER))) {
+        snap = true;
         S.run('INSERT OR REPLACE INTO history(pid,sec,v,z,by,ts) VALUES(?,?,?,?,?,?)', p.id, sec, cur.v, S.gz(cur.json), cur.by, t);
-        S.run('DELETE FROM history WHERE pid=? AND sec=? AND v<=?', p.id, sec, cur.v - HIST_KEEP);
+        // las HIST_KEEP copias más recientes (las versiones guardadas ya no son seguidas: se cuentan las filas)
+        S.run('DELETE FROM history WHERE pid=? AND sec=? AND v < (SELECT MIN(v) FROM (SELECT v FROM history WHERE pid=? AND sec=? ORDER BY v DESC LIMIT ?))', p.id, sec, p.id, sec, HIST_KEEP);
       }
       S.run('INSERT OR REPLACE INTO sections(pid,sec,v,json,by,client,ts) VALUES(?,?,?,?,?,?,?)', p.id, sec, v, json, u.id, String(b.c || '').slice(0, 40), t);
       if (sec === 'guion') S.run('UPDATE projects SET updated=?, title=? WHERE id=?', t, titleOf(val) || p.title, p.id);
       else S.run('UPDATE projects SET updated=? WHERE id=?', t, p.id);
       act = logActivity(p, u, sec, b, t);
     });
-    storageAdd(p.owner, json.length - (cur ? cur.json.length : 0) + (cur ? Math.round(cur.json.length / 4) : 0));   // + la versión anterior en el historial (comprimida, aprox.)
+    storageAdd(p.owner, json.length - (cur ? cur.json.length : 0) + (snap ? Math.round(cur.json.length / 4) : 0));   // + la versión anterior si pasó al historial (comprimida, aprox.)
     // el aviso dice quién cambió qué; lo recibe quien puede ver la pestaña (y, en una nota, la pestaña donde está pegada)
     const refSec = act.ref ? act.ref.split('|')[0] : '';
     if (gastos) {
@@ -445,7 +504,7 @@ function makeApi(S, auth, live, cfg) {
     if (!mm) fail(400, m3 ? 'El modelo 3D no tiene un formato válido.' : 'La imagen no tiene un formato válido (PNG, JPEG o WebP).', 'bad_image');
     const data = Buffer.from(mm[2], 'base64');
     if (data.length > (ga ? MAX_GA_FRAME : MAX_FRAME)) fail(413, m3 ? 'El modelo 3D es demasiado grande (máximo 8 MB).' : 'La imagen es demasiado grande.', 'too_large');
-    if (m3) { if (!m3Ok(data)) fail(400, 'El modelo 3D no tiene un formato válido.', 'bad_image'); }
+    if (m3) { if (!(await m3Ok(data))) fail(400, 'El modelo 3D no tiene un formato válido.', 'bad_image'); }
     else {
       // que sea de verdad una imagen del tipo que dice y de un tamaño razonable (una «bomba» de pocos KB y
       // cientos de megapíxeles colgaría el navegador de quien la abre)

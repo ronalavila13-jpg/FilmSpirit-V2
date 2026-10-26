@@ -228,7 +228,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   }
   function welcome(sub, note) {
     const u = userById(sub.uid), name = PLAN_NAME[sub.plan || 'pro'];
-    mail.send({ to: u.email, subject: `Tu FilmSpirit ${name} está activo`, text: `Hola ${u.name}:\n\nTu suscripción a FilmSpirit ${name} quedó activa${sub.trial ? (note ? '. Este medio de pago ya usó el mes gratis, así que el plan se activa con el primer cobro' : ` y el primer cobro será en ${sub.trial} días`) : ''}.\n\nPuedes ver o cancelar tu suscripción desde el botón de tu cuenta en la app.\n\nFilmSpirit` });
+    mail.queue({ kind: 'bienvenida', to: u.email, subject: `Tu FilmSpirit ${name} está activo`, text: `Hola ${u.name}:\n\nTu suscripción a FilmSpirit ${name} quedó activa${sub.trial ? (note ? '. Este medio de pago ya usó el mes gratis, así que el plan se activa con el primer cobro' : ` y el primer cobro será en ${sub.trial} días`) : ''}.\n\nPuedes ver o cancelar tu suscripción desde el botón de tu cuenta en la app.\n\nFilmSpirit` });
   }
 
   /* ---------- Mercado Pago: lo que dice Mercado Pago manda (estado, próximo cobro, pagador) ---------- */
@@ -557,7 +557,8 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
     for (const s of S.all("SELECT s.*, u.email, u.name FROM subs s JOIN users u ON u.id=s.uid WHERE s.provider='mp' AND s.status='authorized' AND s.trial>0 AND s.paid_cycles=0 AND s.reminded IS NULL AND s.next_payment IS NOT NULL AND s.next_payment<?", t + 3 * DAY)) {
       S.run('UPDATE subs SET reminded=? WHERE id=?', t, s.id);
       const d = new Date(s.next_payment).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', timeZone: 'America/Lima' });
-      mail.send({ to: s.email, subject: `Tu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina pronto`, text: `Hola ${s.name}:\n\nTu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina el ${d}. Ese día Mercado Pago cobrará ${money(s.amount, 'PEN')} ${s.cycle === 'year' ? 'por el año' : 'por el mes'}.\n\nSi no quieres continuar, cancela antes desde el botón de tu cuenta en la app: no se cobrará nada.\n\nFilmSpirit` });
+      // en cola: si el servicio de correo falla se reintenta (antes, se marcaba como avisado y el aviso se perdía)
+      mail.queue({ kind: 'fin-mes-gratis', to: s.email, subject: `Tu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina pronto`, text: `Hola ${s.name}:\n\nTu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina el ${d}. Ese día Mercado Pago cobrará ${money(s.amount, 'PEN')} ${s.cycle === 'year' ? 'por el año' : 'por el mes'}.\n\nSi no quieres continuar, cancela antes desde el botón de tu cuenta en la app: no se cobrará nada.\n\nFilmSpirit` });
     }
     // plan que venció (sin suscripción o fin de días regalados)
     for (const u of S.all("SELECT id FROM users WHERE plan IN ('indie','pro','studio') AND pro_until IS NOT NULL AND pro_until<?", t)) entitlement(u.id);
