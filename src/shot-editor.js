@@ -2087,7 +2087,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     }
     return null;
   }
-  const escFromSlider = v => Math.abs(v) < .04 ? 1 : escClamp(Math.pow(2, v));
+  // (cerca de un número redondo, se queda en él: 150 %, no 149 %)
+  const escFromSlider = v => { if (Math.abs(v) < .04) return 1; const k = Math.pow(2, v), r = Math.round(k * 20) / 20; return escClamp(Math.abs(k - r) < .012 ? r : k); };
   function escRow() {
     const T = escTarget(); if (!T) return '';
     const pc = Math.round(T.v * 100), lv = Math.round(Math.log2(T.v) * 100) / 100;
