@@ -131,6 +131,7 @@ function smRender() {
     </section></div>`;
   bindView(); bindSceneSearch();
   smMount(groups);
+  smSheet();
 }
 
 /* ---------- la tarjeta de la candidata elegida en el mapa o en la lista ---------- */
