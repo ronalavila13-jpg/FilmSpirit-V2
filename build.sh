@@ -31,7 +31,7 @@ fi
     echo '<html lang="es">'
     echo '<meta charset="utf-8">'
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:\">"
+    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'\">"
     echo '<link rel="stylesheet" href="fonts/fonts.css">'
     sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html
     echo '<script src="lib/three.min.js"></script>'

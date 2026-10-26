@@ -42,6 +42,9 @@ function imgEncode(c, o = {}) {
   return out(cv, cv.toDataURL(type, .45));
 }
 const imgUrl = (c, o) => imgEncode(c, o).url;
+/* logos y planos: solo imágenes incrustadas (data:). Una dirección cualquiera haría que la app la pida al mostrarla:
+   en el escritorio, file://servidor/... abre una conexión de red de Windows (y entrega la firma de la contraseña) */
+const imgDataOk = u => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]*$/i.test(u) ? u : '';
 /* abre una imagen (archivo o dirección): respeta la orientación de las fotos del teléfono */
 function imgLoad(src) {
   return new Promise((res, rej) => {
@@ -63,7 +66,7 @@ async function imgCanvas(src, o = {}) {
 /* para los PDF: jsPDF pinta de negro lo transparente de un WebP; antes de exportar se hace una copia PNG de los
    logos en WebP (y se usa mientras no cambien) */
 const IMG_PNG = new Map();
-const pdfImgSrc = u => { const c = u && IMG_PNG.get(u); return c || u; };
+const pdfImgSrc = u => { const c = u && IMG_PNG.get(u); return c || imgDataOk(u); };
 async function imgPrepPdf(list) {
   for (const u of list) {
     if (!u || !/^data:image\/webp/.test(u) || IMG_PNG.has(u)) continue;

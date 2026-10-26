@@ -97,7 +97,7 @@ function breakdownSheetHTML() {
   return `<section class="hd bd-hd" aria-label="Cabecera de la hoja de desglose">${head}${chips}</section>
     <div class="bds">
     <section class="bd-hero">
-      <div class="bd-logo">${P.meta.logo ? `<img src="${esc(P.meta.logo)}" alt="${esc(d.productora || 'Logo')}">` : d.productora ? `<b>${esc(d.productora)}</b>` : ''}</div>
+      <div class="bd-logo">${imgDataOk(P.meta.logo) ? `<img src="${esc(imgDataOk(P.meta.logo))}" alt="${esc(d.productora || 'Logo')}">` : d.productora ? `<b>${esc(d.productora)}</b>` : ''}</div>
       <dl class="bd-fields">
         <dt>Decorado</dt><dd><input type="text" class="ti" data-bind="bd-set" data-key="${esc(s.key)}" value="${esc(d.decorado)}" aria-label="Decorado" ${gen ? '' : 'readonly'}></dd>
         <dt>Descripción</dt><dd><input type="text" class="ti" data-bind="synopsis" data-key="${esc(s.key)}" value="${esc(meta.synopsis || '')}" placeholder="${esc(synopsisOf({ ...s, key: '__' }))}" aria-label="Descripción" ${gen ? '' : 'readonly'}></dd>

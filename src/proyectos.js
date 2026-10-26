@@ -171,6 +171,9 @@ function sanitizeProject(Px) {
     }
   }
   if (Px.meta && Px.meta.lock != null) sanitizeLock(Px.meta);
+  // logos y planos de planta: solo imágenes incrustadas (imagenes.js · imgDataOk)
+  if (Px.meta && typeof Px.meta === 'object') for (const k of ['logo', 'projLogo']) if (Px.meta[k] != null && !imgDataOk(Px.meta[k])) delete Px.meta[k];
+  if (Px.plans && typeof Px.plans === 'object') for (const [id, pl] of Object.entries(Px.plans)) if (!pl || typeof pl !== 'object' || !imgDataOk(pl.img)) delete Px.plans[id];
   const B = Px.budget;
   if (B && typeof B === 'object') {
     for (const k of ['contingency', 'igvRate']) if (!numLike(B[k])) B[k] = 0;

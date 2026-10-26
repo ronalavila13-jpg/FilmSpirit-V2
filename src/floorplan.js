@@ -304,7 +304,7 @@ function planPic(pl, cb) {
   if (!im || im._v !== pl.v) {
     im = new Image(); im._v = pl.v; im._cbs = [];
     im.onload = () => { (im._cbs || []).forEach(f => f()); im._cbs = []; if (UI.tab === 'board' || UI.tab === 'animatic') lateRender(); };
-    im.src = pl.img; PLAN_IMG.set(pl.id, im);
+    im.src = imgDataOk(pl.img); PLAN_IMG.set(pl.id, im);
   }
   if (im.complete && im.naturalWidth) return im;
   if (cb) im._cbs.push(cb);
