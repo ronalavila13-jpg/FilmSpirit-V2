@@ -35,7 +35,8 @@ function envFromScene(s) {
   if (!s) return { set: 'int', atm: 'dia' };
   const L = deaccent(String(s.loc || '').toUpperCase()), H = deaccent(String(s.heading || '').toUpperCase()), T = deaccent(String(s.tod || '').toUpperCase()), ext = s.ie === 'EXT';
   let set = ext ? 'ext' : 'int', room = '';
-  if (/\b(AUTO|CARRO|TAXI|COCHE|CAMIONETA|VEHICULO|COMBI|CUSTER)\b/.test(L)) set = ext ? 'calle' : 'auto';
+  const car = carFromLoc(L);
+  if (car) set = ext ? 'calle' : 'auto';
   else if (ext) {
     if (/PLAYA|ORILLA|MALECON|BALNEARIO/.test(L)) set = 'playa';
     else if (/\b(MAR|ALTAMAR|BOTE|LANCHA|BARCO|YATE|CABALLITO DE TOTORA)\b/.test(L)) set = 'mar';
@@ -58,23 +59,111 @@ function envFromScene(s) {
   if (/NIEBLA|NEBLINA/.test(H)) atm = 'niebla';
   else if (rain && atm === 'dia') atm = 'lluvia';
   if (set === 'int' && typeof roomFromLoc === 'function') room = roomFromLoc(L);
-  return { set, atm, rain: rain && atm !== 'lluvia', room };
+  return { set, atm, rain: rain && atm !== 'lluvia', room, car: set === 'auto' ? car : '' };
 }
-/* en el auto, las figuras van sentadas: la primera maneja */
+/* ---------- interior de vehículo ----------
+   s3.set = 'auto' y s3.car = { m: modelo, c: color de la carrocería }; sin s3.car es el sedán rojo de siempre.
+   Cada modelo: su armado (v: el perfil de VEH_CARS; el bus tiene el suyo, s3d-cabinas.js), su color de
+   fábrica y dónde cae en la escena: el vehículo va con el frente hacia −z y oz es la z suya que queda en el origen
+   (los asientos de adelante, a 0,18 m; así los planos de antes siguen con las figuras en su lugar) */
+const CAB_MODELS = {
+  sedan: { v: 'auto', c: '#9C3E36', oz: -.1 }, suv: { v: 'suv', c: '#7D8C9C', oz: .13 }, van: { v: 'van', c: '#F1F1EE', oz: 1.18 },
+  pickup: { v: 'pickup', c: '#B9BDC2', oz: .18 }, bus: { v: 'micro', c: '#E9B932', oz: 0 },
+};
+const CAR_HEX = /^#[0-9a-f]{6}$/i;
+/* el vehículo del plano: modelo, color y su ficha */
+function carOf(s3) {
+  const c = (s3 && s3.car && typeof s3.car === 'object') ? s3.car : {}, m = CAB_MODELS[c.m] ? c.m : 'sedan';
+  return { m, c: CAR_HEX.test(c.c || '') ? c.c : CAB_MODELS[m].c, own: CAR_HEX.test(c.c || ''), def: CAB_MODELS[m] };
+}
+/* cambiar el modelo o el color (null: el de fábrica); lo de siempre (sedán, su color) no se anota */
+function carSet(s3, f, v) {
+  const car = { ...((s3.car && typeof s3.car === 'object') ? s3.car : {}) };
+  if (f === 'm') { if (typeof v === 'string' && Object.hasOwn(CAB_MODELS, v) && v !== 'sedan') car.m = v; else delete car.m; }
+  if (f === 'c') { if (CAR_HEX.test(v || '')) car.c = v.toUpperCase(); else delete car.c; }
+  if (Object.keys(car).length) s3.car = car; else delete s3.car;
+  return s3;
+}
+/* al abrir un proyecto: solo un modelo que existe y un color válido */
+function carClean(s3) {
+  if (!s3 || s3.car == null) return;
+  const c = s3.car; delete s3.car;
+  if (c && typeof c === 'object' && !Array.isArray(c)) { if (c.m != null) carSet(s3, 'm', c.m); if (c.c != null) carSet(s3, 'c', c.c); }
+}
+/* el modelo que dice la locación: «INT. COMBI – NOCHE» es la van; «INT. AUTO DE ROSA» el sedán */
+function carFromLoc(L) {
+  if (/\b(BUS|BUSES|AUTOBUS|CUSTER|COASTER|MICRO|MICROBUS|OMNIBUS)\b/.test(L)) return 'bus';
+  if (/\b(COMBI|VAN|MINIVAN)\b/.test(L)) return 'van';
+  if (/\bPICK[- ]?UP\b/.test(L)) return 'pickup';
+  if (/\b(CAMIONETA|SUV|4X4|TODOTERRENO)\b/.test(L)) return 'suv';
+  if (/\b(AUTO|AUTOMOVIL|CARRO|TAXI|COCHE|VEHICULO)\b/.test(L)) return 'sedan';
+  return '';
+}
+/* del vehículo (frente hacia +z) a la escena (frente hacia −z) */
+const carW = (D, x, z) => [round2(-x) || 0, round2(D.oz - z) || 0];
+/* los puestos del modelo, en la escena: { x, z, pose, h }. En los autos la primera figura maneja; en el bus todos van
+   de pasajeros (maneja el chofer de relleno) y, si no alcanzan los asientos, de pie en el pasillo. h: lo que se
+   levanta la figura para quedar sobre el cojín (el sedán, nada: como siempre) */
+function carSeats(m) {
+  const D = CAB_MODELS[m] || CAB_MODELS.sedan, out = [];
+  if (m === 'bus') {
+    const V = VEH_MICRO, L = microSeats(), rows = [...new Set(L.map(p => p[1]))];
+    // de adelante hacia atrás, alternando ventana y pasillo (así se ven las caras desde el frente)
+    rows.forEach((z, r) => { const row = L.filter(p => p[1] === z).sort((a, b) => (r % 2 ? Math.abs(a[0]) - Math.abs(b[0]) : Math.abs(b[0]) - Math.abs(a[0])) || b[0] - a[0]); for (const [x] of row) out.push({ x, z, pose: 'sentado', h: round2(V.fh - .48) }); });
+    for (let z = V.z0 + .3; z > V.back + .6; z -= .7) out.push({ x: 0, z: round2(z - .35), pose: 'pie', h: V.fl });
+  } else {
+    const S = vehSpec(D.v), h = round2(Math.max(0, (S.fh || .48) - .48));
+    S.rows.forEach(([z, xs], r) => xs.forEach((x, i) => out.push({ x, z, pose: !r && !i ? 'maneja' : 'sentado', h })));
+  }
+  return out.map(p => { const [x, z] = carW(D, p.x, p.z); return { ...p, x, z }; });
+}
+/* en el vehículo, las figuras van sentadas: la primera maneja (en el bus, todas de pasajeras) */
 function envSeatCar(s3) {
-  const seats = [[-.37, .18, 'maneja'], [.37, .18, 'sentado'], [-.4, 1.12, 'sentado'], [.4, 1.12, 'sentado'], [0, 1.12, 'sentado']];
+  const seats = carSeats(carOf(s3).m);
   let n = 0;
   for (const ob of s3.objs) {
     if (ob.kind !== 'actor') continue;
     const sp = seats[n++]; if (!sp) break;
-    for (const k of s3.keys) { const p = k.o[ob.id]; if (!p) continue; p.x = sp[0]; p.z = sp[1]; p.rot = 180; p.pose = sp[2]; delete p.j; }
+    for (const k of s3.keys) { const p = k.o[ob.id]; if (!p) continue; p.x = sp.x; p.z = sp.z; p.rot = 180; p.pose = sp.pose; if (sp.h) p.h = sp.h; else delete p.h; delete p.j; }
   }
 }
-/* cámara por el parabrisas, mirando hacia las figuras sentadas */
+/* cámara de inicio: por el parabrisas, mirando hacia los de adelante; en el bus, al frente del pasillo mirando a los
+   pasajeros */
 function envCarCam(s3) {
   const k = s3.keys[0]; if (!k) return;
-  Object.assign(k.cam, { x: -.18, z: -1.5, h: 1.2, yaw: 180, pitch: -7, roll: 0, lens: 24 });
+  const C = carOf(s3), D = C.def;
+  if (C.m === 'bus') { const V = VEH_MICRO, [x, z] = carW(D, 0, V.drv[1] - .05); Object.assign(k.cam, { x, z, h: round2(V.fl + 1.66), yaw: 180, pitch: -12, roll: 0, lens: 18 }); }
+  else { const S = vehSpec(D.v), [, z] = carW(D, 0, S.zWs + .48); Object.assign(k.cam, { x: -.18, z, h: round2((S.fh || .48) + .76), yaw: 180, pitch: -8, roll: 0, lens: 24 }); }
   s3.aim = null;
+}
+/* la planta del vehículo en la escena: contorno, cabina, tolva, asientos, tablero, volante, ruedas, espejos y puerta
+   (rectángulos [x0, z0, x1, z1]) */
+function carPlan(s3) {
+  const C = carOf(s3), D = C.def;
+  const R = (x0, z0, x1, z1) => { const [a, b] = carW(D, x0, z0), [c, d] = carW(D, x1, z1); return [Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)]; };
+  const out = { m: C.m, seats: [], wheels: [], mirrors: [] };
+  if (C.m === 'bus') {
+    const V = VEH_MICRO, hw = V.W / 2;
+    out.body = R(-hw, -V.L / 2, hw, V.L / 2); out.rad = .22;
+    for (const [x, z] of microSeats()) out.seats.push(R(x - .2, z - .3, x + .2, z + .28));
+    out.seats.push(R(V.drv[0] - .25, V.drv[1] - .3, V.drv[0] + .25, V.drv[1] + .28));
+    out.dash = R(-hw + .05, V.L / 2 - .5, hw - .05, V.L / 2 - .05);
+    out.wheel = carW(D, V.drv[0], V.drv[1] + .48); out.wr = .24;
+    out.driver = carW(D, V.drv[0], V.drv[1]);
+    out.door = R(-hw - .02, V.door[0], -hw + .02, V.door[1]);
+    for (const zc of V.wheels) for (const sx of [-1, 1]) out.wheels.push(R(sx * (hw - .04), zc - V.wr, sx * (hw - .36), zc + V.wr));
+    return out;
+  }
+  const S = vehSpec(D.v), hw = S.W / 2, cw = S.W - (S.boxy ? .06 : .14), tw = S.wr * .62, Lc = cabLayout(S);
+  out.body = R(-hw, -S.L / 2, hw, S.L / 2); out.rad = S.boxy ? .25 : .4;
+  out.cabin = R(-cw / 2, S.zRw, cw / 2, S.zWs);
+  if (S.bed) out.bed = R(-hw + .06, S.bed[0], hw - .06, S.bed[1]);
+  S.rows.forEach(([z, xs], r) => { if (!r) for (const x of xs) out.seats.push(R(x - .25, z - .3, x + .25, z + .29)); else { const bw = Math.min(cw - .35, xs.length * .44 + .12); out.seats.push(R(-bw / 2, z - .3, bw / 2, z + .29)); } });
+  out.dash = R(-cw / 2 + .04, Lc.zd, cw / 2 - .04, S.zWs - .04);
+  out.wheel = carW(D, Lc.xD, Lc.wz); out.wr = Lc.big ? .2 : .18;
+  for (const zc of S.wheels) for (const sx of [-1, 1]) out.wheels.push(R(sx * (hw - .02), zc - S.wr, sx * (hw - .02 - tw), zc + S.wr));
+  for (const sx of [-1, 1]) out.mirrors.push(R(sx * (cw / 2 + .01), S.zWs - .26, sx * (cw / 2 + .14), S.zWs - .1));
+  return out;
 }
 /* ---------- piezas ---------- */
 const ENVB = { built: {} };
@@ -86,7 +175,7 @@ function envMats() {
     rock: t('#A9A397'), rockD: t('#8E897F'), sand: t('#E6D6AD'), sandW: t('#CDBB90'), soil: t('#A58F70'), cane: t('#A7BC6E'), caneTop: t('#8FAE5B'),
     mount: t('#9C9483'), mountD: t('#857E70'), snow: t('#F4F5F7'), dune: t('#DCC48F'), cerro: t('#B79A77'),
     water: new THREE.MeshPhongMaterial({ color: '#5F95B8', shininess: 80, specular: '#DDEBF5' }), foam: new THREE.MeshBasicMaterial({ color: '#F3F6F7', transparent: true, opacity: .85 }),
-    path: t('#D7CBB0'), wood: R3.mats.wood, paint: t('#9C3E36'), seat: t('#3E4046'), dash: t('#2F3237'), trim: t('#5A5D63'), asph: t(C3.road), metal: R3.mats.metal, deck: t('#A9825C'), hull: t('#E9E4DA'),
+    path: t('#D7CBB0'), wood: R3.mats.wood, asph: t(C3.road), metal: R3.mats.metal, deck: t('#A9825C'), hull: t('#E9E4DA'),
   });
 }
 /* árboles, cañas y piedras en una sola malla por tipo (rápido aunque sean cientos) */
@@ -195,29 +284,11 @@ function envBuild(k) {
   } else if (k === 'jardin_t' || k === 'jardin_d') {
     envGarden(k, g, put, M, rnd);
   } else if (k === 'auto') {
-    // interior de un auto que mira hacia −z, sobre una pista
+    // la pista con su bosque; el vehículo (cada modelo, la primera vez que se usa) lo pone envCarSync
     const road = new T.Mesh(new T.PlaneGeometry(8, 800), M.asph); road.rotation.x = -Math.PI / 2; road.position.y = -.003; road.receiveShadow = true; g.add(road);
     g.add(envGround(M.grass, 900, -.01));
     for (let z = -390; z < 400; z += 7) { const l = new T.Mesh(new T.PlaneGeometry(.14, 2.6), toon('#F2EFE8')); l.rotation.x = -Math.PI / 2; l.position.set(-1.9, .002, z); g.add(l); }
     envForest(g, scatter(90, 12, 120, (x, z) => Math.abs(x) > 8), 'hoja');
-    const car = new T.Group(); g.add(car);
-    const P = (geo, m, x, y, z, rx = 0) => { const o = put(geo, m, x, y, z, car); o.rotation.x = rx; return o; };
-    P(rbox(1.62, .3, 3.6, .06), M.paint, 0, .2, .2);                     // piso y bajos
-    P(rbox(1.5, .04, 3.1, .02), M.dash, 0, .36, .2);
-    for (const sx of [-.37, .37]) { P(rbox(.52, .12, .5, .05), M.seat, sx, .44, .2); P(rbox(.52, .64, .13, .05), M.seat, sx, .82, .5, -.18); P(rbox(.26, .17, .09, .04), M.seat, sx, 1.22, .56); }
-    P(rbox(1.34, .12, .52, .05), M.seat, 0, .44, 1.15); P(rbox(1.34, .6, .13, .05), M.seat, 0, .8, 1.45, -.15);
-    P(rbox(1.56, .34, .5, .06), M.dash, 0, .76, -.8); P(rbox(1.56, .08, .36, .03), M.trim, 0, .95, -.74);
-    const wheel = new T.Mesh(new T.TorusGeometry(.19, .022, 8, 28), M.dash); wheel.position.set(-.37, .97, -.44); wheel.rotation.x = -1.15; wheel.castShadow = true; car.add(wheel);
-    P(rcyl(.025, .36, .005, 8), M.dash, -.37, .92, -.58, -1.15);
-    for (const sx of [-.79, .79]) { P(rbox(.06, .56, 3.3, .02), M.paint, sx, .62, .2); P(rbox(.05, .05, 3.2, .015), M.trim, sx, .93, .2); }
-    for (const sx of [-.72, .72]) { const a = P(rbox(.06, .05, .62, .015), M.paint, sx, 1.18, -.66, .95); a.rotation.z = sx > 0 ? -.12 : .12; P(rbox(.07, .5, .09, .015), M.paint, sx, 1.18, .74); P(rbox(.08, .5, .16, .02), M.paint, sx * .97, 1.16, 1.66); }
-    P(rbox(1.42, .06, 2.35, .03), M.paint, 0, 1.44, .5);
-    P(rbox(1.6, .1, 1.2, .05), M.paint, 0, .82, -1.62); P(rbox(1.6, .1, .8, .05), M.paint, 0, .82, 2.25);
-    const glass = R3.mats.glass;
-    const ws = new T.Mesh(new T.PlaneGeometry(1.36, .66), glass); ws.position.set(0, 1.17, -.78); ws.rotation.x = -.95; car.add(ws);
-    const rw = new T.Mesh(new T.PlaneGeometry(1.3, .5), glass); rw.position.set(0, 1.2, 1.75); rw.rotation.x = .9; car.add(rw);
-    for (const sx of [-.8, .8]) { const sw = new T.Mesh(new T.PlaneGeometry(2.3, .46), glass); sw.position.set(sx, 1.18, .5); sw.rotation.y = Math.PI / 2; car.add(sw); }
-    put(rbox(.18, .05, .07, .02), M.trim, 0, 1.38, -.42, car);   // retrovisor
   }
   outlineAll(g);
   g.visible = false;
@@ -228,6 +299,25 @@ function envGroup(k) {
   if (R3.sets[k]) return R3.sets[k];
   if (!['parque', 'bosque', 'montana', 'playa', 'mar', 'desierto', 'canaveral', 'auto', 'jardin_t', 'jardin_d'].includes(k)) return null;
   return (R3.sets[k] = envBuild(k));
+}
+/* el vehículo del interior: se arma la primera vez que se usa cada modelo (hueco, con su interior, unido por material
+   para que sean pocas llamadas de dibujo) y se muestra el del plano con su color */
+function envCarSync(s3) {
+  const G = R3.sets.auto; if (!G) return;
+  const C = carOf(s3), all = ENVB.cars || (ENVB.cars = {});
+  if (!all[C.m]) {
+    const D = C.def, g = new THREE.Group(), inner = new THREE.Group(), paint = toon(D.c);
+    g.position.z = D.oz; g.rotation.y = Math.PI; g.add(inner);
+    if (C.m === 'bus') vehMicro(inner, paint); else vehCar(D.v, inner, paint, { hollow: true });
+    inner.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
+    propMerge(inner, {}, null);
+    outlineAll(inner);
+    G.add(g);
+    all[C.m] = { g, paint, c: D.c };
+  }
+  for (const m in all) all[m].g.visible = m === C.m;
+  const E = all[C.m];
+  if (E.c !== C.c) { E.paint.color.set(C.c); E.c = C.c; }
 }
 /* ---------- alumbrado público ----------
    Postes con su lámpara a lo largo de las veredas de la calle (y faroles en el parque). Se encienden de noche,
@@ -331,6 +421,7 @@ function envNatural(s3) {
 /* cada cuadro: cielo, sol, niebla, lluvia y espuma según la atmósfera (y la simulación de luz si está activa) */
 function envSync(s3, st, sim, S, t) {
   envSkyInit();
+  if (s3.set === 'auto') envCarSync(s3);
   const T = THREE, E = envOf(s3), A = S3_ATMS[atmOf(s3, ENVB.fb)], cam = R3.cam.position;
   const studio = !!E.studio, inside = !!E.int;
   ENVB.sky.visible = !studio;

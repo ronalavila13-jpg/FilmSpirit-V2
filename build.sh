@@ -31,7 +31,7 @@ fi
     echo '<html lang="es">'
     echo '<meta charset="utf-8">'
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:\">"
+    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'\">"
     echo '<link rel="stylesheet" href="fonts/fonts.css">'
     sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html
     echo '<script src="lib/three.min.js"></script>'
@@ -60,7 +60,7 @@ fi
   echo "const THV = '$(cat src/s3d-*.js src/expresiones.js src/floorplan.js src/s2d-editor.js src/charphoto.js | sha1sum | cut -c1-10)';"
   # el diccionario del inglés (i18n/en.json y el glosario): lo usa i18n.js, que va primero
   if [ -f i18n/en.json ]; then node i18n/hacer.js; else echo 'const I18N_EN = { x: {}, p: [], f: {} };'; fi
-  FILES="i18n core areas marca recorte-fuente iconos sample ui imagenes ventanas cabecera pestanas proyectos importar arranque historial barra leyenda arrastre tab-script fecha guion-editor guion-revision guion-formato guion-cierre guion-margen tab-project tab-breakdown tab-board s3d-model s3d-figs expresiones s3d-figuras-datos s3d-figuras s3d-render s3d-luz s3d-entornos s3d-accesorios s3d-vehiculos s3d-animales s3d-objetos s3d-interiores s3d-vestuario s3d-pelo s3d-gente s3d-plan glb-lib modelos personajes-3d escenarios-3d planta-general floorplan charphoto shot-editor s2d-editor ficha tab-animatic tab-plan plan-dood tab-cal cal-meses tab-call tab-budget tab-gastos tab-sup sup-partes xlsx pdf-fuente pdf-fuente-x pdf pdf-rango laminas tab-build tab-scout tab-casting archivo notas inicio series"
+  FILES="i18n core areas marca recorte-fuente iconos sample ui imagenes ventanas cabecera pestanas proyectos importar arranque historial barra leyenda arrastre tab-script fecha guion-editor guion-revision guion-formato guion-cierre guion-margen guion-anotar guion-racha tab-project tab-breakdown tab-board s3d-model s3d-figs expresiones s3d-figuras-datos s3d-figuras s3d-render s3d-luz s3d-entornos s3d-accesorios s3d-vehiculos s3d-cabinas s3d-animales s3d-objetos s3d-interiores s3d-vestuario s3d-pelo s3d-gente s3d-plan glb-lib modelos personajes-3d escenarios-3d planta-general floorplan charphoto shot-editor s2d-editor ficha tab-animatic tab-plan plan-dood tab-cal cal-meses tab-call tab-budget tab-gastos tab-sup sup-partes xlsx pdf-fuente pdf-fuente-x pdf pdf-rango laminas tab-build tab-scout tab-casting archivo notas inicio series"
   # equipo: en escritorio viaja por la carpeta compartida; en la web, por la base de datos de la página
   if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes"; else FILES="$FILES share share-web"; fi
   for f in $FILES; do

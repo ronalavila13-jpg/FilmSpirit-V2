@@ -54,7 +54,7 @@ function permCanEdit(who, sec) {
 /* las áreas del desglose que puede editar (null: todas) */
 const permAreas = who => !who.admin && who.perms && who.perms.desglose === 'editar' && Array.isArray(who.perms.areas) ? who.perms.areas : null;
 // las fotos del desglose («bd~…») y las del casting («ca~…») viajan con el desglose; las del scouting («lc~…»), con
-// el plan de rodaje; las del punto de encuentro («cl~…»), con la hoja de llamado; las de los recibos y órdenes de
+// el stripboard; las del punto de encuentro («cl~…»), con la hoja de llamado; las de los recibos y órdenes de
 // compra («ga~…»), con Gastos (cada persona las suyas: gaFrameOk); el resto, con el storyboard
 const frameSec = k => /^(bd|ca)~/.test(String(k)) ? 'desglose' : String(k).startsWith('lc~') ? 'plan' : String(k).startsWith('cl~') ? 'llamado' : String(k).startsWith('ga~') ? 'gastos' : 'storyboard';
 const FRAME_SECS = ['storyboard', 'desglose', 'plan', 'llamado'];

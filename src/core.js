@@ -607,7 +607,7 @@ function epApply(P, mutate, fresh = []) {
 function epAppend(P, paras, n, title, first) {
   n = String(n);
   if (!isSeries(P) && P.paras.some(p => p.t === 'h')) epConvert(P, first || '1');
-  const list = paras.map(p => { const o = { ...p }; delete o.ep; delete o.lpg; delete o.rv; if (o.t === 'h' && o.n) o.n = n + '-' + o.n; return o; });
+  const list = paras.map(p => { const o = { ...p }; delete o.ep; delete o.lpg; delete o.rv; delete o.rvw; delete o.rvd; if (o.t === 'h' && o.n) o.n = n + '-' + o.n; return o; });
   const h = list.findIndex(p => p.t === 'h');
   if (h < 0) list.unshift({ t: 'h', x: 'INT. LUGAR - DÍA', ep: n }); else list[h].ep = n;
   const at = P.paras.length;

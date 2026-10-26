@@ -89,7 +89,7 @@ function breakdownSheetHTML() {
   const head = hdHead({ md: true, title: `<span class="bd-sec tnum">${esc(d.secuencia)}</span><span class="sch">${esc(s.heading)}</span>`, step: hdStep(stepA(-1), stepA(1), 'escena'),
     sub: `Hoja de desglose ${d.no}${d.titulo ? ` · <span data-no-tr>${esc(d.titulo)}</span>` : ''}`, act });
   const jd = d.jornada ? shootDates(P, scheduleDays(P, D.sc).days.length)[d.jornada - 1] : null;
-  const chips = `<div class="bd-chips"><span class="bd-ie" style="--rb:${ea(stripBar(s))}">${d.ie === 'EXT' ? 'Exterior' : d.ie === 'INT/EXT' ? 'Interior y exterior' : 'Interior'} · ${d.dn === 'NOCHE' ? 'Noche' : 'Día'}</span><span class="bd-chip tnum">${esc(d.pages)} págs.</span><span class="bd-chip" title="${ea(d.jornada ? 'Fecha de la jornada en el stripboard' : 'La escena aún no está en el stripboard')}">${d.jornada ? `Jornada ${d.jornada}${jd ? ' · ' + esc(fmtDate(jd)) : ''}` : 'Sin programar'}</span></div>`;
+  const chips = `<div class="bd-chips"><span class="bd-ie" style="--rb:${ea(stripBar(s))}">${d.ie === 'EXT' ? 'Exterior' : d.ie === 'INT/EXT' ? 'Interior y exterior' : 'Interior'} · ${d.dn === 'NOCHE' ? 'Noche' : 'Día'}</span><span class="bd-chip tnum">${esc(d.pages)} págs.</span><span class="bd-chip" title="${ea(d.jornada ? 'Fecha de la jornada en el plan de rodaje' : 'La escena aún no está en el plan de rodaje')}">${d.jornada ? `Jornada ${d.jornada}${jd ? ' · ' + esc(fmtDate(jd)) : ''}` : 'Sin programar'}</span></div>`;
   // las cajas sin nada: una fila con un botón por categoría (con su color) que abre su caja
   const none = empty.length ? `<div class="bd-none"><span>Sin elementos todavía:</span>${empty.map(id => { const b = B[id], ed = canEditArea(id) && !UI.readOnly;
     return ed ? `<button type="button" class="bd-nb" data-act="bd-open" data-box="${ea(id)}" style="--c:${ea(b.color)}" title="Añadir a ${esc(b.name.toLowerCase())}"><i>${ICO.plus}</i>${esc(b.name)}</button>`
@@ -97,7 +97,7 @@ function breakdownSheetHTML() {
   return `<section class="hd bd-hd" aria-label="Cabecera de la hoja de desglose">${head}${chips}</section>
     <div class="bds">
     <section class="bd-hero">
-      <div class="bd-logo">${P.meta.logo ? `<img src="${esc(P.meta.logo)}" alt="${esc(d.productora || 'Logo')}">` : d.productora ? `<b>${esc(d.productora)}</b>` : ''}</div>
+      <div class="bd-logo">${imgDataOk(P.meta.logo) ? `<img src="${esc(imgDataOk(P.meta.logo))}" alt="${esc(d.productora || 'Logo')}">` : d.productora ? `<b>${esc(d.productora)}</b>` : ''}</div>
       <dl class="bd-fields">
         <dt>Decorado</dt><dd><input type="text" class="ti" data-bind="bd-set" data-key="${esc(s.key)}" value="${esc(d.decorado)}" aria-label="Decorado" ${gen ? '' : 'readonly'}></dd>
         <dt>Descripción</dt><dd><input type="text" class="ti" data-bind="synopsis" data-key="${esc(s.key)}" value="${esc(meta.synopsis || '')}" placeholder="${esc(synopsisOf({ ...s, key: '__' }))}" aria-label="Descripción" ${gen ? '' : 'readonly'}></dd>

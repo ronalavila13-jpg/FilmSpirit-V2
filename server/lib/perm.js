@@ -28,6 +28,24 @@ const canEditData = (role, sec) => sec === NOTES || sec === GASTOS ? !role.ro : 
 const NOTE_ID = /^[\w-]{1,40}$/, NOTE_T = /^[a-z]{1,12}$/, NOTE_REF = /^[\w:.~-]{0,100}$/;
 const MAX_NOTES = 3000, MAX_NOTE_TEXT = 4000;
 const cleanText = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, n);
+/* anotación a mano del guion rayado (t «ink», src/guion-anotar.js · inkCleanOn hace lo mismo al abrir un proyecto):
+   trazos de lápiz, marcador, flecha o cuadro de texto, con su color y grosor, en números enteros y con tope */
+const INK_K = ['p', 'm', 'a', 't'], INK_C = ['r', 'b', 'k', 'g', 'o'], INK_MAX_STROKES = 80, INK_MAX_NUMS = 2400;
+function cleanInk(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const st of list.slice(0, INK_MAX_STROKES)) {
+    if (!st || typeof st !== 'object' || !INK_K.includes(st.k) || !Array.isArray(st.d)) continue;
+    const d = st.d.slice(0, INK_MAX_NUMS).map(v => Math.round(+v));
+    if (!d.length || d.length % 2 || d.some(v => !isFinite(v) || Math.abs(v) > 1e5)) continue;
+    if ((st.k === 't' && d.length !== 2) || (st.k === 'a' && d.length !== 4 && d.length !== 6)) continue;
+    const o = { k: st.k, c: INK_C.includes(st.c) ? st.c : 'r', w: [1, 2, 3].includes(st.w) ? st.w : 1, d };
+    if (st.k === 'p' && Array.isArray(st.z) && st.z.length === d.length / 2) o.z = st.z.map(v => Math.min(100, Math.max(0, Math.round(+v) || 0)));
+    if (st.k === 't') { const tx = cleanText(st.tx, 500); if (!tx.trim()) continue; o.tx = tx; }
+    out.push(o);
+  }
+  return out.length ? out : null;
+}
 function cleanOn(on) {
   if (!on || typeof on !== 'object' || !SECS.includes(on.sec) || !NOTE_T.test(String(on.t || '')) || !NOTE_REF.test(String(on.id || ''))) return null;
   const o = { t: on.t, id: String(on.id || ''), sec: on.sec, label: cleanText(on.label, 120).replace(/\s+/g, ' ').trim() };
@@ -46,6 +64,15 @@ function cleanOn(on) {
     if (typeof on.q === 'string') o.q = cleanText(on.q, 80);
     if (typeof on.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(on.d)) o.d = on.d;
     if (on.u === 1 || on.u === true) o.u = 1;
+  }
+  // anotación a mano del guion rayado: el renglón al que va pegada (como la nota al margen) y sus trazos
+  if (o.t === 'ink') {
+    const int = v => typeof v === 'number' && isFinite(v) ? Math.round(Math.min(1e6, Math.max(0, v))) : null;
+    if (int(on.p) != null) o.p = int(on.p);
+    if (int(on.o) != null) o.o = int(on.o);
+    if (typeof on.q === 'string') o.q = cleanText(on.q, 80);
+    const s = cleanInk(on.s); if (!s) return null;
+    o.s = s;
   }
   return o;
 }

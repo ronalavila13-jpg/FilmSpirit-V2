@@ -95,6 +95,7 @@ function normalizeProject(Px) {
   // escenas 3D de versiones anteriores; la cámara B, solo lo que se conoce
   for (const sh of Object.values(Px.shots || {})) if (sh && sh.s3) {
     s3FloorFix(sh.s3); s3CleanB(sh.s3);
+    if (typeof carClean === 'function') carClean(sh.s3);   // el vehículo del interior: modelo que existe y color válido
     // las medidas de la planta: solo las que tienen dos puntas válidas (s3d-plan.js)
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
   }
@@ -163,14 +164,21 @@ function sanitizeProject(Px) {
       // guion cerrado: dónde empieza cada página ([posición, número])
       if (p.lpg != null) { p.lpg = Array.isArray(p.lpg) ? p.lpg.filter(m => Array.isArray(m) && Number.isInteger(m[0]) && m[0] >= 0 && /^[\w-]{1,16}$/.test(String(m[1]))).map(m => [m[0], String(m[1])]).slice(0, 8) : []; if (!p.lpg.length) delete p.lpg; }
       if (p.rv != null && (typeof p.rv !== 'string' || !/^[a-z]{1,12}$/.test(p.rv))) delete p.rv;
-      // formato (negrita, itálica, subrayado, resaltado): tramos [desde, hasta] dentro del texto
+      // palabras cambiadas en la revisión: tramos [desde, hasta, color] y lo borrado [posición, color] (guion-revision.js)
+      const rvc = c => typeof c === 'string' && /^[a-z]{1,12}$/.test(c);
+      if (p.rvw != null) { p.rvw = Array.isArray(p.rvw) ? p.rvw.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length && rvc(r[2])).map(r => [r[0], r[1], r[2]]).slice(0, 400) : []; if (!p.rvw.length) delete p.rvw; }
+      if (p.rvd != null) { p.rvd = Array.isArray(p.rvd) ? p.rvd.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && r[0] >= 0 && r[0] <= p.x.length && rvc(r[1])).map(r => [r[0], r[1]]).slice(0, 200) : []; if (!p.rvd.length) delete p.rvd; }
+      // formato (negrita, itálica, subrayado, resaltado de seis colores): tramos [desde, hasta] dentro del texto
       if (p.fm != null) {
         if (!p.fm || typeof p.fm !== 'object' || Array.isArray(p.fm)) delete p.fm;
-        else { const o = {}; for (const k of ['b', 'i', 'u', 'h']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
+        else { const o = {}; for (const k of ['b', 'i', 'u', 'h', 'g', 'c', 'r', 'o', 'l']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
       }
     }
   }
   if (Px.meta && Px.meta.lock != null) sanitizeLock(Px.meta);
+  // logos y planos de planta: solo imágenes incrustadas (imagenes.js · imgDataOk)
+  if (Px.meta && typeof Px.meta === 'object') for (const k of ['logo', 'projLogo']) if (Px.meta[k] != null && !imgDataOk(Px.meta[k])) delete Px.meta[k];
+  if (Px.plans && typeof Px.plans === 'object') for (const [id, pl] of Object.entries(Px.plans)) if (!pl || typeof pl !== 'object' || !imgDataOk(pl.img)) delete Px.plans[id];
   const B = Px.budget;
   if (B && typeof B === 'object') {
     for (const k of ['contingency', 'igvRate']) if (!numLike(B[k])) B[k] = 0;
@@ -205,11 +213,23 @@ function sanitizeProject(Px) {
     const au = A.audio;
     if (au && typeof au === 'object') for (const k of ['offset', 'vol']) if (au[k] != null && !isFinite(+au[k])) delete au[k];
   }
+  // el máster de la escena y las capas del dibujo 2D (lote U): solo lo que se conoce
+  if (Px.shots && typeof Px.shots === 'object') for (const sh of Object.values(Px.shots)) {
+    if (!sh || typeof sh !== 'object') continue;
+    if ('master' in sh && typeof sh.master !== 'boolean') delete sh.master;
+    if (sh.d2 && typeof sh.d2 === 'object' && Array.isArray(sh.d2.layers)) for (const L of sh.d2.layers) {
+      if (!L || typeof L !== 'object') continue;
+      if ('back' in L && (L.back !== true || L.kind !== 'image')) delete L.back;   // detrás de las figuras: solo imágenes
+      if ('imp' in L && L.imp !== 'ref' && L.imp !== 'anno') delete L.imp;
+    }
+  }
   const N = Px.notes;
   if (N && typeof N === 'object') for (const [id, n] of Object.entries(N)) {
     const on = n && n.on;
     if (!NOTE_ID_RE.test(id) || !n || typeof n !== 'object' || !on || typeof on !== 'object' || !/^[a-z]{1,12}$/.test(String(on.t || '')) || !/^[\w:.~-]{0,100}$/.test(String(on.id || ''))
       || (on.t === 'tab' && !/^[a-z]{1,12}$/.test(String(on.id || ''))) || (n.re != null && !NOTE_ID_RE.test(String(n.re)))) { delete N[id]; continue; }
+    // anotación a mano del guion rayado: sus trazos, limpios (guion-anotar.js); sin ninguno válido, se va
+    if (on.t === 'ink' && typeof anoCleanOn === 'function' && !anoCleanOn(on)) { delete N[id]; continue; }
     n.id = id;
     if (typeof n.text !== 'string') n.text = String(n.text ?? '');
     if (typeof n.ts !== 'number' || !isFinite(n.ts)) n.ts = 0;

@@ -10,7 +10,7 @@ const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++
 const c = { Math, console, clamp: (v, a, b) => Math.min(b, Math.max(a, v)), rad: d => d * Math.PI / 180 };
 vm.createContext(c);
 for (const f of ['modelos', 'personajes-3d', 'escenarios-3d']) vm.runInContext(fs.readFileSync(R + '/src/' + f + '.js', 'utf8'), c, { filename: f + '.js' });
-const X = vm.runInContext('({ ch3Parse, ch3AutoMap, ch3Missing, CH3_MAIN, m3Compact, m3Key, set3dFloors, set3dBox, set3dGuessUnit, set3dFitBox, set3dFog, set3dOf, set3dForLoc })', c);
+const X = vm.runInContext('({ ch3Parse, ch3AutoMap, ch3Missing, CH3_MAIN, m3Compact, m3Key, set3dFloors, set3dBox, set3dGuessUnit, set3dFitBox, set3dFog, set3dOf, set3dForLoc, set3dRoofy })', c);
 
 // un esqueleto a partir de [nombre, padre]
 const skel = L => { const ix = new Map(L.map(([n], i) => [n, i])); return L.map(([n, p]) => ({ n, p: p == null ? -1 : ix.get(p) })); };
@@ -99,6 +99,44 @@ test('un modelo con Z arriba (acostado): se para y el piso sale igual', () => {
   assert.ok(Math.abs(F.floor) < .05, 'piso: ' + F.floor);
   const B = X.set3dBox(t, true);
   assert.deepStrictEqual([B[1], B[4]].map(Math.round), [0, 4], 'el alto va en Y');
+});
+/* una habitación de SketchUp: 4 × 4 m y 3 m de alto, con sus cuatro muros, el techo y el piso como venga (sin piso, con
+   la cara al revés o normal). El techo puede mirar hacia arriba (por fuera) o hacia abajo (por dentro) */
+function caja(piso, techo = 'arriba') {
+  const pos = [], idx = [];
+  const quad = (a, b, c, d) => { const n = pos.length / 3; pos.push(...a, ...b, ...c, ...d); idx.push(n, n + 1, n + 2, n, n + 2, n + 3); };
+  const horiz = (y, dir) => { const q = [[-2, y, 2], [2, y, 2], [2, y, -2], [-2, y, -2]]; if (dir === 'abajo') q.reverse(); quad(...q); };
+  for (const [a, b] of [[[-2, -2], [2, -2]], [[2, -2], [2, 2]], [[2, 2], [-2, 2]], [[-2, 2], [-2, -2]]]) quad([a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], 3, b[1]], [a[0], 3, a[1]]);
+  horiz(3, techo);
+  if (piso !== 'sin') horiz(0, piso);
+  const v3 = a => ({ getComponent: i => a[i] });
+  return { H: { tris: idx.length / 3, mats: [{}] }, parts: [{ m: 0, geo: { attributes: { position: { array: Float32Array.from(pos) } }, index: { array: Uint32Array.from(idx) }, boundingBox: { min: v3([-2, 0, -2]), max: v3([2, 3, 2]) } } }] };
+}
+test('el piso de un modelo de SketchUp: con la cara al revés también cuenta', () => {
+  const F = X.set3dFloors(caja('abajo'), false);
+  assert.ok(Math.abs(F.floor) < .05, 'piso al revés en 0: ' + F.floor);
+  assert.ok(!F.roof);
+  for (const t of ['arriba', 'abajo']) assert.ok(Math.abs(X.set3dFloors(caja('abajo', t), false).floor) < .05, 'techo ' + t);
+});
+test('el piso normal sigue igual', () => {
+  const F = X.set3dFloors(caja('arriba'), false);
+  assert.ok(Math.abs(F.floor) < .05, 'piso en 0: ' + F.floor);
+  assert.ok(!F.roof);
+  assert.deepStrictEqual(J(F.levels.map(y => Math.round(y))), [0, 3], 'el techo queda como otro nivel');
+});
+test('sin piso: la única superficie grande es el techo y el piso va en la base del modelo (no en el techo)', () => {
+  for (const t of ['arriba', 'abajo']) {
+    const F = X.set3dFloors(caja('sin', t), false);
+    assert.ok(Math.abs(F.floor) < .05, `techo ${t}: piso en ${F.floor}`);
+    assert.strictEqual(F.roof, true);
+    assert.strictEqual(F.levels.length, 2, 'la base y el techo, para elegir');
+  }
+});
+test('el aviso del editor: el piso quedó en el techo (casi todo el modelo debajo de las figuras)', () => {
+  assert.strictEqual(X.set3dRoofy({ id: 'x', dn: 3, h: .1 }), true);
+  assert.strictEqual(X.set3dRoofy({ id: 'x', dn: 0, h: 3 }), false, 'el piso de siempre');
+  assert.strictEqual(X.set3dRoofy({ id: 'x', dn: .4, h: 2.8 }), false, 'un sótano o un desnivel');
+  assert.strictEqual(X.set3dRoofy(null), false);
 });
 test('las medidas del archivo, por el tamaño (metros, centímetros, milímetros o pulgadas)', () => {
   // una habitación de 10 × 10 m y 4 m de alto, escrita en cada medida

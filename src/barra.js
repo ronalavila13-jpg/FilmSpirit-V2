@@ -7,7 +7,7 @@ const SETTINGS = {};   // pestaña → () => html (los controles usan data-act y
 const HELP = {};       // pestaña → [[título, texto], …]
 const EXPORTS = {};    // pestaña → () => [{ label, hint, run(btn) }]
 const EXPORTS_NOTE = {};   // pestaña → () => html: un aviso arriba del menú Exportar (lo que falta antes de enviar)
-const TAB_NAMES = { build: 'Historia', script: 'Guion', project: 'Proyecto', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Stripboard', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
+const TAB_NAMES = { build: 'Historia', script: 'Guion', project: 'Proyecto', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
 /* íconos dibujados (en vez de emojis, que cambian según el sistema): heredan el color y el tamaño del texto */
 const ICO = {
   palette: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.3 0 1.9-.8 1.9-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.6-1.6h2.1a3.9 3.9 0 0 0 3.9-3.9C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.6" cy="11.4" r="1.2" fill="currentColor" stroke="none"/><circle cx="10.3" cy="7.6" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.6" cy="7.8" r="1.2" fill="currentColor" stroke="none"/></svg>',
@@ -248,7 +248,7 @@ const plain = h => { const d = document.createElement('div'); d.innerHTML = h; r
 const KEYS = [
   ['En todo el programa', [['Ctrl + K', 'Ir a una pestaña, a un tema de la ayuda o a estos atajos'], ['Alt + 1…5', 'La etapa de ese número; otra vez, su pestaña siguiente'], ['Ctrl + Z · Ctrl + Mayús + Z', 'Deshacer y rehacer'], ['Esc', 'Cierra el menú o la ventana de arriba'], ['Flechas', 'Recorren los menús y las etapas de la franja']]],
   ['Guion', [['Intro', 'Pasa al párrafo siguiente'], ['Tab · Mayús + Tab', 'Cambia el tipo de párrafo'], ['Ctrl + 1…7', 'Escena, acción, personaje, acotación, diálogo, transición y plano'], ['Ctrl + B · I · U', 'Negrita, itálica y subrayado'], ['Ctrl + F', 'Buscar en el guion'], ['Ctrl + Intro', 'En AV: agrega una fila']]],
-  ['Stripboard y Calendario', [['Mayús + clic · Ctrl + clic', 'Elige varias escenas o tareas'], ['Arrastrar desde un espacio vacío', 'Elige varias de un trazo']]],
+  ['Plan de rodaje y Calendario', [['Mayús + clic · Ctrl + clic', 'Elige varias escenas o tareas'], ['Arrastrar desde un espacio vacío', 'Elige varias de un trazo']]],
   ['Animatic', [['Espacio', 'Reproduce o pausa'], ['J · K · L', 'Atrás, pausa y adelante'], ['← →', 'Un cuadro (con Mayús, un segundo)'], ['↑ ↓', 'Al corte anterior o siguiente'], ['S · Ctrl + B', 'Divide el clip en el cabezal'], ['Q · W', 'Quita el comienzo o el final'], ['C', 'Cuchilla'], ['Ctrl + D', 'Duplica']]],
 ];
 function keysHTML() { return `<div class="keys">${KEYS.map(([g, list]) => `<section><h5>${esc(g)}</h5><dl>${list.map(([k, d]) => `<dt>${k.split(' · ').map(x => `<span>${x.split(' + ').map(y => `<kbd>${esc(y)}</kbd>`).join(' + ')}</span>`).join(`<i>${EN ? 'or' : 'o'}</i>`)}</dt><dd>${esc(d)}</dd>`).join('')}</dl></section>`).join('')}</div>`; }

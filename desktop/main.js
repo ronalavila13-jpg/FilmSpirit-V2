@@ -97,6 +97,20 @@ const APP_FILE = path.join(__dirname, 'app', 'index.html').toLowerCase();
 function isAppUrl(u) {
   try { const x = new URL(String(u)); return x.protocol === 'file:' && path.resolve(require('url').fileURLToPath(x.href.split(/[?#]/)[0])).toLowerCase() === APP_FILE; } catch (e) { return false; }
 }
+/* la página solo puede cargar sus propios archivos: nada de file:// fuera de la carpeta de la app (en Windows,
+   file://servidor/… abre una conexión de red y entrega la firma de la contraseña) ni direcciones de internet */
+const APP_DIR = path.join(__dirname, 'app').toLowerCase() + path.sep;
+function isAppFile(u) {
+  try {
+    const x = new URL(String(u));
+    if (x.protocol !== 'file:' || (x.host && x.host !== 'localhost')) return false;
+    const p = path.resolve(require('url').fileURLToPath(x.href.split(/[?#]/)[0])).toLowerCase();
+    return p.startsWith(APP_DIR) && !p.startsWith('\\\\');
+  } catch (e) { return false; }
+}
+function lockRequests(ses) {
+  ses.webRequest.onBeforeRequest({ urls: ['file://*/*', 'http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*', 'ftp://*/*'] }, (d, cb) => cb({ cancel: !isAppFile(d.url) }));
+}
 function createWindow() {
   win = new BrowserWindow({
     width: 1440, height: 900, minWidth: 980, minHeight: 640, show: false,
@@ -110,6 +124,7 @@ function createWindow() {
   // la ventana solo muestra la app: soltar un archivo o seguir un enlace file:// ya no la reemplaza (con el puente activo)
   win.webContents.on('will-navigate', (e, url) => { if (isAppUrl(url)) return; e.preventDefault(); if (/^https?:\/\//.test(url)) shell.openExternal(url); });
   // cámara, micrófono, ubicación, notificaciones…: la app no los usa; copiar al portapapeles y pantalla completa sí
+  lockRequests(win.webContents.session);
   const okPerm = new Set(['clipboard-sanitized-write', 'fullscreen']);
   win.webContents.session.setPermissionRequestHandler((wc, perm, cb) => cb(okPerm.has(perm)));
   win.webContents.session.setPermissionCheckHandler((wc, perm) => okPerm.has(perm));

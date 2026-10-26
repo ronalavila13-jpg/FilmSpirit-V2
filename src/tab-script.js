@@ -32,6 +32,7 @@ const scriptModeHTML = () => UI.tab === 'script' && typeof scriptLock === 'funct
 
 RENDER.script = function () {
   const v = $('#view');
+  document.body.classList.toggle('hl-off', !!scriptLock());   // guion cerrado: los resaltados del guionista se ocultan (guion-formato.js)
   if (!P.paras.length) { v.innerHTML = emptyScript(); bindView(); return; }
   scriptModeFor(UI.tab);
   if (UI.scriptEdit && typeof edEditable === 'function' && edEditable()) {
@@ -42,7 +43,7 @@ RENDER.script = function () {
           <button class="btn ghost icon only-narrow" data-act="drawer" data-d="#side" aria-label="Escenas" title="Escenas">${ICO.list}</button>
           ${typeof myScriptsBtnHTML === 'function' ? myScriptsBtnHTML() : ''}
           ${editorBarHTML()}
-          <span class="grow"></span>${lockChipHTML()}
+          <span class="grow"></span>${typeof wkChipHTML === 'function' ? wkChipHTML() : ''}${lockChipHTML()}
           <button class="btn ghost only-mid hide-sm" data-act="drawer" data-d="#insp" title="Revisión del guion: resumen, carátula, buscar, revisiones">${ICO.check} Revisión</button>
           ${toolsHTML()}
         </div>
@@ -65,7 +66,8 @@ RENDER.script = function () {
         ${UI.tab === 'lined' ? `<div class="hd-togs hide-sm" role="group" aria-label="Capas">
           <button type="button" data-act="mode" data-m="tags" aria-pressed="${ea(UI.mode.tags)}" title="Los colores del desglose sobre el texto">${ICO.ok}Etiquetas</button>
           <button type="button" data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}" title="Las líneas de los planos sobre el texto">${ICO.ok}Rayado</button>
-        </div>` : ''}
+          ${typeof anoChipHTML === 'function' ? anoChipHTML() : ''}
+        </div>${typeof anoBtnHTML === 'function' ? anoBtnHTML() : ''}` : ''}
         ${UI.tab === 'lined' && !UI.readOnly ? mkBtnHTML() : ''}
         <div class="seg hide-sm" role="group" aria-label="Zoom"><button data-act="zoom" data-z="-1" aria-label="Alejar">−</button><button data-act="zoom" data-z="1" aria-label="Acercar">+</button></div>
         <span class="grow"></span>${lockChipHTML()}
@@ -172,6 +174,7 @@ function pagesHTML() {
   const nums = edNumsOn();
   const firstOfScene = new Map(D.sc.scenes.map(s => [s.p0, s]));
   MN.items = mnOn() && !notesHidden() ? mnItems() : new Map(); MN.sig = mnOn() ? mnSigOf() : '';
+  if (typeof anoPrep === 'function') anoPrep();   // anotaciones a mano (guion-anotar.js)
   return D.pages.map((pg, pi) => {
     let marks = '';
     const lines = pg.map((ln, li) => {
@@ -182,7 +185,7 @@ function pagesHTML() {
       const up = ln.t === 'h' || ln.t === 'c' || ln.t === 'tr' || ln.t === 'sh';
       return `<div class="ln t-${ea(ln.t)}${ea(up ? ' up' : '')}" data-p="${ea(ln.p)}" data-o="${ea(ln.o)}" style="--ind:${ea(ln.ind)}">${lineContent(ln, tbp)}</div>`;
     }).join('');
-    return `<div class="page${ea(LAYERS().tags ? '' : ' dim-tags')}" data-pg="${ea(pi)}"><div class="pgno">${pi > 0 || pageLabel(D.pages, 0) !== '1' ? esc(pageLabel(D.pages, pi)) + '.' : ''}</div>${marks}<div class="lines">${lines}</div>${coverageHTML(pi)}${mnPageHTML(MN.items.get(pi))}</div>`;
+    return `<div class="page${ea(LAYERS().tags ? '' : ' dim-tags')}" data-pg="${ea(pi)}"><div class="pgno">${pi > 0 || pageLabel(D.pages, 0) !== '1' ? esc(pageLabel(D.pages, pi)) + '.' : ''}</div>${marks}<div class="lines">${lines}</div>${coverageHTML(pi)}${typeof anoPageHTML === 'function' ? anoPageHTML(pi) : ''}${mnPageHTML(MN.items.get(pi))}</div>`;
   }).join('');
 }
 /* guion AV rayado: una tabla de dos columnas; cada celda es un párrafo marcable */
@@ -259,6 +262,7 @@ function bindScript() {
   bindPinch(sc);
   const pages = $('#pages');
   mnBind(pages);
+  if (typeof anoBind === 'function') anoBind(pages);   // anotar a mano (guion-anotar.js)
   pages.addEventListener('click', e => {
     const tg = e.target.closest('.tg');
     if (tg && LAYERS().tags) {
@@ -666,7 +670,10 @@ function suggestShots(s) {
   const make = [];
   const first = s.p0 + 1 < s.p1 ? s.p0 + 1 : s.p0, last = s.p1 - 1;
   const cast = sceneCast(s.idx);
-  make.push({ p0: first, p1: last, size: s.ie === 'EXT' ? 'PG' : 'PE', move: 'Fijo', desc: 'Plano máster de la escena', chars: cast.map(e => e.id) });
+  // el máster (lote U): los demás planos de la escena toman de él la ubicación de los personajes y el escenario
+  // (s3d-model.js · s3Follow). Si la escena ya tiene uno, ese se queda
+  const hasM = typeof shotMaster === 'function' && !!shotMaster(s.key);
+  make.push({ p0: first, p1: last, size: s.ie === 'EXT' ? 'PG' : 'PE', move: 'Fijo', desc: 'Plano máster de la escena', chars: cast.map(e => e.id), ...(hasM ? {} : { master: true }) });
   // un plano por personaje con diálogo
   const speakers = new Map();
   for (let i = s.p0 + 1; i < s.p1; i++) {
@@ -712,12 +719,13 @@ SETTINGS.script = () => `${typeof edEditable === 'function' && edEditable() ? `<
   ${epCan() || isSeries(P) ? `<div class="fld"><span>Serie de TV</span><div class="menu">${isSeries(P) ? `<button data-act="ep-open" data-pclose>Episodios (${(D.sc.eps || []).length})…</button>` : '<button data-act="ep-convert" data-pclose>Convertir en serie…</button>'}</div><span class="hint">${isSeries(P) ? 'Cada episodio numera sus escenas con su número delante (101-1, 101-2…) y empieza en página nueva.' : 'Para una serie: un episodio tras otro en el mismo proyecto, con sus escenas numeradas 101-1, 101-2…'}</span></div>` : ''}
   <div class="fld"><span>Guion final</span>${scriptLock() ? `<div class="menu"><button data-act="lk-panel" data-pclose>${ICO.lock} Guion cerrado: revisiones y acceso…</button></div>` : lockCanClose() ? `<div class="menu"><button data-act="lk-close" data-pclose>${ICO.lock} Cerrar el guion final…</button></div>` : ''}
     <span class="hint">${scriptLock() ? 'Cerrado: los cambios se hacen en revisiones de color; los números de escena y de página no se mueven.' : 'Al cerrarlo queda de solo lectura, con los números de escena y de página fijos; los cambios se hacen en revisiones de color.'}</span></div>`;
-SETTINGS.lined = () => `<div class="fld sm-fld"><span>Ver en el guion</span><div class="seg" role="group" aria-label="Capas"><button data-act="mode" data-m="tags" aria-pressed="${ea(UI.mode.tags)}">Etiquetas</button><button data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}">Rayado</button></div></div>
+SETTINGS.lined = () => `<div class="fld sm-fld"><span>Ver en el guion</span><div class="seg" role="group" aria-label="Capas"><button data-act="mode" data-m="tags" aria-pressed="${ea(UI.mode.tags)}">Etiquetas</button><button data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}">Rayado</button>${typeof anoOn === 'function' && anoOn() ? `<button data-act="mode" data-m="ink" aria-pressed="${ea(UI.mode.ink !== false)}">Anotaciones</button>` : ''}</div></div>
   <div class="fld"><span>Categorías de las etiquetas</span><div class="legend cat-chips">${CATS.map(c => `<button data-act="cat-toggle" data-c="${ea(c.id)}" aria-pressed="${ea(!UI.hidden.has(c.id))}" style="--c:${ea(c.color)};--ci:${ea(mkInk(c.color))}" title="Mostrar u ocultar ${ea(c.name)} en el guion">${esc(c.name)}</button>`).join('')}</div>
-  <span class="hint">Toca una categoría para ocultarla o mostrarla en el guion.</span></div>`;
+  <span class="hint">Toca una categoría para ocultarla o mostrarla en el guion.</span></div>${typeof anoSettingsHTML === 'function' ? anoSettingsHTML() : ''}`;
 HELP.script = [
   ['Escribir', 'Aquí redactas el guion en formato de cine o de dos columnas (AV). Intro pasa al párrafo que sigue, Tab cambia su tipo y Ctrl + 1…7 lo elige: escena, acción, personaje, acotación, diálogo, transición y plano. Los nombres de personaje y las locaciones se completan solos.'],
-  ['Formato y revisión', 'La barra tiene negrita (Ctrl+B), itálica (Ctrl+I), subrayado (Ctrl+U) y resaltar: elige el texto (o deja el cursor en una palabra) y toca el botón. Salen en el PDF y en Fountain; el resaltado es una marca de trabajo y no se imprime. El último botón marca los cambios con un asterisco del color que elijas.'],
+  ['Formato y revisión', 'La barra tiene negrita (Ctrl+B), itálica (Ctrl+I), subrayado (Ctrl+U) y resaltar: elige el texto (o deja el cursor en una palabra) y toca el botón. La flechita del resaltador elige entre seis colores (o lo quita). Salen en el PDF y en Fountain; el resaltado es una marca de trabajo, no se imprime y se oculta con el guion cerrado. El último botón marca los cambios: lo cambiado queda resaltado con el color de la revisión y el párrafo con un asterisco (en el PDF, solo el asterisco).'],
+  ['Escritura y racha', 'La llamita de la barra cuenta lo que escribes cada día: palabras netas, tiempo escribiendo y pensando. Si llegas a tu meta (100 palabras o 15 minutos, la cambias en su panel), la racha suma un día; un día de descanso por semana no la corta. Es tuya: suma con todos tus guiones y nadie más la ve.'],
   ['AV a dos columnas', 'Video a la izquierda, audio a la derecha y la duración de cada fila. Tab pasa de celda en celda; Ctrl + Intro agrega una fila. En el audio, «NOMBRE: texto» cuenta como personaje para el desglose.'],
   ['Marcar el desglose', 'Las etiquetas del desglose y el rayado de los planos están en la pestaña Guion rayado, en Desarrollo. Al pasar allí, el texto nuevo trae sus sugerencias.'],
   ['Guion final', 'En Ajustes («⋯» al final de la barra), «Cerrar el guion final» lo deja de solo lectura con los números de escena y de página fijos (lo nuevo va con letra: escena 12A, página 30A). Para cambiarlo, una persona autorizada abre una revisión de color con su código: cada párrafo cambiado queda con asterisco y el registro dice quién hizo qué. Solo producción lo reabre.'],
@@ -726,6 +734,7 @@ HELP.lined = [
   ['Marcar el desglose', 'Selecciona texto en el guion y elige la categoría: personaje, atrezo, vestuario… Toca una etiqueta para cambiarla o quitarla.'],
   ['Crear planos', 'Selecciona el texto que cubre el plano y elige «Plano». Las líneas sobre el texto son el rayado: cada una muestra qué cubre su plano, con el número arriba (tócalo para abrir el plano).'],
   ['Notas al margen', 'Suelta el botón de nota (arriba) sobre una palabra del guion, o elige texto y toca «Nota»: la nota queda al costado de la página con la fecha del día y una flecha fina hasta ese lugar. Tócala para responder, editarla o resolverla. Si es tuya, toca la fecha para cambiarla y arrastra la punta de la flecha a otro lugar del texto. Salen en el PDF del guion rayado.'],
+  ['Anotar a mano', 'El lápiz de la barra abre las herramientas: lápiz, marcador, flecha (recta o curva, sigue tu gesto), cuadro de texto y borrador, con cinco colores y tres grosores. Se dibuja sobre el texto y en los márgenes; cada anotación queda pegada a su renglón. Con un lápiz digital, el lápiz dibuja y el dedo desplaza la página. Las ve todo el equipo: toca una para ver quién la hizo. «Anotaciones» las muestra u oculta, y salen en el PDF del guion rayado.'],
   ['Etiquetas y Rayado', 'Muestran u ocultan los colores del desglose y las líneas de los planos. En Ajustes («⋯» al final de la barra) eliges qué categorías se ven.'],
   ['Exportar', 'El PDF del guion rayado sale como lo ves: con el rayado de los planos, con las etiquetas o con las dos, y con las categorías que tengas a la vista. También puedes sacar solo las etiquetas de un área (sonido, vestuario, atrezzo…) para cada departamento.'],
   ['Escenas', 'La lista de la izquierda salta a cada escena; el panel de la derecha muestra su sinopsis, sus planos y su desglose.'],

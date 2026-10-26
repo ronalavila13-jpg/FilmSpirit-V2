@@ -171,6 +171,7 @@ function mnLayout() {
 function mnSync() {
   if (!mnOn() || !$('#pages')) return;
   if (mnSigOf() !== MN.sig) { refreshPages(); fitPages(); }
+  else if (typeof anoSync === 'function') anoSync();   // las anotaciones a mano (guion-anotar.js)
 }
 function mnBind(pages) {
   pages.addEventListener('click', e => {

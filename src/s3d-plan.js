@@ -79,13 +79,8 @@ function planDrawSet(ctx, s3, V, toS, redraw) {
       const [a, b] = toS(-1.15, -2.4), [c, d] = toS(1.15, 3.2);
       ctx.fillStyle = '#E2D2BC'; ctx.strokeStyle = '#8B6F4E'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, 8) : ctx.rect(a, b, c - a, d - b); ctx.fill(); ctx.stroke();
     }
-  } else if (s3.set === 'auto') {
-    const [a, b] = toS(-.81, -1.6), [c, d] = toS(.81, 2);
-    ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, 14) : ctx.rect(a, b, c - a, d - b); ctx.stroke();
-    ctx.fillStyle = 'rgba(80,84,92,.18)';
-    for (const [x, z, w, h] of [[-.37, .2, .52, .5], [.37, .2, .52, .5], [0, 1.15, 1.34, .52], [0, -.8, 1.56, .5]]) { const [p, q] = toS(x - w / 2, z - h / 2), [r, t] = toS(x + w / 2, z + h / 2); ctx.fillRect(p, q, r - p, t - q); }
-    ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Frente', (a + c) / 2, b - 6);
-  } else if (s3.set === 'calle') {
+  } else if (s3.set === 'auto' && typeof carPlan === 'function') planCar(ctx, carPlan(s3), V, toS);
+  else if (s3.set === 'calle') {
     const [, r0] = toS(0, -9), [, r1] = toS(0, -2);
     ctx.fillStyle = PLAN_C.road; ctx.fillRect(0, r0, V.W, r1 - r0);
     ctx.strokeStyle = '#C9C4BA'; ctx.setLineDash([12, 10]); const [, rm] = toS(0, -5.5); ctx.beginPath(); ctx.moveTo(0, rm); ctx.lineTo(V.W, rm); ctx.stroke(); ctx.setLineDash([]);
@@ -101,6 +96,27 @@ function planDrawSet(ctx, s3, V, toS, redraw) {
     ctx.fillStyle = '#5B6070';
     for (const [x, y, w, h] of pl.rects) { const [a, b] = toS(W.x(x), W.z(y)); ctx.fillRect(a, b, Math.max(1, w * W.k * V.sc), Math.max(1, h * W.k * V.sc)); }
   }
+}
+/* el vehículo del interior visto desde arriba (carPlan, s3d-entornos.js): ruedas, contorno de la carrocería, cabina
+   (y la tolva de la pick-up), tablero, asientos, volante, espejos; en el bus, la puerta a la derecha y el chofer */
+function planCar(ctx, Q, V, toS) {
+  const box = (r, rad = 0) => { const [a, b] = toS(r[0], r[1]), [c, d] = toS(r[2], r[3]); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, Math.min(rad, (c - a) / 2, (d - b) / 2)) : ctx.rect(a, b, c - a, d - b); return [a, b, c, d]; };
+  ctx.save();
+  ctx.fillStyle = '#5B6070'; for (const w of Q.wheels) { box(w, 2); ctx.fill(); }
+  const [a, b, c] = box(Q.body, Q.rad * V.sc);
+  ctx.fillStyle = 'rgba(80,84,92,.06)'; ctx.fill(); ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 2; ctx.stroke();
+  for (const m of Q.mirrors) { box(m, 2); ctx.fillStyle = PLAN_C.wall; ctx.fill(); }
+  if (Q.cabin) { box(Q.cabin, .12 * V.sc); ctx.strokeStyle = PLAN_C.propLine; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]); }
+  if (Q.bed) { box(Q.bed, 3); ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 1.2; ctx.stroke(); }
+  ctx.fillStyle = 'rgba(80,84,92,.18)';
+  box(Q.dash, 3); ctx.fill();
+  for (const s of Q.seats) { box(s, 3); ctx.fill(); }
+  if (Q.wheel) { const [x, y] = toS(Q.wheel[0], Q.wheel[1]); ctx.beginPath(); ctx.arc(x, y, Math.max(3, Q.wr * V.sc), 0, Math.PI * 2); ctx.strokeStyle = PLAN_C.muted; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = PLAN_C.muted;
+  if (Q.door) { const [p, q, r, s] = box(Q.door); ctx.fillStyle = PLAN_C.bg; ctx.fillRect(p - 2, q, r - p + 4, s - q); ctx.fillStyle = PLAN_C.muted; ctx.save(); ctx.translate(r + 8, (q + s) / 2); ctx.rotate(Math.PI / 2); ctx.fillText('Puerta', 0, 0); ctx.restore(); }
+  if (Q.driver) { const [x, y] = toS(Q.driver[0], Q.driver[1]); ctx.beginPath(); ctx.arc(x, y, Math.max(4, .2 * V.sc), 0, Math.PI * 2); ctx.fillStyle = '#B4B9C1'; ctx.fill(); ctx.fillStyle = PLAN_C.muted; ctx.fillText('Chofer', x, y + Math.max(4, .2 * V.sc) + 11); }
+  ctx.fillStyle = PLAN_C.muted; ctx.fillText('Frente', (a + c) / 2, b - 6);
+  ctx.restore();
 }
 function makePlan(canvas, ed, opt = {}) {
   const ctx = canvas.getContext('2d');
@@ -123,6 +139,7 @@ function makePlan(canvas, ed, opt = {}) {
     for (const m of s3.meas || []) for (const q of [m.a, m.b]) if (q && typeof q.x === 'number') pts.push([q.x, q.z]);
     const fb = typeof set3dOf === 'function' && set3dFitBox(set3dOf(s3));
     if (fb) pts.push([fb[0], fb[1]], [fb[2], fb[3]]);
+    if (s3.set === 'auto' && typeof carPlan === 'function') { const cb = carPlan(s3).body; pts.push([cb[0], cb[1]], [cb[2], cb[3]]); }   // el vehículo entero
     if (!pts.length) pts.push([0, 0]);
     let x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), z0 = Math.min(...pts.map(p => p[1])), z1 = Math.max(...pts.map(p => p[1]));
     // un metro de aire alrededor y, además, un margen en pantalla: la cámara y su lente no quedan cortadas por el

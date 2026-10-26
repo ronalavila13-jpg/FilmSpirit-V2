@@ -18,9 +18,12 @@ const pgShort = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); ret
 /* lo que se dibuja: los planos de la escena (sin los dibujados a mano), su escena 3D (la del editor abierto, si es
    uno de ellos: live = { id, s3 }), sus cámaras, las figuras y el lugar */
 function pgData(scKey, live) {
-  const all = (D.shotsBy[scKey] || []).filter(sh => sh && sh.ws !== '2d');
-  const s3s = all.map(sh => live && live.id === sh.id ? live.s3 : s3Of(sh));
-  const base = s3s[all.findIndex(sh => sh.s3 || (live && live.id === sh.id))] || s3s[0] || null;
+  const all = (D.shotsBy[scKey] || []).filter(sh => sh && shot3D(sh));
+  // con máster (lote U): los planos que lo siguen se arman desde él; si es el del editor abierto, con sus cambios
+  const M = shotMaster(scKey), liveM = live && M && live.id === M.id ? live.s3 : null;
+  const s3s = all.map(sh => live && live.id === sh.id ? live.s3 : liveM && masterOf(sh) ? s3Follow(sh, liveM) : s3Of(sh));
+  const iM = M ? all.findIndex(sh => sh.id === M.id) : -1;
+  const base = s3s[iM >= 0 ? iM : all.findIndex(sh => sh.s3 || (live && live.id === sh.id))] || s3s[0] || null;
   const shots = all.map((sh, i) => {
     const s3 = s3s[i], code = D.code[sh.id] || '', cams = [];
     const one = (v, letter) => {
@@ -31,10 +34,10 @@ function pgData(scKey, live) {
     if (s3HasB(s3)) one(s3ForB(s3), 'B');
     return { sh, s3, code, col: pgCol(i), cams, desc: pgShort(sh.desc || [sh.size, sh.angle && sh.angle !== 'Normal' ? sh.angle : '', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean).join(' · '), 60) };
   });
-  // las figuras: una vez cada personaje (la posición del primer plano en que aparece); en los demás planos, si está en
-  // otro lugar, un punto tenue con el código; si se desplaza dentro de un plano, su recorrido
+  // las figuras: una vez cada personaje (la posición del máster o del primer plano en que aparece); en los demás planos,
+  // si está en otro lugar, un punto tenue con el código; si se desplaza dentro de un plano, su recorrido
   const figs = new Map();
-  shots.forEach(S => {
+  (iM >= 0 ? [shots[iM], ...shots.filter((x, j) => j !== iM)] : shots).forEach(S => {
     const st = s3At(S.s3, 0), ok = objKeys(S.s3);
     for (const ob of S.s3.objs) {
       if (ob.kind !== 'actor' || ob.hold) continue;
@@ -251,7 +254,7 @@ function pgFit(G, W, H, k = 1) {
 /* ---------- la ventana: planta, leyenda, resaltar, abrir y exportar ---------- */
 /* opts: { from: el editor de plano abierto (EDT), para ver sus cambios sin guardar y para pasar a otro plano } */
 /* los elementos de la escena en sus planos con puesta en escena propia (los demás los toman de P.scEls: s3Default) */
-const scElShots = scKey => (D.shotsBy[scKey] || []).filter(sh => sh && sh.ws !== '2d' && sh.s3);
+const scElShots = scKey => (D.shotsBy[scKey] || []).filter(sh => sh && shot3D(sh) && sh.s3);
 function scElAdd(scKey, ob, pos) {
   P.scEls = P.scEls || {}; (P.scEls[scKey] = P.scEls[scKey] || []).push({ ob, pos });
   for (const sh of scElShots(scKey)) scElPut(sh.s3, ob, pos);
@@ -530,10 +533,10 @@ function plantaGenCanvas(G, px, dpr = 2.5) {
 /* qué se exporta: el plano (con su escena 3D: la del editor si está abierto) o la escena entera */
 function plantaWhat(kind, o) {
   // sin plano o escena dichos: el primero que tenga planta (así el PDF sale igual desde cualquier lugar)
-  const first = () => D.sc.scenes.map(x => x.key).find(k => (D.shotsBy[k] || []).some(sh => sh.ws !== '2d'));
+  const first = () => D.sc.scenes.map(x => x.key).find(k => (D.shotsBy[k] || []).some(sh => shot3D(sh)));
   o = { ...o };
   if (kind === 'gen' && !sceneOfKey(o.sc)) o.sc = first();
-  if (kind !== 'gen' && !(o.id && P.shots[o.id])) { const k = first(); o.id = k ? D.shotsBy[k].find(sh => sh.ws !== '2d').id : null; delete o.s3; }
+  if (kind !== 'gen' && !(o.id && P.shots[o.id])) { const k = first(); o.id = k ? D.shotsBy[k].find(sh => shot3D(sh)).id : null; delete o.s3; }
   if (kind === 'gen' ? !o.sc : !o.id) throw new Error('Todavía no hay planos con planta de cámara.');
   if (kind === 'gen') {
     const s = sceneOfKey(o.sc), G = pgData(o.sc, o.live || null);

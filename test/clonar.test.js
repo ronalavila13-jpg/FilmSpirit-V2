@@ -1,4 +1,4 @@
-/* Clonar los atributos de un plano en otros (lote T, storyboard: Ctrl+clic y «Clonar sus atributos…»): qué pasa de un
+/* Clonar los atributos de un plano en otros (lote V, storyboard: Ctrl+clic y «Clonar sus atributos…»): qué pasa de un
    plano a otro según lo elegido y qué no se toca nunca.  node test/clonar.test.js */
 const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
 const R = path.join(__dirname, '..');
@@ -91,10 +91,27 @@ test('todo, con el origen ligado a otro plano: la copia no hereda ese vínculo',
   c.shotCloneFrom(b, a, ALL());
   assert.strictEqual(b.s3.from, undefined); assert.deepStrictEqual(J(a.s3.from), { id: 's21', off: 1 }, 'el origen no cambia');
 });
-test('un dibujo 2D que recibe el 3D pasa a mostrarlo; su dibujo sigue guardado', () => {
-  const a = cocina(), b = playa(); b.ws = '2d'; b.d2 = { frames: [{ id: 'f1' }], layers: [] };
+test('un dibujo 2D que recibe el 3D lo muestra debajo (capa «Viñeta 3D», lote U) y se sigue abriendo en el 2D', () => {
+  const a = cocina(), b = playa(); b.ws = '2d'; b.d2 = { v: 2, frames: [{ id: 'f1' }], layers: [{ id: 'L1', vis: true }], rev: 3 };
   const r = c.shotCloneFrom(b, a, ALL());
-  assert.strictEqual(b.ws, '3d'); assert.ok(r.to3d); assert.deepStrictEqual(J(b.d2), { frames: [{ id: 'f1' }], layers: [] });
+  assert.strictEqual(b.ws, '2d'); assert.ok(r.show3d); assert.strictEqual(b.d2.base, '3d', 'la Viñeta 3D se ve');
+  assert.strictEqual(b.d2.rev, 4, 'la viñeta se vuelve a dibujar'); assert.deepStrictEqual(J(b.d2.layers), [{ id: 'L1', vis: true }], 'el dibujo no se toca');
+  assert.strictEqual(b.s3.set, 'int');
+});
+test('un plano 2D sin dibujo que recibe el 3D pasa a abrirse en el 3D', () => {
+  const a = cocina(), b = playa(); b.ws = '2d';
+  const r = c.shotCloneFrom(b, a, { ...NONE(), cam: true });
+  assert.strictEqual(b.ws, '3d'); assert.ok(!r.show3d);
+});
+test('un dibujo que ya mostraba la Viñeta 3D no avisa de nada', () => {
+  const a = cocina(), b = playa(); b.ws = '2d'; b.d2 = { v: 2, base: '3d', baseOp: .3, frames: [{ id: 'f1' }], layers: [] };
+  const r = c.shotCloneFrom(b, a, { ...NONE(), stage: true });
+  assert.ok(!r.show3d); assert.strictEqual(b.d2.baseOp, .3, 'su opacidad se queda');
+});
+test('la marca de máster no viaja: el máster es de cada escena', () => {
+  const a = cocina(), b = playa(); a.master = true;
+  c.shotCloneFrom(b, a, ALL());
+  assert.strictEqual(b.master, undefined);
 });
 test('un origen dibujado a mano: pasan los datos, no el 3D (no tiene) ni un lente vacío', () => {
   const a = cocina(), b = playa(); a.ws = '2d'; a.lens = '';

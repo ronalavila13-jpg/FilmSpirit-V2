@@ -171,7 +171,8 @@ function drawCard(ctx, k, W, H) {
 const AN_FC = new Map();     // id del plano → { k, cv }
 const AN_TDEP = new Set();   // claves de planos que parecían quietos pero cambian con el tiempo (lluvia, olas)
 function anStatic(sh) {
-  if (sh.ws === '2d' || (frameHas(sh.id) && !sh.refBack)) return false;   // dibujo 2D y foto: ya son baratos
+  if (!shot3D(sh) || (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref')))) return false;   // dibujo 2D y foto: ya son baratos
+  if (d2On(sh) && sh.d2.frames.length > 1) return false;   // el dibujo 2D encima cambia de cuadro
   const s3 = s3Of(sh);
   if (s3.shake) return false;
   const ks = s3.keys || [];
@@ -228,7 +229,7 @@ function anDraw(ctx, W, H, T, L, opts = {}) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (!c) return null;
   // las imágenes del clip y de los que siguen se piden antes de que lleguen
-  if (FRIDX && AN.pf !== c.i + ':' + (L.over || []).length) { AN.pf = c.i + ':' + (L.over || []).length; const ks = []; for (let i = c.i; i < Math.min(L.clips.length, c.i + 6); i++) if (L.clips[i].sh) ks.push(...frameViewKeys(L.clips[i].sh.id)); for (const o of L.over || []) if (o.sh && o.end > T && o.start < T + 20) ks.push(...frameViewKeys(o.sh.id)); framesNeed(ks); }
+  if (FRIDX && AN.pf !== c.i + ':' + (L.over || []).length) { AN.pf = c.i + ':' + (L.over || []).length; const ks = []; for (let i = c.i; i < Math.min(L.clips.length, c.i + 6); i++) if (L.clips[i].sh) ks.push(...shotViewKeys(L.clips[i].sh)); for (const o of L.over || []) if (o.sh && o.end > T && o.start < T + 20) ks.push(...shotViewKeys(o.sh)); framesNeed(ks); }
   const lt = clamp(T - c.start, 0, c.dur);
   const tr = c.tr, td = (tr.f || 12) / fpsOf();
   const prev = L.clips[c.i - 1];
