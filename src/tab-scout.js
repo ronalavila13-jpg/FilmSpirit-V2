@@ -5,6 +5,8 @@
    Datos: P.scout = { places: { lugar: { cands: [{ id, name, addr, map, contact, phone, permit, cost, status,
      notes, ph: [{ id, w, h }] }], pick, note } } }   (lugar = la locación del encabezado, como en el plan)
    Fotos: FRAMES['lc~<candidata>~<foto>'] (WebP de 1200 px, como las del desglose)
+   (lote W) Ubicación en el mapa general: lat, lng, geo ('link' | 'hand') y gmap en cada candidata (mapa-enlace.js);
+   la vista «Mapa general» está en scout-mapa.js (UI.scView = 'map')
    ============================================================ */
 const SC_ST = [['visitar', 'Por visitar'], ['visitada', 'Visitada'], ['aprobada', 'Aprobada'], ['descartada', 'Descartada']];
 const SC_PERMIT = [['', 'Sin pedir'], ['pedido', 'Pedido'], ['ok', 'Aprobado'], ['no', 'No hace falta']];
@@ -27,7 +29,7 @@ function scoutNormalize(Px) {
   for (const [b, pl] of Object.entries(S.places)) {
     if (!isO(pl)) { delete S.places[b]; continue; }
     pl.cands = candNormalize(pl.cands, SC_FIELDS, SC_ST);
-    for (const c of pl.cands) if (!SC_PERMIT.some(p => p[0] === c.permit)) c.permit = '';
+    for (const c of pl.cands) { if (!SC_PERMIT.some(p => p[0] === c.permit)) c.permit = ''; candGeoClean(c); candGeoStore(c); }
     if (pl.pick != null && !pl.cands.some(c => c.id === pl.pick)) pl.pick = null;
     pl.note = candStr(pl.note);
   }
@@ -131,6 +133,8 @@ function scCandHTML(pl, c, ed) {
 RENDER.scout = function () {
   const v = $('#view');
   if (!D.sc.scenes.length && !Object.keys(SCT().places).length) { v.innerHTML = emptyScript(); bindView(); return; }
+  if (UI.scView == null) UI.scView = ls.get('scView', 'place') === 'map' ? 'map' : 'place';
+  if (UI.scView === 'map') { smRender(); return; }
   const ed = scoutEditable(), places = scoutPlaces(), cur = scCurPlace(places);
   const picked = places.filter(p => scPlaceData(p.b).pick).length;
   const side = `${hdSide('Lugares', `${places.length} · ${picked} ${picked === 1 ? 'elegido' : 'elegidos'}`, 'Buscar lugar')}
@@ -155,7 +159,7 @@ RENDER.scout = function () {
   v.innerHTML = `<div class="ws ws-2">
     <aside class="side" id="side">${side}</aside>
     <section class="center">
-      <div class="bar"><button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Lugares</button><span class="grow"></span>${toolsHTML()}</div>
+      <div class="bar"><button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Lugares</button>${smViewSeg()}<span class="grow"></span>${toolsHTML()}</div>
       <div class="scroller pad" data-keep="sc-${ea(cur ? cur.b : '')}">${body}</div>
     </section></div>`;
   bindView(); bindSceneSearch();
@@ -229,6 +233,7 @@ Object.assign(BIND, {
     const x = scCand(el.dataset.id); if (!x) return;
     const f = el.dataset.f, old = x.c.name.trim() || titleCase(x.b);
     x.c[f] = el.value;
+    if (f === 'map' && ev === 'change') candGeoStore(x.c);   // (lote W) las coordenadas del enlace nuevo
     if (x.pl.pick === x.c.id && (f === 'name' || f === 'addr') && ev === 'change') scSyncPick(x.b, f === 'name' ? old : null);
     changed('data');
     if (ev === 'change' && (f === 'status' || f === 'map')) render();
@@ -245,6 +250,7 @@ HELP.scout = [
   ['Lugares', 'A la izquierda, cada lugar que pide el guion (la locación del encabezado de sus escenas), con cuántas candidatas tiene y la elegida (✓).'],
   ['Candidatas', '«+ Candidata» agrega un sitio que visitaste o que vas a visitar: fotos, dirección, enlace al mapa, quién da el permiso, su teléfono, el costo por día y notas (luz, ruido, acceso…).'],
   ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el plan de rodaje, con su dirección; de ahí pasa a la hoja de llamado.'],
+  ['Mapa general', 'En «Mapa general», todas las candidatas de todos los lugares en un mapa: el pin dice su estado (rojo con ✓ la elegida, oscuro la aprobada, blanco la visitada, punteado la que falta visitar, gris chico la descartada). Toca un pin o una candidata de la lista para ver su tarjeta, con «Abrir ficha» y «Cómo llegar». El lugar sale solo del enlace de Google Maps; si el enlace no lo trae, «Ubicar en el mapa» y toca dónde está (el pin se arrastra para corregir).'],
   ['Equipo', 'El scouting viaja con el plan de rodaje: lo edita quien puede editar el plan.'],
   ['Exportar', 'Un dossier en PDF con cada lugar y sus candidatas, con o sin fotos, o solo con las elegidas.'],
 ];

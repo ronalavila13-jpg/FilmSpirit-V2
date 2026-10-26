@@ -108,8 +108,10 @@ function isAppFile(u) {
     return p.startsWith(APP_DIR) && !p.startsWith('\\\\');
   } catch (e) { return false; }
 }
+// (lote W) la única excepción: las teselas (imágenes) del mapa general del scouting, de OpenStreetMap, por https
+const isMapTile = d => d.resourceType === 'image' && d.method === 'GET' && /^https:\/\/tile\.openstreetmap\.org\/\d{1,2}\/\d{1,7}\/\d{1,7}\.png$/.test(d.url);
 function lockRequests(ses) {
-  ses.webRequest.onBeforeRequest({ urls: ['file://*/*', 'http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*', 'ftp://*/*'] }, (d, cb) => cb({ cancel: !isAppFile(d.url) }));
+  ses.webRequest.onBeforeRequest({ urls: ['file://*/*', 'http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*', 'ftp://*/*'] }, (d, cb) => cb({ cancel: !isAppFile(d.url) && !isMapTile(d) }));
 }
 function createWindow() {
   win = new BrowserWindow({
