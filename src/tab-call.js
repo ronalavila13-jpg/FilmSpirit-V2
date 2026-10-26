@@ -874,6 +874,7 @@ function callSheetData(n) {
     next: next ? { n: n + 2, date: dates[n + 1], call: peekDay(next.id).crewCall || callDefaults(next).crewCall, locs: callLocs(next).map(x => x[0]).join(', '), sc: next.keys.join(', ') } : null,
     // (lote U) la hoja como la referencia: el equipo clave, la utilería especial, el avance y los canales de radio
     keyCrew: callKeyCrew(dd), props: callProps(d), adv: callAdvance(n), radio: C.radio || '',
+    keyMore: callKeyMore(callKeyCrew(dd)),   // (lote W) la producción y el cliente, en la cabecera
   };
 }
 function exportCallXLSX(all) {

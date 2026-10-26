@@ -1133,7 +1133,8 @@ function pdfCallHead(doc, X, V) {
   const clogo = brandOn('company') && brandLogo('logo') ? P.meta.logo : '';
   if (clogo) { const h = pdfImg(doc, clogo, M, yl - 8, 120, 26) ? 26 : 0; yl += h ? h + 4 : 0; }
   if (P.meta.company && brandOn('company')) { doc.setFont('title', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); const t = doc.splitTextToSize(trDone(pdfSafe(P.meta.company)), w1).slice(0, 2); (doc._raw || doc).text(t, M, yl + 2); yl += t.length * 13 + 6; }
-  for (const k of X.keyCrew) {
+  // (lote W) con la producción y el cliente (lo que pedía «Equipo clave» antes), si tienen nombre
+  for (const k of [...X.keyCrew, ...(X.keyMore || [])]) {
     lab(k.lab, M, yl + 4);
     doc.setFont('helvetica', k.name ? 'bold' : 'normal'); doc.setFontSize(8.6); doc.setTextColor(...(k.name ? INK : MUTED));
     k.name ? (doc._raw || doc).text(pdfSafe(k.name), M, yl + 15) : doc.text(TBC, M, yl + 15);
@@ -1163,7 +1164,16 @@ function pdfCallHead(doc, X, V) {
     for (const p of parts) {
       doc.setFont('helvetica', p.st || 'normal'); doc.setFontSize(p.fs || 8); doc.setTextColor(...(p.col || INK));
       // lo escrito por cada uno (p.raw) no se traduce
-      const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 15).slice(0, 3); (doc._raw || doc).text(t, x3 + 15, yy); yy += t.length * (p.fs || 8) * 1.28;
+      const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 15).slice(0, p.max || 3); (doc._raw || doc).text(t, x3 + 15, yy); yy += t.length * (p.fs || 8) * 1.28;
+      // los enlaces del punto de encuentro, por su nombre («Google Maps · Waze»), cada uno se toca
+      if (p.links) { let xx = x3 + 15; doc.setFont('helvetica', 'bold'); doc.setFontSize(7.4); doc.setTextColor(40, 90, 170);
+        p.links.forEach((u, i) => { const t2 = (i ? '  ·  ' : '') + linkName(u), w = (doc._raw || doc).getTextWidth(t2); if (xx + w > x3 + w3 && i) { xx = x3 + 15; yy += 9; } (doc._raw || doc).text(t2, xx, yy - 2); doc.link(xx, yy - 9, w, 9, { url: u }); xx += w; }); yy += 8; }
+      // y sus fotos, chicas, una al lado de la otra (hasta dos)
+      if (p.ph && p.ph.length) { const pw = (w3 - 15 - 4) / 2, phH = pw * .75;
+        p.ph.slice(0, 2).forEach((q, i) => { const k = Math.min(pw / (q.w || 4), phH / (q.h || 3)), iw = (q.w || 4) * k, ih = (q.h || 3) * k, xx = x3 + 15 + i * (pw + 4);
+          doc.setFillColor(246, 247, 248); doc.rect(xx, yy - 4, pw, phH, 'F');
+          try { doc.addImage(photoForPdf(clPhKey(X.d.id, q.id)), 'JPEG', xx + (pw - iw) / 2, yy - 4 + (phH - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; } });
+        yy += phH + 2; }
     }
     if (url) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.6); doc.setTextColor(40, 90, 170); doc.text('Ver mapa', x3 + 15, yy + 1); doc.link(x3 + 15, yy - 6, doc.getTextWidth(trDone(tr('Ver mapa'))), 9, { url }); yy += 10; }
     doc.setTextColor(...INK); yr = yy + 6;
@@ -1171,10 +1181,14 @@ function pdfCallHead(doc, X, V) {
   const Dd = X.dd, wx = [Dd.wx, (Dd.hi || Dd.lo) && [Dd.hi && `Máx. ${Dd.hi}°`, Dd.lo && `Mín. ${Dd.lo}°`].filter(Boolean).join(' · '), Dd.hum && `Hum. ${Dd.hum} %`].filter(Boolean);
   if (wx.length) row('wx', [{ t: wx.join('  ·  '), raw: true }]);
   if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('  ·  '), raw: true }]);
-  if ((X.meet.note || '').trim()) row('park', [{ t: X.meet.note.trim(), raw: true }]);
-  const addr = (X.meet.addr || '').trim() || (X.locs[0] && X.locs[0][1]) || '', url = mapsUrl(X.meet, X.locs);
-  if (X.locs.length) for (const [nm, ad] of X.locs.slice(0, 3)) row('pin', [{ t: nm, st: 'bold', fs: 8.8 }, ad || (!X.locs.some(x => x[1]) && addr) ? { t: ad || addr, fs: 7.6, col: MUTED, raw: true } : null].filter(Boolean), nm === X.locs[Math.min(2, X.locs.length - 1)][0] ? url : '');
-  else row('pin', [{ t: addr || TBC, col: addr ? INK : MUTED, raw: !!addr }], url);
+  // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos
+  const mt = X.meet, mAddr = (mt.addr || '').trim(), mNote = (mt.note || '').trim(), mLinks = (mt.links || []).map(safeUrl).filter(Boolean);
+  const mPh = (mt.ph || []).filter(q => FRAMES[clPhKey(X.d.id, q.id)]);
+  if (mAddr || mNote || mLinks.length || mPh.length) row('park', [{ t: 'Punto de encuentro', fs: 6.4, st: 'bold', col: MUTED }, mAddr ? { t: mAddr, st: 'bold', raw: true } : null, mNote ? { t: mNote, fs: 7.4, col: MUTED, raw: true, max: 4 } : null,
+    mLinks.length || mPh.length ? { t: '', fs: 1, links: mLinks.length ? mLinks : null, ph: mPh } : null].filter(Boolean));
+  const url = mapsUrl(X.meet, X.locs);
+  if (X.locs.length) for (const [nm, ad] of X.locs.slice(0, 3)) row('pin', [{ t: nm, st: 'bold', fs: 8.8 }, ad ? { t: ad, fs: 7.6, col: MUTED, raw: true } : null].filter(Boolean), nm === X.locs[Math.min(2, X.locs.length - 1)][0] ? url : '');
+  else row('pin', [{ t: mAddr || TBC, col: mAddr ? INK : MUTED, raw: !!mAddr }], url);
   const yb = Math.max(yl, yc, yr) + 4;
   doc.setDrawColor(...PT.line); doc.setLineWidth(.6);
   doc.line(xc - wc / 2 - 8, y0 - 6, xc - wc / 2 - 8, yb - 8); doc.line(xc + wc / 2 + 8, y0 - 6, xc + wc / 2 + 8, yb - 8);
