@@ -106,15 +106,30 @@ const exportAll = run(`(async () => { const r = {}; UI.supDay = 0;
     assert.ok(out.call && !out.call.err, 'no se exportó');
     assert.ok(out.call.pages <= 2, `${out.call.pages} páginas`);
   });
-  test('hoja de llamado: lo que falta para el equipo dice «Por confirmar» y el día y el llamado van arriba', () => {
-    const t = out.call.seen.map(x => x.t);
+  // (lote W) la cabecera es la del lote U: la jornada («JORNADA 1 DE 2») y la fecha al centro, con el llamado general
+  // en grande debajo de su etiqueta chica (las etiquetas van en versalitas a propósito); ya no hay «Día de rodaje»
+  test('hoja de llamado: lo que falta para el equipo dice «Por confirmar» y la jornada, la fecha y el llamado van arriba', () => {
+    const t = out.call.seen.map(x => x.t), txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t);
     assert.ok(t.includes('Por confirmar'), 'sin «Por confirmar»');
-    assert.ok(t.includes('Día de rodaje') && t.includes('Llamado general'), 'sin la cabecera nueva');
+    const j = txt.findIndex(x => /^JORNADA \d+ DE \d+/.test(x)), l = txt.indexOf('LLAMADO GENERAL'), c = txt.indexOf('Cronograma');
+    assert.ok(j >= 0 && l > j && c > l, 'sin la cabecera (jornada, llamado general) antes del cronograma');
+    assert.ok(/^\d{2}:\d{2}$/.test(txt[l + 1] || ''), 'el llamado general no va debajo de su etiqueta');
   });
+  // (lote W) desde el lote U el reparto y el equipo van en una sola tabla, «Personas»; «REPARTO» y los nombres de las
+  // áreas son separadores chicos dentro de la tabla (en versalitas, como en pantalla), no títulos de sección
   test('los títulos de sección van en minúscula normal (no en MAYÚSCULAS)', () => {
-    const t = out.call.seen.map(x => x.t);
-    for (const s of ['Cronograma', 'Reparto']) assert.ok(t.includes(s), s);
-    assert.ok(!t.includes('CRONOGRAMA') && !t.includes('REPARTO'), 'quedan títulos en mayúsculas');
+    const txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t);
+    for (const s of ['Cronograma', 'Personas']) assert.ok(txt.includes(s), s);
+    assert.ok(txt.some(x => /^Avance/.test(x)), 'Avance');
+    assert.ok(!txt.some(x => /^(CRONOGRAMA|PERSONAS|AVANCE|MOVILIDAD|PROVEEDORES)\b/.test(x)), 'quedan títulos en mayúsculas');
+  });
+  // (lote W) la hoja nueva con los datos de antes, sin repetir: los planos van dentro del cronograma (ya no hay un
+  // «Cronograma por plano» al final) y los horarios del reparto, en la tabla de personas
+  test('hoja de llamado: los planos van en el cronograma y los horarios en «Personas», sin una segunda parte', () => {
+    const txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t), cells = out.call.seen.filter(x => x.k === 'cell').map(x => x.t);
+    assert.ok(!txt.includes('Cronograma por plano') && !txt.includes('Reparto · horarios'), 'queda la segunda parte');
+    assert.ok(!txt.includes('Hecha con'), 'queda «Hecha con FilmSpirit»');
+    for (const h of ['Plano', 'Recojo', 'Vest.', 'Maq.', 'Listos', 'Observaciones']) assert.ok(cells.includes(h), 'sin la columna ' + h);
   });
   for (const [n, f] of tests) { try { await f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } }
   console.log(fail ? `${fail} fallaron` : 'todo bien');

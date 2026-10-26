@@ -757,13 +757,20 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .pl-start b{color:var(--ink)}
 .pl-start-b{display:flex;gap:6px;flex-wrap:wrap}
 .pl-scroll{overflow-x:auto;margin-inline:-4px;padding:0 4px 6px}
-/* (lote U) columnas como la referencia: asa · Esc. · I/E · Locación (con su sinopsis) · D/N · Reparto · Fig. · Locación de
-   rodaje · Págs. · Pág. · Tiempo · notas · hoja de desglose · ⋮ (--evd: lo que ocupa el detalle de un evento) */
-.pl{--pl-cols:24px 52px 42px minmax(280px,1.7fr) 78px 112px 46px minmax(150px,1fr) 58px 40px 68px minmax(140px,1fr) minmax(140px,1fr) 34px 34px;--evd:6;
-  min-width:var(--pl-min,1290px);display:grid;gap:12px;position:relative;color:var(--ink)}
+/* (lote U) columnas como la referencia: Esc. · I/E · Locación (con su sinopsis) · D/N · Reparto · Fig. · Locación de
+   rodaje · Págs. · Pág. · Tiempo · notas (--evd: lo que ocupa el detalle de un evento). (lote W) Sin el asa ni la hoja de
+   desglose: la fila se arrastra desde cualquier parte y el clic derecho abre sus opciones. El menú ⋮ (y el «⋯» del cierre)
+   queda solo donde no hay clic derecho: pantallas táctiles, con su columna de 34 px al final */
+.pl{--pl-cols:52px 42px minmax(280px,1.7fr) 78px 112px 46px minmax(150px,1fr) 58px 40px 68px minmax(140px,1fr) minmax(140px,1fr);--pl-more:34px;--evd:6;
+  min-width:calc(var(--pl-min,1232px) + var(--pl-more));display:grid;gap:12px;position:relative;color:var(--ink)}
+.pl-head,.prow{grid-template-columns:var(--pl-cols) var(--pl-more)}
+@media (hover:hover) and (pointer:fine){
+  .pl{--pl-more:0px}
+  .pl-head>.c-more,.prow>.c-more,.prow.brk .pdots{display:none}
+}
 .pl.no-fig{--evd:5}
 .pl.no-fig .c-fig,.pl.no-tech .c-tech,.pl.no-obs .c-obs{display:none}
-.pl-head{display:grid;grid-template-columns:var(--pl-cols);font-size:var(--fs-2);font-weight:600;color:var(--muted);padding:0;margin:2px 0 -6px}
+.pl-head{display:grid;font-size:var(--fs-2);font-weight:600;color:var(--muted);padding:0;margin:2px 0 -6px}
 .pl-head{align-items:center}
 .pl-head>*{padding:0 6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-head .r{text-align:right}
@@ -809,15 +816,11 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .pday-ghost{position:fixed;z-index:90;pointer-events:none;display:grid;gap:2px;background:var(--surface);color:var(--ink);border:var(--l1) solid var(--line);border-radius:var(--r);padding:8px 14px;box-shadow:var(--sh-pop);font-size:var(--fs-3)}
 .pday-ghost span{font-size:var(--fs-2);color:var(--muted)}
 .pday-rows{display:grid;min-width:0}
-.prow{position:relative;display:grid;grid-template-columns:var(--pl-cols);background:color-mix(in srgb,var(--rc,var(--surface)) var(--tint),var(--surface));border-top:var(--l1) solid var(--line-2);min-height:56px;font-size:var(--fs-3)}
+.prow{position:relative;display:grid;background:color-mix(in srgb,var(--rc,var(--surface)) var(--tint),var(--surface));border-top:var(--l1) solid var(--line-2);min-height:56px;font-size:var(--fs-3)}
 .pday-rows>.prow:first-child{border-top:0}
 .prow::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 2px 2px 0;background:var(--rb,transparent)}
 .prow>*{padding:6px 8px;display:flex;align-items:center;min-width:0}
-.prow:not(.brk)>:first-child{padding-left:14px}
-/* (lote U) el asa para arrastrar, al comienzo de cada fila */
-.prow:not(.brk)>.c-grip{padding:0;justify-content:center;color:var(--muted);opacity:.5}
-.prow:hover>.c-grip{opacity:.9}
-.prow .c-grip .ic{width:14px;height:14px}
+.prow.empty>:first-child{padding-left:14px}
 .prow.ev{background:color-mix(in srgb,var(--rc,var(--fill)) calc(var(--tint) * 2.5),var(--surface));font-weight:600;min-height:46px}
 .prow.sel{box-shadow:inset 0 0 0 2px var(--accent);z-index:1}
 .prow .c-set em{font-style:normal;font-weight:600;color:var(--muted);text-transform:none}
@@ -858,10 +861,10 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow .c-cast .cnm{font-weight:650;font-size:var(--fs-2)}
 .prow .c-cast .cnm:not(:last-child)::after{content:","}
 .prow .c-cast .none{color:var(--muted)}
-.prow .pl-addcast,.prow .pbd{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:var(--r-xs);background:none;color:var(--muted);cursor:pointer;padding:0}
+.prow .pl-addcast{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:var(--r-xs);background:none;color:var(--muted);cursor:pointer;padding:0}
 .prow .pl-addcast{border:1.5px dashed color-mix(in srgb,currentColor 55%,transparent);border-radius:999px;width:26px;height:26px}
-.prow :is(.pl-addcast,.pbd):hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
-.prow :is(.pl-addcast,.pbd) .ic{width:16px;height:16px}
+.prow .pl-addcast:hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
+.prow .pl-addcast .ic{width:16px;height:16px}
 .prow .c-loc{gap:2px}
 .prow .c-loc>.ic{flex:none;width:15px;height:15px;color:var(--muted)}
 /* las páginas como en una tira: el entero grande y la fracción chica (1 ³⁄₈) */
@@ -870,7 +873,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow .c-pgs .fr{display:inline-flex;align-items:center;font-size:12px;font-weight:700;line-height:1;letter-spacing:-.02em}
 .prow .c-pgs .fr sup{align-self:flex-start;font-size:inherit;vertical-align:0;line-height:1}
 .prow .c-pgs .fr sub{align-self:flex-end;font-size:inherit;vertical-align:0;line-height:1}
-.prow .c-bd,.prow .c-more{justify-content:center;padding-inline:0}
+.prow .c-more{justify-content:center;padding-inline:0}
 .prow .c-fig input{text-align:right}
 .prow .c-n{justify-content:flex-end;font-weight:650;font-variant-numeric:tabular-nums}
 .prow .c-pg{color:var(--muted);font-weight:500}
@@ -954,12 +957,12 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
   .pl{min-width:0}
   .pstart{gap:6px 12px;padding:9px 12px}
   /* (lote U) cada escena en dos líneas: el número, la locación del guion (con I/E · D/N y la sinopsis debajo) y las
-     páginas; abajo la locación de rodaje, el reparto, el tiempo y el menú ⋮. Sin asa (se mantiene el dedo), sin la
-     página ni la hoja de desglose (van en ⋮ › Ver en) */
+     páginas; abajo la locación de rodaje, el reparto, el tiempo y el menú ⋮. Sin la página (se mantiene el dedo para
+     mover; la hoja de desglose va en ⋮) */
   .prow.sc{grid-template-columns:40px minmax(0,1fr) auto auto auto 34px;min-height:0;padding:2px 0 4px 2px}
   .prow.sc::before{top:6px;bottom:6px}
   .prow.sc>*{padding:2px 6px}
-  .prow.sc>:is(.c-grip,.c-ie,.c-dn,.c-pg,.c-bd){display:none}
+  .prow.sc>:is(.c-ie,.c-dn,.c-pg){display:none}
   .prow.sc>.c-esc{grid-column:1;grid-row:1;align-items:flex-start;padding-top:7px;font-size:var(--fs-4)}
   .prow.sc>.c-set{grid-column:2/6;grid-row:1;padding-block:6px 0;gap:0}
   .prow.sc>.c-set b{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-2);line-height:1.4}
@@ -981,7 +984,6 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
   .prow.sc>.c-more{grid-column:6;grid-row:2;padding:0}
   .prow.sc>.c-tx{grid-column:1/-1;padding:0 6px 4px}
   .prow.ev{grid-template-columns:minmax(0,1fr) 74px 34px;padding-left:6px}
-  .prow.ev>:is(.c-grip,.c-bd){display:none}
   .prow.ev>.c-evn{grid-column:1;grid-row:1}
   .prow.ev>.c-t{grid-column:2;grid-row:1}
   .prow.ev>.c-more{grid-column:3;grid-row:1;padding:0}
@@ -2865,15 +2867,13 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 /* hoja de llamado (1.2): en el orden de una orden de rodaje, en bloques compactos */
 .cs.cl{max-width:1320px;gap:10px;background:transparent}
 /* ---------- (lote U) la hoja de llamado como la referencia: una página que se lee de un vistazo ----------
-   arriba la marca y el estado; tres columnas (productora y equipo clave · proyecto, jornada, fecha y llamado general en
-   grande · clima, punto de encuentro y locación); la nota y la utilería especial al centro; el cronograma en lista; el
-   avance; una sola tabla de personas; al pie el centro de salud y los canales de radio. Después, lo que la referencia no
-   tiene (por plano, horarios del reparto, punto de encuentro con fotos, movilidad y proveedores) */
+   arriba el estado; tres columnas (productora y equipo clave · proyecto, jornada, fecha y llamado general en grande ·
+   clima, punto de encuentro y locación); la nota y la utilería especial al centro; el cronograma en lista (lote W: con
+   los planos de cada escena debajo); el avance; una sola tabla de personas (lote W: con los horarios del reparto); la
+   movilidad y los proveedores; al pie el centro de salud y los canales de radio */
 .cl-doc{background:var(--surface);border:var(--l1) solid var(--card-line);border-radius:var(--r);padding:12px 26px 18px;display:grid;gap:20px;min-width:0}
 .cl-doc>.cl-hd{margin:0;display:grid;gap:14px}
 .cl-acts{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding-bottom:10px;border-bottom:var(--l1) solid var(--line-2)}
-.cl-mark{font-size:11px;color:var(--muted);letter-spacing:.02em}
-.cl-mark b{font-weight:750;color:var(--ink)}
 .cl-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
 .cl-c1,.cl-c3{display:grid;gap:11px;align-content:start;font-size:var(--fs-3);min-width:0}
 .cl-c2{display:grid;justify-items:center;text-align:center;gap:3px;padding-inline:14px;border-inline:var(--l1) solid var(--line-2);min-width:0}
@@ -2916,6 +2916,20 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cl-sunr label{display:inline-flex;align-items:center;gap:3px}
 .cl .cl-sunr input.tm{width:58px;font-weight:650;color:var(--ink);text-align:center;padding:2px 3px}
 .cl .cl-park{padding-block:3px}
+/* (lote W) el punto de encuentro entero, en la cabecera: la dirección de citación, su referencia, los enlaces y las fotos */
+.cl-mp{display:grid;gap:2px;min-width:0}
+.cl-mp .cl-kl{padding:3px 0 1px}
+.cl .cl-mp .cl-addr{font-size:var(--fs-3);font-weight:650;padding-block:3px}
+.cl .cl-mp .cl-park{font-size:var(--fs-2);color:var(--muted)}
+.cl-mp .cl-links{gap:4px}
+.cl .cl-mp .cl-link-in{font-size:var(--fs-2);width:auto;flex:1 1 100%;min-width:0;padding-block:3px}
+.cl-mp .cl-links .chip{font-size:var(--fs-2);padding:2px 4px 2px 8px}
+.cl-mph{max-width:250px}
+.cl-mph .cand-ph{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:4px;background:none;align-items:start;margin-top:3px}
+.cl-mph .cand-main{aspect-ratio:4/3;border-radius:2px;overflow:hidden}
+.cl-mph .cand-th{grid-template-columns:repeat(2,minmax(0,1fr));padding:0;gap:4px}
+.cl-mph .cand-ph.empty{grid-template-columns:auto;min-height:0;padding:0;place-items:start;margin-top:2px}
+.cl-mph .cand-ph.empty .cand-up{flex-direction:row;gap:6px;padding:4px 10px}
 .cl-irl>div{display:grid;gap:1px;min-width:0}
 .cl-irl b{font-weight:700}
 .cl-irl small{color:var(--muted);font-size:var(--fs-2)}
@@ -2959,6 +2973,29 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cl-mvb .ic{width:18px;height:18px;flex:none}
 .cl-mvb b{font-weight:700}
 .cl-mvb a{font-weight:650;color:var(--accent-text)}
+.cl-opts{display:inline-flex;gap:14px;margin-left:auto}
+.cl-opts .cl-opt{margin-left:0}
+.cl-list-s>header .cl-opts+.linkbtn{margin-left:14px}
+/* (lote W) los planos de cada escena, debajo de ella: el plano (con su hora), la miniatura, la descripción técnica, la
+   acción, el lente, el sonido y los personajes. La franja de la tira sigue a la izquierda */
+.cl-lsc.has-sh td{border-bottom:0}
+.cl-lsh td{border-top:var(--l1) dashed color-mix(in srgb,var(--line-2) 80%,transparent);padding-block:5px;font-size:var(--fs-2)}
+.cl-lsh .cl-ln{box-shadow:inset 4px 0 0 color-mix(in srgb,var(--rc) 80%,var(--ink));padding-left:13px;text-align:left}
+.cl-lsh .cl-pc .cl-code{min-width:30px;font-size:var(--fs-1)}
+.cl .cl-lsh .cl-pc input.tm{margin:3px 0 0;width:56px;font-size:var(--fs-1)}
+.cl-lsh .cl-pc small{margin-top:2px}
+.cl-shg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 340px;gap:4px 14px;align-items:start;min-width:0}
+.cl-shg.th{grid-template-columns:72px minmax(0,1fr) minmax(0,1.25fr) 340px}
+.cl-shg .cl-th{position:static;width:72px}
+.cl-shd b{font-weight:700}.cl-shd>span{color:var(--muted)}.cl-shd>span::before{content:" · "}
+.cl-sha{line-height:1.4}
+.cl-shm{display:grid;grid-template-columns:minmax(0,1fr) 50px 92px 76px;gap:6px;align-items:start}
+.cl-shset{color:var(--muted);overflow-wrap:anywhere}
+.cl-shs select.cl-snd{width:100%}
+.cl-lhs th{padding-top:0;font-weight:600;color:var(--faint,var(--muted));text-align:left !important}
+.cl-lhs th:first-child{width:auto}
+.cl-lhs .cl-shg{font-size:var(--fs-1);letter-spacing:.02em}
+.cl-lhs .cl-shm>span{overflow:hidden;text-overflow:ellipsis}
 .cl-lend td{border-top:calc(var(--l2) * .75) solid var(--ink);vertical-align:middle}
 .cl-lend b{font-weight:700}
 .cl-tot{margin:2px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:flex-end;font-size:var(--fs-3);color:var(--muted)}
@@ -2976,19 +3013,37 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cl .cl-pc input.tm:not(:disabled){border-color:color-mix(in srgb,var(--ink) 16%,transparent)}
 @media (hover:none){ .cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr) input.tm:not(:disabled){border-color:color-mix(in srgb,var(--ink) 28%,transparent)} }
 /* una sola tabla de personas: el área es un separador fino */
-.cl-ptbl th:nth-child(1){width:25%}.cl-ptbl th:nth-child(2){width:25%}.cl-ptbl th:nth-child(3){width:76px}.cl-ptbl th:nth-child(4){width:17%}.cl-ptbl th:nth-child(6){width:32px}
+.cl-ptbl{table-layout:fixed}
+.cl-ptbl th:nth-child(1){width:17%}.cl-ptbl th:nth-child(2){width:17%}.cl-ptbl th:is(:nth-child(3),:nth-child(4),:nth-child(5),:nth-child(6),:nth-child(7)){width:66px}.cl-ptbl th:nth-child(8){width:16%}.cl-ptbl th:nth-child(10){width:32px}
+.cl-ptbl th:is(:nth-child(3),:nth-child(4),:nth-child(5),:nth-child(6),:nth-child(7)){text-align:center;padding-inline:2px}
 .cl .cl-ptbl td{vertical-align:middle;padding:2px 6px}
 .cl-sep td{padding:12px 8px 3px !important;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:0}
 .cl-sep .cs-add{display:inline-grid;margin:0 0 0 6px;width:22px;height:22px;font-size:16px;vertical-align:-5px}
 .cl-sep input.tm{font-size:var(--fs-2);letter-spacing:0}
 .cl-ptbl .cl-pn input{font-weight:650}
 .cl-ptbl .cl-pr input{color:var(--muted)}
-.cl-ptbl .cl-pj{white-space:nowrap}
-.cl-ptbl .cl-pj small{display:inline;margin-left:8px}
-.cl-ptbl .cl-tt input{width:62px;font-weight:700;text-align:center}
+.cl-ptbl .cl-pj{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-ptbl .cl-pj small{display:block;margin:0 0 0 28px}
+.cl-ptbl td.cl-tt{text-align:center;padding-inline:1px}
+.cl .cl-ptbl .cl-tt input{width:58px;font-weight:700;text-align:center;padding-inline:2px}
+.cl-ptbl .cl-pt{display:table-cell}
+.cl .cl-ptbl .cl-pt input{display:block;padding-block:1px}
+.cl .cl-ptbl .cl-mail{font-size:var(--fs-1)}
+.cl .cl-ptbl .cl-ob input{font-size:var(--fs-2);min-width:0}
+.cl-ptbl .cl-mlab,.cl-vtbl .cl-mlab,.cl-lsh .cl-mlab{display:none}
+.cl-ptbl input[type=email]::placeholder,.cl-ptbl .cl-ob input::placeholder{color:transparent}
+.cl-ptbl tr:hover input::placeholder,.cl-ptbl input:focus::placeholder{color:var(--ph)}
+@media (hover:none){ .cl-ptbl input[type=email]::placeholder,.cl-ptbl .cl-ob input::placeholder{color:var(--ph)} }
+.cl-vtbl th:nth-child(5){width:76px}.cl-vtbl th:nth-child(6){width:32px}.cl-vtbl td.cl-tt{text-align:center}
+.cl .cl-vtbl td{vertical-align:middle;padding:2px 6px}
+.cl .cl-vtbl .cl-tt input{width:62px;font-weight:700;text-align:center}
+.cl-vtbl tr:hover .cs-x,.cl-ptbl tr:hover .cs-x{opacity:1}
+/* (lote W) la movilidad y los proveedores, después de las personas, con el mismo estilo de sección */
+.cl-sec>header .cs-add{margin:0 0 0 auto}
+.cl-sec.cl-mov .cl-veh{padding-inline:0}
+.cl-sec .cs-none{margin:6px 0 2px}
 .cl-ptbl input[type=tel],.cl-ptbl input[type=email]{font-size:var(--fs-2);color:var(--muted)}
 .cl-ptbl input[type=tel]:focus,.cl-ptbl input[type=email]:focus{color:var(--ink)}
-.cl-ptbl tr:hover .cs-x{opacity:1}
 .cl-people .cs-folds,.cl-people .cs-out{margin-left:8px;margin-right:8px}
 /* el pie: centro de salud y canales de radio */
 .cl-foot{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;border-top:calc(var(--l2) * .75) solid var(--ink);padding-top:10px}
@@ -3021,19 +3076,38 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
   .cl-list .m-only{display:block;font-size:var(--fs-1);font-weight:650;color:var(--muted);margin-top:1px}
   .cl-lsc .cl-ln{padding-left:10px}
   .cl .cl-ln input.tm{width:52px;padding-inline:3px}
-  .cl-ptbl thead{display:none}
-  .cl-ptbl,.cl-ptbl tbody{display:block}
-  .cl-ptbl tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 68px 30px;border-top:var(--l1) solid var(--line-2);padding:4px 0}
-  .cl .cl-ptbl td{border:0;padding:1px 4px}
-  .cl-ptbl td:nth-child(1){grid-column:1/3;grid-row:1}
-  .cl-ptbl td:nth-child(2){grid-column:1/-1;grid-row:2}
-  .cl-ptbl td:nth-child(3){grid-column:3;grid-row:1}
-  .cl-ptbl td:nth-child(4){grid-column:1;grid-row:3}
-  .cl-ptbl td:nth-child(5){grid-column:2/-1;grid-row:3}
-  .cl-ptbl td:nth-child(6){grid-column:4;grid-row:1}
+  /* (lote W) una persona en tres o cuatro líneas: el nombre (y el ✕), el rol o personaje, las horas con su nombre chico
+     y el teléfono, el correo y las observaciones */
+  .cl-ptbl,.cl-vtbl{table-layout:auto}
+  .cl-ptbl thead,.cl-vtbl thead,.cl-lhs{display:none}
+  .cl-ptbl,.cl-ptbl tbody,.cl-vtbl,.cl-vtbl tbody{display:block}
+  .cl-ptbl tr,.cl-vtbl tr{display:flex;flex-wrap:wrap;align-items:center;border-top:var(--l1) solid var(--line-2);padding:4px 0}
+  .cl .cl-ptbl td,.cl .cl-vtbl td{border:0;padding:1px 4px;display:block}
+  .cl-ptbl td:empty,.cl-vtbl td:empty{display:none}
+  .cl-ptbl td.cl-pn,.cl-vtbl td.cl-pn{flex:1 1 60%;order:1}
+  .cl-ptbl td.cl-px,.cl-vtbl td.cl-px{order:2;margin-left:auto}
+  .cl-ptbl td.cl-pj,.cl-ptbl td.cl-pr{flex:1 1 100%;order:3}
+  .cl .cl-ptbl :is(.cl-pn,.cl-pr,.cl-pt) input{padding-block:2px}
+  .cl-ptbl td.cl-tt,.cl-vtbl td.cl-tt{order:4;display:grid;justify-items:center;padding:0 1px}
+  .cl-ptbl td.cl-pt,.cl-vtbl td.cl-pt{order:5;flex:1 1 45%}
+  .cl-ptbl td.cl-ob{order:6;flex:1 1 100%}
+  .cl-vtbl td:not(.cl-pn,.cl-px,.cl-tt,.cl-pt){order:3;flex:1 1 45%}
+  .cl-ptbl .cl-mlab,.cl-vtbl .cl-mlab,.cl-lsh .cl-mlab{display:block;font-size:10px;font-weight:650;color:var(--muted);letter-spacing:.02em}
+  .cl-lsh .cl-mlab{display:inline}
+  .cl .cl-ptbl .cl-tt input{width:52px}
+  .cl-ptbl .cl-pj small{display:inline;margin-left:8px}
   .cl-ptbl tr.cl-sep{display:flex;align-items:center;border-top:0;padding-top:8px}
-  .cl-ptbl tr.cl-sep td{padding:0 4px !important}
+  .cl-ptbl tr.cl-sep td{padding:0 4px !important;display:flex;align-items:center;gap:4px}
   .cl-ptbl tr.cl-sep td:empty{display:none}
+  /* los planos: la miniatura, la descripción y la acción debajo del número; el lente, el sonido y los personajes en una línea */
+  .cl-list tr.cl-lsh{grid-template-columns:64px minmax(0,1fr)}
+  .cl-shg,.cl-shg.th{grid-template-columns:minmax(0,1fr);gap:3px}
+  .cl-shg.th{grid-template-columns:64px minmax(0,1fr)}
+  .cl-shg.th .cl-th{width:64px;grid-row:span 2}
+  .cl-shg.th .cl-shm{grid-column:1/-1}
+  .cl-shm{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+  .cl-shs select.cl-snd{width:auto}
+  .cl-opts{margin-left:0}
   .cl-foot{grid-template-columns:minmax(0,1fr);gap:12px}
   .cl-sec>header .linkbtn{margin-left:0}
 }

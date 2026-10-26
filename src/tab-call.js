@@ -195,15 +195,17 @@ function callNormalize(Px) {
 const clPhKey = (dayId, pid) => `cl~${dayId}~${pid}`;
 const SND_OPTS = [['', '—'], ['si', 'Sí'], ['amb', 'Ambiente'], ['no', 'No (MOS)']];
 const SND_NAME = { si: 'Sí', amb: 'Amb.', no: 'MOS' };
-/* el plano en la hoja de llamado: descripción (tamaño, quién, soporte, ángulo), acción, lente, sonido y reparto */
+/* el plano en la hoja de llamado: descripción (tamaño, soporte, ángulo, movimiento), acción, lente, sonido y personajes */
 function shotCallInfo(sh) {
   const els = (sh.chars || []).map(id => P.elements[id]).filter(Boolean);
-  const det = [els.map(e => titleCase(e.name)).join(', '), sh.support || '', sh.angle && sh.angle !== 'Normal' ? sh.angle : 'Ángulo normal', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean);
+  // (lote W) la descripción técnica: tamaño · soporte · ángulo · movimiento; quién sale va en «Personajes» (el reparto con
+  // su número; los demás, por su nombre)
+  const det = [sh.support || '', sh.angle && sh.angle !== 'Normal' ? sh.angle : 'Ángulo normal', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean);
   const desc = [sh.size || '', ...det];
   let lens = '';
   if (sh.lens) lens = String(sh.lens).replace(/\s*mm$/i, '') + ' mm';
   else if (sh.ws !== '2d' && typeof s3Of === 'function') { try { lens = Math.round(s3Of(sh).keys[0].cam.lens) + ' mm'; } catch (e) { lens = ''; } }
-  const cast = els.filter(e => e.cat === 'cast').map(e => D.castNum[e.id] || titleCase(e.name));
+  const cast = els.map(e => (e.cat === 'cast' && D.castNum[e.id]) || titleCase(e.name));
   return { code: D.code[sh.id] || '', size: sh.size || '', det, desc, act: sh.desc || shotTextExcerpt(sh, 90), lens, snd: SND_NAME[sh.snd] || '', cast };
 }
 /* la hora de cada plano dentro de su escena, en minutos desde el inicio de la escena. Los planos con hora escrita
@@ -317,8 +319,9 @@ const imgOk = u => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif|sv
    proyecto, la jornada, la fecha y el llamado general en grande; el clima, el punto de encuentro y la locación con su
    mapa. Luego la nota del 1.er asistente con la utilería especial, el cronograma en lista, el avance de la jornada
    siguiente y una sola tabla de personas (el reparto y el equipo por área). Al pie, el centro de salud y los canales de
-   radio. Lo que la referencia no tiene (por plano, horarios del reparto, punto de encuentro con fotos, movilidad,
-   proveedores) va después, con el mismo estilo (en el PDF, en la página siguiente). */
+   radio. (lote W) Los datos de la hoja anterior van dentro de esta estructura, sin repetir: los planos debajo de su
+   escena, los horarios del reparto en la tabla de personas, el punto de encuentro entero en la cabecera, la producción y
+   el cliente con el equipo clave, y la movilidad y los proveedores después de las personas. */
 const CL_ICO = {
   wx: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.8v1.4M2.8 8.5h1.4M4.5 4.5l1 1M12.5 4.5l-1 1"/><path d="M9.5 19.5h8.6a3.2 3.2 0 0 0 .2-6.4 4.4 4.4 0 0 0-8.4 1 2.7 2.7 0 0 0-.4 5.4z"/></svg>',
   sun: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 16.5a6.5 6.5 0 0 1 13 0M3 16.5h18M12 4.5v3M5.9 8.9l1.6 1.6M18.1 8.9l-1.6 1.6M8 20h8"/></svg>',
@@ -337,6 +340,13 @@ function callKeyCrew(dd) {
   const ad = one(/^(1\.?\s*er|primer) asistente de direcci/i) || one(/asistente de direcci/i);
   const it = (lab, c, alt) => ({ lab, name: c ? c.name.trim() : alt || '', phone: c ? (c.phone || '').trim() : '', email: c ? (c.email || '').trim() : '' });
   return [it('Jefatura de producción', jp, prods.map(personName)[0]), it('Dirección', dir, (M.directors || []).map(personName).filter(Boolean)[0]), it('1.er asistente de dirección', ad)];
+}
+/* (lote W) lo demás que pedía «Equipo clave» antes de la hoja nueva: la producción (de Proyecto, si no es ya la jefatura
+   de producción) y el cliente (Ajustes de la hoja, para publicidad). Solo si tienen nombre */
+function callKeyMore(keyCrew) {
+  const prods = (P.meta.producers || []).filter(x => personName(x) && !/ejecutiv/i.test(x.role || '')).map(personName);
+  const jp = (keyCrew[0] || {}).name || '', pr = prods.filter(x => x !== jp).join(', ');
+  return [pr ? { lab: 'Producción', name: pr, phone: '' } : null, (CALL().client || '').trim() ? { lab: 'Cliente', name: CALL().client.trim(), phone: '' } : null].filter(Boolean);
 }
 /* «Utilería especial»: la utilería, las armas y los efectos (categorías del desglose) de las escenas de la jornada */
 const CL_PROPS = ['props', 'weapons', 'sfx'];
@@ -400,7 +410,7 @@ RENDER.call = function () {
   const edSnd = !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('storyboard'));   // el sonido es del plano: lo marca quien edita el storyboard
   const logo = imgOk(M.projLogo), clogo = imgOk(M.logo);
   const tel = p => p ? `<a href="tel:${ea(String(p).replace(/[^\d+]/g, ''))}">${esc(p)}</a>` : '';
-  const m = dd.meet || {}, mUrl = mapsUrl(m, locs);
+  const m = dd.meet || {};
   // la hora de una fila del cronograma: se escribe aquí, libre (vacía: sigue del llamado y de los tiempos del plan)
   const rowTime = r => ed ? tmIn((dd.at || {})[r.key] || r.it.t || '', r.t0 || r.t || 'Hora', `data-bind="cl-at" data-k="${ea(r.key)}" aria-label="${ea('Hora de ' + (r.ev ? r.name : 'la escena ' + r.code))}" title="Escribe la hora; vacía, sigue a la fila anterior"`, dis) : `<b class="tnum">${esc(r.t0 || r.t || '')}</b>`;
   // arriba de todo: la marca y, a la derecha, el estado de la hoja (lo que falta para enviarla, si la que salió quedó
@@ -419,9 +429,11 @@ RENDER.call = function () {
   // 1. la cabecera en tres columnas
   const lunchAuto = def.lunch || callLunch(S);
   const fromPlan = !dd.crewCall && !!def.crewCall, motorPlan = !dd.motor && !!S.motor, lunchPlan = !dd.lunch && !!lunchAuto;
-  const keyCrew = callKeyCrew(dd);
+  // (lote W) a la izquierda, además del equipo clave, lo que pedía «Equipo clave» antes: la producción y el cliente
+  const keyCrew = callKeyCrew(dd), keyMore = callKeyMore(keyCrew);
+  const kcHTML = k => `<div class="cl-kc"><span class="cl-kl">${esc(k.lab)}</span>${k.name ? `<b data-no-tr>${esc(k.name)}</b>` : `<span class="cl-dim">${ed ? 'Sin nombre' : 'Por confirmar'}</span>`}${k.phone ? `<span class="cl-kp">${CL_ICO.phone}${tel(k.phone)}</span>` : ''}</div>`;
   const colL = `<div class="cl-c1">${clogo ? `<img class="cl-clogo" src="${ea(clogo)}" alt="">` : ''}${M.company ? `<b class="cl-co" data-no-tr>${esc(M.company)}</b>` : `<b class="cl-co cl-dim">Productora</b>`}
-    ${keyCrew.map(k => `<div class="cl-kc"><span class="cl-kl">${esc(k.lab)}</span>${k.name ? `<b data-no-tr>${esc(k.name)}</b>` : `<span class="cl-dim">${ed ? 'Sin nombre' : 'Por confirmar'}</span>`}${k.phone ? `<span class="cl-kp">${CL_ICO.phone}${tel(k.phone)}</span>` : ''}</div>`).join('')}</div>`;
+    ${[...keyCrew, ...keyMore].map(kcHTML).join('')}</div>`;
   const colC = `<div class="cl-c2">${logo ? `<img class="cl-plogo" src="${ea(logo)}" alt="${ea(M.title || '')}">` : `<h2 class="cl-ttl" data-no-tr>${esc(M.title || '')}</h2>`}
     <div class="cl-jn">${days.length > 1 ? hdStep(stepA(n - 1), stepA(n + 1)) : ''}<span>Jornada ${n + 1} de ${days.length}</span>${(E => E.length ? `<span class="cl-ep" data-no-tr>${esc(E.length === 1 ? epLabel(P, E[0]) : 'Episodios ' + E.join(', '))}</span>` : '')(epsOfKeys(d.keys))}</div>
     <div class="cl-date">${esc(dateTxt)}</div>
@@ -431,93 +443,94 @@ RENDER.call = function () {
       ${ed || (dd.craft || '').trim() ? `<label class="cl-craft"><span>Catering</span>${inp('craft', ph('Opcional'), 'aria-label="Catering" title="Por ejemplo: durante la jornada"')}</label>` : ''}</div>
     <div class="cl-sum">${inf.e ? esc(fmtEighths(inf.e)) + ' págs. · ' : ''}${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${S.byShot ? ` · ${S.rows.reduce((a, r) => a + (r.shots ? r.shots.length : 0), 0)} planos` : ''}</div></div>`;
   const wxKeys = ['wx', 'hi', 'lo', 'hum', 'sunrise', 'sunset'], wxOpen = wxKeys.some(k => (dd[k] || '').trim()) || (UI.csOpen && UI.csOpen.has('wx'));
-  const locAddr = (m.addr || '').trim() || (locs[0] && locs[0][1]) || '';
+  // (lote W) el punto de encuentro entero, como antes: la dirección de citación, su referencia, los enlaces y las fotos
+  const links = (m.links || []).map(safeUrl);   // en el orden de m.links (para quitar uno)
+  const phs = (m.ph || []).filter(p => frameHas(clPhKey(d.id, p.id)) || FRAMES[clPhKey(d.id, p.id)]);
+  if (phs.length) candFramesNeed(phs.map(p => clPhKey(d.id, p.id)), 'call');
+  const mAddr = (m.addr || '').trim(), mNote = (m.note || '').trim(), locAddr0 = (locs[0] && locs[0][1]) || '';
+  const meetHTML = ed || mAddr || mNote || links.some(Boolean) || phs.length ? `<div class="cl-ir cl-irm">${CL_ICO.park}<div class="cl-mp"><span class="cl-kl">Punto de encuentro</span>
+      ${ed || mAddr ? `<input type="text" class="cl-addr" value="${esc(m.addr || '')}"${!mAddr && !locAddr0 && ed ? ' data-miss="1"' : ''} placeholder="${esc(locAddr0 || ph('Falta la dirección de citación'))}" data-bind="cl-meet" data-f="addr" ${dis} aria-label="Dirección del punto de encuentro"${locAddr0 && !mAddr ? ' title="Vacía: la dirección de la locación"' : ''}>` : ''}
+      ${ed || mNote ? `<textarea rows="${Math.min(4, Math.max(1, Math.ceil((m.note || '').length / 36), (m.note || '').split('\n').length))}" class="cl-park" placeholder="${ea(ph('Referencia: puerta, estacionamiento, piso…'))}" data-bind="cl-meet" data-f="note" ${dis} aria-label="Referencia del punto de encuentro">${esc(m.note || '')}</textarea>` : ''}
+      ${ed || links.some(Boolean) ? `<div class="cl-links">${links.map((u, i) => u ? `<span class="chip"><a href="${ea(u)}" target="_blank" rel="noopener noreferrer">${esc(linkName(u))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>` : ''}
+      ${ed || phs.length ? `<div class="cl-mph">${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}</div>` : ''}</div></div>` : '';
   const colR = `<div class="cl-c3">
     ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${inp('wx', ph('Clima'), 'aria-label="Clima" title="Soleado, nublado, lluvia, viento…"')}<span class="cl-temp"><span>Máx.</span>${inp('hi', ph('°C'), 'aria-label="Máxima" title="Máxima (°C)"')}<span>Mín.</span>${inp('lo', ph('°C'), 'aria-label="Mínima" title="Mínima (°C)"')}<span>Hum.</span>${inp('hum', ph('%'), 'aria-label="Humedad" title="Humedad (%)"')}</span></div></div>
     <div class="cl-ir">${CL_ICO.sun}<div class="cl-sunr"><label><span>Amanecer</span>${tmIn(dd.sunrise, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunrise" aria-label="Amanecer"', dis)}</label><label><span>Anochece</span>${tmIn(dd.sunset, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunset" aria-label="Anochece"', dis)}</label></div></div>`
     : ed ? `<button type="button" class="cl-ir cl-irb" data-act="cs-open" data-k="wx">${CL_ICO.wx}<span><b>Clima</b><small>Máxima y mínima, amanecer y anochecer</small></span></button>` : ''}
-    <div class="cl-ir">${CL_ICO.park}<textarea rows="${Math.min(4, Math.max(1, Math.ceil((m.note || '').length / 36), (m.note || '').split('\n').length))}" class="cl-park" placeholder="${ea(ph('Punto de encuentro o estacionamiento'))}" data-bind="cl-meet" data-f="note" ${dis} aria-label="Punto de encuentro o estacionamiento">${esc(m.note || '')}</textarea></div>
+    ${meetHTML}
     <div class="cl-ir cl-irl">${ICO.pin}<div>${locs.length ? locs.map(([nm, ad]) => `<b>${esc(nm)}</b>${ad ? `<small data-no-tr>${esc(ad)}</small>` : ''}`).join('') : '<span class="cl-dim">Asigna locaciones en el plan de rodaje</span>'}
-      ${!locs.some(x => x[1]) && locAddr ? `<small data-no-tr>${esc(locAddr)}</small>` : ''}${mapLink(m, locs) ? `<a class="cl-map" href="${ea(mapLink(m, locs))}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ed ? `<button type="button" class="linkbtn cl-map" data-act="cl-maplink">+ Enlace del mapa</button>` : ''}</div></div></div>`;
+      ${mapLink(m, locs) ? `<a class="cl-map" href="${ea(mapLink(m, locs))}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ed ? `<button type="button" class="linkbtn cl-map" data-act="cl-maplink">+ Enlace del mapa</button>` : ''}</div></div></div>`;
   // 2. la nota del 1.er asistente, al centro, y la utilería especial
   const notes = (dd.notes || '').trim(), noteOpen = notes || (UI.csOpen && UI.csOpen.has('notes')), props = callProps(d);
   const noteHTML = (noteOpen ? `<div class="cl-note"><h3>Nota para el equipo</h3><textarea rows="${Math.min(10, Math.max(1, (dd.notes || '').split('\n').length))}" data-bind="cs-day" data-f="notes" aria-label="Nota para el equipo" placeholder="${ea(ph('Seguridad, ropa, estacionamiento, lo que no se puede publicar…'))}" ${dis}>${esc(dd.notes || '')}</textarea></div>`
     : ed ? `<div class="hd-box cl-noteadd">${hdAdd('Nota para el equipo', 'Seguridad, ropa, estacionamiento, lo que no se puede publicar. Sale al centro, debajo de la cabecera.', 'data-act="cs-open" data-k="notes"', lgCol('call', 'note'))}</div>` : '')
     + (props.length ? `<p class="cl-util"><b>Utilería especial:</b> <span>${esc(props.join(', '))}</span></p>` : '');
   // 3. el cronograma en lista: la hora (eventos) o el número de escena (con su hora debajo), el encabezado con la sinopsis
-  // y el reparto con su número, D/N y las páginas; los traslados, una banda celeste con su dirección y el mapa
+  // y el reparto con su número, D/N y las páginas; los traslados, una banda celeste con su dirección y el mapa.
+  // (lote W) Debajo de cada escena, sus planos: la hora del plano, la miniatura, la descripción técnica, la acción, el
+  // lente, el sonido y los personajes (las casillas «Hora por plano» y «Miniaturas» deciden si se ven la hora y la viñeta)
+  const shotTime = x => !ed ? `<small title="${ea(x.t0 + (x.t1 ? ' – ' + x.t1 : ''))}">${esc(x.t0)}</small>`
+    : hdAuto(tmIn(x.fixed ? x.t0 : '', x.t0, `data-bind="cl-shat" data-id="${ea(x.sh.id)}" aria-label="${ea('Hora del plano ' + x.code)}" title="${ea('Escribe la hora del plano; si no cabe, su escena se alarga o se corre' + (x.fixed ? '. Borra la hora para repartir la escena parejo' : ''))}"`, dis), !x.fixed);
+  const sndHTML = x => edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '');
+  const shotRow = (r, x, col) => `<tr class="cl-lsh" style="--rc:${ea(col)}"><td class="cl-ln cl-pc"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td>
+    <td colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<span class="cl-shd"><b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</span><span class="cl-sha">${esc(x.act)}</span>
+      <span class="cl-shm"><span class="cl-shset">${r.set ? `<span class="cl-mlab">Set</span> ${esc(r.set)}` : ''}</span><span class="cl-shl tnum">${esc(x.lens)}</span><span class="cl-shs">${sndHTML(x)}</span><span class="cl-shc tnum">${x.cast.length ? `<span class="cl-mlab">Personajes</span> ${esc(x.cast.join(', '))}` : ''}</span></span></div></td></tr>`;
   const list = [...S.rows, ...S.close];
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
     if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}</td></tr>`; }
     const col = hlc(r.it) || stripColor(r.s), dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s);
-    return `<tr class="cl-lsc" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
+    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
       <td class="cl-lsd"><b>${esc(setOf(r.s))}${r.it.sp ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(ieLab(r.s))} · ${esc(dn)}</span>${syn ? `<span class="cl-syn">${esc(syn)}</span>` : ''}${castLine(r.s) ? `<span class="cl-lc">${esc(castLine(r.s))}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</span>` : ''}</td>
-      <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`;
+      <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`
+      + (r.shots || []).map(x => shotRow(r, x, col)).join('');
   };
-  const schedHTML = `<table class="cl-list"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr></thead><tbody>
+  const shHead = S.byShot ? `<tr class="cl-lhs"><th>Plano</th><th colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? '<span></span>' : ''}<span>Descripción</span><span>Acción</span><span class="cl-shm"><span>Set</span><span>Lente</span><span>Sonido</span><span>Personajes</span></span></div></th></tr>` : '';
+  const schedHTML = `<table class="cl-list cl-sched"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr>${shHead}</thead><tbody>
     ${list.map(lrow).join('') || '<tr><td colspan="5" class="hint">Jornada sin escenas.</td></tr>'}
     <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${tmIn(dd.end || '', S.end || 'Hora', 'data-bind="cl-end" aria-label="Hora de fin de jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis)}</span>` : `<b class="tnum">${esc(S.end || '')}</b>`}</td><td colspan="3"><b>Fin de jornada</b> <span class="cl-dim">· ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}</span></td><td class="cl-lpg tnum"><small>Total</small> <b>${esc(fmtEighths(inf.e))}</b></td></tr></tbody></table>`;
+  const schedOpts = S.byShot ? `<span class="cl-opts"><label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo la hora de cada escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label></span>` : '';
   // 4. el avance: la jornada siguiente (o «Fin de rodaje»)
   const A = callAdvance(n);
   const advHTML = `<section class="cl-sec cl-adv"><header><h3>${A ? `Avance · Jornada ${A.n}${A.date ? ' · ' + esc(advDate(A)) : ''}` : 'Avance de la jornada siguiente'}</h3>${A ? `<span class="hint">${A.call ? `Llamado general <b class="tnum">${esc(A.call)}</b>` : 'Llamado por confirmar'}${A.locs.length ? ` · <span>${esc(A.locs.join(', '))}</span>` : ''}</span>${days.length > 1 ? `<button type="button" class="linkbtn" data-act="cl-day" data-d="${n + 1}">Ver su hoja ›</button>` : ''}` : ''}</header>
     ${A ? `<table class="cl-list cl-advt"><thead><tr><th>Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Reparto</th><th>Págs.</th></tr></thead><tbody>${A.rows.map(r => `<tr class="cl-lsc" style="--rc:${ea(hlc(r.it) || lgCol('plan', r.strip))}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span></td><td class="cl-lie">${esc(r.ie)}</td><td class="cl-lsd"><b>${esc(r.set)}</b><span class="m-only">${esc(r.ie)} · ${esc(r.dn)}</span>${r.syn ? `<span class="cl-syn">${esc(r.syn)}</span>` : ''}</td><td class="cl-ldn">${esc(r.dn)}</td><td class="cl-lcn tnum">${esc(r.cast.join(', '))}</td><td class="cl-lpg tnum">${esc(fmtEighths(r.e8))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Jornada sin escenas.</td></tr>'}</tbody></table>
     <p class="cl-tot"><span>Total: <b class="tnum">${esc(fmtEighths(A.e8))} págs.</b></span>${A.cast.length ? `<span>Reparto: <span>${esc(A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '))}</span></span>` : ''}</p>` : '<p class="cl-fin">Fin de rodaje</p>'}</section>`;
-  // 5. una sola tabla de personas: primero el reparto, luego el equipo por área (el nombre del área separa, fino)
+  // 5. una sola tabla de personas: primero el reparto, luego el equipo por área (el nombre del área separa, fino, con su
+  // citación). (lote W) Con las columnas de antes: recojo, llamado, vestuario, maquillaje, listos, teléfono (y el correo
+  // debajo) y observaciones; las horas y las observaciones son del reparto en esta jornada
   const depts = [...CS_DEPTS, ...(typeof TEAM_EXTRA !== 'undefined' ? TEAM_EXTRA : []).filter(([dp]) => crew.some(c => c.dept === dp && ((c.name || '').trim() || show.has(c.id))))];
   const vis = c => (c.name || '').trim() || show.has(c.id);
   const add = (dept, name) => ed ? `<button class="cs-add" data-act="cs-crew-add" data-dept="${ea(dept)}" title="Agregar en ${esc(name.toLowerCase())}" aria-label="Agregar en ${esc(name.toLowerCase())}">+</button>` : '';
   const full = depts.filter(([dept]) => crew.some(c => c.dept === dept && vis(c))), empty = depts.filter(x => !full.includes(x));
+  const NCOL = 10;
+  const tmCell = (lab, html) => `<td class="cl-tt"><span class="cl-mlab">${esc(lab)}</span>${html}</td>`;
+  const contact = (bind, id, o, who) => `<td class="cl-pt"><input type="tel" value="${esc(o.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="${bind}" data-id="${ea(id)}" data-f="phone" ${dis} aria-label="Teléfono de ${esc(who)}"><input type="email" class="cl-mail" value="${esc(o.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="${bind}" data-id="${ea(id)}" data-f="email" ${dis} aria-label="Correo de ${esc(who)}"></td>`;
   const castRows = cast.map(({ el, sc }) => {
-    const T = callTalent(el.id), X = (dd.cast || {})[el.id] || {};
-    return `<tr><td class="cl-pn"><input type="text" value="${esc(T.actor || '')}" placeholder="${ea(ph('Sin asignar'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="actor" ${dis} aria-label="Actor o actriz de ${esc(el.name)}"${!(T.actor || '').trim() && ed ? ' data-miss="1"' : ''}></td>
-      <td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(titleCase(el.name))}</b><small class="tnum" title="Escenas de la jornada">Esc. ${esc(sc.join(', '))}</small></td>
-      <td class="cl-tt">${tmIn(X.call, call || '', `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="call" aria-label="Llamado de ${esc(titleCase(el.name))}"`, dis)}</td>
-      <td><input type="tel" value="${esc(T.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="phone" ${dis} aria-label="Teléfono de ${esc(el.name)}"></td>
-      <td><input type="email" value="${esc(T.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="email" ${dis} aria-label="Correo de ${esc(el.name)}"></td><td></td></tr>`;
+    const T = callTalent(el.id), X = (dd.cast || {})[el.id] || {}, nm = titleCase(el.name);
+    const t = (f, lab, phd) => tmCell(lab, tmIn(X[f], phd, `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="${f}" aria-label="${ea(lab)} de ${esc(nm)}"`, dis));
+    return `<tr class="cl-ca"><td class="cl-pn"><input type="text" value="${esc(T.actor || '')}" placeholder="${ea(ph('Sin asignar'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="actor" ${dis} aria-label="Actor o actriz de ${esc(el.name)}"${!(T.actor || '').trim() && ed ? ' data-miss="1"' : ''}></td>
+      <td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(nm)}</b><small class="tnum" title="Escenas de la jornada">Esc. ${esc(sc.join(', '))}</small></td>
+      ${t('pu', 'Recojo', ph('—'))}${t('call', 'Llamado', call || '')}${t('ves', 'Vestuario', ph('—'))}${t('mq', 'Maquillaje', ph('—'))}${t('ready', 'Listos', ph('—'))}
+      ${contact('cs-tal', el.id, T, el.name)}
+      <td class="cl-ob"><input type="text" value="${esc(X.obs || '')}" placeholder="${ea(ph('Observaciones'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(nm)}"></td><td></td></tr>`;
   }).join('');
-  const crewRows = full.map(([dept, name]) => { const dc = deptCall(dd, dept, call); return `<tr class="cl-sep"><td colspan="2"><span>${esc(name)}</span>${add(dept, name)}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="3"></td></tr>`
+  const crewRows = full.map(([dept, name]) => { const dc = deptCall(dd, dept, call); return `<tr class="cl-sep"><td colspan="3"><span>${esc(name)}</span>${add(dept, name)}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="${NCOL - 4}"></td></tr>`
     + crew.filter(c => c.dept === dept && vis(c)).map(c => `<tr class="cl-cw"><td class="cl-pn"><input type="text" class="cs-name" value="${esc(c.name)}" placeholder="${ea(ph('Nombre'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="name" ${dis} aria-label="Nombre de ${esc(c.role)}"></td>
-      <td class="cl-pr"><input type="text" class="cs-role" value="${esc(c.role)}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="role" ${dis} aria-label="Cargo"></td>
-      <td class="cl-tt">${tmIn((dd.crew || {})[c.id], dc, `data-bind="cs-ccall" data-id="${ea(c.id)}" aria-label="Llamado de ${esc(c.role)}" title="Vacío: la citación del área"`, dis)}</td>
-      <td><input type="tel" value="${esc(c.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="phone" ${dis} aria-label="Teléfono"></td>
-      <td><input type="email" value="${esc(c.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="email" ${dis} aria-label="Correo"></td><td class="cl-px">${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`).join(''); }).join('');
+      <td class="cl-pr"><input type="text" class="cs-role" value="${esc(c.role)}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="role" ${dis} aria-label="Cargo"></td><td></td>
+      ${tmCell('Llamado', tmIn((dd.crew || {})[c.id], dc, `data-bind="cs-ccall" data-id="${ea(c.id)}" aria-label="Llamado de ${esc(c.role)}" title="Vacío: la citación del área"`, dis))}<td></td><td></td><td></td>
+      ${contact('cs-crew', c.id, c, c.role)}<td></td><td class="cl-px">${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`).join(''); }).join('');
   const peopleHTML = `<section class="cl-sec cl-crew cl-people"><header><h3>Personas</h3><span class="hint">${cast.length} ${cast.length === 1 ? 'personaje' : 'personajes'}${fig ? ` · figuración ${fig}` : ''} · ${crewN} del equipo</span><button type="button" class="linkbtn" data-act="cl-team">Directorio en Proyecto ›</button></header>
-    <div class="cl-tw"><table class="cl-tbl cl-ptbl"><thead><tr><th>Nombre</th><th>Rol / Personaje</th><th>Llamado</th><th>Teléfono</th><th>Correo</th><th></th></tr></thead><tbody>
-      ${cast.length ? `<tr class="cl-sep"><td colspan="6"><span>Reparto</span></td></tr>${castRows}` : ''}${crewRows}
-      ${!cast.length && !crewRows ? '<tr><td colspan="6" class="hint">Sin reparto ni equipo en esta jornada.</td></tr>' : ''}</tbody></table></div>
+    <div class="cl-tw"><table class="cl-tbl cl-ptbl"><thead><tr><th>Nombre</th><th>Rol / Personaje</th><th>Recojo</th><th>Llamado</th><th title="Vestuario">Vest.</th><th title="Maquillaje y peinado">Maq.</th><th>Listos</th><th>Teléfono</th><th>Observaciones</th><th></th></tr></thead><tbody>
+      ${cast.length ? `<tr class="cl-sep"><td colspan="${NCOL}"><span>Reparto</span></td></tr>${castRows}` : ''}${crewRows}
+      ${!cast.length && !crewRows ? `<tr><td colspan="${NCOL}" class="hint">Sin reparto ni equipo en esta jornada.</td></tr>` : ''}</tbody></table></div>
     ${crewN ? '' : `<p class="hint cs-none">Nadie del equipo tiene nombre todavía. ${ed ? 'Agrégalo con «+» en cada área o carga el directorio completo en Proyecto: sirve para todas las jornadas.' : 'Se carga en Proyecto › Equipo.'}</p>`}
     ${empty.length && ed ? `<div class="cs-folds">${empty.map(([dept, name]) => `<div class="cs-fold"><span>${esc(name)}</span>${add(dept, name)}</div>`).join('')}</div>` : ''}
     ${absent.length ? `<div class="cs-out"><span>No vienen esta jornada:</span>${absent.map(c => `<button class="chip" data-act="cs-crew-back" data-id="${ea(c.id)}" ${dis} title="Vuelve a esta jornada">${esc(c.name || c.role)}${c.name ? ` <small>${esc(c.role)}</small>` : ''} <span aria-hidden="true">↺</span></button>`).join('')}</div>` : ''}</section>`;
-  // 6. el pie: el centro de salud y los canales de radio
-  const hIn = (f, phd, lab, miss) => `<input type="${f === 'phone' ? 'tel' : 'text'}" value="${esc((dd.hosp || {})[f] || '')}" placeholder="${esc(C.hospital[f] || phd)}" data-bind="cs-hosp" data-f="${f}" ${dis} aria-label="${ea(lab)}"${C.hospital[f] ? ' class="hd-auto"' : ''}${miss ? ' data-miss="1"' : ''}>`;
-  const footHTML = `<footer class="cl-foot"><div class="cl-fh">${CL_ICO.hosp}<div><span class="cl-kl">Centro de salud</span>${hIn('name', ph('Falta', '-'), 'Centro de salud', !(hosp.name || '').trim() && ed)}${hIn('phone', ph('Teléfono', '-'), 'Teléfono del centro de salud')}${hIn('addr', ph('Dirección', '-'), 'Dirección del centro de salud')}</div></div>
-    <div class="cl-fr">${CL_ICO.radio}<div><span class="cl-kl">Canales de radio</span><input type="text" value="${esc(C.radio || '')}" placeholder="${ea(ph('1 Producción, 2 Libre, 3 Transporte…'))}" data-bind="cl-radio" maxlength="300" ${dis} aria-label="Canales de radio (para todas las jornadas)" title="Se escriben una vez y salen en todas las hojas"></div></div></footer>`;
-  // 7. lo que la referencia no tiene: por plano, horarios del reparto, punto de encuentro, movilidad y proveedores
-  const shotTime = x => !ed ? `<small title="${ea(x.t0 + (x.t1 ? ' – ' + x.t1 : ''))}">${esc(x.t0)}</small>`
-    : hdAuto(tmIn(x.fixed ? x.t0 : '', x.t0, `data-bind="cl-shat" data-id="${ea(x.sh.id)}" aria-label="${ea('Hora del plano ' + x.code)}" title="${ea('Escribe la hora del plano; si no cabe, su escena se alarga o se corre' + (x.fixed ? '. Borra la hora para repartir la escena parejo' : ''))}"`, dis), !x.fixed);
-  const shotRows = S.rows.filter(r => !r.ev && r.shots.length).map(r => {
-    const hc = hlc(r.it), col = hc || stripColor(r.s);
-    return `<tr class="cl-sc${ea(lgDark(col))}" style="--rb:${ea(barOf(col))};--rc:${ea(col)}"><td class="cl-t tnum"><b>${esc(r.t0 || r.t || '')}</b></td><td colspan="6"><span class="cs-no">${esc(r.code)}</span><b class="sch">${esc(r.s.heading)}</b><span class="cl-pg tnum">${esc(r.pages)} págs.</span>${r.props ? `<span class="cl-props">Utilería y arte: ${esc(r.props)}</span>` : ''}</td></tr>`
-      + r.shots.map(x => `<tr class="cl-sh"><td class="cl-t cl-pc tnum"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td><td class="cl-d${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</td><td>${esc(x.act)}</td><td>${esc(r.set)}</td><td class="tnum">${esc(x.lens)}</td><td>${edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '—')}</td><td class="tnum">${esc(x.cast.join(', ') || '—')}</td></tr>`).join('');
-  }).join('');
-  const shotsHTML = S.byShot ? `<section class="cl-card cl-sched cl-shots"><header><h3>Cronograma por plano</h3><span class="hint">del storyboard${shotT ? (ed ? ' · toca la hora de un plano para cambiarla' : ' · la hora de cada plano') : ''}</span><label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo la hora de cada escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label></header>
-    <div class="cl-tw"><table class="cl-tbl"><thead><tr><th>Hora · plano</th><th>Descripción</th><th>Acción</th><th>Set</th><th>Lente</th><th>Sonido</th><th>Personajes</th></tr></thead><tbody>${shotRows}</tbody></table></div></section>` : '';
-  const anyTimes = cast.some(({ el }) => { const X = (dd.cast || {})[el.id] || {}; return ['pu', 'ves', 'mq', 'ready', 'obs'].some(f => X[f]); });
-  const castTimes = cast.length && (ed || anyTimes) ? `<section class="cl-card cl-cast"><header><h3>Reparto · horarios</h3><span class="hint">recojo, vestuario, maquillaje y listos</span></header>
-    <div class="cl-tw"><table class="cl-tbl cl-ctbl"><thead><tr><th>Personaje</th><th>Recojo</th><th title="Vestuario">Vest.</th><th title="Maquillaje y peinado">Maq.</th><th>Listos</th><th>Obs.</th></tr></thead><tbody>${cast.map(({ el }) => {
-      const X = (dd.cast || {})[el.id] || {};
-      const t = (f, phd, lab) => `<td class="cl-tt">${tmIn(X[f], phd, `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="${f}" aria-label="${ea(lab)} de ${esc(titleCase(el.name))}"`, dis)}</td>`;
-      return `<tr><td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(titleCase(el.name))}</b></td>${t('pu', ph('—'), 'Recojo')}${t('ves', ph('—'), 'Vestuario')}${t('mq', ph('—'), 'Maquillaje y peinado')}${t('ready', ph('—'), 'Listos')}
-        <td class="cl-ob"><input type="text" value="${esc(X.obs || '')}" placeholder="${ea(ph('—'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(titleCase(el.name))}"></td></tr>`;
-    }).join('')}</tbody></table></div></section>` : '';
-  // punto de encuentro y movilidad
+  // 6. (lote W) la movilidad y los proveedores, después de las personas y con el mismo estilo
   const people = callPeople(d, dd), mov = dd.mov || [];
   const used = new Set(mov.flatMap(x => [x.driver, ...x.pax]).filter(Boolean));
   const free = people.filter(p => !used.has(p.k));
   const prevMov = n > 0 ? (peekDay(days[n - 1].id).mov || []) : [];
-  const phs = (m.ph || []).filter(p => frameHas(clPhKey(d.id, p.id)) || FRAMES[clPhKey(d.id, p.id)]);
-  if (phs.length) candFramesNeed(phs.map(p => clPhKey(d.id, p.id)), 'call');
   const movHTML = mov.map((x, vi) => {
     const drv = drvName(x, people), pax = x.pax.map(k => callWho(people, k)).filter(Boolean);
     return `<div class="cl-veh"><div class="cl-veh-h"><span class="cl-vn tnum">${vi + 1}</span><input type="text" value="${esc(x.name || '')}" placeholder="${ea(ph('Vehículo (camioneta, auto, minivan…)'))}" data-bind="cl-veh" data-id="${ea(x.id)}" ${dis} aria-label="Vehículo ${vi + 1}">${xBtn('cl-veh-del', x.id, 'Quitar el vehículo')}</div>
@@ -525,28 +538,20 @@ RENDER.call = function () {
       <div class="cl-pax">${pax.map(p => `<span class="cl-p">${esc(p.name)}<small>${esc(p.sub)}</small>${ed ? `<button class="x" data-act="cl-pax-x" data-id="${ea(x.id)}" data-k="${ea(p.k)}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${ICO.close}</button>` : ''}</span>`).join('')}${ed && free.length ? `<button class="cs-add" data-act="cl-pax-add" data-id="${ea(x.id)}" title="Agregar pasajeros" aria-label="Agregar pasajeros al vehículo ${vi + 1}" aria-haspopup="menu">+</button>` : ''}${!pax.length && !ed ? '<span class="hint">Sin pasajeros.</span>' : ''}</div>
       <span class="cl-cnt tnum">${(drv ? 1 : 0) + pax.length} ${(drv ? 1 : 0) + pax.length === 1 ? 'persona' : 'personas'}</span></div></div>`;
   }).join('');
-  const moreHTML = `<div class="cl-more">${shotsHTML}${castTimes}
-    <div class="cl-two cl-cols"><div class="cl-col">
-      <section class="cl-card cl-meet">
-        <header><h3>Punto de encuentro</h3>${mUrl ? `<a class="btn sm cl-maps" href="${ea(mUrl)}" target="_blank" rel="noopener noreferrer">${ICO.pin} Abrir en Google Maps</a>` : ''}</header>
-        <div class="cl-mb">
-          <input type="text" class="cl-addr" value="${esc(m.addr || '')}"${!(m.addr || '').trim() && !(locs[0] && locs[0][1]) && ed ? ' data-miss="1"' : ''} placeholder="${esc((locs[0] && locs[0][1]) || ph('Falta la dirección de citación', '—'))}" data-bind="cl-meet" data-f="addr" ${dis} aria-label="Dirección del punto de encuentro">
-          <div class="cl-links">${(m.links || []).map((u, i) => safeUrl(u) ? `<span class="chip"><a href="${ea(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(linkName(safeUrl(u)))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}
-            ${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>
-          ${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}
-        </div>
-      </section></div>
-      <div class="cl-col"><section class="cl-card cl-mov">
-        <header><h3>Movilidad</h3><span class="hint">${mov.length ? `${mov.length} ${mov.length === 1 ? 'vehículo' : 'vehículos'}${free.length ? ` · ${free.length} sin asignar` : ''}` : ''}</span>${ed ? '<button class="cs-add" data-act="cl-veh-add" title="Agregar un vehículo" aria-label="Agregar un vehículo">+</button>' : ''}</header>
-        ${mov.length && ed ? `<datalist id="clDrvL">${C.vendors.filter(v => (v.name || '').trim()).map(v => `<option value="${ea(v.name.trim())}">${esc([v.gear, v.contact].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>` : ''}
-        ${movHTML || `<p class="hint cs-none">${ed ? 'Agrega los vehículos con «+»: el conductor (un proveedor o un nombre) y los pasajeros, del equipo y del reparto.' : 'Sin movilidad.'}${ed && prevMov.length ? ` <button class="linkbtn" data-act="cl-mov-copy">Copiar la de la jornada ${n}</button>` : ''}</p>`}
-        ${mov.length && free.length && ed ? `<p class="hint cl-free">Sin vehículo: ${esc(free.map(p => p.name).join(', '))}</p>` : ''}
-      </section>
-      <section class="cl-card cl-vendc"><header><h3>Proveedores</h3>${ed ? '<button class="cs-add" data-act="cs-vend-add" title="Agregar un proveedor" aria-label="Agregar un proveedor">+</button>' : ''}</header>
-        ${C.vendors.length ? `<div class="cs-list">${C.vendors.map(x => `<div class="cs-pr cs-ve"><div class="cs-nm"><input type="text" class="cs-name" value="${esc(x.name || '')}" placeholder="${ea(ph('Proveedor'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="name" ${dis} aria-label="Proveedor"><input type="text" class="cs-role" value="${esc(x.gear || '')}" placeholder="${ea(ph('Equipo o servicio'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="gear" ${dis} aria-label="Equipo"></div>
-          <div class="cs-nm"><input type="text" value="${esc(x.contact || '')}" placeholder="${ea(ph('Contacto'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="contact" ${dis} aria-label="Contacto"><input type="tel" class="cs-role" value="${esc(x.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="phone" ${dis} aria-label="Teléfono"></div>
-          <div class="cs-call">${tmIn((dd.vend || {})[x.id], '', `data-bind="cs-vcall" data-id="${ea(x.id)}" aria-label="Llamado"`, dis)}</div>${xBtn('cs-vend-del', x.id)}</div>`).join('')}</div>` : `<p class="hint cs-none">${ed ? 'Agrega con «+» los proveedores de la jornada (cámara, luces, transporte…).' : 'Sin proveedores.'}</p>`}
-      </section></div></div></div>`;
+  const movSec = mov.length || ed ? `<section class="cl-sec cl-mov"><header><h3>Movilidad</h3><span class="hint">${mov.length ? `${mov.length} ${mov.length === 1 ? 'vehículo' : 'vehículos'}${free.length ? ` · ${free.length} sin asignar` : ''}` : ''}</span>${ed ? '<button class="cs-add" data-act="cl-veh-add" title="Agregar un vehículo" aria-label="Agregar un vehículo">+</button>' : ''}</header>
+    ${mov.length && ed ? `<datalist id="clDrvL">${C.vendors.filter(v => (v.name || '').trim()).map(v => `<option value="${ea(v.name.trim())}">${esc([v.gear, v.contact].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>` : ''}
+    ${movHTML || `<p class="hint cs-none">Agrega los vehículos con «+»: el conductor (un proveedor o un nombre) y los pasajeros, del equipo y del reparto.${prevMov.length ? ` <button class="linkbtn" data-act="cl-mov-copy">Copiar la de la jornada ${n}</button>` : ''}</p>`}
+    ${mov.length && free.length && ed ? `<p class="hint cl-free">Sin vehículo: ${esc(free.map(p => p.name).join(', '))}</p>` : ''}</section>` : '';
+  const vIn = (x, f, phd, lab, cls = '', type = 'text') => `<input type="${type}"${cls ? ` class="${cls}"` : ''} value="${esc(x[f] || '')}" placeholder="${ea(ph(phd))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="${f}" ${dis} aria-label="${ea(lab)}">`;
+  const vendSec = C.vendors.length || ed ? `<section class="cl-sec cl-vendc"><header><h3>Proveedores</h3>${ed ? '<button class="cs-add" data-act="cs-vend-add" title="Agregar un proveedor" aria-label="Agregar un proveedor">+</button>' : ''}</header>
+    ${C.vendors.length ? `<div class="cl-tw"><table class="cl-tbl cl-vtbl"><thead><tr><th>Proveedor</th><th>Equipo o servicio</th><th>Contacto</th><th>Teléfono</th><th>Llamado</th><th></th></tr></thead><tbody>${C.vendors.map(x => `<tr class="cl-ve">
+      <td class="cl-pn">${vIn(x, 'name', 'Proveedor', 'Proveedor', 'cs-name')}</td><td>${vIn(x, 'gear', 'Equipo o servicio', 'Equipo o servicio')}</td><td>${vIn(x, 'contact', 'Contacto', 'Contacto')}</td>
+      <td class="cl-pt">${vIn(x, 'phone', 'Teléfono', 'Teléfono', '', 'tel')}</td>${tmCell('Llamado', tmIn((dd.vend || {})[x.id], '', `data-bind="cs-vcall" data-id="${ea(x.id)}" aria-label="Llamado"`, dis))}<td class="cl-px">${xBtn('cs-vend-del', x.id)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="hint cs-none">Agrega con «+» los proveedores de la jornada (cámara, luces, transporte…).</p>'}</section>` : '';
+  // 7. el pie: el centro de salud y los canales de radio
+  const hIn = (f, phd, lab, miss) => `<input type="${f === 'phone' ? 'tel' : 'text'}" value="${esc((dd.hosp || {})[f] || '')}" placeholder="${esc(C.hospital[f] || phd)}" data-bind="cs-hosp" data-f="${f}" ${dis} aria-label="${ea(lab)}"${C.hospital[f] ? ' class="hd-auto"' : ''}${miss ? ' data-miss="1"' : ''}>`;
+  const footHTML = `<footer class="cl-foot"><div class="cl-fh">${CL_ICO.hosp}<div><span class="cl-kl">Centro de salud</span>${hIn('name', ph('Falta', '-'), 'Centro de salud', !(hosp.name || '').trim() && ed)}${hIn('phone', ph('Teléfono', '-'), 'Teléfono del centro de salud')}${hIn('addr', ph('Dirección', '-'), 'Dirección del centro de salud')}</div></div>
+    <div class="cl-fr">${CL_ICO.radio}<div><span class="cl-kl">Canales de radio</span><input type="text" value="${esc(C.radio || '')}" placeholder="${ea(ph('1 Producción, 2 Libre, 3 Transporte…'))}" data-bind="cl-radio" maxlength="300" ${dis} aria-label="Canales de radio (para todas las jornadas)" title="Se escriben una vez y salen en todas las hojas"></div></div></footer>`;
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
       <select data-bind="cs-sel" style="max-width:320px;width:auto" aria-label="Jornada">${days.map((x, i) => `<option value="${i}" ${i === n ? 'selected' : ''}>Jornada ${i + 1}${dates[i] ? ' · ' + esc(fmtDate(dates[i])) : ''} · ${x.keys.length} esc.</option>`).join('')}</select>
@@ -557,16 +562,17 @@ RENDER.call = function () {
     <div class="scroller pad" data-keep="call"><div class="cs cl">
       <article class="cl-doc">
       <section class="hd cl-hd" aria-label="Cabecera de la hoja de llamado">
-        <div class="cl-acts"><span class="cl-mark">Hecha con <b>FilmSpirit</b></span><span class="grow"></span>${status}</div>
+        <div class="cl-acts"><span class="grow"></span>${status}</div>
         <div class="cl-top">${colL}${colC}${colR}</div>
       </section>
       <section class="cl-notes">${noteHTML}</section>
-      <section class="cl-sec cl-list-s"><header><h3>Cronograma</h3><span class="hint">${ed ? 'toca una hora para cambiarla' : 'horas de la jornada'}</span><button class="linkbtn" data-act="cs-plan">Orden y tiempos en el plan de rodaje ›</button></header>${schedHTML}</section>
+      <section class="cl-sec cl-list-s"><header><h3>Cronograma</h3><span class="hint">${S.byShot ? 'por escena, con sus planos del storyboard' : 'por escena'} · ${ed ? 'toca una hora para cambiarla' : 'horas de la jornada'}</span>${schedOpts}<button class="linkbtn" data-act="cs-plan">Orden y tiempos en el plan de rodaje ›</button></header>${schedHTML}</section>
       ${advHTML}
       ${peopleHTML}
+      ${movSec}
+      ${vendSec}
       ${footHTML}
       </article>
-      ${moreHTML}
     </div></div></section></div>`;
   bindView();
   if (thumbs && typeof hydrateThumbs === 'function') hydrateThumbs();
@@ -646,7 +652,7 @@ Object.assign(ACT, {
   // el aviso «Faltan datos»: la lista, con dónde se completa cada uno; un toque lleva al campo
   'cl-miss': b => {
     const miss = callMissing(UI.callDay || 0); if (!miss.length) { render(); return; }
-    const WHERE = { date: 'En el plan de rodaje', call: 'Arriba, al centro', meet: 'Punto de encuentro, después de la hoja', hosp: 'Al pie de la hoja', cast: 'Personas', crew: 'Personas' };
+    const WHERE = { date: 'En el plan de rodaje', call: 'Arriba, al centro', meet: 'Punto de encuentro, arriba a la derecha', hosp: 'Al pie de la hoja', cast: 'Personas', crew: 'Personas' };
     const items = miss.map(x => ({ txt: capFirst(x.txt) + (x.name ? ` <span data-no-tr>${esc(x.name)}</span>` : ''), sub: WHERE[x.k] || '', attrs: `data-k="${ea(x.k)}"` }));
     popover(b, hdPopList(miss.length === 1 ? 'Para enviarla falta 1 dato' : `Para enviarla faltan ${miss.length} datos`, items,
       `<span>${miss.length === 1 ? 'Sin ese dato, el PDF dice «Por confirmar».' : 'Sin esos datos, el PDF dice «Por confirmar».'}</span>${hdBtn('sec', 'Exportar igual', { sm: true, attrs: 'data-x="1"' })}`), p => p.addEventListener('click', e => {
@@ -814,14 +820,14 @@ SETTINGS.call = () => {
     <label class="fld"><span>Cliente (publicidad)</span><input type="text" value="${esc(C.client)}" data-bind="cs-set" data-f="client" placeholder="Opcional" ${dis}></label>`;
 };
 HELP.call = [
-  ['La hoja', 'Una página que se lee de un vistazo, en el orden de las hojas de llamado de la industria. Arriba, en tres columnas: la productora y su equipo clave con teléfono (jefatura de producción, dirección y 1.er asistente de dirección); el proyecto, la jornada, la fecha y el llamado general en grande; el clima, el punto de encuentro o estacionamiento y la locación con su mapa. Luego la nota del 1.er asistente con la utilería especial, el cronograma, el avance de la jornada siguiente y las personas. Al pie, el centro de salud y los canales de radio.'],
+  ['La hoja', 'Se lee de un vistazo, en el orden de las hojas de llamado de la industria. Arriba, en tres columnas: la productora y su equipo clave con teléfono (jefatura de producción, dirección y 1.er asistente de dirección, y la producción y el cliente si los hay); el proyecto, la jornada, la fecha y el llamado general en grande, con listos motor, almuerzo y catering; el clima, el punto de encuentro (dirección de citación, referencia, enlaces y fotos) y la locación con su mapa. Luego la nota del 1.er asistente con la utilería especial, el cronograma con los planos de cada escena, el avance de la jornada siguiente, las personas, la movilidad y los proveedores. Al pie, el centro de salud y los canales de radio.'],
   ['De dónde sale', 'El cronograma, las locaciones y el reparto de cada jornada vienen del plan de rodaje y del desglose. Si cambias el plan, la hoja se actualiza sola. La utilería especial reúne la utilería, las armas y los efectos especiales del desglose de las escenas del día.'],
-  ['Cronograma', 'A la izquierda, la hora de cada evento (carga, almuerzo…) o el número de cada escena con su hora debajo: toca una hora para cambiarla (vacía, sigue a la fila anterior con los tiempos del plan). Al centro, el encabezado, la sinopsis y el reparto con su número; a la derecha, las páginas en octavos. Los traslados salen como una banda celeste con su dirección y el mapa. Al final, el fin de jornada y el total de páginas.'],
-  ['Hora de cada plano', 'En «Cronograma por plano» (debajo de la hoja), con «Hora por plano» encendido, toca la hora de un plano para cambiarla. Si no cabe en su escena, la escena se alarga o empieza antes y las filas siguientes se corren con ella, solo en esta hoja (el plan de rodaje no cambia). El orden de los planos se mantiene. Vacía, el plano vuelve a repartirse parejo.'],
+  ['Cronograma', 'A la izquierda, la hora de cada evento (carga, almuerzo…) o el número de cada escena con su hora debajo: toca una hora para cambiarla (vacía, sigue a la fila anterior con los tiempos del plan). Al centro, el encabezado, la sinopsis y el reparto con su número; a la derecha, las páginas en octavos. Debajo de cada escena, sus planos del storyboard: la miniatura, el tamaño, el soporte, el ángulo y el movimiento, la acción, el set, el lente, el sonido y los personajes («Miniaturas» las muestra u oculta). Los traslados salen como una banda celeste con su dirección y el mapa. Al final, el fin de jornada y el total de páginas.'],
+  ['Hora de cada plano', 'En el cronograma, con «Hora por plano» encendido, toca la hora de un plano (debajo de su número) para cambiarla. Si no cabe en su escena, la escena se alarga o empieza antes y las filas siguientes se corren con ella, solo en esta hoja (el plan de rodaje no cambia). El orden de los planos se mantiene. Vacía, el plano vuelve a repartirse parejo.'],
   ['Avance de la jornada siguiente', 'Después del cronograma, la jornada siguiente (aunque caiga después de días libres): su fecha, el llamado, las locaciones, sus escenas, el total de páginas y quién del reparto trabaja. En la última jornada dice «Fin de rodaje».'],
-  ['Personas', 'Una sola tabla: primero el reparto y luego el equipo por área (el nombre del área separa). Nombre, rol o personaje, llamado, teléfono y correo se escriben aquí o en Proyecto y sirven para todas las jornadas; el llamado es de esta jornada. Cada área tiene su citación (vacía: el llamado general).'],
+  ['Personas', 'Una sola tabla: primero el reparto y luego el equipo por área (el nombre del área separa). Nombre, rol o personaje, teléfono y correo (debajo del teléfono) se escriben aquí o en Proyecto y sirven para todas las jornadas. Las horas son de esta jornada: el recojo, el llamado, vestuario, maquillaje y listos del reparto, con sus observaciones, y el llamado de cada persona del equipo. Cada área tiene su citación (vacía: el llamado general).'],
   ['Canales de radio', 'Al pie de la hoja. Se escriben una vez (por ejemplo «1 Producción, 2 Libre, 3 Transporte») y salen en todas las jornadas.'],
-  ['Después de la hoja', 'Lo que la referencia no tiene: el cronograma por plano con sus miniaturas, el sonido y la hora de cada plano; los horarios del reparto (recojo, vestuario, maquillaje, listos); el punto de encuentro con su dirección, enlaces y fotos; la movilidad y los proveedores. En el PDF va en la página siguiente.'],
+  ['Movilidad y proveedores', 'Después de las personas. En la movilidad, cada vehículo con su conductor (un proveedor o un nombre) y sus pasajeros, del equipo y del reparto. Los proveedores son del proyecto; su llamado, de esta jornada.'],
   ['La leyenda', 'Arriba de la hoja: las tiras del plan (la franja de color de cada escena), la jornada, los eventos y la nota para el equipo. Los del plan se cambian en su leyenda; la nota, aquí. El PDF y el Excel salen con los mismos colores.'],
   ['Exportar', 'PDF o Excel de esta jornada o de todas. Las filas del equipo sin nombre no se imprimen. «Copiar resumen» deja la fecha, el llamado, la locación con su mapa, el centro de salud y el avance listos para pegar en el chat.'],
 ];
@@ -869,6 +875,7 @@ function callSheetData(n) {
     next: next ? { n: n + 2, date: dates[n + 1], call: peekDay(next.id).crewCall || callDefaults(next).crewCall, locs: callLocs(next).map(x => x[0]).join(', '), sc: next.keys.join(', ') } : null,
     // (lote U) la hoja como la referencia: el equipo clave, la utilería especial, el avance y los canales de radio
     keyCrew: callKeyCrew(dd), props: callProps(d), adv: callAdvance(n), radio: C.radio || '',
+    keyMore: callKeyMore(callKeyCrew(dd)),   // (lote W) la producción y el cliente, en la cabecera
   };
 }
 function exportCallXLSX(all) {
@@ -882,64 +889,86 @@ function exportCallXLSX(all) {
   offerFile(fileSafe(P.meta.title) + (all ? '_hojas_de_llamado.xlsx' : `_hoja_de_llamado_J${list[0] + 1}.xlsx`), new Blob([bytes], { type: XLSX_MIME }))
     .then(ok => { if (ok === true) callExported(list, vers); });   // («captured»: va dentro del ZIP del proyecto, no se envió)
 }
+/* el Excel de una hoja (lote W): en el mismo orden que la pantalla y el PDF. La cabecera (el equipo clave, el llamado
+   general y la jornada, el clima, el punto de encuentro y la locación), la nota y la utilería especial, el cronograma por
+   escena con sus planos debajo, el avance, las personas (reparto y equipo por área, con sus horarios), la movilidad, los
+   proveedores y, al pie, el centro de salud y los canales de radio */
 function callSheetXLSX(X) {
-  const NC = 8, rows = [], C = CALL();
+  const NC = 10, rows = [];
   const row = (cells, h) => rows.push(h == null ? { cells } : { cells, h });
-  // como en la app y en el PDF: secciones en el color de la barra, tiras de día y de noche, la nota en amarillo suave
+  // como en la app y en el PDF: secciones en el color de la barra, las tiras del plan, la nota en amarillo suave
   const T = xlTab(), L = T.line;
   const band = (v, fill = T.bar, color = T.ink) => row([{ v, cs: NC, s: { bold: true, font: 'title', fill, color, h: fill === T.black ? 'center' : 'left', size: 12, line: L } }], 22);
-  const H = { bold: true, fill: T.fill, color: '#222222', line: L }, Y = { fill: lgMix(T.note, '#FFFFFF', .4), line: L }, G = { fill: T.ev, line: L };
-  const SIDE = { fill: T.fill, line: '#FFFFFF' }, MID = { fill: T.fill2, line: '#FFFFFF' };
-  const span = (r, a, b) => [r.t0 || r.t || '', r.t1 || r.end || ''].filter(Boolean).join(' - ');
-  // cabecera: teléfonos clave, título y jefes de equipo
-  row([{ v: P.meta.title, cs: 4, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, line: T.bar } }, { v: [...X.heads, ...(X.eps ? [['Episodios', X.eps]] : [])].map(([k, v]) => `${k}: ${v}`).join('\n'), cs: 4, s: { size: 9, fill: T.bar, color: T.ink, line: T.bar } }], 30);
+  const H = { bold: true, fill: T.fill, color: '#222222', line: L }, Y = { fill: lgMix(T.note, '#FFFFFF', .4), line: L };
+  const SIDE = { fill: T.fill, line: '#FFFFFF' }, MID = { fill: T.fill2, line: '#FFFFFF' }, MU = { color: '#666666' }, CC = { h: 'center' };
+  const span = r => [r.t0 || r.t || '', r.t1 || r.end || ''].filter(Boolean).join(' - ');
+  // 1. la cabecera: el proyecto y la versión; tres columnas como en la hoja
+  row([{ v: P.meta.title + (X.eps ? ' · ' + X.eps : ''), cs: 6, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, line: T.bar } }, { v: X.ver ? trDone(tr('Hoja de llamado') + ' · ' + callVerTxt(X.ver)) : trDone(tr('Hoja de llamado')), cs: 4, s: { size: 9, fill: T.bar, color: T.ink, line: T.bar, h: 'right' } }], 30);
   row([{ v: '', cs: NC, s: { fill: T.c, border: false } }], 4);
-  if (X.ver) row([{ v: trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`) + ' · ' + callVerTxt(X.ver)), cs: NC, s: { size: 9, color: '#555555' } }]);
-  if (X.keys.length) row([{ v: X.keys.map(c => `${c.role}: ${c.name}${c.phone ? ' ' + c.phone : ''}`).join('   ·   '), cs: NC, s: { size: 9 } }]);
-  // franja: clima · fecha y llamado general · datos de la jornada
-  const wx = [X.dd.wx && 'Previsión: ' + X.dd.wx, (X.dd.hi || X.dd.lo) && `Temperatura: ${[X.dd.hi, X.dd.lo].filter(Boolean).join(' / ')} °C`, X.dd.hum && `Humedad: ${X.dd.hum} %`, X.dd.sunrise && 'Amanecer: ' + X.dd.sunrise, X.dd.sunset && 'Anochece: ' + X.dd.sunset].filter(Boolean).join('\n');
-  const info = [`Jornada ${X.n + 1} de ${X.total}`, `Horario: ${X.call || '—'} a ${X.end || '—'}`, `Listos motor: ${X.motor || '—'}`, X.lunch && 'Almuerzo: ' + X.lunch, X.dd.craft && 'Catering: ' + X.dd.craft, 'Centro de salud: ' + ([X.hosp.name, X.hosp.addr, X.hosp.phone].filter(Boolean).join(' · ') || '—'), X.radio && 'Canales de radio: ' + X.radio].filter(Boolean).join('\n');
-  row([{ v: wx || 'Clima: —', cs: 3, s: SIDE }, { v: `${X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha'}\nLLAMADO GENERAL\n${X.call || '—'}`, cs: 2, s: { ...MID, bold: true, font: 'title', size: 13, h: 'center' } }, { v: info, cs: 3, s: SIDE }], 78);
-  row([{ v: 'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—'), cs: NC, s: { bold: true } }]);
+  const key = [P.meta.company, ...[...X.keyCrew, ...(X.keyMore || [])].map(k => `${k.lab}: ${k.name || 'Por confirmar'}${k.phone ? ' · ' + k.phone : ''}`)].filter(Boolean).join('\n');
+  const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha';
+  const mid = [`Jornada ${X.n + 1} de ${X.total}`, date, 'LLAMADO GENERAL', X.call || '—', [X.motor && 'Listos motor ' + X.motor, X.lunch && 'Almuerzo ' + X.lunch].filter(Boolean).join(' · '), X.dd.craft && 'Catering: ' + X.dd.craft].filter(Boolean).join('\n');
+  const m = X.meet, mLinks = (m.links || []).map(safeUrl).filter(Boolean);
+  const wx = [X.dd.wx, (X.dd.hi || X.dd.lo) && [X.dd.hi && `Máx. ${X.dd.hi}°`, X.dd.lo && `Mín. ${X.dd.lo}°`].filter(Boolean).join(' · '), X.dd.hum && `Hum. ${X.dd.hum} %`].filter(Boolean).join(' · ');
+  const right = [wx && 'Clima: ' + wx, [X.dd.sunrise && 'Amanecer ' + X.dd.sunrise, X.dd.sunset && 'Anochece ' + X.dd.sunset].filter(Boolean).join(' · '),
+    (m.addr || m.note) && 'Punto de encuentro: ' + [m.addr, m.note].filter(Boolean).join(' · '), ...mLinks,
+    'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—')].filter(Boolean).join('\n');
+  row([{ v: key || '—', cs: 3, s: SIDE }, { v: mid, cs: 4, s: { ...MID, bold: true, font: 'title', size: 12, h: 'center' } }, { v: right, cs: 3, s: SIDE }], 96);
+  // 2. la nota y la utilería especial
   if (X.dd.notes) { row([{ v: 'Nota para el equipo', cs: NC, s: { ...Y, bold: true, h: 'center' } }]); row([{ v: X.dd.notes, cs: NC, s: { ...Y, h: 'center' } }]); }
-  if (X.props.length) row([{ v: 'Utilería especial: ' + X.props.join(', '), cs: NC, s: { h: 'center' } }]);   // (lote U)
-  const COLS = [14, 8, 34, 34, 16, 9, 9, 14];
+  if (X.props.length) row([{ v: 'Utilería especial: ' + X.props.join(', '), cs: NC, s: { h: 'center' } }]);
+  const COLS = [22, 16, 9, 9, 9, 9, 9, 16, 16, 4];
   const lu = pdfPlanUsed(X.sched.rows.map(r => r.it)); lu.note = !!(X.dd.notes || '').trim();
   const lg = xlLegend(lgDocItems('call', lu).map(([nm, c]) => nm === LG.call.note[0] ? [nm, Y.fill] : [nm, c]), COLS);
   if (lg.length) { row([], 6); rows.push(...lg); row([], 4); }
+  // 3. el cronograma por escena, con sus planos debajo
   band('CRONOGRAMA');
-  row(['Hora', 'Plano', 'Descripción', 'Acción', 'Set', 'Lente', 'Sonido', 'Personajes'].map(v => ({ v, s: H })));
-  for (const r of X.sched.rows) {
-    if (r.ev) { const ge = { fill: hlc(r.it) || T.ev, line: L, color: lgInk(hlc(r.it) || T.ev) === '#FFFFFF' ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true, h: 'center' } }]); continue; }
-    const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // (lote U) la tira estándar, como en el plan
-    row([{ v: span(r), s: { ...f, bold: true } }, { v: r.code, s: { ...f, bold: true, h: 'center' } }, { v: `${r.s.heading} · ${r.pages} págs.${r.props ? '\nUtilería y arte: ' + r.props : ''}`, cs: NC - 2, s: { ...f, bold: true } }]);
-    if (!r.shots.length) row([{ v: '' }, { v: r.it.sp ? 'Parte ' + r.it.sp : '' }, { v: 'Escena completa' }, { v: synopsisOf(r.s) || '' }, { v: r.set }, { v: '' }, { v: '' }, { v: r.cast + (r.fig ? ` · fig. ${r.fig}` : '') }]);
-    for (const x of r.shots) row([{ v: X.shotT ? span(x) : '', s: { h: 'center' } }, { v: x.code, s: { bold: true, h: 'center' } }, { v: `${x.size}${x.size && x.det.length ? ' · ' : ''}${x.det.join(' · ')}` }, { v: x.act }, { v: r.set }, { v: x.lens, s: { h: 'center' } }, { v: x.snd || '—', s: { h: 'center' } }, { v: x.cast.join(', ') || '—', s: { h: 'center' } }]);
+  row([{ v: 'Hora · Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 7, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
+  if (X.sched.byShot) row([{ v: 'Plano · hora', s: { ...H, fill: T.fill2 } }, { v: 'Descripción', s: { ...H, fill: T.fill2 } }, { v: 'Acción', cs: 4, s: { ...H, fill: T.fill2 } }, { v: 'Lente', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Sonido', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Personajes', cs: 2, s: { ...H, fill: T.fill2 } }]);
+  for (const r of [...X.sched.rows, ...X.sched.close]) {
+    if (r.ev) { const ef = hlc(r.it) || T.ev, ge = { fill: isMove(r) ? '#DDEFFC' : ef, line: L, color: lgInk(ef) === '#FFFFFF' && !isMove(r) ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true } }]); continue; }
+    const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
+    row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
+      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
+    for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
   }
-  for (const r of X.sched.close) row([{ v: span(r), s: { bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { bold: true } }]);
-  band('FIN DE JORNADA: ' + (X.end || '—'), T.black, lgInk(T.black));
-  band('REPARTO');
-  row(['Personaje', 'Actor / actriz', 'Teléfono', 'Recojo', 'Llamado', 'Vest. / Maq.', 'Listos', 'Obs.'].map(v => ({ v, s: H })));
-  for (const { el, sc } of X.cast) { const T = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {}; row([{ v: `${D.castNum[el.id] || ''}. ${titleCase(el.name)} (esc. ${sc.join(', ')})`, s: { bold: true } }, { v: T.actor || '' }, { v: T.phone || '' }, { v: Z.pu || '', s: { h: 'center' } }, { v: Z.call || X.call || '', s: { h: 'center', bold: true } }, { v: [Z.ves, Z.mq].map(x => x || '—').join(' / '), s: { h: 'center' } }, { v: Z.ready || '', s: { h: 'center' } }, { v: Z.obs || '' }]); }
-  if (X.fig) row([{ v: `Figuración: ${X.fig}`, cs: NC, s: { bold: true } }]);
-  band('CITACIÓN DEL EQUIPO');
+  band('FIN DE JORNADA: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.d.keys, X.d.rows).e) + ' págs.', T.black, lgInk(T.black));
+  // 4. el avance de la jornada siguiente (o «Fin de rodaje»)
+  const A = X.adv;
+  band(A ? trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') : 'FIN DE RODAJE');
+  if (A) {
+    row([{ v: 'Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 5, s: H }, { v: 'Reparto', cs: 2, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
+    for (const r of A.rows) { const fc = hlc(r.it) || lgCol('plan', r.strip); row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}` }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5 }, { v: r.cast.join(', '), cs: 2 }, { v: fmtEighths(r.e8), s: { h: 'right', bold: true } }]); }
+    row([{ v: `Total ${fmtEighths(A.e8)} págs.` + (A.cast.length ? ' · Reparto: ' + A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') : ''), cs: NC, s: { h: 'right', ...MU } }]);
+  }
+  // 5. las personas: el reparto y el equipo por área (con su citación), con los horarios
+  band('PERSONAS');
+  row(['Nombre', 'Rol / Personaje', 'Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos', 'Teléfono', 'Observaciones', ''].map((v, j) => ({ v, s: { ...H, ...(j >= 2 && j <= 6 ? CC : {}) } })));
+  const sep = (name, dc) => row([{ v: name.toUpperCase(), cs: 3, s: { ...H, fill: T.fill2 } }, { v: dc || '', s: { ...H, fill: T.fill2, h: 'center' } }, { v: '', cs: NC - 4, s: { ...H, fill: T.fill2 } }]);
+  const tel = (t, e) => [t, e].filter(Boolean).join('\n');
+  if (X.cast.length) {
+    sep('Reparto', '');
+    for (const { el, sc } of X.cast) { const Tl = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {};
+      row([{ v: Tl.actor || 'Por confirmar', s: Tl.actor ? { bold: true } : MU }, { v: `${D.castNum[el.id] ? D.castNum[el.id] + '. ' : ''}${titleCase(el.name)} (esc. ${sc.join(', ')})` }, { v: Z.pu || '', s: CC }, { v: Z.call || X.call || '', s: { ...CC, bold: true } }, { v: Z.ves || '', s: CC }, { v: Z.mq || '', s: CC }, { v: Z.ready || '', s: CC }, { v: tel(Tl.phone, Tl.email) }, { v: Z.obs || '', cs: 2 }]); }
+    if (X.fig) row([{ v: `Figuración: ${X.fig}`, cs: NC, s: MU }]);
+  }
   for (const [name, list, dc] of X.crew) {
-    row([{ v: name.toUpperCase(), cs: 7, s: { ...H, fill: T.fill2 } }, { v: dc || '', s: { ...H, fill: T.fill2, h: 'center' } }]);
-    for (const c of list) row([{ v: c.role, cs: 3, s: { ...G, bold: true } }, { v: c.name, cs: 2 }, { v: c.phone, cs: 2 }, { v: c.call, s: { h: 'center', bold: true } }]);
+    sep(name, dc);
+    for (const c of list) row([{ v: c.name, s: { bold: true } }, { v: c.role, s: MU }, { v: '' }, { v: c.call, s: { ...CC, bold: true } }, { v: '' }, { v: '' }, { v: '' }, { v: tel(c.phone, c.email) }, { v: '', cs: 2 }]);
+  }
+  // 6. la movilidad y los proveedores
+  if (X.mov.length) {
+    band('MOVILIDAD');
+    row([{ v: 'Vehículo', cs: 2, s: H }, { v: 'Conductor', cs: 2, s: H }, { v: 'Pasajeros', cs: NC - 4, s: H }]);
+    X.mov.forEach((x, i) => row([{ v: `${i + 1}. ${x.name || 'Vehículo'}`, cs: 2, s: { bold: true } }, { v: x.driver || '', cs: 2 }, { v: x.pax.join(', '), cs: NC - 4 }]));
   }
   if (X.vend.length) {
     band('PROVEEDORES');
-    row([{ v: 'Proveedor', cs: 2, s: H }, { v: 'Equipo o servicio', cs: 2, s: H }, { v: 'Teléfono', s: H }, { v: 'Contacto', cs: 2, s: H }, { v: 'Llamado', s: H }]);
-    for (const x of X.vend) row([{ v: x.name, cs: 2, s: { bold: true } }, { v: x.gear, cs: 2 }, { v: x.phone }, { v: x.contact, cs: 2 }, { v: x.call, s: { h: 'center' } }]);
+    row([{ v: 'Proveedor', s: H }, { v: 'Equipo o servicio', cs: 3, s: H }, { v: 'Contacto', cs: 3, s: H }, { v: 'Teléfono', s: H }, { v: 'Llamado', cs: 2, s: { ...H, h: 'center' } }]);
+    for (const x of X.vend) row([{ v: x.name, s: { bold: true } }, { v: x.gear || '', cs: 3 }, { v: x.contact || '', cs: 3 }, { v: x.phone || '' }, { v: x.call || '', cs: 2, s: { ...CC, bold: true } }]);
   }
-  const m = X.meet;
-  if (m.addr || m.note || (m.links || []).length || X.mov.length) {
-    band('PUNTO DE ENCUENTRO Y MOVILIDAD');
-    row([{ v: 'Dirección de citación: ' + ([m.addr, m.note].filter(Boolean).join(' · ') || '—'), cs: NC, s: { bold: true } }]);
-    for (const u of (m.links || []).map(safeUrl).filter(Boolean)) row([{ v: u, cs: NC }]);
-    if (X.mov.length) { row([{ v: 'Vehículo', cs: 2, s: H }, { v: 'Conductor', cs: 2, s: H }, { v: 'Pasajeros', cs: 4, s: H }]); X.mov.forEach((x, i) => row([{ v: `${i + 1}. ${x.name || 'Vehículo'}`, cs: 2, s: { bold: true } }, { v: x.driver || '—', cs: 2 }, { v: x.pax.join(', ') || '—', cs: 4 }])); }
-  }
-  // (lote U) el avance de la jornada siguiente (o «Fin de rodaje»), en una línea
-  row([{ v: trDone(advLine(X.adv)), cs: NC, s: { italic: true, border: false } }]);
+  // 7. al pie: el centro de salud y los canales de radio
+  row([], 6);
+  row([{ v: 'Centro de salud: ' + ([X.hosp.name, X.hosp.phone, X.hosp.addr].filter(Boolean).join(' · ') || 'Por confirmar'), cs: 6, s: { bold: true, line: L } }, { v: 'Canales de radio: ' + (X.radio || 'Por confirmar'), cs: 4, s: { line: L } }]);
   return { name: `Jornada ${X.n + 1}`, cols: COLS, rows, landscape: false };
 }
