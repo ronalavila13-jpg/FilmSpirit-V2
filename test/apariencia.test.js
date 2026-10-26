@@ -123,6 +123,18 @@ test('«Grafito» (sin color) en las etapas: el dibujo de Suaves con la marca de
   assert.deepStrictEqual(run(c, marca), ['', '']);
 });
 
+test('(lote W) «Volver a lo de siempre (solo tu pantalla)» también muestra todas las pestañas, y se deshace desde el aviso', () => {
+  const acts = [];
+  const c = ctx({ toast: (m, ms, act) => { if (act) acts.push(act); }, sharePaintTabs: noop });
+  c.__store.tabsHidden = ['casting', 'budget'];
+  c.__store.screen = { v: 2, bars: 'blanca', lines: 'gruesa', font: 'sobria', sec: 'neutro' };
+  run(c, 'lookResetMe()');
+  assert.deepStrictEqual(run(c, "[ls.get('theme'), ls.get('tabsHidden'), screenGet().sec, screenGet().font, screenGet().bars]"), ['auto', [], 'solido', 'archivo', 'gris']);
+  assert.strictEqual(acts.length, 1, 'el aviso trae «Deshacer»');
+  acts[0].fn();
+  assert.deepStrictEqual(run(c, "[ls.get('theme'), ls.get('tabsHidden'), screenGet().sec, screenGet().font, screenGet().bars]"), ['dark', ['casting', 'budget'], 'neutro', 'sobria', 'blanca']);
+});
+
 test('las letras de Apariencia: cada una con su archivo para la pantalla, la web y el PDF', () => {
   const c = ctx();
   vm.runInContext(fs.readFileSync(R + 'pdf-fuente-x.js', 'utf8'), c, { filename: 'pdf-fuente-x.js' });
