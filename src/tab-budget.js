@@ -265,7 +265,7 @@ Object.assign(ACT, {
   'bu-add': b => { const l = { id: uid('b'), sec: b.dataset.sec, name: 'Nueva línea', qty: 1, unit: 'día', mult: 1, rate: 0, link: null, qlink: null, note: '' }; P.budget.lines.push(l); budLog(`Añadió una línea en «${(BUD_SECTIONS.find(s => s.id === l.sec) || {}).name}»`); const o = ls.get('budOpen', []); if (!o.includes(b.dataset.sec)) ls.set('budOpen', o.concat(b.dataset.sec)); changed('data'); render(); },
   'bu-del': b => { const l = P.budget.lines.find(x => x.id === b.dataset.id); if (l) histNote(`Eliminar «${l.name}»`); P.budget.lines = P.budget.lines.filter(x => x.id !== b.dataset.id); if (l) budLog(`Eliminó «${l.name}» (${money(lineTotal(l))})`); changed('data'); render(); if (l) toastUndo(`«${l.name}» eliminada del presupuesto.`); },
   'bu-note': () => { UI.budNote = false; ls.set('budNote', false); render(); },
-  'bu-note-pop': b => popover(b, `<h3 class="hd-poph">Tarifas de ejemplo</h3><p class="hd-popp">Las tarifas de partida son de ejemplo. Reemplázalas por tus cotizaciones; los días se calculan solos desde el stripboard.</p><footer class="hd-popf"><span></span>${hdBtn('pri', 'Entendido', { sm: true, attrs: 'data-x="1"' })}</footer>`,
+  'bu-note-pop': b => popover(b, `<h3 class="hd-poph">Tarifas de ejemplo</h3><p class="hd-popp">Las tarifas de partida son de ejemplo. Reemplázalas por tus cotizaciones; los días se calculan solos desde el plan de rodaje.</p><footer class="hd-popf"><span></span>${hdBtn('pri', 'Entendido', { sm: true, attrs: 'data-x="1"' })}</footer>`,
     p => p.addEventListener('click', e => { if (e.target.closest('[data-x]')) { closePop(); ACT['bu-note'](); } })),
   'bu-lock': () => { BUDS.who = null; render(); toast('Presupuesto bloqueado.'); },
   'bu-protect': () => { if (proGate('budlock')) budProtectDialog(); },
@@ -318,7 +318,7 @@ SETTINGS.budget = () => {
 };
 HELP.budget = [
   ['Partidas', 'Abre cada partida para ver sus líneas. Cantidad × días o semanas × tarifa da el total de la línea.'],
-  ['Días automáticos', 'Las líneas enlazadas (etiqueta azul) toman sus días del stripboard y del desglose. Pulsa «Actualizar desde plan y desglose» después de cambiar el plan.'],
+  ['Días automáticos', 'Las líneas enlazadas (etiqueta azul) toman sus días del plan de rodaje y del desglose. Pulsa «Actualizar desde plan y desglose» después de cambiar el plan.'],
   ['Moneda, impuesto y dólares', 'En Ajustes («⋯» al final de la barra): moneda, imprevistos, nombre y porcentaje del impuesto, y la columna en dólares con tu tipo de cambio.'],
   ['Protección', 'Ajustes › Proteger con código deja el presupuesto solo para producción. Cada cambio queda registrado con el nombre de quien lo hizo.'],
 ];

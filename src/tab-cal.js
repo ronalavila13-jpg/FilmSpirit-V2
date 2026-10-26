@@ -22,7 +22,8 @@ const todayIso = () => isoOf(new Date());
 // vista: 'tl' (meses, línea de tiempo o tablero, según calMode) o 'dia' (el detalle de una fecha)
 const calView = () => UI.calView || (UI.calView = 'tl');
 const calMode = () => UI.calMode || (UI.calMode = ls.get('calMode2', 'mes'));      // 'mes' hojas de mes (la de entrada) · 'tl' línea de tiempo · 'kb' tablero
-const CAL_MODES = [['mes', 'Meses'], ['tl', 'Línea de tiempo'], ['kb', 'Tablero']];
+// (lote U) en el orden que pidió Ronald: Meses (la de entrada) · Tablero · Línea de tiempo
+const CAL_MODES = [['mes', 'Meses'], ['kb', 'Tablero'], ['tl', 'Línea de tiempo']];
 const calKb = () => UI.calKb || (UI.calKb = ls.get('calKb', 'ph'));             // columnas del tablero: 'ph' por fase · 'st' por estado
 const calClosed = () => new Set(ls.get('calClosed:' + P.id, []));
 /* zoom: ancho de un día (de un año entero a pocos días) y alto de las filas; preferencia de cada computadora */
@@ -623,8 +624,8 @@ function kbCardHTML(t) {
 function calBoardHTML(sh, ed) {
   const by = calKb(), cols = by === 'st' ? KB_ST : CAL_PH;
   const all = P.calendar.tasks.slice().sort((x, y) => x.start.localeCompare(y.start) || x.end.localeCompare(y.end));
-  const shoot = sh.length ? `<button class="kb-card kb-shoot" data-act="cal-plan" style="--c:${ea(lgCol('cal', 'rod'))}" title="Las jornadas salen del stripboard"><span class="kb-lab"></span><b class="kb-t">Rodaje · ${sh.length} ${sh.length === 1 ? 'jornada' : 'jornadas'}</b>
-    <span class="kb-meta"><span class="kb-chip">${KB_I.cal}${esc(shortD(sh[0].date))}${sh.length > 1 ? ' – ' + esc(shortD(sh[sh.length - 1].date)) : ''}</span><span class="grow"></span><span class="hint">Stripboard ›</span></span></button>` : '';
+  const shoot = sh.length ? `<button class="kb-card kb-shoot" data-act="cal-plan" style="--c:${ea(lgCol('cal', 'rod'))}" title="Las jornadas salen del plan de rodaje"><span class="kb-lab"></span><b class="kb-t">Rodaje · ${sh.length} ${sh.length === 1 ? 'jornada' : 'jornadas'}</b>
+    <span class="kb-meta"><span class="kb-chip">${KB_I.cal}${esc(shortD(sh[0].date))}${sh.length > 1 ? ' – ' + esc(shortD(sh[sh.length - 1].date)) : ''}</span><span class="grow"></span><span class="hint">Plan de rodaje ›</span></span></button>` : '';
   return `<div class="scroller kb-sc" data-keep="calkb"><div class="kb-top"><span class="hint">Columnas</span><div class="seg" role="group" aria-label="Columnas del tablero">${[['ph', 'Por fase'], ['st', 'Por estado']].map(([k, n]) => `<button data-act="cal-kb" data-v="${k}" aria-pressed="${ea(by === k)}">${n}</button>`).join('')}</div></div>${ed ? tipHTML('cal-kb2', 'Mantén presionada una tarjeta y llévala a otra columna para cambiarla de fase (o, por estado, para marcarla hecha). Toca dos veces una tarjeta (o su flecha ⌄) para abrirla: etiqueta, responsable, fechas, lista de pendientes y notas.') : ''}
     <div class="kb" data-by="${ea(by)}">${cols.map(([k, n]) => {
     const list = all.filter(t => by === 'st' ? taskState(t) === k : (t.ph || 'pre') === k);
@@ -725,7 +726,7 @@ function calTemplate() {
   const sh = calShoot();
   const F = sh.length ? sh[0].date : addD(todayIso(), 42), L = sh.length ? sh[sh.length - 1].date : addD(F, 4);
   const T = [
-    ['pre', 'Desglose y stripboard', 'Producción', -42, -36], ['pre', 'Casting', 'Casting', -35, -21], ['pre', 'Scouting de locaciones', 'Locaciones', -35, -22],
+    ['pre', 'Desglose y plan de rodaje', 'Producción', -42, -36], ['pre', 'Casting', 'Casting', -35, -21], ['pre', 'Scouting de locaciones', 'Locaciones', -35, -22],
     ['pre', 'Permisos de locación', 'Producción', -21, -10], ['pre', 'Diseño de arte y compras', 'Arte', -21, -5], ['pre', 'Pruebas de vestuario y maquillaje', 'Vestuario', -10, -6],
     ['pre', 'Lectura y ensayos', 'Dirección', -7, -3], ['pre', 'Prueba de cámara', 'Fotografía', -5, -5], ['pre', 'Reunión técnica', 'Producción', -3, -3], ['pre', 'Recojo de equipos', 'Producción', -1, -1],
     ['post', 'Respaldo y sincronización', 'Montaje', 1, 3], ['post', 'Montaje', 'Montaje', 3, 24], ['post', 'Música', 'Música', 14, 30], ['post', 'VFX y títulos', 'VFX', 20, 30],
@@ -771,8 +772,9 @@ SETTINGS.cal = () => calEditable()
   ? `<p class="hint" style="margin:0">Agrega un cronograma de partida con las tareas típicas de preproducción y posproducción, ubicadas según las fechas de rodaje del plan. Después muévelas, cámbialas o bórralas.</p><div class="menu"><button data-act="cal-tpl" data-pclose>Agregar tareas típicas</button></div>`
   : '<p class="hint" style="margin:0">Calendario de solo lectura.</p>';
 HELP.cal = [
-  ['Tres vistas', '«Meses» muestra hojas de mes, como un calendario de pared, con las tareas y el rodaje como barras de color; «Línea de tiempo», cada tarea como una barra sobre los días, por fase; «Tablero», tarjetas en columnas, por fase o por estado (por hacer, en curso, hechas). Las tres usan las mismas tareas y la app recuerda la última que usaste.'],
+  ['Tres vistas', '«Meses» muestra hojas de mes, como un calendario de pared, con las tareas y el rodaje como barras de color; «Tablero», tarjetas en columnas, por fase o por estado (por hacer, en curso, hechas); «Línea de tiempo», cada tarea como una barra sobre los días, por fase. Las tres usan las mismas tareas y la app recuerda la última que usaste.'],
   ['Meses', 'Elige cuántos meses ver a la vez (1 a 4) y muévete con ‹ ›, o toca el nombre del mes para ir a cualquier mes y año. Al elegir una tarea que dura varios meses, la vista se abre hasta verla entera (hasta 4 meses; si dura más, desde su comienzo). Abajo de cada mes, una fila de notas para todo el equipo. Clic derecho en una barra (en el teléfono, mantén el dedo y suéltalo sin mover): su color.'],
+  ['Tablero', 'Mantén presionada una tarjeta y llévala a otra columna para cambiarla de fase o, por estado, para marcarla hecha. Con el mouse, un clic en la tarjeta (o en su flecha ⌄) la abre; en el teléfono, dos toques. En el celular, cambia la fase desde la tarjeta.'],
   ['Moverse', 'Arrastra la fila de los días (arriba) para mover la línea de tiempo, o usa la rueda del mouse (Mayús + rueda: a los lados). También con el botón del medio o manteniendo la barra espaciadora.'],
   ['Acercar y alejar', 'Ctrl + rueda del mouse (o Alt + rueda) ensancha o estrecha los días. Arrastra la línea de la base de la tabla hacia abajo para agrandar las filas y hacia arriba para achicarlas; doble clic en ella vuelve al alto normal. En el teléfono, pellizca con dos dedos: a los lados, los días; arriba y abajo, las filas. «Ver todo» muestra toda la producción.'],
   ['Encuadrar', 'El ícono de cuatro esquinas junto al nombre de una tarea ajusta la línea de tiempo a lo que dura (con todas sus fechas). También «Jornadas de rodaje» y cada etapa.'],
@@ -780,13 +782,12 @@ HELP.cal = [
   ['La leyenda', 'Arriba de la tabla: el color de cada fase y las etiquetas con nombre. Toca un color para cambiarlo en todo el proyecto y en los PDF; «+ Color» suma una etiqueta. En la tarjeta de una tarea, «Etiqueta» elige una de la leyenda.'],
   ['La tarjeta de una tarea', 'Tiene etiqueta de color, área, responsable, fechas, lista de pendientes con su avance, notas y «Hecha». El avance de la lista se ve en la barra y en la tarjeta del tablero.'],
   ['Varias fechas en una línea', 'Si una tarea se repite (casting en dos rondas), Alt + arrastrar en su fila le agrega otra fecha, y doble clic agrega un día. En la tarjeta, «+ Otra fecha». Cada tramo se mueve y se estira por separado.'],
-  ['Tablero', 'Mantén presionada una tarjeta y llévala a otra columna para cambiarla de fase o, por estado, para marcarla hecha. Con el mouse, un clic en la tarjeta (o en su flecha ⌄) la abre; en el teléfono, dos toques. En el celular, cambia la fase desde la tarjeta.'],
   ['Contraer y expandir', 'Toca el nombre de una fase para plegarla en una fila de resumen. «Contraer todo», arriba a la izquierda, pliega las fases.'],
-  ['Rodaje', 'Las jornadas salen del stripboard y se actualizan solas. La flecha ⌄ de un día (en el encabezado) o de una jornada abre su detalle y su hoja de llamado (un clic; en el teléfono, dos toques).'],
+  ['Rodaje', 'Las jornadas salen del plan de rodaje y se actualizan solas. La flecha ⌄ de un día (en el encabezado) o de una jornada abre su detalle y su hoja de llamado (un clic; en el teléfono, dos toques).'],
 ];
 EXPORTS.cal = () => [
   { label: 'Calendario por meses (PDF)', hint: 'Una hoja por mes, como en la vista Meses, con sus notas', run: btn => exportPDF('calmes', btn), pdf: { kind: 'calmes', opts: null } },
-  { label: 'Calendario (PDF)', hint: 'La línea de tiempo y la lista de tareas, por fase', run: btn => exportPDF('calendar', btn), pdf: { kind: 'calendar', opts: null } },
+  { label: 'Línea de tiempo (PDF)', hint: 'La línea de tiempo y la lista de tareas, por fase', run: btn => exportPDF('calendar', btn), pdf: { kind: 'calendar', opts: null } },
   { label: 'Cronograma (Excel)', hint: 'Barras por día, como un diagrama de Gantt', run: () => exportCalXLSX(), pro: 'excel' },
 ];
 /* ---------- Excel: una fila por tarea y una columna por día ---------- */
