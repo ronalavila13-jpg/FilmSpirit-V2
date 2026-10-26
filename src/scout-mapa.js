@@ -132,3 +132,115 @@ function smRender() {
   bindView(); bindSceneSearch();
   smMount(groups);
 }
+
+/* ---------- la tarjeta de la candidata elegida en el mapa o en la lista ---------- */
+function smCardHTML() {
+  const x = SM.sel && scCand(SM.sel); if (!x) return '';
+  const { b, pl, c } = x, st = smState(pl, c), geo = candGeo(c), place = scoutPlaces().find(p => p.b === b);
+  const ph = (c.ph || []).find(p => FRAMES[scPhKey(c.id, p.id)] || frameHas(scPhKey(c.id, p.id)));
+  if (ph) candFramesNeed([scPhKey(c.id, ph.id)], 'scout');
+  const url = ph && FRAMES[scPhKey(c.id, ph.id)];
+  const permit = c.permit ? (SC_PERMIT.find(s => s[0] === c.permit) || [])[1] : '';
+  const days = st === 'pick' ? smDays(b) : '';
+  const rows = [
+    place && place.scenes.length ? ['Escenas', esc(place.scenes.join(', '))] : null,
+    permit ? ['Permiso', `<span class="${c.permit === 'ok' ? 'ok' : ''}">${esc(permit)}</span>`] : null,
+    days ? ['Jornadas', esc(days)] : null,
+  ].filter(Boolean);
+  const go = safeUrl(c.map) || (geo ? `https://www.google.com/maps/dir/?api=1&destination=${geo.lat},${geo.lng}` : '');
+  return `<article class="sm-card${ph ? ' has-ph' : ''}" aria-label="${ea(c.name || titleCase(b))}">
+    <span class="sm-grab" aria-hidden="true"></span>
+    ${ph ? `<div class="sm-ph">${url ? `<img src="${ea(url)}" alt="${ea(c.name || 'Locación')}" data-act="sc-view" data-id="${ea(c.id)}" data-p="${ea(ph.id)}">` : '<span class="cand-wait" aria-hidden="true"></span>'}</div>` : ''}
+    <button type="button" class="sm-x" data-act="sm-close" aria-label="Cerrar" title="Cerrar">${ICO.close}</button>
+    <div class="sm-cb">
+      <div class="sm-tag"><span class="sm-st st-${ea(st)}">${esc(SM_LABEL[st] || '')}</span><span class="hint">para <span data-no-tr>${esc(titleCase(b))}</span></span></div>
+      <h3 data-no-tr>${esc(c.name.trim() || titleCase(b))}</h3>
+      ${c.addr.trim() ? `<span class="sm-addr" data-no-tr>${esc(c.addr.trim())}</span>` : ''}
+      ${geo ? '' : `<span class="sm-addr warn">Sin ubicar en el mapa</span>`}
+      ${rows.length ? `<dl class="sm-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>` : ''}
+    </div>
+    <div class="sm-cact">
+      <button type="button" class="btn sm-open" data-act="sm-open" data-id="${ea(c.id)}">Abrir ficha</button>
+      ${!geo && smEditable() ? `<button type="button" class="btn" data-act="sm-place" data-id="${ea(c.id)}">${ICO.pin}<span>Ubicar</span></button>`
+        : go ? `<a class="btn" href="${ea(go)}" target="_blank" rel="noopener noreferrer">${SM_ICO.go}<span>Cómo llegar</span></a>` : ''}
+    </div>
+  </article>`;
+}
+/* el aviso de «toca donde está» */
+function smPlacingHTML() {
+  const x = scCand(SM.placing); if (!x) return '';
+  return `<div class="sm-placing" role="status"><span>Toca en el mapa dónde está <b data-no-tr>«${esc(x.c.name.trim() || titleCase(x.b))}»</b>.</span><button type="button" class="btn sm" data-act="sm-cancel">Cancelar</button></div>`;
+}
+
+/* ---------- el mapa (Leaflet) ---------- */
+const smName = (b, c) => c.name.trim() || titleCase(b);
+function smNote(msg) { const n = $('#smNote'); if (!n) return; n.hidden = !msg; n.textContent = msg ? tr(msg) : ''; }
+function smStartView() {
+  let lima = false; try { lima = Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/Lima'; } catch (e) { }
+  return lima ? [[-9.19, -75.02], 5] : [[15, -40], 2];
+}
+async function smMount(groups) {
+  const host = $('#smHost'); if (!host) return;
+  if (SM.el) { host.appendChild(SM.el); if (SM.map) { SM.map.invalidateSize(false); smSync(groups); } else if (SM.failed) smFailHTML(); return; }
+  const el = SM.el = document.createElement('div');
+  el.className = 'sm-map';
+  host.appendChild(el);
+  el.innerHTML = '<span class="sm-load hint">Cargando el mapa…</span>';
+  const ok = await loadLeaflet();
+  if (SM.el !== el) return;
+  if (!ok) { SM.failed = true; SM.el = null; smFailHTML(); return; }
+  SM.failed = false;
+  el.innerHTML = '';
+  const L = window.L, [c0, z0] = smStartView();
+  const map = SM.map = L.map(el, { zoomControl: false, attributionControl: true, center: c0, zoom: z0, worldCopyJump: true, tapTolerance: 12 });
+  map.attributionControl.setPrefix(false);
+  SM.tiles = L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' }).addTo(map);
+  // sin internet o si las teselas no llegan: un aviso chico; la lista sigue
+  SM.tiles.on('tileload', () => { SM.tileOk = true; SM.tileErr = 0; smNote(''); });
+  SM.tiles.on('tileerror', () => { SM.tileErr++; if (!SM.tileOk || SM.tileErr > 6) smNote(navigator.onLine === false ? 'Sin conexión: el mapa no se ve, pero la lista sigue.' : 'El mapa no carga. La lista sigue funcionando.'); });
+  map.on('click', e => { if (SM.placing) smPlaceAt(SM.placing, e.latlng.lat, e.latlng.lng); });
+  SM.layer = L.layerGroup().addTo(map);
+  if (navigator.onLine === false) smNote('Sin conexión: el mapa no se ve, pero la lista sigue.');
+  if (UI.tab === 'scout' && UI.scView === 'map') smSync(smGroups());
+}
+function smFailHTML() {
+  const host = $('#smHost'); if (!host) return;
+  host.innerHTML = `<div class="sm-fail"><p>No se pudo cargar el mapa. Revisa tu conexión: la lista sigue funcionando.</p><button type="button" class="btn" data-act="sm-retry">Reintentar</button></div>`;
+}
+/* los pines: uno por candidata ubicada (se crean, se mueven o se quitan según los datos) */
+function smSync(groups) {
+  const L = window.L, map = SM.map; if (!L || !map) return;
+  const ed = smEditable() && !SM.placing, seen = new Set(), pts = [];
+  for (const g of groups) for (const c of g.cands) {
+    const geo = candGeo(c); if (!geo) continue;
+    const st = smState(g.d, c), on = SM.sel === c.id, key = [st, on, smName(g.b, c), ed].join('|');
+    seen.add(c.id); pts.push([geo.lat, geo.lng]);
+    let m = SM.mk.get(c.id);
+    const icon = () => L.divIcon({ className: `sm-mk st-${st}${on ? ' on' : ''}`, html: `${smPinSVG(st, { w: on ? 33 : st === 'descartada' ? 20 : 26 })}<span class="lb">${esc(smName(g.b, c))}</span>`,
+      iconSize: on ? [33, 48] : st === 'descartada' ? [20, 29] : [26, 38], iconAnchor: on ? [16.5, 47] : st === 'descartada' ? [10, 28] : [13, 37] });
+    if (!m) {
+      m = L.marker([geo.lat, geo.lng], { icon: icon(), draggable: ed, keyboard: true, title: smName(g.b, c), riseOnHover: true, autoPan: true });
+      m._fs = { id: c.id, key };
+      m.on('click', () => smSelect(m._fs.id, false));
+      m.on('dragend', () => { const p = m.getLatLng(); smMoveTo(m._fs.id, p.lat, p.lng); });
+      m.addTo(SM.layer); SM.mk.set(c.id, m);
+    } else {
+      const ll = m.getLatLng();
+      if (Math.abs(ll.lat - geo.lat) > 1e-7 || Math.abs(ll.lng - geo.lng) > 1e-7) m.setLatLng([geo.lat, geo.lng]);
+      if (m._fs.key !== key) { m.setIcon(icon()); m.options.title = smName(g.b, c); m._fs.key = key; }
+      if (m.dragging) { if (ed) m.dragging.enable(); else m.dragging.disable(); }
+    }
+    m.setZIndexOffset(on ? 1000 : st === 'pick' ? 500 : st === 'descartada' ? -500 : 0);
+  }
+  for (const [id, m] of SM.mk) if (!seen.has(id)) { SM.layer.removeLayer(m); SM.mk.delete(id); }
+  if (!SM.fit && pts.length) { SM.fit = true; smFitAll(false); }
+  if (SM.placing) map.getContainer().classList.add('placing'); else map.getContainer().classList.remove('placing');
+}
+function smFitAll(anim = true) {
+  const map = SM.map; if (!map) return;
+  const pts = [...SM.mk.values()].map(m => m.getLatLng());
+  if (!pts.length) { const [c0, z0] = smStartView(); map.setView(c0, z0, { animate: anim }); return; }
+  if (pts.length === 1) { map.setView(pts[0], 16, { animate: anim }); return; }
+  const card = !!$('.sm-card') && !PHONE();
+  map.fitBounds(window.L.latLngBounds(pts), { paddingTopLeft: [56, PHONE() ? 64 : 48], paddingBottomRight: [card ? 340 : 48, PHONE() && $('.sm-card') ? 240 : 72], maxZoom: 16, animate: anim });
+}
