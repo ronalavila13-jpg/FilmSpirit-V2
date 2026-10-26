@@ -65,7 +65,7 @@ function smPinSVG(st, o = {}) {
 
 /* ---------- la vista ---------- */
 // el mapa vive fuera de la vista: al repintar la pestaña se vuelve a poner en su lugar (no se rehace ni pide teselas)
-const SM = { el: null, map: null, layer: null, tiles: null, mk: new Map(), sel: null, placing: null, pid: null, fit: false, tileOk: false, tileErr: 0, failed: false, ask: new Set() };
+const SM = { el: null, map: null, layer: null, tiles: null, mk: new Map(), sel: null, placing: null, pid: null, fit: false, tileOk: false, tileErr: 0, failed: false, ask: new Set(), note: '' };
 const smEditable = () => scoutEditable();
 function smCandRow(g, c) {
   const st = smState(g.d, c), geo = candGeo(c), on = SM.sel === c.id;
@@ -124,7 +124,7 @@ function smRender() {
           <button type="button" data-act="sm-all" aria-label="Ver todas" title="Ver todas">${SM_ICO.all}</button>
         </div>
         ${smLegendHTML(groups)}
-        <div class="sm-note" id="smNote" role="status" hidden></div>
+        <div class="sm-note" id="smNote" role="status" ${SM.note ? '' : 'hidden'}>${esc(SM.note)}</div>
         ${SM.placing ? smPlacingHTML() : ''}
         ${smCardHTML()}
       </div>
@@ -161,8 +161,8 @@ function smCardHTML() {
     </div>
     <div class="sm-cact">
       <button type="button" class="btn sm-open" data-act="sm-open" data-id="${ea(c.id)}">Abrir ficha</button>
-      ${!geo && smEditable() ? `<button type="button" class="btn" data-act="sm-place" data-id="${ea(c.id)}">${ICO.pin}<span>Ubicar</span></button>`
-        : go ? `<a class="btn" href="${ea(go)}" target="_blank" rel="noopener noreferrer">${SM_ICO.go}<span>Cómo llegar</span></a>` : ''}
+      ${!geo && smEditable() && SM.placing !== c.id ? `<button type="button" class="btn" data-act="sm-place" data-id="${ea(c.id)}">${ICO.pin}<span>Ubicar</span></button>`
+        : geo && go ? `<a class="btn sm-go" href="${ea(go)}" target="_blank" rel="noopener noreferrer">${SM_ICO.go}<span>Cómo llegar</span></a>` : ''}
     </div>
   </article>`;
 }
@@ -174,7 +174,7 @@ function smPlacingHTML() {
 
 /* ---------- el mapa (Leaflet) ---------- */
 const smName = (b, c) => c.name.trim() || titleCase(b);
-function smNote(msg) { const n = $('#smNote'); if (!n) return; n.hidden = !msg; n.textContent = msg ? tr(msg) : ''; }
+function smNote(msg) { SM.note = msg || ''; const n = $('#smNote'); if (!n) return; n.hidden = !msg; n.textContent = msg ? tr(msg) : ''; }
 function smStartView() {
   let lima = false; try { lima = Intl.DateTimeFormat().resolvedOptions().timeZone === 'America/Lima'; } catch (e) { }
   return lima ? [[-9.19, -75.02], 5] : [[15, -40], 2];
