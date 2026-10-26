@@ -81,10 +81,10 @@ function smMissing(groups) {
 }
 function smMissingHTML(L, ed) {
   if (!L.length) return '';
-  const nm = x => `${esc(x.c.name.trim() || titleCase(x.g.b))} (${esc(titleCase(x.g.b))})`;
+  const nm = x => `<span data-no-tr>${esc(x.c.name.trim() || titleCase(x.g.b))} (${esc(titleCase(x.g.b))})</span>`;
   const WHY = { none: 'no tiene enlace del mapa', short: TARGET === 'server' ? 'leyendo su enlace corto…' : 'su enlace corto no trae el lugar', nolink: 'su enlace no trae el lugar' };
-  const txt = L.length === 1 ? `${nm(L[0])}: ${WHY[L[0].why] || WHY.nolink}.` : `${L.slice(0, 2).map(nm).join(', ')}${L.length > 2 ? ` y ${L.length - 2} más` : ''}.`;
-  return `<div class="sm-miss"><span class="hint"><b>${L.length} sin ubicar</b> · <span data-no-tr>${txt}</span></span>
+  const txt = L.length === 1 ? `${nm(L[0])}: <span>${esc(WHY[L[0].why] || WHY.nolink)}</span>.` : `${L.slice(0, 2).map(nm).join(', ')}${L.length > 2 ? ` <span>y ${L.length - 2} más</span>` : ''}.`;
+  return `<div class="sm-miss"><span class="hint"><b>${L.length} sin ubicar</b> · ${txt}</span>
     ${ed ? `<button type="button" class="linkbtn sm-place" data-act="sm-place" data-id="${ea(L[0].c.id)}">${ICO.pin}<span>Ubicar en el mapa</span></button>` : ''}</div>`;
 }
 function smLegendHTML(groups) {
@@ -169,7 +169,8 @@ function smCardHTML() {
 /* el aviso de «toca donde está» */
 function smPlacingHTML() {
   const x = scCand(SM.placing); if (!x) return '';
-  return `<div class="sm-placing" role="status"><span>Toca en el mapa dónde está <b data-no-tr>«${esc(x.c.name.trim() || titleCase(x.b))}»</b>.</span><button type="button" class="btn sm" data-act="sm-cancel">Cancelar</button></div>`;
+  // (el nombre no se traduce: la frase ya va en su idioma)
+  return `<div class="sm-placing" role="status"><span data-no-tr>${esc(EN ? tr('Toca en el mapa dónde está «{0}».').replace('{0}', smName(x.b, x.c)) : `Toca en el mapa dónde está «${smName(x.b, x.c)}».`)}</span><button type="button" class="btn sm" data-act="sm-cancel">Cancelar</button></div>`;
 }
 
 /* ---------- el mapa (Leaflet) ---------- */
