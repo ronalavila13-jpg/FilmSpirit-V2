@@ -38,18 +38,19 @@ const escClamp = v => { v = +v; return isFinite(v) && v > 0 ? Math.min(ESC_MAX, 
 /* la escala de un escenario de P.sets3d o de un plano de planta de P.plans (1: tamaño original) */
 const escOf = x => x && x.esc != null ? escClamp(x.esc) : 1;
 /* los hechos por código que se escalan: la calle, los jardines y los paisajes. La habitación ya tiene su ancho, fondo y
-   alto (sus muebles van contra los muros): esa es su escala. El interior de vehículo tiene su tamaño real (las figuras
-   van en sus asientos), el exterior abierto es un piso con su cuadrícula de 1 m y el estudio, vacío: esos no */
-const ENV_ESC_SETS = ['calle', 'parque', 'bosque', 'montana', 'playa', 'mar', 'desierto', 'canaveral', 'jardin_d', 'jardin_t'];
+   alto (sus muebles van contra los muros): esa es su escala. El interior de vehículo y el mar abierto (el bote) tienen su
+   tamaño real (las figuras van en sus asientos), el exterior abierto es un piso con su cuadrícula de 1 m y el estudio,
+   vacío: esos no */
+const ENV_ESC_SETS = ['calle', 'parque', 'bosque', 'montana', 'playa', 'desierto', 'canaveral', 'jardin_d', 'jardin_t'];
 /* la locación (del guion) de una escena 3D: la de su plano. Las escenas que no son de un plano guardado (la del editor,
    las de la planta general) se anotan con escLocSet */
 const ESC_LOC = new WeakMap();
 const escLocSet = (s3, loc) => { if (s3 && typeof s3 === 'object') ESC_LOC.set(s3, loc || ''); return s3; };
 function escLocOf(s3) {
   if (!s3 || typeof P === 'undefined' || !P) return '';
+  if (typeof EDT !== 'undefined' && EDT && EDT.s3 === s3 && EDT.s) return EDT.s.loc || '';
   const c = ESC_LOC.get(s3), rev = typeof S3REV !== 'undefined' ? S3REV : 0;
   if (c != null && (typeof c === 'string' || c.rev === rev)) return typeof c === 'string' ? c : '';
-  if (typeof EDT !== 'undefined' && EDT && EDT.s3 === s3 && EDT.s) return EDT.s.loc || '';
   // la de un plano guardado, la de su escena armada sola o la vista por su cámara B
   for (const sh of Object.values(P.shots || {})) {
     if (!sh || !(sh.s3 === s3 || (typeof S3D_C !== 'undefined' && (S3D_C.get(sh) || {}).s3 === s3) || (typeof SHB !== 'undefined' && ((SHB.get(sh) || {}).v || {}).s3 === s3))) continue;

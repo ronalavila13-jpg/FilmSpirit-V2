@@ -1815,6 +1815,7 @@ function openShotEditor(id, isNew, from2d, waited) {
         <label class="opt" style="padding:6px 10px"><input type="checkbox" data-c="planFloor" ${E.s3.planFloor !== false ? 'checked' : ''}><span><b>Ver el dibujo del plano en el piso</b></span></label>
         <label class="opt" style="padding:6px 10px" title="Oculta los muros que se interponen entre la cámara y las figuras, como al retirar una pared del set"><input type="checkbox" data-c="wild" ${E.s3.wildWalls ? 'checked' : ''}><span><b>Muros móviles</b></span></label>
         <button class="btn sm" data-c="caminside">Meter la cámara dentro del plano</button>` : ''}
+      ${escRow()}
       <button class="btn sm" data-c="importplan">Importar plano de planta…</button>
       <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb, .kmz (SketchUp), .dae, .obj, .gltf o .fbx">Importar escenario 3D…</button>
       ${E.s3.set === 'int' ? `<div class="grid3"><label class="fld"><span>Ancho (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rw" value="${ea(R.w)}"></label><label class="fld"><span>Fondo (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rd" value="${ea(R.d)}"></label><label class="fld"><span>Alto (m)</span><input type="number" min="2" max="12" step="0.1" data-c="rh" value="${ea(R.h)}"></label></div>` : ''}`;
@@ -1912,6 +1913,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (key === 'shake') { snapshot(); E.s3.shake = v; E.custom = true; edited(); return; }
     if (key === 'sunAz') { snapshot(); E.s3.sunAz = v; E.custom = true; edited(); return; }
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
+    if (key === 'esc') { const k = escFromSlider(v); if (out) out.textContent = Math.round(k * 100) + ' %'; escSet(k); return; }   // lote W
     if (key.startsWith('lk:')) {
       const ob = selOb(); if (!ob) return;
       if (ob.el && P.elements[ob.el]) { const el = P.elements[ob.el]; el.look = { ...(el.look || {}), [key.slice(3)]: v }; E.lookDirty = true; }
@@ -1934,6 +1936,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (el.dataset.lkc) { const ob = selOb(); if (ob) setLook(ob, el.dataset.lkc, el.value); return; }
     if (el.dataset.opc) { const ob = selOb(); if (ob) { snapshot(); ob.paint = el.value; E.custom = true; commit(); panel(); redraw(); } return; }
     if (el.dataset.cpc) { if (E.carC0 !== undefined) carSet(E.s3, 'c', E.carC0); delete E.carC0; snapshot(); carSet(E.s3, 'c', el.value); E.custom = true; commit(); panel(); redraw(); return; }
+    if (el.dataset.k === 'esc') { escSet(escFromSlider(+el.value), true); return; }   // lote W · la escala del escenario
     if (el.type === 'range') { commit(); return; }
     if (el.dataset.lks) { const ob = selOb(); if (ob && ob.el) { const e2 = P.elements[ob.el]; e2.look = { ...(e2.look || {}), sizes: { ...((e2.look || {}).sizes || {}), [el.dataset.lks]: el.value.trim() } }; E.lookDirty = true; } return; }
     if (el.id === 'trM') { E.trM = clamp(num(el.value) || 2, .1, 50); return; }
@@ -2057,6 +2060,43 @@ function openShotEditor(id, isNew, from2d, waited) {
     const hadRoom = s3.objs.some(o => o.room);
     s3.set = 'modelo'; s3.set3d = sid; delete s3.planId;
     if (hadRoom) roomFurnish(s3, '');
+  }
+  /* ---------- lote W · la escala del escenario ----------
+     La guarda el escenario, no el plano: el importado o construido (P.sets3d), el plano de planta (P.plans) y la calle,
+     los jardines y los paisajes, por locación (P.envEsc). Todos los planos que lo usan lo ven del mismo tamaño; las
+     figuras no cambian. La barra va de 25 % a 400 % con el 100 % al medio (es logarítmica) */
+  function escTarget() {
+    const s3 = E.s3, d3 = s3.set === 'modelo' ? set3dOf(s3) : null, pl = s3.set === 'plano' ? planOf(s3) : null;
+    const put = o => v => { if (v === 1) delete o.esc; else o.esc = v; };
+    if (d3) return { v: escOf(d3), put: put(d3) };
+    if (pl) return { v: escOf(pl), put: put(pl) };
+    if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(s3.set)) {
+      const k = envEscKey(s.loc, s3.set);
+      return { v: envEscOf(s3), put: v => { const o = P.envEsc = P.envEsc || {}; if (v === 1) delete o[k]; else o[k] = v; if (!Object.keys(o).length) delete P.envEsc; } };
+    }
+    return null;
+  }
+  const escFromSlider = v => Math.abs(v) < .04 ? 1 : escClamp(Math.pow(2, v));
+  function escRow() {
+    const T = escTarget(); if (!T) return '';
+    const pc = Math.round(T.v * 100), lv = Math.round(Math.log2(T.v) * 100) / 100;
+    return `<div class="esc-row"><label class="rr"><span>Escala</span><input type="range" min="-2" max="2" step="0.01" value="${ea(lv)}" data-k="esc" style="--p:${ea(rangePct(lv, -2, 2))}%" aria-label="Escala del escenario" aria-valuetext="${ea(pc + ' %')}" ${UI.readOnly ? 'disabled' : ''}><output class="tnum">${pc} %</output></label>
+      <button class="btn sm ghost" data-c="escreset" ${pc === 100 || UI.readOnly ? 'disabled' : ''}>Tamaño original</button></div>
+      ${pc !== 100 ? '<p class="hint esc-h">En todos los planos con este escenario. Las figuras no cambian de tamaño.</p>' : ''}`;
+  }
+  /* mientras se arrastra se ve; al soltar queda (un paso del proyecto, con «Deshacer» en el aviso) */
+  function escSet(v, done) {
+    const T = escTarget(); if (!T || UI.readOnly) return;
+    v = escClamp(v);
+    if (E.esc0 === undefined) { E.esc0 = T.v; histNote('Escala del escenario', null, 'board'); }
+    T.put(v); stCache = null; redraw(); plan.draw();
+    if (!done) return;
+    const v0 = E.esc0; delete E.esc0;
+    plan.fit(); panel();
+    if (v0 === v) return;
+    changed('data');
+    const back = () => { T.put(v0); changed('data'); if (EDT === E) { stCache = null; redraw(); plan.fit(); panel(); } else render(); };
+    toast(v === 1 ? 'El escenario volvió a su tamaño original.' : `Escenario al ${Math.round(v * 100)} %.`, 5000, { label: 'Deshacer', fn: back });
   }
   /* quitar el escenario del proyecto: los planos que lo usan vuelven al escenario que dice el guion */
   function del3d() {
@@ -2197,6 +2237,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.c === 'import3d') { import3d(); return; }
     if (b.dataset.c === 'edit3d') { const d3 = set3dOf(E.s3); if (d3) import3d(d3.id); return; }
     if (b.dataset.c === 'del3d') { del3d(); return; }
+    if (b.dataset.c === 'escreset') { escSet(1, true); return; }   // lote W · «Tamaño original»
     if (b.dataset.c === 'carpaint') { snapshot(); E.custom = true; carSet(E.s3, 'c', b.dataset.v); commit(); panel(); redraw(); return; }
     if (b.dataset.c === 'caminside') { snapshot(); E.custom = true; const n = s3CamInside(E.s3); commit(); redraw(); toast(n ? 'Cámara movida delante del muro; el lente se ajustó para mantener el encuadre.' : 'Ningún muro tapa a la figura.'); return; }
     if (b.dataset.c === 'free') { snapshot(); E.custom = true; freeCam(); commit(); redraw(); toast('Cámara libre: ya puedes hacer travellings sin que gire.'); }

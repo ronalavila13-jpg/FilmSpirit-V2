@@ -2321,6 +2321,11 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 /* «¿El piso quedó en el techo?»: en el importador y en el panel Escena (los colores de aviso ya cambian en modo oscuro) */
 .e3-warn{margin:0;padding:6px 10px;border-radius:var(--r-sm);background:var(--warn-soft);color:var(--warn-text);font-weight:600}
 .e3-warn[hidden]{display:none}
+/* lote W · escenarios: la escala del escenario (Escena › Escenario) */
+.esc-row{display:flex;align-items:center;gap:8px}
+.esc-row .rr{flex:1;min-width:0}
+.esc-row .btn{flex:none}
+.esc-h{margin:-4px 0 0;font-size:var(--fs-2)}
 @media (max-width:860px){ .fpi{grid-template-columns:minmax(0,1fr)} }
 /* ---------- fotos del personaje ---------- */
 .phx{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px}
