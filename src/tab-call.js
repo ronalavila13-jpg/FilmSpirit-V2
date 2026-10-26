@@ -195,15 +195,17 @@ function callNormalize(Px) {
 const clPhKey = (dayId, pid) => `cl~${dayId}~${pid}`;
 const SND_OPTS = [['', '—'], ['si', 'Sí'], ['amb', 'Ambiente'], ['no', 'No (MOS)']];
 const SND_NAME = { si: 'Sí', amb: 'Amb.', no: 'MOS' };
-/* el plano en la hoja de llamado: descripción (tamaño, quién, soporte, ángulo), acción, lente, sonido y reparto */
+/* el plano en la hoja de llamado: descripción (tamaño, soporte, ángulo, movimiento), acción, lente, sonido y personajes */
 function shotCallInfo(sh) {
   const els = (sh.chars || []).map(id => P.elements[id]).filter(Boolean);
-  const det = [els.map(e => titleCase(e.name)).join(', '), sh.support || '', sh.angle && sh.angle !== 'Normal' ? sh.angle : 'Ángulo normal', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean);
+  // (lote W) la descripción técnica: tamaño · soporte · ángulo · movimiento; quién sale va en «Personajes» (el reparto con
+  // su número; los demás, por su nombre)
+  const det = [sh.support || '', sh.angle && sh.angle !== 'Normal' ? sh.angle : 'Ángulo normal', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean);
   const desc = [sh.size || '', ...det];
   let lens = '';
   if (sh.lens) lens = String(sh.lens).replace(/\s*mm$/i, '') + ' mm';
   else if (sh.ws !== '2d' && typeof s3Of === 'function') { try { lens = Math.round(s3Of(sh).keys[0].cam.lens) + ' mm'; } catch (e) { lens = ''; } }
-  const cast = els.filter(e => e.cat === 'cast').map(e => D.castNum[e.id] || titleCase(e.name));
+  const cast = els.map(e => (e.cat === 'cast' && D.castNum[e.id]) || titleCase(e.name));
   return { code: D.code[sh.id] || '', size: sh.size || '', det, desc, act: sh.desc || shotTextExcerpt(sh, 90), lens, snd: SND_NAME[sh.snd] || '', cast };
 }
 /* la hora de cada plano dentro de su escena, en minutos desde el inicio de la escena. Los planos con hora escrita
@@ -338,6 +340,13 @@ function callKeyCrew(dd) {
   const it = (lab, c, alt) => ({ lab, name: c ? c.name.trim() : alt || '', phone: c ? (c.phone || '').trim() : '', email: c ? (c.email || '').trim() : '' });
   return [it('Jefatura de producción', jp, prods.map(personName)[0]), it('Dirección', dir, (M.directors || []).map(personName).filter(Boolean)[0]), it('1.er asistente de dirección', ad)];
 }
+/* (lote W) lo demás que pedía «Equipo clave» antes de la hoja nueva: la producción (de Proyecto, si no es ya la jefatura
+   de producción) y el cliente (Ajustes de la hoja, para publicidad). Solo si tienen nombre */
+function callKeyMore(keyCrew) {
+  const prods = (P.meta.producers || []).filter(x => personName(x) && !/ejecutiv/i.test(x.role || '')).map(personName);
+  const jp = (keyCrew[0] || {}).name || '', pr = prods.filter(x => x !== jp).join(', ');
+  return [pr ? { lab: 'Producción', name: pr, phone: '' } : null, (CALL().client || '').trim() ? { lab: 'Cliente', name: CALL().client.trim(), phone: '' } : null].filter(Boolean);
+}
 /* «Utilería especial»: la utilería, las armas y los efectos (categorías del desglose) de las escenas de la jornada */
 const CL_PROPS = ['props', 'weapons', 'sfx'];
 function callProps(d) {
@@ -400,7 +409,7 @@ RENDER.call = function () {
   const edSnd = !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('storyboard'));   // el sonido es del plano: lo marca quien edita el storyboard
   const logo = imgOk(M.projLogo), clogo = imgOk(M.logo);
   const tel = p => p ? `<a href="tel:${ea(String(p).replace(/[^\d+]/g, ''))}">${esc(p)}</a>` : '';
-  const m = dd.meet || {}, mUrl = mapsUrl(m, locs);
+  const m = dd.meet || {};
   // la hora de una fila del cronograma: se escribe aquí, libre (vacía: sigue del llamado y de los tiempos del plan)
   const rowTime = r => ed ? tmIn((dd.at || {})[r.key] || r.it.t || '', r.t0 || r.t || 'Hora', `data-bind="cl-at" data-k="${ea(r.key)}" aria-label="${ea('Hora de ' + (r.ev ? r.name : 'la escena ' + r.code))}" title="Escribe la hora; vacía, sigue a la fila anterior"`, dis) : `<b class="tnum">${esc(r.t0 || r.t || '')}</b>`;
   // arriba de todo: la marca y, a la derecha, el estado de la hoja (lo que falta para enviarla, si la que salió quedó
@@ -419,9 +428,11 @@ RENDER.call = function () {
   // 1. la cabecera en tres columnas
   const lunchAuto = def.lunch || callLunch(S);
   const fromPlan = !dd.crewCall && !!def.crewCall, motorPlan = !dd.motor && !!S.motor, lunchPlan = !dd.lunch && !!lunchAuto;
-  const keyCrew = callKeyCrew(dd);
+  // (lote W) a la izquierda, además del equipo clave, lo que pedía «Equipo clave» antes: la producción y el cliente
+  const keyCrew = callKeyCrew(dd), keyMore = callKeyMore(keyCrew);
+  const kcHTML = k => `<div class="cl-kc"><span class="cl-kl">${esc(k.lab)}</span>${k.name ? `<b data-no-tr>${esc(k.name)}</b>` : `<span class="cl-dim">${ed ? 'Sin nombre' : 'Por confirmar'}</span>`}${k.phone ? `<span class="cl-kp">${CL_ICO.phone}${tel(k.phone)}</span>` : ''}</div>`;
   const colL = `<div class="cl-c1">${clogo ? `<img class="cl-clogo" src="${ea(clogo)}" alt="">` : ''}${M.company ? `<b class="cl-co" data-no-tr>${esc(M.company)}</b>` : `<b class="cl-co cl-dim">Productora</b>`}
-    ${keyCrew.map(k => `<div class="cl-kc"><span class="cl-kl">${esc(k.lab)}</span>${k.name ? `<b data-no-tr>${esc(k.name)}</b>` : `<span class="cl-dim">${ed ? 'Sin nombre' : 'Por confirmar'}</span>`}${k.phone ? `<span class="cl-kp">${CL_ICO.phone}${tel(k.phone)}</span>` : ''}</div>`).join('')}</div>`;
+    ${[...keyCrew, ...keyMore].map(kcHTML).join('')}</div>`;
   const colC = `<div class="cl-c2">${logo ? `<img class="cl-plogo" src="${ea(logo)}" alt="${ea(M.title || '')}">` : `<h2 class="cl-ttl" data-no-tr>${esc(M.title || '')}</h2>`}
     <div class="cl-jn">${days.length > 1 ? hdStep(stepA(n - 1), stepA(n + 1)) : ''}<span>Jornada ${n + 1} de ${days.length}</span>${(E => E.length ? `<span class="cl-ep" data-no-tr>${esc(E.length === 1 ? epLabel(P, E[0]) : 'Episodios ' + E.join(', '))}</span>` : '')(epsOfKeys(d.keys))}</div>
     <div class="cl-date">${esc(dateTxt)}</div>
@@ -431,93 +442,94 @@ RENDER.call = function () {
       ${ed || (dd.craft || '').trim() ? `<label class="cl-craft"><span>Catering</span>${inp('craft', ph('Opcional'), 'aria-label="Catering" title="Por ejemplo: durante la jornada"')}</label>` : ''}</div>
     <div class="cl-sum">${inf.e ? esc(fmtEighths(inf.e)) + ' págs. · ' : ''}${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${S.byShot ? ` · ${S.rows.reduce((a, r) => a + (r.shots ? r.shots.length : 0), 0)} planos` : ''}</div></div>`;
   const wxKeys = ['wx', 'hi', 'lo', 'hum', 'sunrise', 'sunset'], wxOpen = wxKeys.some(k => (dd[k] || '').trim()) || (UI.csOpen && UI.csOpen.has('wx'));
-  const locAddr = (m.addr || '').trim() || (locs[0] && locs[0][1]) || '';
+  // (lote W) el punto de encuentro entero, como antes: la dirección de citación, su referencia, los enlaces y las fotos
+  const links = (m.links || []).map(safeUrl);   // en el orden de m.links (para quitar uno)
+  const phs = (m.ph || []).filter(p => frameHas(clPhKey(d.id, p.id)) || FRAMES[clPhKey(d.id, p.id)]);
+  if (phs.length) candFramesNeed(phs.map(p => clPhKey(d.id, p.id)), 'call');
+  const mAddr = (m.addr || '').trim(), mNote = (m.note || '').trim(), locAddr0 = (locs[0] && locs[0][1]) || '';
+  const meetHTML = ed || mAddr || mNote || links.some(Boolean) || phs.length ? `<div class="cl-ir cl-irm">${CL_ICO.park}<div class="cl-mp"><span class="cl-kl">Punto de encuentro</span>
+      ${ed || mAddr ? `<input type="text" class="cl-addr" value="${esc(m.addr || '')}"${!mAddr && !locAddr0 && ed ? ' data-miss="1"' : ''} placeholder="${esc(locAddr0 || ph('Falta la dirección de citación'))}" data-bind="cl-meet" data-f="addr" ${dis} aria-label="Dirección del punto de encuentro"${locAddr0 && !mAddr ? ' title="Vacía: la dirección de la locación"' : ''}>` : ''}
+      ${ed || mNote ? `<textarea rows="${Math.min(4, Math.max(1, Math.ceil((m.note || '').length / 36), (m.note || '').split('\n').length))}" class="cl-park" placeholder="${ea(ph('Referencia: puerta, estacionamiento, piso…'))}" data-bind="cl-meet" data-f="note" ${dis} aria-label="Referencia del punto de encuentro">${esc(m.note || '')}</textarea>` : ''}
+      ${ed || links.some(Boolean) ? `<div class="cl-links">${links.map((u, i) => u ? `<span class="chip"><a href="${ea(u)}" target="_blank" rel="noopener noreferrer">${esc(linkName(u))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>` : ''}
+      ${ed || phs.length ? `<div class="cl-mph">${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}</div>` : ''}</div></div>` : '';
   const colR = `<div class="cl-c3">
     ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${inp('wx', ph('Clima'), 'aria-label="Clima" title="Soleado, nublado, lluvia, viento…"')}<span class="cl-temp"><span>Máx.</span>${inp('hi', ph('°C'), 'aria-label="Máxima" title="Máxima (°C)"')}<span>Mín.</span>${inp('lo', ph('°C'), 'aria-label="Mínima" title="Mínima (°C)"')}<span>Hum.</span>${inp('hum', ph('%'), 'aria-label="Humedad" title="Humedad (%)"')}</span></div></div>
     <div class="cl-ir">${CL_ICO.sun}<div class="cl-sunr"><label><span>Amanecer</span>${tmIn(dd.sunrise, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunrise" aria-label="Amanecer"', dis)}</label><label><span>Anochece</span>${tmIn(dd.sunset, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunset" aria-label="Anochece"', dis)}</label></div></div>`
     : ed ? `<button type="button" class="cl-ir cl-irb" data-act="cs-open" data-k="wx">${CL_ICO.wx}<span><b>Clima</b><small>Máxima y mínima, amanecer y anochecer</small></span></button>` : ''}
-    <div class="cl-ir">${CL_ICO.park}<textarea rows="${Math.min(4, Math.max(1, Math.ceil((m.note || '').length / 36), (m.note || '').split('\n').length))}" class="cl-park" placeholder="${ea(ph('Punto de encuentro o estacionamiento'))}" data-bind="cl-meet" data-f="note" ${dis} aria-label="Punto de encuentro o estacionamiento">${esc(m.note || '')}</textarea></div>
+    ${meetHTML}
     <div class="cl-ir cl-irl">${ICO.pin}<div>${locs.length ? locs.map(([nm, ad]) => `<b>${esc(nm)}</b>${ad ? `<small data-no-tr>${esc(ad)}</small>` : ''}`).join('') : '<span class="cl-dim">Asigna locaciones en el plan de rodaje</span>'}
-      ${!locs.some(x => x[1]) && locAddr ? `<small data-no-tr>${esc(locAddr)}</small>` : ''}${mapLink(m, locs) ? `<a class="cl-map" href="${ea(mapLink(m, locs))}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ed ? `<button type="button" class="linkbtn cl-map" data-act="cl-maplink">+ Enlace del mapa</button>` : ''}</div></div></div>`;
+      ${mapLink(m, locs) ? `<a class="cl-map" href="${ea(mapLink(m, locs))}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ed ? `<button type="button" class="linkbtn cl-map" data-act="cl-maplink">+ Enlace del mapa</button>` : ''}</div></div></div>`;
   // 2. la nota del 1.er asistente, al centro, y la utilería especial
   const notes = (dd.notes || '').trim(), noteOpen = notes || (UI.csOpen && UI.csOpen.has('notes')), props = callProps(d);
   const noteHTML = (noteOpen ? `<div class="cl-note"><h3>Nota para el equipo</h3><textarea rows="${Math.min(10, Math.max(1, (dd.notes || '').split('\n').length))}" data-bind="cs-day" data-f="notes" aria-label="Nota para el equipo" placeholder="${ea(ph('Seguridad, ropa, estacionamiento, lo que no se puede publicar…'))}" ${dis}>${esc(dd.notes || '')}</textarea></div>`
     : ed ? `<div class="hd-box cl-noteadd">${hdAdd('Nota para el equipo', 'Seguridad, ropa, estacionamiento, lo que no se puede publicar. Sale al centro, debajo de la cabecera.', 'data-act="cs-open" data-k="notes"', lgCol('call', 'note'))}</div>` : '')
     + (props.length ? `<p class="cl-util"><b>Utilería especial:</b> <span>${esc(props.join(', '))}</span></p>` : '');
   // 3. el cronograma en lista: la hora (eventos) o el número de escena (con su hora debajo), el encabezado con la sinopsis
-  // y el reparto con su número, D/N y las páginas; los traslados, una banda celeste con su dirección y el mapa
+  // y el reparto con su número, D/N y las páginas; los traslados, una banda celeste con su dirección y el mapa.
+  // (lote W) Debajo de cada escena, sus planos: la hora del plano, la miniatura, la descripción técnica, la acción, el
+  // lente, el sonido y los personajes (las casillas «Hora por plano» y «Miniaturas» deciden si se ven la hora y la viñeta)
+  const shotTime = x => !ed ? `<small title="${ea(x.t0 + (x.t1 ? ' – ' + x.t1 : ''))}">${esc(x.t0)}</small>`
+    : hdAuto(tmIn(x.fixed ? x.t0 : '', x.t0, `data-bind="cl-shat" data-id="${ea(x.sh.id)}" aria-label="${ea('Hora del plano ' + x.code)}" title="${ea('Escribe la hora del plano; si no cabe, su escena se alarga o se corre' + (x.fixed ? '. Borra la hora para repartir la escena parejo' : ''))}"`, dis), !x.fixed);
+  const sndHTML = x => edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '');
+  const shotRow = (r, x, col) => `<tr class="cl-lsh" style="--rc:${ea(col)}"><td class="cl-ln cl-pc"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td>
+    <td colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<span class="cl-shd"><b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</span><span class="cl-sha">${esc(x.act)}</span>
+      <span class="cl-shm"><span class="cl-shl tnum">${esc(x.lens)}</span><span class="cl-shs">${sndHTML(x)}</span><span class="cl-shc tnum">${x.cast.length ? `<span class="cl-mlab">Reparto</span> ${esc(x.cast.join(', '))}` : ''}</span></span></div></td></tr>`;
   const list = [...S.rows, ...S.close];
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
     if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}</td></tr>`; }
     const col = hlc(r.it) || stripColor(r.s), dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s);
-    return `<tr class="cl-lsc" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
+    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
       <td class="cl-lsd"><b>${esc(setOf(r.s))}${r.it.sp ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(ieLab(r.s))} · ${esc(dn)}</span>${syn ? `<span class="cl-syn">${esc(syn)}</span>` : ''}${castLine(r.s) ? `<span class="cl-lc">${esc(castLine(r.s))}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</span>` : ''}</td>
-      <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`;
+      <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`
+      + (r.shots || []).map(x => shotRow(r, x, col)).join('');
   };
-  const schedHTML = `<table class="cl-list"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr></thead><tbody>
+  const shHead = S.byShot ? `<tr class="cl-lhs"><th>Plano</th><th colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? '<span></span>' : ''}<span>Descripción</span><span>Acción</span><span class="cl-shm"><span>Lente</span><span>Sonido</span><span>Personajes</span></span></div></th></tr>` : '';
+  const schedHTML = `<table class="cl-list cl-sched"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr>${shHead}</thead><tbody>
     ${list.map(lrow).join('') || '<tr><td colspan="5" class="hint">Jornada sin escenas.</td></tr>'}
     <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${tmIn(dd.end || '', S.end || 'Hora', 'data-bind="cl-end" aria-label="Hora de fin de jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis)}</span>` : `<b class="tnum">${esc(S.end || '')}</b>`}</td><td colspan="3"><b>Fin de jornada</b> <span class="cl-dim">· ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}</span></td><td class="cl-lpg tnum"><small>Total</small> <b>${esc(fmtEighths(inf.e))}</b></td></tr></tbody></table>`;
+  const schedOpts = S.byShot ? `<span class="cl-opts"><label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo la hora de cada escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label></span>` : '';
   // 4. el avance: la jornada siguiente (o «Fin de rodaje»)
   const A = callAdvance(n);
   const advHTML = `<section class="cl-sec cl-adv"><header><h3>${A ? `Avance · Jornada ${A.n}${A.date ? ' · ' + esc(advDate(A)) : ''}` : 'Avance de la jornada siguiente'}</h3>${A ? `<span class="hint">${A.call ? `Llamado general <b class="tnum">${esc(A.call)}</b>` : 'Llamado por confirmar'}${A.locs.length ? ` · <span>${esc(A.locs.join(', '))}</span>` : ''}</span>${days.length > 1 ? `<button type="button" class="linkbtn" data-act="cl-day" data-d="${n + 1}">Ver su hoja ›</button>` : ''}` : ''}</header>
     ${A ? `<table class="cl-list cl-advt"><thead><tr><th>Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Reparto</th><th>Págs.</th></tr></thead><tbody>${A.rows.map(r => `<tr class="cl-lsc" style="--rc:${ea(hlc(r.it) || lgCol('plan', r.strip))}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span></td><td class="cl-lie">${esc(r.ie)}</td><td class="cl-lsd"><b>${esc(r.set)}</b><span class="m-only">${esc(r.ie)} · ${esc(r.dn)}</span>${r.syn ? `<span class="cl-syn">${esc(r.syn)}</span>` : ''}</td><td class="cl-ldn">${esc(r.dn)}</td><td class="cl-lcn tnum">${esc(r.cast.join(', '))}</td><td class="cl-lpg tnum">${esc(fmtEighths(r.e8))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Jornada sin escenas.</td></tr>'}</tbody></table>
     <p class="cl-tot"><span>Total: <b class="tnum">${esc(fmtEighths(A.e8))} págs.</b></span>${A.cast.length ? `<span>Reparto: <span>${esc(A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '))}</span></span>` : ''}</p>` : '<p class="cl-fin">Fin de rodaje</p>'}</section>`;
-  // 5. una sola tabla de personas: primero el reparto, luego el equipo por área (el nombre del área separa, fino)
+  // 5. una sola tabla de personas: primero el reparto, luego el equipo por área (el nombre del área separa, fino, con su
+  // citación). (lote W) Con las columnas de antes: recojo, llamado, vestuario, maquillaje, listos, teléfono (y el correo
+  // debajo) y observaciones; las horas y las observaciones son del reparto en esta jornada
   const depts = [...CS_DEPTS, ...(typeof TEAM_EXTRA !== 'undefined' ? TEAM_EXTRA : []).filter(([dp]) => crew.some(c => c.dept === dp && ((c.name || '').trim() || show.has(c.id))))];
   const vis = c => (c.name || '').trim() || show.has(c.id);
   const add = (dept, name) => ed ? `<button class="cs-add" data-act="cs-crew-add" data-dept="${ea(dept)}" title="Agregar en ${esc(name.toLowerCase())}" aria-label="Agregar en ${esc(name.toLowerCase())}">+</button>` : '';
   const full = depts.filter(([dept]) => crew.some(c => c.dept === dept && vis(c))), empty = depts.filter(x => !full.includes(x));
+  const NCOL = 10;
+  const tmCell = (lab, html) => `<td class="cl-tt"><span class="cl-mlab">${esc(lab)}</span>${html}</td>`;
+  const contact = (bind, id, o, who) => `<td class="cl-pt"><input type="tel" value="${esc(o.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="${bind}" data-id="${ea(id)}" data-f="phone" ${dis} aria-label="Teléfono de ${esc(who)}"><input type="email" class="cl-mail" value="${esc(o.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="${bind}" data-id="${ea(id)}" data-f="email" ${dis} aria-label="Correo de ${esc(who)}"></td>`;
   const castRows = cast.map(({ el, sc }) => {
-    const T = callTalent(el.id), X = (dd.cast || {})[el.id] || {};
-    return `<tr><td class="cl-pn"><input type="text" value="${esc(T.actor || '')}" placeholder="${ea(ph('Sin asignar'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="actor" ${dis} aria-label="Actor o actriz de ${esc(el.name)}"${!(T.actor || '').trim() && ed ? ' data-miss="1"' : ''}></td>
-      <td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(titleCase(el.name))}</b><small class="tnum" title="Escenas de la jornada">Esc. ${esc(sc.join(', '))}</small></td>
-      <td class="cl-tt">${tmIn(X.call, call || '', `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="call" aria-label="Llamado de ${esc(titleCase(el.name))}"`, dis)}</td>
-      <td><input type="tel" value="${esc(T.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="phone" ${dis} aria-label="Teléfono de ${esc(el.name)}"></td>
-      <td><input type="email" value="${esc(T.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="email" ${dis} aria-label="Correo de ${esc(el.name)}"></td><td></td></tr>`;
+    const T = callTalent(el.id), X = (dd.cast || {})[el.id] || {}, nm = titleCase(el.name);
+    const t = (f, lab, phd) => tmCell(lab, tmIn(X[f], phd, `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="${f}" aria-label="${ea(lab)} de ${esc(nm)}"`, dis));
+    return `<tr class="cl-ca"><td class="cl-pn"><input type="text" value="${esc(T.actor || '')}" placeholder="${ea(ph('Sin asignar'))}" data-bind="cs-tal" data-id="${ea(el.id)}" data-f="actor" ${dis} aria-label="Actor o actriz de ${esc(el.name)}"${!(T.actor || '').trim() && ed ? ' data-miss="1"' : ''}></td>
+      <td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(nm)}</b><small class="tnum" title="Escenas de la jornada">Esc. ${esc(sc.join(', '))}</small></td>
+      ${t('pu', 'Recojo', ph('—'))}${t('call', 'Llamado', call || '')}${t('ves', 'Vestuario', ph('—'))}${t('mq', 'Maquillaje', ph('—'))}${t('ready', 'Listos', ph('—'))}
+      ${contact('cs-tal', el.id, T, el.name)}
+      <td class="cl-ob"><input type="text" value="${esc(X.obs || '')}" placeholder="${ea(ph('Observaciones'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(nm)}"></td><td></td></tr>`;
   }).join('');
-  const crewRows = full.map(([dept, name]) => { const dc = deptCall(dd, dept, call); return `<tr class="cl-sep"><td colspan="2"><span>${esc(name)}</span>${add(dept, name)}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="3"></td></tr>`
+  const crewRows = full.map(([dept, name]) => { const dc = deptCall(dd, dept, call); return `<tr class="cl-sep"><td colspan="3"><span>${esc(name)}</span>${add(dept, name)}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="${NCOL - 4}"></td></tr>`
     + crew.filter(c => c.dept === dept && vis(c)).map(c => `<tr class="cl-cw"><td class="cl-pn"><input type="text" class="cs-name" value="${esc(c.name)}" placeholder="${ea(ph('Nombre'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="name" ${dis} aria-label="Nombre de ${esc(c.role)}"></td>
-      <td class="cl-pr"><input type="text" class="cs-role" value="${esc(c.role)}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="role" ${dis} aria-label="Cargo"></td>
-      <td class="cl-tt">${tmIn((dd.crew || {})[c.id], dc, `data-bind="cs-ccall" data-id="${ea(c.id)}" aria-label="Llamado de ${esc(c.role)}" title="Vacío: la citación del área"`, dis)}</td>
-      <td><input type="tel" value="${esc(c.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="phone" ${dis} aria-label="Teléfono"></td>
-      <td><input type="email" value="${esc(c.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="email" ${dis} aria-label="Correo"></td><td class="cl-px">${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`).join(''); }).join('');
+      <td class="cl-pr"><input type="text" class="cs-role" value="${esc(c.role)}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="role" ${dis} aria-label="Cargo"></td><td></td>
+      ${tmCell('Llamado', tmIn((dd.crew || {})[c.id], dc, `data-bind="cs-ccall" data-id="${ea(c.id)}" aria-label="Llamado de ${esc(c.role)}" title="Vacío: la citación del área"`, dis))}<td></td><td></td><td></td>
+      ${contact('cs-crew', c.id, c, c.role)}<td></td><td class="cl-px">${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`).join(''); }).join('');
   const peopleHTML = `<section class="cl-sec cl-crew cl-people"><header><h3>Personas</h3><span class="hint">${cast.length} ${cast.length === 1 ? 'personaje' : 'personajes'}${fig ? ` · figuración ${fig}` : ''} · ${crewN} del equipo</span><button type="button" class="linkbtn" data-act="cl-team">Directorio en Proyecto ›</button></header>
-    <div class="cl-tw"><table class="cl-tbl cl-ptbl"><thead><tr><th>Nombre</th><th>Rol / Personaje</th><th>Llamado</th><th>Teléfono</th><th>Correo</th><th></th></tr></thead><tbody>
-      ${cast.length ? `<tr class="cl-sep"><td colspan="6"><span>Reparto</span></td></tr>${castRows}` : ''}${crewRows}
-      ${!cast.length && !crewRows ? '<tr><td colspan="6" class="hint">Sin reparto ni equipo en esta jornada.</td></tr>' : ''}</tbody></table></div>
+    <div class="cl-tw"><table class="cl-tbl cl-ptbl"><thead><tr><th>Nombre</th><th>Rol / Personaje</th><th>Recojo</th><th>Llamado</th><th title="Vestuario">Vest.</th><th title="Maquillaje y peinado">Maq.</th><th>Listos</th><th>Teléfono</th><th>Observaciones</th><th></th></tr></thead><tbody>
+      ${cast.length ? `<tr class="cl-sep"><td colspan="${NCOL}"><span>Reparto</span></td></tr>${castRows}` : ''}${crewRows}
+      ${!cast.length && !crewRows ? `<tr><td colspan="${NCOL}" class="hint">Sin reparto ni equipo en esta jornada.</td></tr>` : ''}</tbody></table></div>
     ${crewN ? '' : `<p class="hint cs-none">Nadie del equipo tiene nombre todavía. ${ed ? 'Agrégalo con «+» en cada área o carga el directorio completo en Proyecto: sirve para todas las jornadas.' : 'Se carga en Proyecto › Equipo.'}</p>`}
     ${empty.length && ed ? `<div class="cs-folds">${empty.map(([dept, name]) => `<div class="cs-fold"><span>${esc(name)}</span>${add(dept, name)}</div>`).join('')}</div>` : ''}
     ${absent.length ? `<div class="cs-out"><span>No vienen esta jornada:</span>${absent.map(c => `<button class="chip" data-act="cs-crew-back" data-id="${ea(c.id)}" ${dis} title="Vuelve a esta jornada">${esc(c.name || c.role)}${c.name ? ` <small>${esc(c.role)}</small>` : ''} <span aria-hidden="true">↺</span></button>`).join('')}</div>` : ''}</section>`;
-  // 6. el pie: el centro de salud y los canales de radio
-  const hIn = (f, phd, lab, miss) => `<input type="${f === 'phone' ? 'tel' : 'text'}" value="${esc((dd.hosp || {})[f] || '')}" placeholder="${esc(C.hospital[f] || phd)}" data-bind="cs-hosp" data-f="${f}" ${dis} aria-label="${ea(lab)}"${C.hospital[f] ? ' class="hd-auto"' : ''}${miss ? ' data-miss="1"' : ''}>`;
-  const footHTML = `<footer class="cl-foot"><div class="cl-fh">${CL_ICO.hosp}<div><span class="cl-kl">Centro de salud</span>${hIn('name', ph('Falta', '-'), 'Centro de salud', !(hosp.name || '').trim() && ed)}${hIn('phone', ph('Teléfono', '-'), 'Teléfono del centro de salud')}${hIn('addr', ph('Dirección', '-'), 'Dirección del centro de salud')}</div></div>
-    <div class="cl-fr">${CL_ICO.radio}<div><span class="cl-kl">Canales de radio</span><input type="text" value="${esc(C.radio || '')}" placeholder="${ea(ph('1 Producción, 2 Libre, 3 Transporte…'))}" data-bind="cl-radio" maxlength="300" ${dis} aria-label="Canales de radio (para todas las jornadas)" title="Se escriben una vez y salen en todas las hojas"></div></div></footer>`;
-  // 7. lo que la referencia no tiene: por plano, horarios del reparto, punto de encuentro, movilidad y proveedores
-  const shotTime = x => !ed ? `<small title="${ea(x.t0 + (x.t1 ? ' – ' + x.t1 : ''))}">${esc(x.t0)}</small>`
-    : hdAuto(tmIn(x.fixed ? x.t0 : '', x.t0, `data-bind="cl-shat" data-id="${ea(x.sh.id)}" aria-label="${ea('Hora del plano ' + x.code)}" title="${ea('Escribe la hora del plano; si no cabe, su escena se alarga o se corre' + (x.fixed ? '. Borra la hora para repartir la escena parejo' : ''))}"`, dis), !x.fixed);
-  const shotRows = S.rows.filter(r => !r.ev && r.shots.length).map(r => {
-    const hc = hlc(r.it), col = hc || stripColor(r.s);
-    return `<tr class="cl-sc${ea(lgDark(col))}" style="--rb:${ea(barOf(col))};--rc:${ea(col)}"><td class="cl-t tnum"><b>${esc(r.t0 || r.t || '')}</b></td><td colspan="6"><span class="cs-no">${esc(r.code)}</span><b class="sch">${esc(r.s.heading)}</b><span class="cl-pg tnum">${esc(r.pages)} págs.</span>${r.props ? `<span class="cl-props">Utilería y arte: ${esc(r.props)}</span>` : ''}</td></tr>`
-      + r.shots.map(x => `<tr class="cl-sh"><td class="cl-t cl-pc tnum"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td><td class="cl-d${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</td><td>${esc(x.act)}</td><td>${esc(r.set)}</td><td class="tnum">${esc(x.lens)}</td><td>${edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '—')}</td><td class="tnum">${esc(x.cast.join(', ') || '—')}</td></tr>`).join('');
-  }).join('');
-  const shotsHTML = S.byShot ? `<section class="cl-card cl-sched cl-shots"><header><h3>Cronograma por plano</h3><span class="hint">del storyboard${shotT ? (ed ? ' · toca la hora de un plano para cambiarla' : ' · la hora de cada plano') : ''}</span><label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo la hora de cada escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label></header>
-    <div class="cl-tw"><table class="cl-tbl"><thead><tr><th>Hora · plano</th><th>Descripción</th><th>Acción</th><th>Set</th><th>Lente</th><th>Sonido</th><th>Personajes</th></tr></thead><tbody>${shotRows}</tbody></table></div></section>` : '';
-  const anyTimes = cast.some(({ el }) => { const X = (dd.cast || {})[el.id] || {}; return ['pu', 'ves', 'mq', 'ready', 'obs'].some(f => X[f]); });
-  const castTimes = cast.length && (ed || anyTimes) ? `<section class="cl-card cl-cast"><header><h3>Reparto · horarios</h3><span class="hint">recojo, vestuario, maquillaje y listos</span></header>
-    <div class="cl-tw"><table class="cl-tbl cl-ctbl"><thead><tr><th>Personaje</th><th>Recojo</th><th title="Vestuario">Vest.</th><th title="Maquillaje y peinado">Maq.</th><th>Listos</th><th>Obs.</th></tr></thead><tbody>${cast.map(({ el }) => {
-      const X = (dd.cast || {})[el.id] || {};
-      const t = (f, phd, lab) => `<td class="cl-tt">${tmIn(X[f], phd, `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="${f}" aria-label="${ea(lab)} de ${esc(titleCase(el.name))}"`, dis)}</td>`;
-      return `<tr><td class="cl-pj"><span class="cs-av tnum">${D.castNum[el.id] || '·'}</span><b>${esc(titleCase(el.name))}</b></td>${t('pu', ph('—'), 'Recojo')}${t('ves', ph('—'), 'Vestuario')}${t('mq', ph('—'), 'Maquillaje y peinado')}${t('ready', ph('—'), 'Listos')}
-        <td class="cl-ob"><input type="text" value="${esc(X.obs || '')}" placeholder="${ea(ph('—'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(titleCase(el.name))}"></td></tr>`;
-    }).join('')}</tbody></table></div></section>` : '';
-  // punto de encuentro y movilidad
+  // 6. (lote W) la movilidad y los proveedores, después de las personas y con el mismo estilo
   const people = callPeople(d, dd), mov = dd.mov || [];
   const used = new Set(mov.flatMap(x => [x.driver, ...x.pax]).filter(Boolean));
   const free = people.filter(p => !used.has(p.k));
   const prevMov = n > 0 ? (peekDay(days[n - 1].id).mov || []) : [];
-  const phs = (m.ph || []).filter(p => frameHas(clPhKey(d.id, p.id)) || FRAMES[clPhKey(d.id, p.id)]);
-  if (phs.length) candFramesNeed(phs.map(p => clPhKey(d.id, p.id)), 'call');
   const movHTML = mov.map((x, vi) => {
     const drv = drvName(x, people), pax = x.pax.map(k => callWho(people, k)).filter(Boolean);
     return `<div class="cl-veh"><div class="cl-veh-h"><span class="cl-vn tnum">${vi + 1}</span><input type="text" value="${esc(x.name || '')}" placeholder="${ea(ph('Vehículo (camioneta, auto, minivan…)'))}" data-bind="cl-veh" data-id="${ea(x.id)}" ${dis} aria-label="Vehículo ${vi + 1}">${xBtn('cl-veh-del', x.id, 'Quitar el vehículo')}</div>
@@ -525,28 +537,20 @@ RENDER.call = function () {
       <div class="cl-pax">${pax.map(p => `<span class="cl-p">${esc(p.name)}<small>${esc(p.sub)}</small>${ed ? `<button class="x" data-act="cl-pax-x" data-id="${ea(x.id)}" data-k="${ea(p.k)}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${ICO.close}</button>` : ''}</span>`).join('')}${ed && free.length ? `<button class="cs-add" data-act="cl-pax-add" data-id="${ea(x.id)}" title="Agregar pasajeros" aria-label="Agregar pasajeros al vehículo ${vi + 1}" aria-haspopup="menu">+</button>` : ''}${!pax.length && !ed ? '<span class="hint">Sin pasajeros.</span>' : ''}</div>
       <span class="cl-cnt tnum">${(drv ? 1 : 0) + pax.length} ${(drv ? 1 : 0) + pax.length === 1 ? 'persona' : 'personas'}</span></div></div>`;
   }).join('');
-  const moreHTML = `<div class="cl-more">${shotsHTML}${castTimes}
-    <div class="cl-two cl-cols"><div class="cl-col">
-      <section class="cl-card cl-meet">
-        <header><h3>Punto de encuentro</h3>${mUrl ? `<a class="btn sm cl-maps" href="${ea(mUrl)}" target="_blank" rel="noopener noreferrer">${ICO.pin} Abrir en Google Maps</a>` : ''}</header>
-        <div class="cl-mb">
-          <input type="text" class="cl-addr" value="${esc(m.addr || '')}"${!(m.addr || '').trim() && !(locs[0] && locs[0][1]) && ed ? ' data-miss="1"' : ''} placeholder="${esc((locs[0] && locs[0][1]) || ph('Falta la dirección de citación', '—'))}" data-bind="cl-meet" data-f="addr" ${dis} aria-label="Dirección del punto de encuentro">
-          <div class="cl-links">${(m.links || []).map((u, i) => safeUrl(u) ? `<span class="chip"><a href="${ea(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(linkName(safeUrl(u)))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}
-            ${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>
-          ${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}
-        </div>
-      </section></div>
-      <div class="cl-col"><section class="cl-card cl-mov">
-        <header><h3>Movilidad</h3><span class="hint">${mov.length ? `${mov.length} ${mov.length === 1 ? 'vehículo' : 'vehículos'}${free.length ? ` · ${free.length} sin asignar` : ''}` : ''}</span>${ed ? '<button class="cs-add" data-act="cl-veh-add" title="Agregar un vehículo" aria-label="Agregar un vehículo">+</button>' : ''}</header>
-        ${mov.length && ed ? `<datalist id="clDrvL">${C.vendors.filter(v => (v.name || '').trim()).map(v => `<option value="${ea(v.name.trim())}">${esc([v.gear, v.contact].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>` : ''}
-        ${movHTML || `<p class="hint cs-none">${ed ? 'Agrega los vehículos con «+»: el conductor (un proveedor o un nombre) y los pasajeros, del equipo y del reparto.' : 'Sin movilidad.'}${ed && prevMov.length ? ` <button class="linkbtn" data-act="cl-mov-copy">Copiar la de la jornada ${n}</button>` : ''}</p>`}
-        ${mov.length && free.length && ed ? `<p class="hint cl-free">Sin vehículo: ${esc(free.map(p => p.name).join(', '))}</p>` : ''}
-      </section>
-      <section class="cl-card cl-vendc"><header><h3>Proveedores</h3>${ed ? '<button class="cs-add" data-act="cs-vend-add" title="Agregar un proveedor" aria-label="Agregar un proveedor">+</button>' : ''}</header>
-        ${C.vendors.length ? `<div class="cs-list">${C.vendors.map(x => `<div class="cs-pr cs-ve"><div class="cs-nm"><input type="text" class="cs-name" value="${esc(x.name || '')}" placeholder="${ea(ph('Proveedor'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="name" ${dis} aria-label="Proveedor"><input type="text" class="cs-role" value="${esc(x.gear || '')}" placeholder="${ea(ph('Equipo o servicio'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="gear" ${dis} aria-label="Equipo"></div>
-          <div class="cs-nm"><input type="text" value="${esc(x.contact || '')}" placeholder="${ea(ph('Contacto'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="contact" ${dis} aria-label="Contacto"><input type="tel" class="cs-role" value="${esc(x.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="phone" ${dis} aria-label="Teléfono"></div>
-          <div class="cs-call">${tmIn((dd.vend || {})[x.id], '', `data-bind="cs-vcall" data-id="${ea(x.id)}" aria-label="Llamado"`, dis)}</div>${xBtn('cs-vend-del', x.id)}</div>`).join('')}</div>` : `<p class="hint cs-none">${ed ? 'Agrega con «+» los proveedores de la jornada (cámara, luces, transporte…).' : 'Sin proveedores.'}</p>`}
-      </section></div></div></div>`;
+  const movSec = mov.length || ed ? `<section class="cl-sec cl-mov"><header><h3>Movilidad</h3><span class="hint">${mov.length ? `${mov.length} ${mov.length === 1 ? 'vehículo' : 'vehículos'}${free.length ? ` · ${free.length} sin asignar` : ''}` : ''}</span>${ed ? '<button class="cs-add" data-act="cl-veh-add" title="Agregar un vehículo" aria-label="Agregar un vehículo">+</button>' : ''}</header>
+    ${mov.length && ed ? `<datalist id="clDrvL">${C.vendors.filter(v => (v.name || '').trim()).map(v => `<option value="${ea(v.name.trim())}">${esc([v.gear, v.contact].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>` : ''}
+    ${movHTML || `<p class="hint cs-none">Agrega los vehículos con «+»: el conductor (un proveedor o un nombre) y los pasajeros, del equipo y del reparto.${prevMov.length ? ` <button class="linkbtn" data-act="cl-mov-copy">Copiar la de la jornada ${n}</button>` : ''}</p>`}
+    ${mov.length && free.length && ed ? `<p class="hint cl-free">Sin vehículo: ${esc(free.map(p => p.name).join(', '))}</p>` : ''}</section>` : '';
+  const vIn = (x, f, phd, lab, cls = '', type = 'text') => `<input type="${type}"${cls ? ` class="${cls}"` : ''} value="${esc(x[f] || '')}" placeholder="${ea(ph(phd))}" data-bind="cs-vend" data-id="${ea(x.id)}" data-f="${f}" ${dis} aria-label="${ea(lab)}">`;
+  const vendSec = C.vendors.length || ed ? `<section class="cl-sec cl-vendc"><header><h3>Proveedores</h3>${ed ? '<button class="cs-add" data-act="cs-vend-add" title="Agregar un proveedor" aria-label="Agregar un proveedor">+</button>' : ''}</header>
+    ${C.vendors.length ? `<div class="cl-tw"><table class="cl-tbl cl-vtbl"><thead><tr><th>Proveedor</th><th>Equipo o servicio</th><th>Contacto</th><th>Teléfono</th><th>Llamado</th><th></th></tr></thead><tbody>${C.vendors.map(x => `<tr class="cl-ve">
+      <td class="cl-pn">${vIn(x, 'name', 'Proveedor', 'Proveedor', 'cs-name')}</td><td>${vIn(x, 'gear', 'Equipo o servicio', 'Equipo o servicio')}</td><td>${vIn(x, 'contact', 'Contacto', 'Contacto')}</td>
+      <td class="cl-pt">${vIn(x, 'phone', 'Teléfono', 'Teléfono', '', 'tel')}</td>${tmCell('Llamado', tmIn((dd.vend || {})[x.id], '', `data-bind="cs-vcall" data-id="${ea(x.id)}" aria-label="Llamado"`, dis))}<td class="cl-px">${xBtn('cs-vend-del', x.id)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="hint cs-none">Agrega con «+» los proveedores de la jornada (cámara, luces, transporte…).</p>'}</section>` : '';
+  // 7. el pie: el centro de salud y los canales de radio
+  const hIn = (f, phd, lab, miss) => `<input type="${f === 'phone' ? 'tel' : 'text'}" value="${esc((dd.hosp || {})[f] || '')}" placeholder="${esc(C.hospital[f] || phd)}" data-bind="cs-hosp" data-f="${f}" ${dis} aria-label="${ea(lab)}"${C.hospital[f] ? ' class="hd-auto"' : ''}${miss ? ' data-miss="1"' : ''}>`;
+  const footHTML = `<footer class="cl-foot"><div class="cl-fh">${CL_ICO.hosp}<div><span class="cl-kl">Centro de salud</span>${hIn('name', ph('Falta', '-'), 'Centro de salud', !(hosp.name || '').trim() && ed)}${hIn('phone', ph('Teléfono', '-'), 'Teléfono del centro de salud')}${hIn('addr', ph('Dirección', '-'), 'Dirección del centro de salud')}</div></div>
+    <div class="cl-fr">${CL_ICO.radio}<div><span class="cl-kl">Canales de radio</span><input type="text" value="${esc(C.radio || '')}" placeholder="${ea(ph('1 Producción, 2 Libre, 3 Transporte…'))}" data-bind="cl-radio" maxlength="300" ${dis} aria-label="Canales de radio (para todas las jornadas)" title="Se escriben una vez y salen en todas las hojas"></div></div></footer>`;
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
       <select data-bind="cs-sel" style="max-width:320px;width:auto" aria-label="Jornada">${days.map((x, i) => `<option value="${i}" ${i === n ? 'selected' : ''}>Jornada ${i + 1}${dates[i] ? ' · ' + esc(fmtDate(dates[i])) : ''} · ${x.keys.length} esc.</option>`).join('')}</select>
@@ -561,12 +565,13 @@ RENDER.call = function () {
         <div class="cl-top">${colL}${colC}${colR}</div>
       </section>
       <section class="cl-notes">${noteHTML}</section>
-      <section class="cl-sec cl-list-s"><header><h3>Cronograma</h3><span class="hint">${ed ? 'toca una hora para cambiarla' : 'horas de la jornada'}</span><button class="linkbtn" data-act="cs-plan">Orden y tiempos en el plan de rodaje ›</button></header>${schedHTML}</section>
+      <section class="cl-sec cl-list-s"><header><h3>Cronograma</h3><span class="hint">${S.byShot ? 'por escena, con sus planos del storyboard' : 'por escena'} · ${ed ? 'toca una hora para cambiarla' : 'horas de la jornada'}</span>${schedOpts}<button class="linkbtn" data-act="cs-plan">Orden y tiempos en el plan de rodaje ›</button></header>${schedHTML}</section>
       ${advHTML}
       ${peopleHTML}
+      ${movSec}
+      ${vendSec}
       ${footHTML}
       </article>
-      ${moreHTML}
     </div></div></section></div>`;
   bindView();
   if (thumbs && typeof hydrateThumbs === 'function') hydrateThumbs();
@@ -646,7 +651,7 @@ Object.assign(ACT, {
   // el aviso «Faltan datos»: la lista, con dónde se completa cada uno; un toque lleva al campo
   'cl-miss': b => {
     const miss = callMissing(UI.callDay || 0); if (!miss.length) { render(); return; }
-    const WHERE = { date: 'En el plan de rodaje', call: 'Arriba, al centro', meet: 'Punto de encuentro, después de la hoja', hosp: 'Al pie de la hoja', cast: 'Personas', crew: 'Personas' };
+    const WHERE = { date: 'En el plan de rodaje', call: 'Arriba, al centro', meet: 'Punto de encuentro, arriba a la derecha', hosp: 'Al pie de la hoja', cast: 'Personas', crew: 'Personas' };
     const items = miss.map(x => ({ txt: capFirst(x.txt) + (x.name ? ` <span data-no-tr>${esc(x.name)}</span>` : ''), sub: WHERE[x.k] || '', attrs: `data-k="${ea(x.k)}"` }));
     popover(b, hdPopList(miss.length === 1 ? 'Para enviarla falta 1 dato' : `Para enviarla faltan ${miss.length} datos`, items,
       `<span>${miss.length === 1 ? 'Sin ese dato, el PDF dice «Por confirmar».' : 'Sin esos datos, el PDF dice «Por confirmar».'}</span>${hdBtn('sec', 'Exportar igual', { sm: true, attrs: 'data-x="1"' })}`), p => p.addEventListener('click', e => {
