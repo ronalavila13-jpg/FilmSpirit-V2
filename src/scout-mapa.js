@@ -153,7 +153,7 @@ function smCardHTML() {
     ${ph ? `<div class="sm-ph">${url ? `<img src="${ea(url)}" alt="${ea(c.name || 'Locación')}" data-act="sc-view" data-id="${ea(c.id)}" data-p="${ea(ph.id)}">` : '<span class="cand-wait" aria-hidden="true"></span>'}</div>` : ''}
     <button type="button" class="sm-x" data-act="sm-close" aria-label="Cerrar" title="Cerrar">${ICO.close}</button>
     <div class="sm-cb">
-      <div class="sm-tag"><span class="sm-st st-${ea(st)}">${esc(SM_LABEL[st] || '')}</span><span class="hint">para <span data-no-tr>${esc(titleCase(b))}</span></span></div>
+      <div class="sm-tag"><span class="sm-st st-${ea(st)}">${esc(SM_LABEL[st] || '')}</span><span class="hint" data-no-tr>${esc((EN ? 'for ' : 'para ') + titleCase(b))}</span></div>
       <h3 data-no-tr>${esc(c.name.trim() || titleCase(b))}</h3>
       ${c.addr.trim() ? `<span class="sm-addr" data-no-tr>${esc(c.addr.trim())}</span>` : ''}
       ${geo ? '' : `<span class="sm-addr warn">Sin ubicar en el mapa</span>`}
