@@ -21,6 +21,7 @@ function rpGrid(T, opt = {}) {
   if (!isFinite(x0)) return null;
   const pad = .5, W = x1 - x0 + 2 * pad, H = z1 - z0 + 2 * pad;
   const k = Math.min(.1, Math.max(opt.k || .02, Math.max(W, H) / (opt.px || 900)));
+  if (W / k * (H / k) > 4e6) return { big: true };   // más de unos 200 × 200 m: no es un interior
   return { x0: x0 - pad, z0: z0 - pad, k, w: Math.max(4, Math.ceil(W / k)), h: Math.max(4, Math.ceil(H / k)) };
 }
 /* el corte a la altura c: una máscara (1 = cortado). fill: lo más grueso que se rellena (los muros, RP_MAXT; para los
@@ -202,6 +203,7 @@ function rpWallTop(T, G, M15, top) {
 /* la réplica: { walls, floor, items, wh, n: { muros, huecos, volúmenes } } en el formato del constructor */
 function rpReplicate(T, opt = {}) {
   const G = rpGrid(T, opt); if (!G) return null;
+  if (G.big) return { big: true };
   const { w, h, k } = G;
   let top = 0; for (let i = 1; i < T.p.length; i += 3) if (T.p[i] > top) top = T.p[i];
   const M = { wall: rpSection(T, G, RP_CUT.wall), low: rpSection(T, G, RP_CUT.low, 3), mid: rpSection(T, G, RP_CUT.mid, 3), top: rpSection(T, G, RP_CUT.top), plat: rpSection(T, G, RP_CUT.plat, 3) };
@@ -260,6 +262,58 @@ function rpReplicate(T, opt = {}) {
   }
   const floor = rpOutline(rpFloorMask(T, G), w, h, G);
   return { walls, floor, items, wh, n: { walls: walls.length, ops: walls.reduce((a, x) => a + x.o.length, 0), vols: items.length } };
+}
+
+/* ---------- con el modelo abierto (en el navegador) ---------- */
+/* los triángulos de las mallas de un grupo, en la escena: menos el punto de la acción (ax, az) */
+function rpTris(meshes, ax, az) {
+  let nv = 0, ni = 0;
+  for (const m of meshes) { if (!m.isMesh) continue; const g = m.geometry; nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+  const p = new Float32Array(nv * 3), I = new Uint32Array(ni), v = new THREE.Vector3();
+  let vo = 0, io = 0;
+  for (const m of meshes) {
+    if (!m.isMesh) continue;
+    const g = m.geometry, A = g.attributes.position;
+    m.updateMatrixWorld(true);
+    for (let i = 0; i < A.count; i++) { v.fromBufferAttribute(A, i).applyMatrix4(m.matrixWorld); p[(vo + i) * 3] = v.x - ax; p[(vo + i) * 3 + 1] = v.y; p[(vo + i) * 3 + 2] = v.z - az; }
+    if (g.index) for (let j = 0; j < g.index.count; j++) I[io++] = g.index.getX(j) + vo; else for (let j = 0; j < A.count; j++) I[io++] = j + vo;
+    vo += A.count;
+  }
+  return { p, i: I };
+}
+/* la versión liviana de un escenario abierto (la plantilla de modelos.js): unos 60 000 triángulos y texturas de hasta
+   512 px y unos 48 kB, con el mismo empaque de siempre (m3Pack). Devuelve lo mismo que m3Pack */
+const RP_LIGHT = { tris: 60000, texTop: 48 * 1024, texAll: 1200 * 1024 };
+async function rpLightPack(t, name) {
+  const T = THREE, root = new T.Group(), mats = [];
+  for (const p of t.parts) {
+    const d = t.H.mats[p.m] || { c: '#CCCCCC' };
+    const m = new T.MeshBasicMaterial({ color: d.c, map: d.t >= 0 ? t.texs[d.t] : null, transparent: !!d.tr, opacity: d.op ?? 1, alphaTest: d.at || 0, side: d.ds ? T.DoubleSide : T.FrontSide, vertexColors: !!d.vc });
+    mats.push(m); root.add(new T.Mesh(p.geo, m));
+  }
+  try { return await m3Pack(root, { kind: 'set', budget: RP_LIGHT.tris, texTop: RP_LIGHT.texTop, texAll: RP_LIGHT.texAll, extra: { n: name || '' } }); }
+  finally { for (const m of mats) m.dispose(); }
+}
+const rpKB = kb => kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(kb)) + ' kB';
+/* quitar el escenario importado id (después de replicarlo en rid): sus planos y su locación pasan a la réplica. Se
+   puede deshacer: el modelo y su planta vuelven con el paso del historial */
+async function rpDropOriginal(id, rid) {
+  const d = P.sets3d && P.sets3d[id], r = P.sets3d && P.sets3d[rid]; if (!d || !r) return;
+  const ks = [m3Key('s', id), set3dPicKey(id)];
+  await framesNeed(ks.filter(k => !FRAMES[k] && frameHas(k))).catch(() => { });
+  const keep = Object.fromEntries(ks.filter(k => FRAMES[k]).map(k => [k, FRAMES[k]]));
+  histNote(`Borrar el modelo 3D «${d.n}»`, keep, UI.tab);
+  for (const sh of Object.values(P.shots)) if (sh.s3 && sh.s3.set === 'modelo' && sh.s3.set3d === id) sbUse(sh.s3, rid);
+  for (const [l, v] of Object.entries(P.locSet3d || {})) if (v === id) P.locSet3d[l] = rid;
+  delete P.sets3d[id];
+  for (const k of ks) { delete FRAMES[k]; if (typeof IMGS !== 'undefined') IMGS.delete(k); Store.saveFrame(P.id, k, null).catch(() => { }); }
+  const e = M3.tpl.get(ks[0]); M3.tpl.delete(ks[0]); if (e && e.t) m3Dispose(e.t);
+  if (R3.sets && R3.sets.modelo) { const U = R3.sets.modelo.userData; U.key = ''; if (U.hold) { R3.sets.modelo.remove(U.hold); U.hold = null; } }
+  if (typeof EDT !== 'undefined' && EDT && EDT.s3 && EDT.s3.set === 'modelo' && EDT.s3.set3d === id) sbUse(EDT.s3, rid);
+  if (typeof THUMB3 !== 'undefined') THUMB3.clear();
+  changed('data'); derive(); render();
+  if (typeof EDT !== 'undefined' && EDT && EDT.redraw) EDT.redraw();
+  toastUndo(`Modelo «${d.n}» borrado: se liberaron ${rpKB(d.kb || 0)}.`);
 }
 
 if (typeof module !== 'undefined') module.exports = { rpGrid, rpSection, rpFloorMask, rpReplicate, rpOutline, rpLabel };
