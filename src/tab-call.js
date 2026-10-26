@@ -557,7 +557,7 @@ RENDER.call = function () {
     <div class="scroller pad" data-keep="call"><div class="cs cl">
       <article class="cl-doc">
       <section class="hd cl-hd" aria-label="Cabecera de la hoja de llamado">
-        <div class="cl-acts"><span class="cl-mark">Hecha con <b>FilmSpirit</b></span><span class="grow"></span>${status}</div>
+        <div class="cl-acts"><span class="grow"></span>${status}</div>
         <div class="cl-top">${colL}${colC}${colR}</div>
       </section>
       <section class="cl-notes">${noteHTML}</section>

@@ -1123,11 +1123,8 @@ function pdfImgC(doc, url, xc, y, maxW, maxH) {
 function pdfCallHead(doc, X, V) {
   const W = doc.internal.pageSize.getWidth(), M = 36, TBC = 'Por confirmar', cs = typeof doc.setCharSpace === 'function';
   const lab = (t, x, y, al) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(...MUTED); if (cs) doc.setCharSpace(.4); doc.text(trDone(pdfSafe(trDone(tr(t)).toUpperCase())), x, y, al ? { align: al } : undefined); if (cs) doc.setCharSpace(0); };
-  // la marca, arriba a la izquierda, y la versión de la hoja a la derecha
+  // arriba, a la derecha, la versión de la hoja (lote W: sin «Hecha con FilmSpirit» a la izquierda)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(...MUTED);
-  doc.text('Hecha con', M, 22);
-  const hw = doc.getTextWidth('Hecha con') + doc.getTextWidth(' '); doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); (doc._raw || doc).text('FilmSpirit', M + hw, 22);
-  doc.setFont('helvetica', 'normal'); doc.setTextColor(...MUTED);
   doc.text(pdfSafe([trDone(tr('Hoja de llamado')), V ? callVerTxt(V) : ''].filter(Boolean).join(' · ')), W - M, 22, { align: 'right' });
   doc.setDrawColor(...PT.line); doc.setLineWidth(.6); doc.line(M, 28, W - M, 28);
   const y0 = 42, w1 = 158, xc = W / 2, wc = 200, x3 = W - M - 158, w3 = 158;
