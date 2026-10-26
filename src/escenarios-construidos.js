@@ -76,12 +76,12 @@ function sceneEsc(s3) {
 }
 
 /* ---------- muros, huecos y lo que ocupa ---------- */
-/* los huecos de un muro, dentro de él, sin pisarse y en orden (los que no caben se dejan de lado) */
+/* los huecos de un muro, dentro de él, sin pisarse y en orden (los que no caben se dejan de lado); j: su lugar en w.o */
 function bsOps(w, H = 99) {
   const L = bsLen(w), out = [];
-  const L0 = (w.o || []).map(o => {
+  const L0 = (w.o || []).map((o, j) => {
     const a = Math.min(+o.a || .9, Math.max(0, L - .04)), y1 = Math.min(+o.y1 || 2.1, H - .02);
-    return { ...o, a, y1, y0: Math.max(0, Math.min(+o.y0 || 0, y1 - .2)), u: Math.min(Math.max(+o.u || 0, a / 2 + .02), L - a / 2 - .02) };
+    return { ...o, j, a, y1, y0: Math.max(0, Math.min(+o.y0 || 0, y1 - .2)), u: Math.min(Math.max(+o.u || 0, a / 2 + .02), L - a / 2 - .02) };
   }).sort((p, q) => p.u - q.u);
   for (const o of L0) {
     const prev = out[out.length - 1];
@@ -351,8 +351,8 @@ function bsDrawPlan(ctx, d, toS, V, o = {}) {
       quad(u0, u1); ctx.fill();
     }
     // puertas (la hoja y su giro) y ventanas (dos rayas finas)
-    for (const [j, q] of bsOps(w, H).entries()) {
-      const a = q.u - q.a / 2, b = q.u + q.a / 2, act = o.sel && o.sel.w === i && o.sel.o === j;
+    for (const q of bsOps(w, H)) {
+      const a = q.u - q.a / 2, b = q.u + q.a / 2, act = o.sel && o.sel.w === i && o.sel.o === q.j;
       ctx.strokeStyle = act ? '#2C47CF' : BS_PC.open; ctx.lineWidth = act ? 2 : 1.1;
       if (q.k === 'v') {
         for (const s of [-t * .4, t * .4]) { const [x1, y1] = S(w.x0 + ux * a + nx * s, w.z0 + uz * a + nz * s), [x2, y2] = S(w.x0 + ux * b + nx * s, w.z0 + uz * b + nz * s); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
