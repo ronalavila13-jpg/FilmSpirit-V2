@@ -4,8 +4,9 @@ Base: lote U (trae también el lote T). Solo la app (storyboard).
 
 **Cómo aplicarlo.** El `filmspirit-servidor.zip` de este lote trae los lotes T, U y V. Igual que siempre, en la VPS:
 `cd /root && unzip -o filmspirit-servidor.zip && cd server && sudo bash deploy/actualizar.sh`.
-El zip viene sin los maniquíes 3D: el actualizador conserva los que ya están instalados. No hay migración ni variables
-nuevas.
+El zip viene sin los maniquíes 3D: el actualizador conserva los que ya están instalados. No hay variables nuevas. La base
+de datos suma sola, al arrancar, la columna de la racha de escritura del lote U (migración 10; el actualizador respalda
+antes). Probado actualizando desde una base de la versión anterior (9 → 10).
 
 - **Elegir viñetas**: **Ctrl+clic** (⌘ en Mac) o Mayús+clic en una viñeta la elige o la suelta, sin abrir su editor. Se
   pueden elegir viñetas de cualquier escena. En el teléfono: «⋯ › Elegir para clonar». Las elegidas llevan borde rojo y
