@@ -100,6 +100,8 @@ function normalizeProject(Px) {
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
     // lote W · D: la escala de los objetos (s3d-model.js)
     if (Array.isArray(sh.s3.objs)) for (const o of sh.s3.objs) objScClean(o);
+    // el foco a mano: metros sobre el eje de la cámara
+    if ('focusD' in sh.s3) { const d = +sh.s3.focusD; if (isFinite(d) && d > 0) sh.s3.focusD = Math.round(clamp(d, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; else delete sh.s3.focusD; }
   }
   sanitizeProject(Px);
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas

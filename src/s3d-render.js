@@ -805,6 +805,21 @@ function r3Pick(px, py, W, H, s3) {
   return null;
 }
 
+/* lote W · lo que hay bajo un punto de la viñeta, para enfocar ahí (obs. 8): la distancia sobre el eje de la cámara
+   (la que usa el desenfoque) hasta lo primero visible: figuras, objetos, decorado o piso. Sin nada (el cielo), null */
+function r3DepthAt(px, py, W, H) {
+  if (!R3.scene || !R3.cam) return null;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(px / W * 2 - 1, -(py / H) * 2 + 1), R3.cam);
+  const vis = o => { for (let q = o; q; q = q.parent) if (q.visible === false) return false; return true; };
+  const skip = m => !m || m === R3.mats.blob || m === R3.mats.sel || m.isShadowMaterial || m.transparent && m.opacity < .2;
+  // (los contornos son una copia hacia atrás de cada malla: se saltan con sus caras de atrás)
+  const hit = ray.intersectObjects(R3.scene.children, true).find(h => h.object.isMesh && vis(h.object) && !skip(h.object.material) && h.object.material.side !== THREE.BackSide);
+  let p = hit ? hit.point : null;
+  if (!p) { const f = r3FloorAt(px, py, W, H); if (f) p = new THREE.Vector3(f.x, 0, f.z); }
+  if (!p) return null;
+  const v = p.clone().applyMatrix4(R3.cam.matrixWorldInverse), d = -v.z;
+  return d > .05 && isFinite(d) ? Math.round(d * 100) / 100 : null;
+}
 /* parte del cuerpo de una figura bajo el puntero (para doblarla) */
 function r3PickPart(px, py, W, H, id) {
   const E = R3.objs.get(id);

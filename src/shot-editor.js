@@ -195,7 +195,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     dirty: () => !E.saved && !UI.readOnly && (jsonA() !== E.s3_0 || JSON.stringify(E.form) !== E.form0 || E.dur !== E.dur0 || E.refDirty || E.refBack !== !!sh.refBack || E.annoDirty || !!E.lookDirty),
     save: () => save(),
     onClose: () => {
-      E.playing = false; ro.disconnect(); if (E.offTake) E.offTake(); if (E.offMod) E.offMod(); removeEventListener('keydown', onKey); removeEventListener('keydown', escFull, true); removeEventListener('keydown', escPart, true); removeEventListener('keydown', escPose, true); removeEventListener('pointerdown', poseWas, true); closePoseMenu(); EDT = null;
+      E.playing = false; ro.disconnect(); if (E.offTake) E.offTake(); if (E.offMod) E.offMod(); removeEventListener('keydown', onKey); removeEventListener('keydown', escFull, true); removeEventListener('keydown', escPart, true); removeEventListener('keydown', escPose, true); removeEventListener('keydown', escFo, true); removeEventListener('pointerdown', poseWas, true); closePoseMenu(); EDT = null;
       if (!E.saved && E.lookDirty) for (const [k, v] of Object.entries(E.looks0)) { if (!P.elements[k]) continue; if (v) P.elements[k].look = v; else delete P.elements[k].look; }
       if (E.isNew && P.shots[id] && !E.saved) { delete P.shots[id]; changed('data'); derive(); render(); }
     },
@@ -223,6 +223,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     // medir en la planta: las medidas van con el plano (s3.meas) y se deshacen como lo demás
     measuring: () => !!E.measure,
     measSet: L => { snapshot(); E.custom = true; if (L.length) E.s3.meas = L; else delete E.s3.meas; commit(); redraw(); measUi(); },
+    // lote W · la línea de foco de la planta: arrastrarla pone el foco a mano (focus: true al empezar; null al soltar)
+    focusDrag: d => { if (d == null) { commit(); panel(); return; } if (!E.gesture) snapshot(); E.gesture = true; focusSet(d, true); if (E.tab === 'cam') { const eq = $m('#foEq'); if (!eq) panel(); } },
     // con cámara B: la letra de la que se edita, la otra (tenue en la planta) y pasar a la otra con un toque en ella
     camLetter: () => s3HasB(E.s3) ? E.cam.toUpperCase() : '',
     other: () => s3HasB(E.s3) ? planOther(E.s3, E.t, E.cam === 'a' ? 'B' : 'A') : null,
@@ -886,6 +888,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     const ph = r3PoseHit(px, py, VW, VH);
     if (ph) { vDrag = { t: 'posemenu', id: ph.id, hit: ph, sx: e.clientX, sy: e.clientY, dead: E.poseOpen === ph.id }; return; }
     closePoseMenu();
+    // lote W · modo foco: el toque enfoca en el punto (la distancia sobre el eje de la cámara hasta lo que hay ahí)
+    if (E.focusTap && !E.free) { vDrag = { t: 'focus', px, py, sx: e.clientX, sy: e.clientY }; return; }
     // lote W · una esquina del objeto elegido: agrandar o achicar
     const sci = scHit(px, py);
     if (sci != null) { const ob = selOb(), B = E.scBox; vDrag = { t: 'scale', id: E.sel, c: B.c, d0: Math.max(4, Math.hypot(px - B.c[0], py - B.c[1])), s0: objSc(ob), sx: e.clientX, sy: e.clientY }; return; }
@@ -1091,6 +1095,10 @@ function openShotEditor(id, isNew, from2d, waited) {
   const vEnd = e => {
     const D0 = vDrag; vDrag = null;
     if (!D0) return;
+    if (D0.t === 'focus') {
+      if (e && e.type === 'pointerup') { const d = r3DepthAt(D0.px, D0.py, VW, VH); if (d) { focusSet(d); commit(); showZoom('Foco a ' + measFmt(d)); } }
+      focusTap(false); panel(); return;
+    }
     if (D0.t === 'posemenu') { if (!D0.dead && e && e.type === 'pointerup') openPoseMenu(D0.id, D0.hit); return; }
     if (D0.moved === 'view') return;   // girar la vista libre no cambia el plano
     if (D0.moved) { commit(); return; }
@@ -1298,6 +1306,8 @@ function openShotEditor(id, isNew, from2d, waited) {
   addEventListener('keydown', escPose, true);
   const escPart = e => { if (e.key === 'Escape' && E.part && EDT === E && !m.hidden && !(plBox && plBox.classList.contains('full'))) { e.preventDefault(); e.stopImmediatePropagation(); E.part = null; redraw(); } };
   addEventListener('keydown', escPart, true);
+  const escFo = e => { if (e.key === 'Escape' && E.focusTap && EDT === E && !m.hidden) { e.preventDefault(); e.stopImmediatePropagation(); focusTap(false); } };
+  addEventListener('keydown', escFo, true);
   const escMeas = e => { if (e.key === 'Escape' && E.measure && EDT === E && !m.hidden && !document.querySelector('#pop')) { e.preventDefault(); e.stopImmediatePropagation(); measMode(false); } };
   addEventListener('keydown', escMeas, true);
   const escFull = e => {
@@ -1865,16 +1875,41 @@ function openShotEditor(id, isNew, from2d, waited) {
     const on = !!E.s3.dof;
     let h = `<label class="opt" style="padding:6px 10px" title="Desenfoca la viñeta como el lente real: con el diafragma, el lente, el sensor y la distancia de foco"><input type="checkbox" data-c="dof" ${on ? 'checked' : ''}><span><b>Desenfoque</b> (profundidad de campo)</span></label>`;
     if (!on) return h;
-    const f = fRound(dofF(E.s3)), fp = dofFocus(E.s3, st), c = st.cam;
+    const f = fRound(dofF(E.s3)), fp = dofFocus(E.s3, st), c = st.cam, man = !!focusMan(E.s3);
     const subj = E.s3.objs.filter(o => o.kind === 'actor' || (o.kind !== 'luz' && !o.hold));
+    // lote W · «A mano»: una distancia en metros (tocar la viñeta o arrastrar la línea de foco de la planta la cambian)
+    const fpA = !man && dofFocus({ ...E.s3, focusD: 0 }, st);
     h += `<label class="rr rr-s"><span>Diafragma</span><select data-c="dofF" class="rr-sel" aria-label="Diafragma">${LUX_F.filter(v => v >= 1.4).map(v => `<option value="${ea(v)}" ${v === f ? 'selected' : ''}>${fTxt(v)}</option>`).join('')}</select></label>
-      <label class="rr rr-s" title="A quién se enfoca: a sus ojos"><span>Foco en</span><select data-c="focus" class="rr-sel" aria-label="Foco en"><option value="">Automático${fp && !E.s3.focus ? ' · ' + esc((E.s3.objs.find(o => o.id === fp.id) || {}).name || 'Figura') : ''}</option>${subj.map(o => `<option value="${ea(o.id)}" ${E.s3.focus === o.id ? 'selected' : ''}>${esc(o.name || 'Figura')}</option>`).join('')}</select></label>`;
+      <div class="rr rr-s rr-fo" title="A quién se enfoca (a sus ojos) o a qué distancia"><span>Foco en</span><span class="rr-pick"><select data-c="focus" aria-label="Foco en"><option value="">Automático${fpA && !E.s3.focus ? ' · ' + esc((E.s3.objs.find(o => o.id === fpA.id) || {}).name || 'Figura') : ''}</option>${subj.map(o => `<option value="${ea(o.id)}" ${!man && E.s3.focus === o.id ? 'selected' : ''}>${esc(o.name || 'Figura')}</option>`).join('')}<option value="~man" ${man ? 'selected' : ''}>A mano</option></select><button type="button" class="icbtn fo-tap" data-c="fotap" aria-pressed="${ea(!!E.focusTap)}" title="Tocar la viñeta para enfocar ahí (como en el celular)" aria-label="Tocar la viñeta para enfocar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="2.6"/></svg></button></span></div>
+      ${man ? rangeRow('Distancia', 'focusD', focusMan(E.s3), FOCUS_D[0], FOCUS_D[1], .01, ' m') : ''}`;
     if (fp) {
       const s = Math.hypot(fp.x - c.x, fp.z - c.z, fp.y - c.h), Z = dofOf(clamp(c.lens, 8, 600), dofF(E.s3), c.sw || 36, s);
-      h += `<p class="hint rr-eq">Foco a ${measFmt(s)} · nítido de ${dofFmt(Z.near)} a ${dofFmt(Z.far)} m${isFinite(Z.far) ? '' : ' (pasada la hiperfocal)'}.</p>`;
+      h += `<p class="hint rr-eq" id="foEq">${foEqTxt(s, Z)}</p>`;
     }
     return h;
   }
+  const foEqTxt = (s, Z) => `Foco a ${measFmt(s)} · nítido de ${dofFmt(Z.near)} a ${dofFmt(Z.far)} m${isFinite(Z.far) ? '' : ' (pasada la hiperfocal)'}.`;
+  /* ---------- lote W · el foco a mano (obs. 8) ----------
+     Con el desenfoque activo: el botón junto a «Foco en» (un visor con un punto) deja la viñeta en modo foco: un toque en
+     cualquier punto enfoca ahí, como en el celular, y el modo se apaga solo (Esc también). Así tocar sigue eligiendo
+     figuras el resto del tiempo. En la planta, la línea de foco (la raya que cruza el cono) se arrastra para acercarlo o
+     alejarlo. Las dos cosas pasan «Foco en» a «A mano» con esa distancia; la línea «Foco a … · nítido de … a …» se
+     actualiza en vivo y el desenfoque usa la distancia a mano */
+  function focusSet(d, live) {
+    if (!live) snapshot();
+    E.custom = true; E.s3.focusD = Math.round(clamp(d, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; delete E.s3.focus;
+    stCache = null;
+    const st = ed.state(), fp = dofFocus(E.s3, st), c = st.cam, eq = $m('#foEq');
+    if (eq && fp) eq.textContent = foEqTxt(fp.d, dofOf(clamp(c.lens, 8, 600), dofF(E.s3), c.sw || 36, fp.d));
+    redraw();
+  }
+  function focusTap(on = !E.focusTap) {
+    E.focusTap = !!on && !!E.s3.dof && has3D;
+    $m('#vp').classList.toggle('fo-tap', E.focusTap);
+    const b = $m('[data-c="fotap"]'); if (b) b.setAttribute('aria-pressed', String(E.focusTap));
+    if (E.focusTap) showZoom('Toca donde quieres enfocar');
+  }
+  E.focusSet = focusSet;
   function camPanel(st) {
     const c = st.cam, aim = E.s3.aim, L = Math.round(c.lens), lens = [18, 24, 35, 50, 85, 135];
     const tr = (k, v, t, d) => `<button class="icbtn" data-tr="${k}" data-v="${ea(v)}" title="${ea(t)}" aria-label="${ea(t)}"><svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg></button>`;
@@ -2019,6 +2054,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (key === 'shake') { snapshot(); E.s3.shake = v; E.custom = true; edited(); return; }
     if (key === 'sunAz') { snapshot(); E.s3.sunAz = v; E.custom = true; edited(); return; }
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
+    if (key === 'focusD') { if (!E.gesture) snapshot(); E.gesture = true; focusSet(v, true); return; }
     if (key === 'osc') { const ob = selOb(); if (!ob) return; if (!E.gesture) snapshot(); E.custom = true; scSet(ob, v / 100); stCache = null; redraw(); return; }
     if (key.startsWith('lk:')) {
       const ob = selOb(); if (!ob) return;
@@ -2123,7 +2159,12 @@ function openShotEditor(id, isNew, from2d, waited) {
       if (el.dataset.c === 'dof') { if (el.checked) E.s3.dof = true; else delete E.s3.dof; }
       // el diafragma es el mismo de Luz › Exposición (elegirlo a mano quita el automático)
       if (el.dataset.c === 'dofF') { const L = E.s3.light = { mode: 'previs', amb: .22, rig: true, wb: 4300, ...(E.s3.light || {}) }; L.exp = { ...luzExp(E.s3), f: +el.value, auto: false }; }
-      if (el.dataset.c === 'focus') { if (el.value) E.s3.focus = el.value; else delete E.s3.focus; }
+      if (el.dataset.c === 'focus') {
+        // «A mano»: empieza en la distancia a la que estaba el foco
+        if (el.value === '~man') { const st = ed.state(), fp = dofFocus(E.s3, st), c = st.cam; E.s3.focusD = Math.round(clamp(fp ? Math.hypot(fp.x - c.x, fp.z - c.z, fp.y - c.h) : 3, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; delete E.s3.focus; }
+        else { delete E.s3.focusD; if (el.value) E.s3.focus = el.value; else delete E.s3.focus; }
+      }
+      if (el.dataset.c === 'dof' && !el.checked) focusTap(false);
       commit(); redraw(); panel(); return;
     }
     if (el.dataset.c === 'aim') {
@@ -2230,6 +2271,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.o === 'copyprev') { copyPrev(); return; }
     if (b.dataset.o === 'refollow') { refollow(); return; }
     if (b.dataset.o === 'readuse') { readUse(); return; }
+    if (b.dataset.c === 'fotap') { focusTap(); return; }
     if (b.dataset.o === 'stgupd' || b.dataset.o === 'stgkeep') { stageAct(b.dataset.o === 'stgupd'); return; }
     if (b.dataset.o === 'screset') { const ob = selOb(); if (!ob || !ob.sc) return; snapshot(); E.custom = true; scSet(ob, 1); commit(); redraw(); toast(`${(S3_PROPS[ob.kind] || {}).name || 'Objeto'}: tamaño original.`); return; }
     if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }

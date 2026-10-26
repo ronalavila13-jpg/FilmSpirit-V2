@@ -220,7 +220,14 @@ const camFF = cam => Math.max(2, Math.min(2000, Math.max(8, Math.min(600, cam.le
 const lensEqText = s3 => { const S = sensorOf(s3); return S[0] === 'ff' ? '' : S[2]; };
 /* desenfoque del plano (s3.dof): se enfoca a s3.focus o, si no, a quien sigue la cámara o a la primera figura; el punto
    es el de sus ojos (un objeto o una luz: su altura). El diafragma es el de Luz › Exposición (f/2.8 si no se eligió) */
+/* lote W · el foco a mano (obs. 8): s3.focusD, en metros sobre el eje de la cámara (tocar un punto de la viñeta, arrastrar
+   la línea de foco en la planta o «Foco en › A mano»). El punto es el del eje a esa distancia: el desenfoque lo mide igual
+   que el de una figura. Sin animación por ahora */
+const FOCUS_D = [.3, 30];
+const focusMan = s3 => { const d = +(s3 && s3.focusD); return d > 0 && isFinite(d) ? clamp(d, FOCUS_D[0], FOCUS_D[1]) : 0; };
 function dofFocus(s3, st) {
+  const dm = focusMan(s3);
+  if (dm) { const c = st.cam, y = rad(c.yaw || 0), p = rad(clamp(c.pitch || 0, -89.9, 89.9)); return { id: null, man: true, d: dm, x: c.x - Math.sin(y) * Math.cos(p) * dm, y: c.h + Math.sin(p) * dm, z: c.z - Math.cos(y) * Math.cos(p) * dm }; }
   const has = id => id && st.o[id] && s3.objs.some(o => o.id === id);
   const id = [s3.focus, s3.aim, ...s3.objs.filter(o => o.kind === 'actor').map(o => o.id)].find(has);
   if (!id) return null;
@@ -448,7 +455,7 @@ function s3FrameFollow(s3, sh, mcam) {
 function s3Follow(sh, ms) {
   const s3 = JSON.parse(JSON.stringify(ms));
   // lo que es de la cámara del máster (a quién sigue, su temblor, su cámara B, su foco, sus medidas) no viene
-  for (const f of ['aim', 'aimF', 'aimTilt', 'shake', 'camB', 'meas', 'from', 'dof', 'focus']) delete s3[f];
+  for (const f of ['aim', 'aimF', 'aimTilt', 'shake', 'camB', 'meas', 'from', 'dof', 'focus', 'focusD']) delete s3[f];
   const st0 = s3At(ms, 0, true), o = {};
   for (const ob of s3.objs) { const p = st0.o[ob.id]; if (!p) continue; const q = { ...p }; delete q.walk; delete q.walkN; if (q.j) q.j = { ...q.j }; o[ob.id] = q; }
   const mcam = { ...camKeys(ms)[0].cam };
@@ -771,7 +778,7 @@ function s3CopyAction(dst, src, srcId, off = 0) {
    duración, la cámara 3D y la puesta en escena 3D. La descripción, el tramo del guion, las notas, «Rodado», las
    imágenes subidas y los dibujos 2D de cada plano no cambian */
 /* lo de la cámara que va arriba en la escena (no en las claves): a quién sigue, temblor, sensor y desenfoque */
-const CLONE_CAM_F = ['aimF', 'aimTilt', 'shake', 'sensor', 'dof'];
+const CLONE_CAM_F = ['aimF', 'aimTilt', 'shake', 'sensor', 'dof', 'focusD'];   // (lote W: y el foco a mano)
 /* la figura de la escena «out» que hace de la figura «id» de «src»: el mismo personaje; si no está, la figura en el
    mismo lugar de la lista (la segunda por la segunda); un objeto, si está con el mismo id y la misma clase */
 function s3MapObj(id, src, out) {
@@ -804,7 +811,7 @@ function s3TakeCam(dst, src) {
 function s3TakeStage(dst, src) {
   const out = s3CopyAction(dst, src, null, 0);
   delete out.from;
-  for (const f of ['sensor', 'dof']) { if (dst[f] != null) out[f] = JSON.parse(JSON.stringify(dst[f])); else delete out[f]; }
+  for (const f of ['sensor', 'dof', 'focusD']) { if (dst[f] != null) out[f] = JSON.parse(JSON.stringify(dst[f])); else delete out[f]; }
   const fo = s3MapObj(dst.focus, dst, out); if (fo) out.focus = fo; else delete out.focus;
   return out;
 }
@@ -1272,4 +1279,4 @@ function s3Of(sh) {
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable, s3StageSig, s3TakeSet, stageStale, stageSeen };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable, s3StageSig, s3TakeSet, stageStale, stageSeen, dofFocus, focusMan, FOCUS_D };

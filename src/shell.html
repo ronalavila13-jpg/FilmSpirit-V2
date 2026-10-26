@@ -1541,6 +1541,14 @@ details.lx-box[open]{display:grid}
 .fp-sc{display:grid;gap:0}
 .fp-sc .linkbtn{justify-self:end;font-size:var(--fs-2);margin-top:-2px}
 .fp-sc .linkbtn:disabled{color:var(--faint);cursor:default;text-decoration:none}
+/* lote W · el foco a mano (obs. 8): el botón de tocar para enfocar y la viñeta en modo foco */
+.rr-fo .rr-pick{grid-column:2/-1;justify-content:flex-end}
+.rr-fo .rr-pick select{flex:0 1 auto;text-align:right}
+.icbtn.fo-tap{width:26px;height:26px;background:none;flex:none}
+.icbtn.fo-tap svg{width:16px;height:16px}
+.icbtn.fo-tap[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text)}
+.vp.fo-tap #vpC{cursor:crosshair}
+.vp.fo-tap::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 2px var(--ok);border-radius:inherit;z-index:3}
 .icbtn{width:30px;height:30px;border:0;background:none;color:var(--muted);border-radius:var(--r-xs);display:inline-grid;place-items:center;cursor:pointer;padding:0;flex:none}
 .icbtn:hover{background:var(--fill);color:var(--ink)}
 .icbtn:disabled{opacity:.35;cursor:default;background:none}
