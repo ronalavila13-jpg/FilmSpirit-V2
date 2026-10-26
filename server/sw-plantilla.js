@@ -39,6 +39,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // lo de otros sitios (las teselas del mapa de OpenStreetMap) va directo a la red: no se guarda aquí
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
   const nav = req.mode === 'navigate';
   if (nav ? !(url.pathname === '/app' || url.pathname.startsWith('/app/')) : !(url.pathname.startsWith('/app/') || url.pathname === '/favicon.svg')) return;
