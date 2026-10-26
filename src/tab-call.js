@@ -929,7 +929,7 @@ function callSheetXLSX(X) {
     const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
     row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
       { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
-    for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
+    for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
   }
   band('FIN DE JORNADA: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.d.keys, X.d.rows).e) + ' págs.', T.black, lgInk(T.black));
   // 4. el avance de la jornada siguiente (o «Fin de rodaje»)
