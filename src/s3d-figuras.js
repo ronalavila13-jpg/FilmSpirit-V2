@@ -39,7 +39,7 @@ FIG3D.ready = (ms = 10000, bodies) => {
 function fig3dBodiesOf(shots) {
   const out = new Set();
   for (const sh of shots || Object.values((typeof P !== 'undefined' && P && P.shots) || {})) {
-    if (!sh || sh.ws === '2d') continue;
+    if (!sh || !shot3D(sh)) continue;   // un dibujo 2D sobre papel no lleva figuras 3D
     for (const o of s3Of(sh).objs) if (o.kind === 'actor') out.add(fig3dBody(lookOf(o).body));
   }
   return [...out];

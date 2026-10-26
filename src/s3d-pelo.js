@@ -138,7 +138,7 @@ function peloTexReady() {
   return new Promise(r => PELO_TEX_WAIT.push(r));
 }
 /* ¿alguna figura del plano lleva peinado? */
-const peloInShot = sh => sh.ws !== '2d' && s3Of(sh).objs.some(o => o.kind === 'actor' && (lookOf(o).pelo || 'ninguno') !== 'ninguno');
+const peloInShot = sh => shot3D(sh) && s3Of(sh).objs.some(o => o.kind === 'actor' && (lookOf(o).pelo || 'ninguno') !== 'ninguno');
 const PELO_HEAD = new WeakMap();  // plantilla del cuerpo → medidas de la cabeza
 
 /* ---------- la cabeza: centro del cráneo y su radio en cada dirección ---------- */

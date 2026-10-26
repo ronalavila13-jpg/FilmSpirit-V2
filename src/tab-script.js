@@ -666,7 +666,10 @@ function suggestShots(s) {
   const make = [];
   const first = s.p0 + 1 < s.p1 ? s.p0 + 1 : s.p0, last = s.p1 - 1;
   const cast = sceneCast(s.idx);
-  make.push({ p0: first, p1: last, size: s.ie === 'EXT' ? 'PG' : 'PE', move: 'Fijo', desc: 'Plano máster de la escena', chars: cast.map(e => e.id) });
+  // el máster (lote U): los demás planos de la escena toman de él la ubicación de los personajes y el escenario
+  // (s3d-model.js · s3Follow). Si la escena ya tiene uno, ese se queda
+  const hasM = typeof shotMaster === 'function' && !!shotMaster(s.key);
+  make.push({ p0: first, p1: last, size: s.ie === 'EXT' ? 'PG' : 'PE', move: 'Fijo', desc: 'Plano máster de la escena', chars: cast.map(e => e.id), ...(hasM ? {} : { master: true }) });
   // un plano por personaje con diálogo
   const speakers = new Map();
   for (let i = s.p0 + 1; i < s.p1; i++) {

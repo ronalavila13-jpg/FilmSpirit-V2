@@ -1189,7 +1189,8 @@ details.sec .tbl-wrap{border:0;border-radius:0;box-shadow:none}
 .vp-zoom{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:6;pointer-events:none;background:rgba(18,18,18,.74);color:#fff;font:700 13px/1 var(--font-ui);padding:6px 11px;border-radius:999px;font-variant-numeric:tabular-nums;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .vp-zoom[hidden]{display:none}
 #vpC:active{cursor:grabbing}
-#anC{pointer-events:none}
+#anC,#vp2d{pointer-events:none}
+#vp2d[hidden]{display:none}
 .vp.drawing #anC{pointer-events:auto;cursor:crosshair;touch-action:none}
 .vp-guides{position:absolute;inset:0;pointer-events:none}
 .vp-guides svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 1.5px rgba(0,0,0,.4)) drop-shadow(0 0 .4px rgba(0,0,0,.3))}
@@ -1241,7 +1242,7 @@ details.sec .tbl-wrap{border:0;border-radius:0;box-shadow:none}
 .vp-top .vp-ic svg{width:19px;height:19px;stroke-width:1.7}
 .vp-top .vp-ic:disabled{opacity:.3;cursor:default;background:none}
 .vp-top .vp-ic.off svg{opacity:.4}
-.vp-top .vp-free span{font-weight:600}
+.vp-top .vp-free span,.vp-top .vp-l2 span{font-weight:600}
 .vp-top .vp-free.on{background:var(--accent-soft);color:var(--accent-text)}
 .vp-top .vp-ic.on[data-vt="draw"],.vp-top .vp-ic.on[data-vt="guides"]{background:var(--accent-soft);color:var(--accent-text)}
 .pop-gd{width:min(320px,calc(100vw - 24px));padding:10px}
@@ -1272,7 +1273,7 @@ details.sec .tbl-wrap{border:0;border-radius:0;box-shadow:none}
 }
 .vp.drawing .vp-cam,.vp.drawing .vp-ic{display:none}
 .vp-cam[hidden]{display:none}
-@media (max-width:760px){ .vp-cam{--vb:32px} .vp-free:not(.on) span{display:none} .vp-free .vf-l{display:none} }
+@media (max-width:760px){ .vp-cam{--vb:32px} .vp-free:not(.on) span{display:none} .vp-free .vf-l{display:none} .vp-l2 span{display:none} }
 .vp-free .vf-l{font-style:normal}
 @media (prefers-reduced-motion:reduce){ .vp-cam,.vp-cam button,.vp-ic{transition:none} .vp-cam button:active,.vp-cam button.on{transform:none} .vp-cam button:not(.c-hub){transform:none;transition:opacity 0s linear .4s,visibility 0s linear .4s} }
 /* vista libre: se gira alrededor de la figura; la cámara del plano no se mueve (se dibuja como un ícono con su campo) */
@@ -1833,10 +1834,10 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .s2-lyx .s2-btns .danger{margin-left:auto}
 .s2-lyx .s2-btns{gap:2px}
 .s2-lyx .btn.sm{padding:4px 7px;font-size:var(--fs-2)}
-.s2-ly.base{display:flex;cursor:default;margin-top:4px;border-top:var(--l1) solid var(--line-2);border-radius:0 0 2px 2px;padding:9px 0 2px}
-.s2-ly.base:hover{background:none}
-.s2-ly.base .s2-seg{width:100%}
-.s2-ly.base .s2-seg button{flex:1}
+/* la Viñeta 3D (lote U): una capa más entre las de encima y las fotos de fondo, separada por líneas finas */
+.s2-ly.v3d{margin-block:3px;border-block:var(--l1) dashed var(--line-2);border-radius:0;touch-action:auto}
+.s2-ly.v3d .s2-lnm{font-weight:700}
+.s2-ly.v3d .s2-lth{background:#E9E6E0}
 .s2-lin{font-size:var(--fs-3);padding:3px 6px;min-width:0}
 .s2-fr{display:flex;align-items:center;gap:12px;padding:8px 14px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));background:var(--chrome);border-top:var(--l1) solid var(--line);min-width:0}
 .s2-play{width:38px;height:38px;border-radius:50%;padding:0;justify-content:center;min-width:0;flex:none}
@@ -1860,6 +1861,8 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .s2-pal .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
 .s2-cur i{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent)}
 .badge.s2b{background:var(--accent-soft);color:var(--accent-text)}
+/* el máster de la escena (lote U): un contorno, sin relleno, para no competir con el tamaño del plano */
+.badge.mst{background:none;box-shadow:inset 0 0 0 1.25px currentColor;color:var(--accent-text)}
 @media (max-width:980px){
   .s2-body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,1fr) auto minmax(0,auto)}
   .s2-rail{flex-direction:row;border-right:0;border-top:var(--l1) solid var(--line);overflow-x:auto;order:2;padding:6px 8px;gap:2px}

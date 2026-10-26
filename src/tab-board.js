@@ -210,7 +210,8 @@ function drawMove(ctx, W, H, move, red, lw) {
   ctx.restore();
 }
 const frameOf = (sh, t = 0) => shotThumb(sh, t);
-const isAnimated = sh => { if (sh.ws === '2d') return !!(sh.d2 && sh.d2.frames && sh.d2.frames.length > 1); const s3 = s3Of(sh); return s3.keys.length > 1 || !!s3.shake; };
+// (un dibujo 2D con varios cuadros, o la escena 3D que se ve y se mueve)
+const isAnimated = sh => { if (d2On(sh) && sh.d2.frames.length > 1) return true; if (!shot3D(sh)) return false; const s3 = s3Of(sh); return s3.keys.length > 1 || !!s3.shake; };
 
 /* ---------- vista ---------- */
 /* el título (lote I): la escena elegida (o todas) con su menú, y en gris cuántos planos hay y cuántos se rodaron */
@@ -316,7 +317,7 @@ function sbFrames(sh) {
   return `<span class="fr-ab">${img(sh, 'fr', `Plano ${D.code[sh.id]}, cámara A`)}<span class="fr-b">${img(B, 'fr', `Plano ${D.code[sh.id]}, cámara B`)}<span class="fr-bl"><b>B</b> ${esc(String(lensB(sh)))} mm</span></span></span>`;
 }
 /* la planta general de la escena: si tiene planos con planta (los dibujados a mano no tienen) */
-const sbPlantaBtn = (s, shots) => shots.some(sh => sh.ws !== '2d') ? `<button class="btn sm ghost sb-pg" data-act="sb-planta" data-sc="${ea(s.key)}" title="Las cámaras de todos los planos de la escena en una sola planta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg>Planta general</button>` : '';
+const sbPlantaBtn = (s, shots) => shots.some(sh => shot3D(sh)) ? `<button class="btn sm ghost sb-pg" data-act="sb-planta" data-sc="${ea(s.key)}" title="Las cámaras de todos los planos de la escena en una sola planta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg>Planta general</button>` : '';
 /* «Nuevo plano» desde imágenes: para quien dibuja el storyboard en otro programa. Un plano por imagen, al final de la
    escena y en el orden de los nombres de los archivos; la imagen es la viñeta (la foto del plano, delante de la escena
    3D), entera y sobre blanco si su formato es otro. También se pueden soltar las imágenes sobre «Nuevo plano» */
@@ -397,6 +398,7 @@ async function sbSetImg(sh, file) {
   let url;
   try { url = await sbImgFrame(file, W, H); } catch (e) { toast('No se pudo leer esa imagen. Prueba con un JPG o un PNG.'); return; }
   FRAMES[sh.id] = url; IMGS.delete(sh.id); delete sh.refBack;
+  d2Unimp(sh, 'ref');   // si el dibujo 2D había traído la de antes, desde ahora se ve esta
   changed('data'); render();
   toast(`Imagen puesta en el plano ${D.code[sh.id]}. Para quitarla: «⋯» › Quitar la imagen.`, 4500);
   if (P._sample && !P._saved) await flushSave();
@@ -410,6 +412,7 @@ async function sbClearImg(sh) {
   histNote(`Quitar la imagen del plano ${D.code[sh.id] || ''}`.trim(), u ? { [sh.id]: u } : null, 'board');
   delete FRAMES[sh.id]; IMGS.delete(sh.id); delete sh.refBack;
   if (FRIDX) delete FRIDX[sh.id];
+  d2Unimp(sh, 'ref');
   changed('data'); render();
   toastUndo(`Imagen quitada del plano ${D.code[sh.id]}.`);
   try { await Store.saveFrame(P.id, sh.id, null); } catch (e) { problem('No se pudo quitar la imagen del plano.'); }
@@ -428,7 +431,7 @@ function boardPanelsHTML(scenes) {
     return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="sb-hr"><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · ${shots.length} ${shots.length === 1 ? 'plano' : 'planos'}</span>${sbPlantaBtn(s, shots)}</span></header>
       <div class="sb-grid" data-sc="${esc(s.key)}">${shots.map(sh => `<div class="pcell" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"><button class="panel${ea(sh.done ? ' done' : '')}${ea(shotB(sh) ? ' has-b' : '')}" data-act="shot" data-id="${ea(sh.id)}">
         ${sbFrames(sh)}
-        <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${sh.ws === '2d' ? '<span class="badge s2b" title="Dibujado a mano en el espacio 2D">2D</span>' : ''}<span class="count">${sh.ws === '2d' ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (sh.ws === '2d' ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
+        <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${isMaster(sh) ? '<span class="badge mst" title="Máster de la escena: los demás planos toman de aquí la ubicación de los personajes y el escenario">Máster</span>' : ''}${d2On(sh) ? `<span class="badge s2b" title="${ea(shot3D(sh) ? 'Con dibujo 2D sobre la escena 3D' : 'Dibujado a mano en el espacio 2D')}">2D</span>` : ''}<span class="count">${!shot3D(sh) ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (d2On(sh) && sh.d2.frames.length > 1 ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
         ${sh.desc ? `<span class="pd">${esc(sh.desc)}</span>` : ''}<span class="px">${esc(shotTextExcerpt(sh, 140))}</span></span></button>${sbBlankBtn(sh)}${UI.readOnly ? '' : `<button class="sbmore" data-act="sb-more" data-id="${ea(sh.id)}" aria-haspopup="menu" aria-label="Acciones del plano ${esc(D.code[sh.id])}" title="Duplicar, mover o eliminar · arrastra la viñeta para cambiarla de lugar">${ICO.more}</button>`}</div>`).join('')}
         ${UI.readOnly ? '' : `<div class="sb-addc" data-i="${ea(s.idx)}"><button class="panel add" data-act="shot-scene" data-i="${ea(s.idx)}"><span class="hd-pl">${ICO.plus}</span>Nuevo plano</button>${sbImgBtn(s)}</div>`}</div></section>`;
   }).join('');
@@ -487,7 +490,7 @@ Object.assign(ACT, {
   'sb-more': b => {
     const sh = P.shots[b.dataset.id]; if (!sh) return;
     const list = D.shotsBy[sh.sc] || [], i = list.indexOf(sh);
-    popover(b, `<div class="menu"><button data-m="open">Abrir</button><button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button>${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
+    popover(b, `<div class="menu"><button data-m="open">Abrir</button><button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
       const x = e.target.closest('[data-m]'); if (!x) return; closePop();
       const m = x.dataset.m;
       if (m === 'open') openShotEditor(sh.id);
@@ -498,9 +501,21 @@ Object.assign(ACT, {
       if (m === 'img') sbPickImg(sh);
       if (m === 'noimg') sbClearImg(sh);
       if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
+      if (m === 'master') sbMaster(sh);
     }));
   },
 });
+/* usar el plano como máster de su escena (o dejar de usarlo). Su puesta en escena queda como la de la escena: si no
+   tenía una propia, se guarda la que se ve (la que tomaba del máster anterior), así nada cambia de lugar */
+function sbMaster(sh) {
+  if (UI.readOnly || !sh) return;
+  const on = !isMaster(sh), code = D.code[sh.id] || '';
+  histNote(on ? `Usar el plano ${code} como máster` : `Dejar de usar el plano ${code} como máster`, null, 'board');
+  if (on && !sh.s3) { sh.s3 = JSON.parse(JSON.stringify(s3Of(sh))); s3SyncShot(sh); }
+  setMaster(sh, on);
+  changed('data'); derive(); render();
+  toastUndo(on ? `El plano ${code} es el máster de la escena ${sh.sc}: los planos que no ajustaste a mano toman de aquí la ubicación de los personajes y el escenario.` : `El plano ${code} ya no es el máster de la escena.`);
+}
 /* copia del plano justo después del original (con sus dibujos); se puede deshacer */
 async function duplicateShot(id) {
   const sh = P.shots[id]; if (!sh) return;
@@ -508,6 +523,7 @@ async function duplicateShot(id) {
   const next = (D.shotsBy[sh.sc] || [])[(D.shotsBy[sh.sc] || []).indexOf(sh) + 1];
   const copy = { ...JSON.parse(JSON.stringify(sh)), id: uid('s'), ord: next ? (sh.ord + next.ord) / 2 : sh.ord + 1, done: false };
   delete copy.done;
+  if (isMaster(sh) || copy.master) copy.master = false;   // un máster por escena: la copia no lo es
   P.shots[copy.id] = copy;
   changed('data'); derive(); render();
   toastUndo(`Plano ${D.code[id]} duplicado: la copia es el ${D.code[copy.id]}.`);
@@ -548,8 +564,9 @@ function moveShot(id, d) {
 /* ---------- ayuda y exportar ---------- */
 HELP.board = [
   ['Planos', 'Toca una viñeta para abrir el editor del plano: cámara, figuras, luces y dibujo. «+ Nuevo plano» agrega uno al final de la escena.'],
-  ['3D o 2D', 'Arriba del editor, «3D | 2D» elige el espacio de trabajo del plano. En 2D se dibuja a mano con lápiz, tinta, pincel, marcador y borrador, por capas; hay lazo para mover o escalar zonas, flechas anchas que se curvan, texto, guías de perspectiva y papel cebolla para animar gestos cuadro a cuadro.'],
-  ['Imágenes para calcar', 'En 2D, «Capas › Imagen…» (o arrastrar o pegar una imagen) la pone en una capa propia al 50 %: bájale la opacidad y dibuja encima.'],
+  ['3D o 2D', 'Arriba del editor, «3D | 2D» elige el espacio de trabajo del plano. En 2D se dibuja a mano con lápiz, tinta, pincel, marcador y borrador, por capas; hay lazo para mover o escalar zonas, flechas anchas que se curvan, texto, guías de perspectiva y papel cebolla para animar gestos cuadro a cuadro. Lo hecho en 2D se ve también sobre la escena 3D y en la viñeta: la escena es una capa más, la «Viñeta 3D».'],
+  ['Fotos de fondo y para calcar', 'En 2D, «Capas › Imagen…» (o arrastrar o pegar una imagen) la pone en una capa propia al 50 %, detrás de las figuras: la escena 3D se ve encima, sin su entorno. Desmarca «Detrás de las figuras» para ponerla delante, bájale la opacidad y dibuja encima.'],
+  ['Máster', 'El máster de cada escena (el que sugiere FilmSpirit o el que eliges con «⋯ › Usar como máster») decide dónde está cada personaje, el escenario y la hora. Los demás planos de la escena lo siguen y solo cambian su cámara, del mismo lado de la línea de acción; en un diálogo, por encima del hombro del otro. Si ajustas uno a mano, ese queda con lo suyo.'],
   ['Sugerir planos', 'En una escena sin planos, «Sugerir planos» propone una cobertura básica a partir del guion.'],
   ['Doblar el cuerpo', 'En la viñeta 3D, toca una figura para elegirla y tócala otra vez sobre una parte del cuerpo: se tiñe de rojo tenue y aparece su aro. Arrástrala para doblarla: el codo y la rodilla siguen el aro; la cabeza gira o se inclina; el torso se dobla hacia adelante o a un lado. La mano y el pie llevan el brazo o la pierna entera. ↺ vuelve esa parte a la postura base; Esc o ✕ la suelta. También con las barras de «Brazos, piernas y cabeza».'],
   ['Personajes', 'El cuerpo, la estatura, las tallas y las fotos de cada personaje se definen una vez en «Personajes» y valen para todos los planos.'],

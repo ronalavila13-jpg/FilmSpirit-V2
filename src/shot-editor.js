@@ -99,12 +99,13 @@ function openShotEditor(id, isNew, from2d, waited) {
   if (!from2d && (sh.ws === '2d' || (isNew && !sh.s3 && !sh.d2 && ls.get('boardWs', '3d') === '2d'))) return openShot2D(id, isNew);
   ensureFrames('index');
   // la referencia y la anotación del plano, si existen y aún no llegan: se abre cuando estén
-  const fk = [id, id + '~a'].filter(k => frameHas(k) && !FRAMES[k]);
+  const fk = [id, id + '~a', ...d2LayerKeys(sh, null)].filter(k => frameHas(k) && !FRAMES[k]);   // (y las capas del dibujo 2D)
   if (fk.length && !waited) { framesNeed(fk).finally(() => openShotEditor(id, isNew, from2d, true)); return; }
   const E = EDT = {
     id, sh, s, isNew, from2d: !!from2d, t: 0, sel: null, playing: false, tab: 'sel', autokey: false, custom: !!sh.s3, cam: 'a',
     s3: (x => { if (x.atm == null && typeof envFromScene === 'function') { const a = envFromScene(s).atm; if (a !== 'dia') x.atm = a; } return x; })(clone(s3Of(sh))), form: { size: sh.size, angle: sh.angle, move: sh.move, support: sh.support, snd: sh.snd || '', desc: sh.desc, notes: sh.notes, done: !!sh.done, names: !sh.noNames, p0: sh.p0 ?? s.p0, p1: sh.p1 ?? s.p1 - 1 },
-    dur: shotDur(sh), durSet: !!(sh.dur && num(sh.dur) > 0), ref: FRAMES[id] || null, refBack: !!sh.refBack, refDirty: false, anno: null, annoDirty: false, hist: [], fut: [], gesture: false, tmp: null, gd: new Set(ls.get('guias', ls.get('guides', true) ? ['tercios', 'segura'] : [])),
+    // la referencia y la anotación que el dibujo 2D trajo como capas se ven allá (d2Imp), no aquí otra vez
+    dur: shotDur(sh), durSet: !!(sh.dur && num(sh.dur) > 0), ref: (d2On(sh) && d2Imp(sh.d2, 'ref') ? null : FRAMES[id]) || null, refBack: !!sh.refBack, l2: ls.get('ed2d', true), refDirty: false, anno: null, annoDirty: false, hist: [], fut: [], gesture: false, tmp: null, gd: new Set(ls.get('guias', ls.get('guides', true) ? ['tercios', 'segura'] : [])),
     draw: { tool: 'pen', color: '#C8382C', w: 4, undo: [] },
     looks0: Object.fromEntries(Object.values(P.elements).filter(e => e.cat === 'cast').map(e => [e.id, e.look ? JSON.parse(JSON.stringify(e.look)) : null])),
   };
@@ -131,10 +132,11 @@ function openShotEditor(id, isNew, from2d, waited) {
             <button class="vp-ic vp-ws" data-vt="ws2d" title="Dibujo a mano 2D (capas, lápices, papel cebolla)" aria-label="Pasar al dibujo 2D"><span>2D</span></button>
             <button class="vp-ic vp-camab" id="vpCamAB" hidden title="Este plano tiene dos cámaras: toca para pasar a la otra" aria-label="Cámara A: pasar a la cámara B"><span>A</span></button>
             <span class="grow"></span>
+            <button class="vp-ic vp-l2" data-vt="l2" id="vpL2" hidden aria-pressed="true" title="Capas 2D: ver u ocultar en la cámara las fotos y el dibujo hechos en 2D"><svg viewBox="0 0 24 24" aria-hidden="true"></svg><span>Capas 2D</span></button>
             <button class="vp-ic vp-free" id="vpFree" title="${ea(FREE_TIP[0])}"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="3.6"/><path d="M12 3v18"/><path d="M17.6 6.9 19.5 8.4l-2.4.6"/></svg><span>Vista libre</span></button>
             <button class="vp-ic vp-full" id="vpFull" title="Ver la viñeta sola (doble toque en un espacio vacío)" aria-label="Viñeta a pantalla completa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
           </div>
-          <div class="vp" id="vp"><canvas id="vpC" aria-label="Viñeta del plano"></canvas><img id="vpRef" alt="" hidden><canvas id="anC" width="1280" height="${Math.round(1280 / ar)}"></canvas><div class="vp-guides" id="vpG"></div><div class="vp-hint" id="vpHint"></div><div class="vp-part" id="vpPart" hidden></div>
+          <div class="vp" id="vp"><canvas id="vpC" aria-label="Viñeta del plano"></canvas><img id="vpRef" alt="" hidden><canvas id="vp2d" aria-hidden="true" hidden></canvas><canvas id="anC" width="1280" height="${Math.round(1280 / ar)}"></canvas><div class="vp-guides" id="vpG"></div><div class="vp-hint" id="vpHint"></div><div class="vp-part" id="vpPart" hidden></div>
             <!-- solo se ve la cámara; al pasar el mouse por ella (o tocarla) aparecen las flechas alrededor -->
             <div class="vp-cam" id="vpCam" role="group" aria-label="Mover la cámara">
               <button class="c-pl" data-cm="pl" title="Girar a la izquierda" aria-label="Girar la cámara a la izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.2v4.6h4.6"/></svg></button>
@@ -207,7 +209,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   if (!has3D) $m('#vpHint').textContent = 'Este navegador no tiene WebGL: se muestra el boceto 2D.';
   // anotaciones guardadas
   const annoKey = id + '~a';
-  if (FRAMES[annoKey]) { const im = new Image(); im.onload = () => actx.drawImage(im, 0, 0, anC.width, anC.height); im.src = FRAMES[annoKey]; }
+  if (FRAMES[annoKey] && !(d2On(sh) && d2Imp(sh.d2, 'anno'))) { const im = new Image(); im.onload = () => actx.drawImage(im, 0, 0, anC.width, anC.height); im.src = FRAMES[annoKey]; }
   if (E.ref) $m('#vpRef').src = E.ref;
   $m('#vpRef').onload = () => redraw();
 
@@ -326,6 +328,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     VW = Math.max(160, Math.round(r.width * dpr)); VH = Math.round(VW / ar);
     vpC.width = VW; vpC.height = VH;
+    const v2 = $m('#vp2d'); if (v2) { v2.width = VW; v2.height = VH; }
     // la planta, al lado, empieza a la altura de la viñeta (no de la barra de íconos de encima)
     const sv = $m('.sx-view'), sx = $m('.sx');
     if (sv && sx && !sv.classList.contains('full')) sx.style.setProperty('--vpo', Math.max(0, Math.round(r.top - sv.getBoundingClientRect().top)) + 'px');
@@ -342,11 +345,20 @@ function openShotEditor(id, isNew, from2d, waited) {
     // (en la vista libre se ve la escena 3D: la foto solo vale para el encuadre del plano)
     const back = !!(E.ref && E.refBack && has3D && !E.free), rim = $m('#vpRef');
     rim.hidden = !E.ref || (E.refBack && has3D);
+    // las capas del dibujo 2D, pegadas al cuadro de la cámara: las fotos de fondo debajo de la escena (que entonces va
+    // sin su entorno) y el dibujo encima, en su propio lienzo (sobre la foto de delante, debajo de la anotación)
+    const L2 = lay2D(), v2 = $m('#vp2d');
     if (has3D) { if (!E.full) {
+      if (L2) { vctx.fillStyle = '#FFFFFF'; vctx.fillRect(0, 0, VW, VH); d2Paint(vctx, sh, L2.F, VW, VH, true); }
       if (back) { if (rim.complete && rim.naturalWidth) vctx.drawImage(rim, 0, 0, VW, VH); else { vctx.fillStyle = '#E4E2DD'; vctx.fillRect(0, 0, VW, VH); } }
-      r3Draw(vctx, E.s3, E.t, VW, VH, back ? { ...vOpts(), plate: true } : vOpts());
+      if (L2 && L2.op < 1 && !(E.s3.light || {}).fc) vctx.globalAlpha = L2.op;
+      r3Draw(vctx, E.s3, E.t, VW, VH, back || (L2 && L2.under) ? { ...vOpts(), plate: true } : vOpts());
+      vctx.globalAlpha = 1;
     } }
     else drawAutoFrame(vctx, VW, VH, shotSketchInfo({ ...sh, ...E.form }));
+    v2.hidden = !L2 || !!E.full;
+    if (L2 && !E.full) { const g = v2.getContext('2d'); g.clearRect(0, 0, v2.width, v2.height); d2Paint(g, sh, L2.F, v2.width, v2.height, false); l2Pin(); }
+    l2Ui();
     paintGuides();
     drawGizmo();
     drawCube();
@@ -377,6 +389,35 @@ function openShotEditor(id, isNew, from2d, waited) {
     else if (ob && ob.kind === 'actor' && !E.part) coach('ed-pose', 'Toca otra vez la figura sobre un brazo, una pierna, el torso o la cabeza para doblarla. El ▾ junto a su nombre abre la lista de posturas.', $m('#vp'));
   }
   function drawViewport() { if (!rafId) rafId = requestAnimationFrame(flushDraw); }
+  /* ---------- el dibujo 2D sobre la cámara (lote U) ----------
+     Lo hecho en 2D (fotos y dibujo, con su opacidad y si se ven) va pegado al cuadro del plano: se ve en la vista de
+     cámara con el cuadro del 2D que toca en ese momento de la línea de tiempo. En la vista libre no (la cámara que mira
+     es otra) y tampoco en la cámara B. «Capas 2D» lo muestra u oculta (se recuerda en este navegador) */
+  const has2D = () => d2On(sh) && sh.d2.layers.some(L => L && L.vis);
+  function lay2D() {
+    if (!E.l2 || E.free || E.cam === 'b' || !has3D || !has2D()) return null;
+    const F = d2FrameAt(sh.d2, E.t);
+    return { F, under: d2Under(sh, F), op: shot3D(sh) ? d2Op3D(sh) : 1 };
+  }
+  // la cámara al abrir: si se mueve con el dibujo 2D a la vista, la primera vez se avisa que el dibujo no la sigue
+  const camSig = () => JSON.stringify(camKeys(E.s3).map(k => [k.cam.x, k.cam.z, k.cam.h, k.cam.yaw, k.cam.pitch, k.cam.roll, k.cam.lens].join()).filter((c, i, a) => !i || c !== a[i - 1]));
+  E.cam0 = camSig();
+  function l2Pin() {
+    if (E.pinSaid || ls.get('d2pin', 0) || camSig() === E.cam0) return;
+    E.pinSaid = true; ls.set('d2pin', 1);
+    toast('El dibujo 2D va pegado al cuadro: no se mueve con la cámara. Si hace falta, acomódalo en el 2D.', 6500);
+  }
+  function l2Ui() {
+    const b = $m('#vpL2'); if (!b) return;
+    const on = has3D && has2D();
+    b.hidden = !on;
+    if (!on) return;
+    b.setAttribute('aria-pressed', String(!!E.l2)); b.classList.toggle('off', !E.l2);
+    const ic = E.l2 ? D2_ICO.eye : D2_ICO.eyeoff, sv = $('svg', b); if (sv.dataset.ic !== ic) { sv.innerHTML = ic; sv.dataset.ic = ic; }
+    // un aviso chico abajo cuando las capas no se pueden ver (la vista libre o la cámara B)
+    const h = $m('#vpHint'), msg = E.l2 && (E.free || E.cam === 'b') ? (E.free ? 'Capas 2D ocultas en la vista libre' : 'Las capas 2D van con la cámara A') : '';
+    if ((h.dataset.l2 || '') !== msg) { h.dataset.l2 = msg; h.textContent = msg; }
+  }
   /* ---------- esfera de ejes: aparece al elegir una figura u objeto ----------
      centro = mover libre por el piso · flechas X (rojo) y Z (azul) = mover en un eje ·
      Y (verde, objetos pequeños y luces) = altura · anillo = girar */
@@ -1400,6 +1441,31 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (i >= 0) { if (E.s3.keys[i] === camKeys(E.s3)[0]) return; snapshot(); E.s3.keys.splice(i, 1); commit(); redraw(); toast('Clave quitada'); return; }
     snapshot(); E.custom = true; s3KeyAt(E.s3, E.t, true); commit(); redraw(); toast('Clave en ' + E.t.toFixed(1) + ' s');
   };
+  /* el máster de la escena (lote U): qué dice el panel Plano y cómo volver a seguirlo */
+  function masterHint() {
+    if (isMaster(sh)) return '<p class="hint" style="margin:0">Máster de la escena: los demás planos toman de aquí dónde está cada personaje, el escenario y la hora; cada uno pone su cámara.</p>';
+    const mo = masterOf({ ...sh, s3: null }); if (!mo) return '';
+    const code = esc(D.code[mo.id] || '');
+    return E.custom ? `<p class="hint" style="margin:0">Ajustado a mano: no sigue al máster (${code}). <button type="button" class="linkbtn" data-o="refollow">Volver a seguir al máster</button></p>`
+      : `<p class="hint" style="margin:0">Sigue al máster (${code}): los personajes, el escenario y la hora vienen de ahí; aquí cambia la cámara. Si mueves algo, este plano queda con lo suyo.</p>`;
+  }
+  const refollow = () => {
+    const mo = masterOf({ ...sh, s3: null }); if (!mo) return;
+    snapshot(); E.s3 = s3Follow({ ...sh, ...E.form, lens: '', s3: null }, s3Of(mo)); E.custom = false; E.refollow = true;
+    E.sel = null; E.part = null; E.tmp = null; E.t = 0; stCache = null;
+    sizeTimeline(); E.gesture = false; panel(); paintTop(); redraw();
+    toast(`El plano vuelve a seguir al máster (${D.code[mo.id] || ''}).`);
+  };
+  /* usar este plano como máster (o dejar de usarlo). Lo que se ve en él queda como la puesta en escena de la escena */
+  const toggleMaster = () => {
+    const on = !isMaster(sh), code = D.code[id] || '';
+    histNote(on ? `Usar el plano ${code} como máster` : `Dejar de usar el plano ${code} como máster`, null, 'board');
+    if (on && !sh.s3) { sh.s3 = JSON.parse(E.s3_0); s3SyncShot(sh); }
+    if (on) E.custom = true;
+    setMaster(sh, on);
+    changed('data'); derive(); render(); panel();
+    toast(on ? `El plano ${code} es el máster de la escena ${sh.sc}: los planos que no ajustaste a mano toman de aquí la ubicación de los personajes y el escenario.` : `El plano ${code} ya no es el máster de la escena.`, 5200);
+  };
   /* copiar el plano anterior: su puesta en escena y la animación de sus figuras y objetos; la cámara no */
   const copyPrev = () => {
     const prev = i > 0 && list[i - 1]; if (!prev) return;
@@ -1772,7 +1838,7 @@ function openShotEditor(id, isNew, from2d, waited) {
           <label class="fld"><span>Movimiento</span><select data-f="move">${MOVES.map(a => `<option ${a === f.move ? 'selected' : ''}>${a}</option>`).join('')}${MOVES.includes(f.move) ? '' : `<option selected>${esc(f.move)}</option>`}</select></label>
           <label class="fld"><span>Soporte</span><select data-f="support"><option value=""></option>${SUPPORTS.map(a => `<option ${a === f.support ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
           <label class="fld" title="Para la hoja de llamado y el reporte de sonido: se graba sonido directo, solo ambiente o nada (MOS)"><span>Sonido</span><select data-f="snd">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(f.snd || '') === k ? 'selected' : ''}>${k ? t : 'Sin definir'}</option>`).join('')}</select></label></div>
-        ${E.custom ? '<p class="hint" style="margin:0">Para aplicar estos datos a la escena 3D: «Reencuadrar» o «Animar» en Cámara.</p>' : ''}
+        ${E.custom ? '<p class="hint" style="margin:0">Para aplicar estos datos a la escena 3D: «Reencuadrar» o «Animar» en Cámara.</p>' : ''}${masterHint()}
         <label class="fld"><span>Descripción del plano</span><textarea data-f="desc" rows="2" placeholder="Qué se ve y qué pasa en el cuadro">${esc(f.desc)}</textarea></label>
         <div class="grid2"><label class="fld"><span>Desde</span><select data-f="p0">${paraOpts(f.p0)}</select></label><label class="fld"><span>Hasta</span><select data-f="p1">${paraOpts(f.p1)}</select></label></div>
         <label class="fld"><span>Notas (sonido, arte, continuidad)</span><textarea data-f="notes" rows="2">${esc(f.notes)}</textarea></label>
@@ -1954,7 +2020,8 @@ function openShotEditor(id, isNew, from2d, waited) {
       const f = el.dataset.f;
       E.form[f] = f === 'done' || f === 'names' ? el.checked : (f === 'p0' || f === 'p1') ? +el.value : el.value;
       if (f === 'names') { drawViewport(); return; }
-      if (['size', 'angle', 'move'].includes(f) && !E.custom) { E.s3 = s3Default({ ...sh, ...E.form, lens: '', chars: actorEls(), s3: null }); stCache = null; redraw(); }
+      // sin puesta propia se vuelve a armar sola (desde el máster de la escena si lo sigue; con sus personajes)
+      if (['size', 'angle', 'move'].includes(f) && !E.custom) { const mo = masterOf({ ...sh, s3: null }); E.s3 = s3Auto({ ...sh, ...E.form, lens: '', chars: mo ? sh.chars : actorEls(), s3: null }); stCache = null; redraw(); }
       if (f === 'size' || f === 'angle' || f === 'move') panel();
       return;
     }
@@ -2046,6 +2113,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.o === 'addfig') { addFig({ currentTarget: b }); return; }
     if (b.dataset.o === 'addobj') { addObj({ currentTarget: b }); return; }
     if (b.dataset.o === 'copyprev') { copyPrev(); return; }
+    if (b.dataset.o === 'refollow') { refollow(); return; }
     if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }
     const ob = selOb();
     if (b.dataset.o === 'exprmenu' && ob) { if (!E.exprOpen) openExprMenu(ob, b); return; }
@@ -2127,7 +2195,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.tr) { snapshot(); E.custom = true; const end = s3Track(E.s3, b.dataset.tr, (+b.dataset.v) * (E.trM || 2), E.dur); commit(); E.t = end.t; stCache = null; redraw(); panel(); }
     if (b.dataset.c === 'lensp') { const k = editKey(); k.cam.lens = +b.dataset.v; edited(); commit(); }
     if (b.dataset.c === 'trm') { const STEP = [.25, .5, 1, 2, 3, 5, 10, 20], i = STEP.findIndex(x => x >= (E.trM || 2) - 1e-6); E.trM = STEP[clamp((i < 0 ? STEP.length - 1 : i) + (+b.dataset.v), 0, STEP.length - 1)]; const o = $m('#trMo'); if (o) o.textContent = E.trM + ' m'; }
-    if (b.dataset.c === 'frame') { snapshot(); E.custom = true; E.t = 0; E.s3.keys = [E.s3.keys[0]]; s3Frame(E.s3, E.form.size, E.form.angle, 0); s3ApplyMove(E.s3, E.form.move, E.dur, E.form.desc); s3CamInside(E.s3); commit(); redraw(); toast('Cámara recolocada.'); }
+    // reencuadrar: en una escena con máster, del lado de su cámara (regla de los 180°) y por encima del hombro en un diálogo
+    if (b.dataset.c === 'frame') { snapshot(); E.custom = true; E.t = 0; E.s3.keys = [E.s3.keys[0]]; const mo = masterOf({ ...sh, s3: null }); if (mo) s3FrameFollow(E.s3, { ...sh, ...E.form, lens: '' }, { ...camKeys(s3Of(mo))[0].cam }); else s3Frame(E.s3, E.form.size, E.form.angle, 0); s3ApplyMove(E.s3, E.form.move, E.dur, E.form.desc); s3CamInside(E.s3); commit(); redraw(); toast('Cámara recolocada.'); }
     if (b.dataset.c === 'move') {
       snapshot(); E.custom = true; E.t = 0; s3ApplyMove(E.s3, E.form.move, E.dur, E.form.desc);
       // un dolly hacia atrás no puede terminar dentro de un muro o de un edificio
@@ -2436,13 +2505,14 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (v === 'guides') { guideMenu(b); return; }
     if (dr && v === 'undo') { if (E.draw.undo.length) { actx.putImageData(E.draw.undo.pop(), 0, 0); E.annoDirty = true; paintTop(); } return; }
     // lo que agrega o cambia la escena sale del dibujo
-    if (dr && v !== 'draw' && v !== 'names' && v !== 'ws2d') { E.tab = 'sel'; panel(); redraw(); }
+    if (dr && v !== 'draw' && v !== 'names' && v !== 'ws2d' && v !== 'l2') { E.tab = 'sel'; panel(); redraw(); }
     if (v === 'undo') histGo(-1);
     else if (v === 'redo') histGo(1);
     else if (v === 'fig') addFig({ currentTarget: b });
     else if (v === 'draw') { E.tab = dr ? 'sel' : 'draw'; E.part = null; panel(); redraw(); }
     else if (v === 'ws2d') { const w = document.querySelector('[data-ws="2d"]'); if (w) { vpFull(false); w.click(); } }
     else if (v === 'obj') addObj({ currentTarget: b });
+    else if (v === 'l2') { E.l2 = !E.l2; ls.set('ed2d', E.l2); redraw(); }
     else if (v === 'names') { E.form.names = !E.form.names; toast(E.form.names ? 'Nombres visibles en este plano.' : 'Nombres ocultos en este plano (el ▾ de posturas sigue).'); panel(); redraw(); }
     else if (v === 'env') vpList(b, 'Entorno', setOptions(true).filter(([k]) => k !== 'plano' || Object.keys(P.plans || {}).length), setCur(), k => pickSet(k));
     else if (v === 'atm') vpList(b, 'Atmósfera', S3_ATM, atmOf(E.s3), k => { snapshot(); E.s3.atm = k; delete E.s3.sunAz; E.custom = true; commit(); redraw(); });
@@ -2492,7 +2562,15 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (E.durSet) sh.dur = String(E.dur);
     if (E.cam === 'b') { s3SwapB(E.s3); E.cam = 'a'; }   // se guarda con la cámara A en su lugar
     if (E.custom) { sh.s3 = E.s3; s3SyncShot(sh); if (shotBlank(sh)) { if (P.meta.sbBlank) sh.blank = false; else delete sh.blank; } }   // armó la escena 3D: se ve
-    const els = actorEls(); if (els.length || E.custom) sh.chars = els;
+    else if (E.refollow) delete sh.s3;   // «Volver a seguir al máster»: sin puesta propia, se arma desde el máster
+    // los personajes del plano: los de su escena 3D. Si sigue al máster, la escena trae a todos los del máster: el plano
+    // conserva los suyos (a quién encuadra)
+    const els = actorEls(); if (E.custom) sh.chars = els; else if (els.length && !masterOf(sh)) sh.chars = els;
+    // guardado desde el 3D: si el dibujo 2D tenía la Viñeta 3D oculta, ahora se ve (opaca) debajo del dibujo
+    if (!to2d && d2On(sh) && !shot3D(sh)) { d2Norm(sh, sh.d2); sh.d2.base = '3d'; sh.d2.baseOp = 1; sh.d2.rev = (sh.d2.rev || 0) + 1; }
+    // la referencia o la anotación cambiaron aquí: se ven las nuevas (la capa del 2D que trajo las de antes queda como una más)
+    if (E.refDirty) d2Unimp(sh, 'ref');
+    if (E.annoDirty) d2Unimp(sh, 'anno');
     delete sh.auto;
     E.saved = true;
     const writes = [];
@@ -2520,14 +2598,15 @@ function openShotEditor(id, isNew, from2d, waited) {
   $m('#edPrev').onclick = () => save(list[i - 1]);
   $m('#edNext').onclick = () => save(list[i + 1]);
   const delShot = () => { E.saved = true; closeModal(); deleteShot(id); };
-  $m('#edMore').onclick = ev => popover(ev.currentTarget, `<div class="menu"><button data-m="copy" ${i > 0 && list[i - 1] ? '' : 'disabled'} title="Figuras, objetos, luces y su animación; la cámara de este plano no cambia">Copiar la escena del plano anterior</button><button data-m="dup">Duplicar plano</button><button data-m="del" style="color:var(--bad)">Eliminar plano</button></div>`, p => p.addEventListener('click', e2 => {
+  $m('#edMore').onclick = ev => popover(ev.currentTarget, `<div class="menu"><button data-m="copy" ${i > 0 && list[i - 1] ? '' : 'disabled'} title="Figuras, objetos, luces y su animación; la cámara de este plano no cambia">Copiar la escena del plano anterior</button>${UI.readOnly ? '' : `<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>`}<button data-m="dup">Duplicar plano</button><button data-m="del" style="color:var(--bad)">Eliminar plano</button></div>`, p => p.addEventListener('click', e2 => {
     const b = e2.target.closest('[data-m]'); if (!b || b.disabled) return; closePop();
-    if (b.dataset.m === 'copy') copyPrev(); else if (b.dataset.m === 'dup') dupShot(); else delShot();
+    if (b.dataset.m === 'copy') copyPrev(); else if (b.dataset.m === 'master') toggleMaster(); else if (b.dataset.m === 'dup') dupShot(); else delShot();
   }));
   const dupShot = async () => {
     await save();
     const next = (D.shotsBy[sh.sc] || [])[(D.shotsBy[sh.sc] || []).indexOf(sh) + 1];
     const copy = { ...clone(sh), id: uid('s'), ord: next ? (sh.ord + next.ord) / 2 : sh.ord + 1, done: false };
+    if (isMaster(sh) || copy.master) copy.master = false;   // un máster por escena: la copia no lo es
     P.shots[copy.id] = copy;
     await copyShotFrames(id, copy.id);
     changed('data'); derive();

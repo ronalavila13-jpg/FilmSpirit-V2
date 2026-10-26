@@ -132,6 +132,8 @@ botones) se aplican tal cual en todo el programa y en los PDF; las frases los us
 | Sobre el hombro | Over-the-shoulder (OTS) |
 | Contraplano | Reverse shot |
 | Máster | Master |
+| Línea de acción · Regla de los 180° | Line of action · 180-degree rule |
+| Capas 2D · Detrás de las figuras | 2D layers · Behind the figures |
 | Atmósfera: Día · Amanecer · Hora dorada · Atardecer · Noche · Nublado · Lluvia · Niebla | Atmosphere: Day · Dawn · Golden hour · Sunset · Night · Overcast · Rain · Fog |
 | Pose · Postura · Expresión | Pose · Posture · Expression |
 | Figura · Maniquí | Figure · Mannequin |
