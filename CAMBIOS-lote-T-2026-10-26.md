@@ -1,0 +1,33 @@
+# Lote T · clonar los atributos de un plano en otros (26-oct-2026)
+
+Base: lote S. Solo la app (storyboard).
+
+- **Elegir viñetas**: **Ctrl+clic** (⌘ en Mac) o Mayús+clic en una viñeta la elige o la suelta, sin abrir su editor. Se
+  pueden elegir viñetas de cualquier escena. En el teléfono: «⋯ › Elegir para clonar». Las elegidas llevan borde rojo y
+  fondo tenue; abajo aparece una barra con cuántas son, sus códigos y «Quitar». Esc o un clic en un espacio vacío sueltan
+  la selección (Esc primero cierra el menú o la ventana que haya abierta).
+- **Clic derecho en una viñeta**: abre su mismo menú «⋯» (antes no hacía nada). Con otras viñetas elegidas, lo primero
+  es **«Clonar sus atributos en 1.4 y 1.5…»**.
+- **La ventana «Clonar los atributos del plano 2.2»**: dice qué planos cambian (y si son de otra escena) y trae casillas
+  con el valor del origen a la derecha:
+  - Datos del plano: tamaño, ángulo, movimiento, soporte, lente, sonido y duración (la que muestra la viñeta, aunque sea
+    la estimada).
+  - Espacio 3D: **cámara 3D** (posición, altura, giro, recorrido, a quién sigue —por personaje; si no está, la figura que
+    ocupa su lugar—, temblor, sensor, desenfoque y cámara B) y **puesta en escena 3D** (decorado, figuras, objetos, luces
+    y su animación, con la cámara del destino). Con las dos, el 3D del destino es una copia del origen.
+  - La primera vez todo va marcado; después recuerda lo de la última vez (`ls 'sbClone'`). Sin nada marcado, el botón se
+    apaga. Un origen dibujado a mano no ofrece el 3D (su dibujo no se clona: para eso, «Duplicar»).
+- **Qué no cambia nunca**: la descripción, el diálogo, el tramo del guion, las notas, «Rodado», las imágenes subidas y los
+  dibujos 2D de cada plano. Un dibujo 2D que recibe el 3D pasa a mostrarlo y su dibujo sigue guardado («3D | 2D» en su
+  editor); el aviso lo dice, y también si una imagen subida tapa la escena 3D del destino.
+- **Detalles**: la copia del 3D no queda ligada al origen (en el animatic no pasa a ser un inserto encima de él, a
+  diferencia de «Copiar la escena del plano anterior»). Con la puesta en escena, los personajes del plano pasan a ser los
+  de su escena 3D (como al guardar el editor). El lente, si se elige, va también en las claves de la escena 3D. Un plano en
+  blanco que recibe el 3D vuelve a mostrarlo. Todo es un solo paso de «Deshacer».
+- **Ayuda** del storyboard: «Clonar atributos». Textos en inglés en i18n/en-manual.json.
+
+Código: `s3MapObj`, `s3TakeCam`, `s3TakeStage`, `shotLens` y `shotCloneFrom` en src/s3d-model.js (probados en
+test/clonar.test.js, `node test/clonar.test.js`); la selección, el menú (`sbMoreMenu`) y la ventana (`sbCloneDialog`,
+`sbCloneApply`) en src/tab-board.js; estilos `.pcell.sel`, `.sb-selbar` y `.sb-cl-*` en src/shell.html.
+
+Archivos: src/s3d-model.js, src/tab-board.js, src/shell.html, i18n/en-manual.json, test/clonar.test.js.

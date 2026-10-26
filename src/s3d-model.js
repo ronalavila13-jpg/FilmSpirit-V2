@@ -588,6 +588,91 @@ function s3CopyAction(dst, src, srcId, off = 0) {
   out.from = { id: srcId, off: round2(off) };
   return s3Bake(out);
 }
+
+/* ---------- clonar los atributos de un plano en otros (storyboard: Ctrl+clic y «Clonar sus atributos…») ----------
+   El plano de origen puede ser de otra escena. Lo que se elige: tamaño, ángulo, movimiento, soporte, lente, sonido,
+   duración, la cámara 3D y la puesta en escena 3D. La descripción, el tramo del guion, las notas, «Rodado», las
+   imágenes subidas y los dibujos 2D de cada plano no cambian */
+/* lo de la cámara que va arriba en la escena (no en las claves): a quién sigue, temblor, sensor y desenfoque */
+const CLONE_CAM_F = ['aimF', 'aimTilt', 'shake', 'sensor', 'dof'];
+/* la figura de la escena «out» que hace de la figura «id» de «src»: el mismo personaje; si no está, la figura en el
+   mismo lugar de la lista (la segunda por la segunda); un objeto, si está con el mismo id y la misma clase */
+function s3MapObj(id, src, out) {
+  if (!id) return null;
+  const o = src.objs.find(x => x.id === id); if (!o) return null;
+  if (o.el) { const m = out.objs.find(x => x.el === o.el); if (m) return m.id; }
+  if (o.kind === 'actor') {
+    const A = src.objs.filter(x => x.kind === 'actor'), B = out.objs.filter(x => x.kind === 'actor');
+    const m = B[Math.min(A.indexOf(o), B.length - 1)];
+    return m ? m.id : null;
+  }
+  return out.objs.some(x => x.id === id && x.kind === o.kind) ? id : null;
+}
+/* la escena de dst (decorado, figuras, objetos, luces y su animación) vista con la cámara de src: posición, altura,
+   giro, lente y recorrido, a quién sigue (por personaje), temblor, sensor, desenfoque y la cámara B */
+function s3TakeCam(dst, src) {
+  const out = JSON.parse(JSON.stringify(dst));
+  const camK = camKeys(src).map(k => ({ t: k.t, ease: k.ease, cam: { ...k.cam }, ...(k.camB ? { camB: { ...k.camB } } : {}), o: {}, co: true }));
+  const objK = objKeys(dst).map(k => ({ t: k.t, ease: k.ease, cam: { ...k.cam }, o: JSON.parse(JSON.stringify(k.o)), oo: true }));
+  out.keys = [...camK, ...objK];
+  out.aim = s3MapObj(src.aim, src, out);
+  const fo = s3MapObj(src.focus, src, out); if (fo) out.focus = fo; else delete out.focus;
+  for (const f of CLONE_CAM_F) { if (src[f] != null) out[f] = JSON.parse(JSON.stringify(src[f])); else delete out[f]; }
+  if (s3HasB(src)) { out.camB = JSON.parse(JSON.stringify(src.camB)); if (out.camB.aim != null) out.camB.aim = s3MapObj(src.camB.aim, src, out); }
+  else delete out.camB;
+  return s3Bake(out);
+}
+/* la puesta en escena de src (decorado, figuras, objetos, luces y su animación) con la cámara de dst. Como «Copiar la
+   escena del plano anterior», pero sin quedar ligada a src (en el animatic no pasa a ser un inserto encima de él) */
+function s3TakeStage(dst, src) {
+  const out = s3CopyAction(dst, src, null, 0);
+  delete out.from;
+  for (const f of ['sensor', 'dof']) { if (dst[f] != null) out[f] = JSON.parse(JSON.stringify(dst[f])); else delete out[f]; }
+  const fo = s3MapObj(dst.focus, dst, out); if (fo) out.focus = fo; else delete out.focus;
+  return out;
+}
+/* el lente que muestra la viñeta: el de la primera clave de cámara (en un dibujo 2D, el anotado) */
+const shotLens = sh => sh.ws === '2d' ? Math.round(num(sh.lens)) : Math.round(camKeys(s3Of(sh))[0].cam.lens || 0);
+const CLONE_F = ['size', 'angle', 'move', 'support', 'lens', 'snd', 'dur', 'cam', 'stage'];
+/* pasa a dst lo elegido de src (pick: { size, angle, move, support, lens, snd, dur, cam, stage }: true o false).
+   Devuelve qué pasó de llamativo: { to3d } si dst era un dibujo 2D y ahora muestra la escena 3D */
+function shotCloneFrom(dst, src, pick) {
+  const res = {};
+  if (!dst || !src || dst === src) return res;
+  const src3d = src.ws !== '2d', take3d = src3d && !!(pick.cam || pick.stage);
+  const lens0 = shotLens(dst), lensS = shotLens(src);
+  // primero los datos del plano: en un plano automático (sin escena 3D propia) también lo reencuadran
+  for (const f of ['size', 'angle', 'move', 'support']) if (pick[f]) dst[f] = src[f] != null ? src[f] : '';
+  if (pick.snd) { if (src.snd) dst.snd = src.snd; else delete dst.snd; }
+  if (pick.dur) dst.dur = String(shotDur(src));
+  const lensOn = !!pick.lens && lensS > 0;
+  if (lensOn) {
+    dst.lens = String(lensS);
+    // con escena 3D propia, el lente va en sus claves (como al cambiarlo en el guion técnico)
+    if (dst.s3 && !take3d) { const r = lensS / (camKeys(dst.s3)[0].cam.lens || lensS); dst.s3.keys.forEach(k => { if (k.cam) k.cam.lens = Math.round(k.cam.lens * r * 10) / 10; }); }
+  }
+  if (take3d) {
+    const a = s3Of(src), b = s3Of(dst);
+    let out;
+    if (pick.cam && pick.stage) { out = JSON.parse(JSON.stringify(a)); delete out.from; }
+    else out = pick.cam ? s3TakeCam(b, a) : s3TakeStage(b, a);
+    // el lente: el de src si se eligió; con la cámara de src pero sin su lente, el que tenía dst
+    const L = lensOn ? lensS : pick.cam ? lens0 : 0, L0 = camKeys(out)[0].cam.lens;
+    if (L > 0 && L0 > 0 && Math.abs(L - L0) > .05) { const r = L / L0; out.keys.forEach(k => { if (k.cam) k.cam.lens = Math.round(k.cam.lens * r * 10) / 10; }); }
+    dst.s3 = out;
+    s3SyncShot(dst);
+    if (dst.ws === '2d') { dst.ws = '3d'; res.to3d = true; }   // su dibujo sigue guardado: «3D | 2D» en su editor
+    // armó la escena 3D: se ve (como al guardar el editor)
+    if (shotBlank(dst)) { if (typeof P !== 'undefined' && P && P.meta && P.meta.sbBlank) dst.blank = false; else delete dst.blank; }
+    if (pick.stage) {
+      if (src.noNames) dst.noNames = true; else delete dst.noNames;
+      const els = [...new Set(out.objs.filter(o => o.kind === 'actor' && o.el).map(o => o.el))];
+      if (els.length) dst.chars = els;
+    }
+    delete dst.auto;
+  }
+  return res;
+}
 function findPose(s3, id) { for (const k of s3.keys) if (k.o[id]) return k.o[id]; return null; }
 
 /* ---------- edición con clave automática ---------- */
@@ -758,4 +843,4 @@ function s3Of(sh) {
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotCloneFrom, CLONE_F };
