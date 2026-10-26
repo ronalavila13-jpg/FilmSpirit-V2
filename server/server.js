@@ -40,6 +40,7 @@ const { makeReclamos } = require('./lib/reclamos');
 const { makeMail } = require('./lib/mail');
 const { parseCookies, cookie, addCookie, rid, normEmail, isEmail } = require('./lib/util');
 const { LANGS, countryOf, regionOf, langOf } = require('./lib/geo');
+const { makeMapas } = require('./lib/mapas');
 
 /* textos de la web pública en cinco idiomas (server/i18n/*.json) */
 const I18N = Object.fromEntries(LANGS.map(l => { try { return [l, JSON.parse(fs.readFileSync(path.join(__dirname, 'i18n', l + '.json'), 'utf8'))]; } catch (e) { return [l, {}]; } }));
@@ -81,7 +82,8 @@ const GSI = 'https://accounts.google.com/gsi/';
 const csp = () => [
   // 'wasm-unsafe-eval': solo WebAssembly (meshoptimizer aligera los modelos 3D importados); eval de JavaScript, no
   "default-src 'self'", `script-src 'self' 'wasm-unsafe-eval' ${GSI}client`, `style-src 'self' 'unsafe-inline' ${GSI}style`,
-  "img-src 'self' data: blob: https://*.googleusercontent.com", "media-src 'self' data: blob:", "font-src 'self' data:",
+  // las teselas del mapa general del scouting (OpenStreetMap; Leaflet se sirve desde /app/lib)
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://tile.openstreetmap.org", "media-src 'self' data: blob:", "font-src 'self' data:",
   `connect-src 'self' data: blob: ${GSI}`, `frame-src ${GSI}`, "worker-src 'self' blob:", "object-src 'none'",
   "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'",
 ].join('; ');
@@ -104,6 +106,7 @@ function createServer(over) {
   setRateHook(sec.limitHit);
   const billing = makeBilling(S, auth, api, cfg, mail, sec);
   const reclamos = makeReclamos(S, cfg, mail);
+  const mapas = makeMapas({ userAgent: `FilmSpirit (+${cfg.baseUrl})` });
   // bloqueos e inicios rechazados, para la pestaña Seguridad del panel
   const admin = makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec);
   const soles = n => 'S/ ' + (Number.isInteger(n) ? n : n.toFixed(2));
@@ -334,6 +337,15 @@ function createServer(over) {
         S.run('UPDATE users SET writing=? WHERE id=?', JSON.stringify(W), u.id);
         return sendJSON(res, 200, { writing: W });
       }
+      // (lote W) un enlace corto de Google Maps (maps.app.goo.gl) → la dirección larga, con las coordenadas
+      if (p === '/api/maps/resolve' && req.method === 'POST') {
+        const u = auth.requireUser(req);
+        auth.checkWrite(req);
+        rateLimit('maps:' + u.id, 60, 3600e3);
+        const b = await readJSON(req, 2048);
+        try { return sendJSON(res, 200, { url: await mapas.resolve(b && b.url) }); }
+        catch (e) { return sendJSON(res, e.code === 'bad_url' ? 400 : 422, { error: e.message, code: e.code || 'resolve_failed' }); }
+      }
       if (p === '/api/config' && req.method === 'GET') return sendJSON(res, 200, { googleClientId: cfg.googleClientId, supportEmail: cfg.supportEmail || '' });
       // lista de espera de Studio (abre cuando existan el scouting con mapas y el casting): con o sin cuenta
       if (p === '/api/waitlist' && req.method === 'POST') {
@@ -401,7 +413,7 @@ function createServer(over) {
   server.headersTimeout = 70000;
   server.requestTimeout = 120000;
   server.on('close', () => { sec.flush(); sec.stop(); S.close(); });
-  return { server, cfg, S, live, billing, api, sec };
+  return { server, cfg, S, live, billing, api, sec, mapas };
 }
 
 if (require.main === module) {
