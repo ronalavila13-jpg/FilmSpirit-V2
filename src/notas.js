@@ -649,9 +649,9 @@ const CHDESC = {
     const db = days(B.items), da = days(A.items), moved = Object.keys(da).filter(k => k in db && db[k] !== da[k]);
     if (moved.length === 1) { const k = moved[0].replace(/[^\w.-].*$/, ''); return { what: `movió la escena ${moved[0]} a la jornada ${da[moved[0]]}`, ref: 'guion|scene|' + k }; }
     if (moved.length > 1) return { what: `movió ${moved.length} escenas de jornada` };
-    if (chCanon(B.items) !== chCanon(A.items)) return { what: (B.items || []).length === (A.items || []).length ? 'reordenó el stripboard' : 'cambió las jornadas del plan' };
-    if (B.start !== A.start || chCanon(B.off) !== chCanon(A.off)) return { what: 'cambió las fechas del stripboard' };
-    return { what: 'cambió el stripboard' };
+    if (chCanon(B.items) !== chCanon(A.items)) return { what: (B.items || []).length === (A.items || []).length ? 'reordenó el plan de rodaje' : 'cambió las jornadas del plan' };
+    if (B.start !== A.start || chCanon(B.off) !== chCanon(A.off)) return { what: 'cambió las fechas del plan de rodaje' };
+    return { what: 'cambió el plan de rodaje' };
   },
   calendario(b, a) {
     const T = chDiff((b.calendar || {}).tasks, (a.calendar || {}).tasks), tb = Object.fromEntries(((b.calendar || {}).tasks || []).map(t => [t.id, t])), ta = Object.fromEntries(((a.calendar || {}).tasks || []).map(t => [t.id, t]));

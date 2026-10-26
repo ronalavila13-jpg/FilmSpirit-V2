@@ -8,12 +8,12 @@ const TIO = () => DESK ? DESK.team : TARGET === 'server' ? APITEAM : WEBTEAM;   
 // TARGET: para qué versión se armó (build.sh): 'web' (la página publicada en Claude), 'server' (la web con cuentas) o
 // 'desktop'. Cada versión trae su transporte del equipo: DESK.team, APITEAM (share-api.js) o WEBTEAM (share-web.js)
 const API = () => TARGET === 'server';   // web app con cuentas y servidor propio
-const SEC_LIST = [['guion', 'Guion', 'script'], ['desglose', 'Desglose', 'breakdown'], ['storyboard', 'Storyboard', 'board'], ['animatic', 'Animatic', 'animatic'], ['plan', 'Stripboard', 'plan'], ['calendario', 'Calendario', 'cal'], ['presupuesto', 'Presupuesto', 'budget'], ['llamado', 'Hoja de llamado', 'call'], ['hoja', 'Hoja de script', 'sup']];   // en el orden de las pestañas
+const SEC_LIST = [['guion', 'Guion', 'script'], ['desglose', 'Desglose', 'breakdown'], ['storyboard', 'Storyboard', 'board'], ['animatic', 'Animatic', 'animatic'], ['plan', 'Plan de rodaje', 'plan'], ['calendario', 'Calendario', 'cal'], ['presupuesto', 'Presupuesto', 'budget'], ['llamado', 'Hoja de llamado', 'call'], ['hoja', 'Hoja de script', 'sup']];   // en el orden de las pestañas
 const TAB2SEC = Object.fromEntries(SEC_LIST.map(([s, , t]) => [t, s]));
 TAB2SEC.project = 'guion';   // la pestaña Proyecto viaja con el guion
 TAB2SEC.lined = 'guion';     // el guion rayado también
 TAB2SEC.build = 'guion';     // Construcción (argumento, escaleta y tarjetas) también
-TAB2SEC.scout = 'plan';      // Scouting viaja con el stripboard (la locación elegida pasa a sus locaciones)
+TAB2SEC.scout = 'plan';      // Scouting viaja con el plan de rodaje (la locación elegida pasa a sus locaciones)
 TAB2SEC.casting = 'desglose';   // Casting viaja con el desglose (se edita con el área de reparto)
 TAB2SEC.gastos = 'gastos';      // Gastos (solo la web con cuentas): su propia sección, con sus reglas (areas.js · gaRole)
 const SECNAME = Object.fromEntries(SEC_LIST.map(([s, n]) => [s, n]));

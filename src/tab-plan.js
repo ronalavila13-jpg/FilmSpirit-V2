@@ -18,7 +18,17 @@ const STAGE_TONES = ['#DCE3D9', '#D9DFE8', '#E6DFD3', '#E2DAE4', '#D5E2E0', '#E4
 // los colores para resaltar: la paleta de las etapas, en suave para la fila (la franja lleva el color entero)
 const ROW_COLORS = [['#FAC5BD', 'Coral'], ['#F1ADAD', 'Rojo'], ['#FFD0B3', 'Naranja'], ['#FFEB99', 'Amarillo'], ['#CDE3DF', 'Verde agua'], ['#BAD9FE', 'Azul'], ['#9BE3FA', 'Cian'], ['#FFB7C7', 'Rosa'], ['#E7E5E1', 'Gris']];
 const EVENT_PRESETS = ['Salida', 'Traslado', 'Llamado', 'Desayuno', 'Almuerzo', 'Cena', 'Preparativos para el rodaje', 'Maquillaje y vestuario', 'Ensayo', 'Desmontaje'];
-const stripColor = s => s.dn === 'N' ? lgCol('plan', 'n') : lgCol('plan', 'd');
+/* (lote U) las tiras estándar de la industria, a toda la fila: interior de día blanca, exterior de día amarilla, interior
+   de noche azul, exterior de noche verde, amanecer y atardecer rosa. Son colores de la leyenda del plan (leyenda.js):
+   «d» (Día) es la de exterior de día y «n» (Noche) la de interior de noche; INT/EXT va como exterior. Lo resaltado con un
+   color de la leyenda manda sobre la tira. (stripBar, de día o de noche, sigue para la hoja de script y el desglose) */
+const stripDN = s => { const t = String((s && s.tod) || ''); return /AMANECER|DAWN|SUNRISE/.test(t) ? 'am' : /ATARDECER|ANOCHECER|DUSK|SUNSET|MAGIC HOUR/.test(t) ? 'at' : s && s.dn === 'N' ? 'n' : 'd'; };
+const stripKey = s => { const dn = stripDN(s), ext = !!s && s.ie !== 'INT'; return dn === 'am' || dn === 'at' ? 'dd' : dn === 'n' ? (ext ? 'ne' : 'n') : (ext ? 'd' : 'di'); };
+const stripColor = s => lgCol('plan', stripKey(s));
+const DN_LAB = { d: 'Día', n: 'Noche', am: 'Amanecer', at: 'Atardecer' };
+const ieLab = s => s.ie === 'INT/EXT' ? 'I/E' : s.ie || 'INT';
+/* el lugar del encabezado, sin INT./EXT. ni el momento del día («CINE PRIMAVERA - FACHADA») */
+const setOf = s => s.loc || s.heading;
 const planEditable = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('plan'));
 const stageTone = (P_, id) => { const st = P_.schedule.stages || []; const i = st.findIndex(x => x.id === id); return lgG(STAGE_TONES[(i < 0 ? 0 : i) % STAGE_TONES.length]); };
 const planLoc = (it, s) => (it && it.loc) || (P.schedule.setLoc || {})[s.locBase] || '';
@@ -59,20 +69,50 @@ function dayDone(d) {
   const shots = d.keys.flatMap(k => D.shotsBy[k] || []);
   return shots.length && d.keys.every(k => (D.shotsBy[k] || []).length) && shots.every(s => s.done) ? 'script' : '';
 }
-const PL_HEAD = [['Locación', ''], ['Esc.', ''], ['Tiempo', ''], ['Escena', ''], ['Reparto', ''], ['Fig.', 'c-fig r'], ['1/8', 'r'], ['Pág.', 'r'], ['Notas técnicas', 'c-tech'], ['Observaciones', 'c-obs']];
-const PL_TIP = { 'Tiempo': 'Tiempo estimado de rodaje de cada escena: escríbelo para cambiarlo (45, 1 h 15, 1:30)', 'Fig.': 'Figuración: cuántos extras', '1/8': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza' };
-const plHeadHTML = () => `<div class="pl-head" aria-hidden="true">${PL_HEAD.map(([h, c]) => `<span${c ? ` class="${ea(c)}"` : ''}${PL_TIP[h] ? ` title="${ea(PL_TIP[h])}"` : ''}>${h}</span>`).join('')}</div>`;
-/* columnas opcionales de la pantalla (cada persona elige las suyas; el PDF y el Excel siempre las llevan) */
-const planCols = () => ({ fig: ls.get('plFig', true), tech: ls.get('plTech', true), obs: ls.get('plObs', true), thumb: ls.get('plThumb', true) });
+/* (lote U) las columnas, como la referencia: [clave, título, clase, se ordena tocando su título]. La figuración se prende
+   en Ajustes › Columnas en pantalla (en el PDF y el Excel siempre sale) */
+const PL_COLS = [['grip', '', 'c-grip'], ['esc', 'Esc.', 'c-esc', 1], ['ie', 'I/E', 'c-ie', 1], ['set', 'Locación', 'c-set', 1], ['dn', 'D/N', 'c-dn', 1],
+  ['cast', 'Reparto', 'c-cast'], ['fig', 'Fig.', 'c-fig r'], ['loc', 'Locación de rodaje', 'c-loc', 1], ['pgs', 'Págs.', 'c-pgs r', 1], ['pg', 'Pág.', 'c-pg r'],
+  ['t', 'Tiempo', 'c-t'], ['tech', 'Notas técnicas', 'c-tech'], ['obs', 'Observaciones', 'c-obs'], ['bd', '', 'c-bd'], ['more', '', 'c-more']];
+const PL_TIP = { 'Tiempo': 'Tiempo estimado de rodaje de cada escena: escríbelo para cambiarlo (45, 1 h 15, 1:30)', 'Fig.': 'Figuración: cuántos extras', 'Págs.': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza', 'Locación': 'El lugar del encabezado de la escena, con su sinopsis', 'Locación de rodaje': 'El lugar real donde se rueda', 'D/N': 'Día, noche, amanecer o atardecer' };
+/* el orden por columna (tocando su título): la última columna elegida y su sentido, para la flechita */
+const PL_SORT = { c: null, dir: 1, pid: null };
+function plHeadHTML() {
+  const ed = planEditable(), so = PL_SORT.pid === (P && P.id) && PL_SORT.c && planSortedBy(PL_SORT.c, PL_SORT.dir) ? PL_SORT : null;
+  return `<div class="pl-head">${PL_COLS.map(([k, h, c, srt]) => {
+    const tip = PL_TIP[h] ? ` title="${ea(PL_TIP[h])}"` : '';
+    if (!srt || !ed) return `<span class="${ea(c)}"${tip}>${h}</span>`;
+    const on = so && so.c === k, nx = on ? -so.dir : 1;
+    return `<button type="button" class="${ea(c)} srt${on ? ' on' : ''}" data-act="pl-sort" data-c="${k}" aria-label="${ea(`Ordenar por ${h} (${nx > 0 ? 'ascendente' : 'descendente'}) dentro de cada jornada`)}" title="${ea(`Ordenar por ${h} dentro de cada jornada${PL_TIP[h] ? '. ' + PL_TIP[h] : ''}`)}"><span>${h}</span><i class="ar" aria-hidden="true">${on ? (so.dir > 0 ? '↑' : '↓') : '↕'}</i></button>`;
+  }).join('')}</div>`;
+}
+/* columnas opcionales de la pantalla (cada persona elige las suyas; el PDF y el Excel siempre las llevan).
+   (lote U) La figuración viene apagada */
+const planCols = () => ({ fig: ls.get('plFig', false), tech: ls.get('plTech', true), obs: ls.get('plObs', true), thumb: ls.get('plThumb', true) });
 function planColsCSS() {
   const c = planCols();
   // las notas vacías en todo el plan ceden su ancho a la escena (siguen ahí para escribir)
-  const used = f => P.schedule.items.some(it => (it[f] || '').trim()), w = f => used(f) ? 'minmax(140px,1fr)' : 'minmax(140px,.45fr)';
-  const cols = ['150px', '50px', '66px', 'minmax(240px,1.7fr)', '112px', c.fig && '46px', '46px', '38px', c.tech && w('tech'), c.obs && w('obs')].filter(Boolean);
-  const min = 150 + 50 + 66 + 240 + 112 + (c.fig ? 46 : 0) + 84 + (c.tech ? 140 : 0) + (c.obs ? 140 : 0);
+  const used = f => P.schedule.items.some(it => (it[f] || '').trim()), w = f => used(f) ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)';
+  const cols = ['24px', '52px', '42px', `minmax(${c.thumb ? 280 : 220}px,1.7fr)`, '78px', '112px', c.fig && '46px', 'minmax(150px,1fr)', '58px', '40px', '68px', c.tech && w('tech'), c.obs && w('obs'), '34px', '34px'].filter(Boolean);
+  const min = 24 + 52 + 42 + (c.thumb ? 280 : 220) + 78 + 112 + (c.fig ? 46 : 0) + 150 + 58 + 40 + 68 + (c.tech ? 130 : 0) + (c.obs ? 130 : 0) + 68;
   return { cls: (c.fig ? '' : ' no-fig') + (c.tech ? '' : ' no-tech') + (c.obs ? '' : ' no-obs'), style: `--pl-cols:${cols.join(' ')};--pl-min:${min}px` };
 }
-const castPills = s => { const t = castText(s); return t === '—' ? '<span class="none">—</span>' : t.split(', ').map(x => `<i>${esc(String(x))}</i>`).join(''); };
+/* (lote U) los íconos de la fila: el asa para arrastrar, la hoja de desglose, agregar reparto y el menú ⋮ */
+const PL_ICO = {
+  grip: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></g></svg>',
+  sheet: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>',
+  addCast: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.7-3.4 3.3-5.5 6.5-5.5 1.6 0 3 .5 4.1 1.4M18 13v6M15 16h6"/></svg>',
+  vmore: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></g></svg>',
+};
+/* el reparto como números en círculo (o por nombre, si se eligió); sin reparto, un ícono para agregarlo en el desglose */
+function castCircles(s, ed) {
+  const list = sceneCast(s.idx);
+  if (!list.length) return ed ? `<button type="button" class="pl-addcast" data-act="pl-bd" data-k="${ea(s.key)}" aria-label="${ea('Agregar reparto a la escena ' + s.key)}" title="Sin reparto: agrégalo en la hoja de desglose">${PL_ICO.addCast}</button>` : '<span class="none">—</span>';
+  if (P.schedule.castMode === 'name') return list.map(e => `<span class="cnm">${esc(titleCase(e.name))}</span>`).join('');
+  return list.filter(e => D.castNum[e.id]).map(e => `<span class="cn tnum" title="${ea(titleCase(e.name))}">${D.castNum[e.id]}</span>`).join('');
+}
+/* los octavos como en una tira: el entero grande y la fracción chica (1 ³⁄₈) */
+const e8HTML = e => { e = Math.max(0, Math.round(e || 0)); const w = Math.floor(e / 8), f = e % 8; return `<span class="e8">${w || !f ? `<b>${w}</b>` : ''}${f ? `<span class="fr"><sup>${f}</sup>⁄<sub>8</sub></span>` : ''}</span>`; };
 
 /* ---------- horas estimadas (como una tira de rodaje: hora de inicio y duración de cada escena) ----------
    Desde el llamado de la jornada, cada escena dura sus octavos × los minutos por página; los eventos
@@ -94,15 +134,17 @@ function parseDur(v) {
 const fmtDur = m => !m ? '' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) : ''}`;
 /* el tiempo de una fila sin tiempo escrito: los octavos × los minutos por página (los eventos, lo de costumbre) */
 const rowEstDur = it => it.e ? EV_MIN(it.name || '') : Math.max(5, Math.round(partEighths(it) * minPerPage() / 8 / 5) * 5);
-/* at: las horas escritas en la hoja de llamado de la jornada ({ clave de la fila: 'HH:MM' }); mandan sobre las del plan */
-function planDayTimes(d, at) {
+/* at: las horas escritas en la hoja de llamado de la jornada ({ clave de la fila: 'HH:MM' }); mandan sobre las del plan.
+   durs (lote U): el largo de una escena en esa hoja ({ clave: minutos }), cuando la hora de un plano la alargó; el
+   stripboard no cambia */
+function planDayTimes(d, at, durs) {
   const out = new Map(), items = P.schedule.items;
   let t = hmToMin(callOf(d.id, d));
   for (const i of d.rows) {
     const it = items[i]; if (!it) continue;
     const own = hmToMin((at && at[itemKey(it)]) || it.t);
     if (own != null) t = own;
-    const dur = num(it.dur) || rowEstDur(it);
+    const dur = (durs && num(durs[itemKey(it)])) || num(it.dur) || rowEstDur(it);
     out.set(i, { start: t, dur, est: own == null });
     if (t != null) t += dur;
   }
@@ -117,11 +159,6 @@ const PLSEL = { pid: null, keys: new Set(), last: null };
 const plSel = () => { if (PLSEL.pid !== (P && P.id)) { PLSEL.pid = P && P.id; PLSEL.keys = new Set(); PLSEL.last = null; } return PLSEL.keys; };
 
 const PL_NOTE = new Set();   // notas abiertas a mano en el teléfono aunque estén vacías («fila:campo»)
-/* encabezado partido en lugar y momento del día («… - NOCHE»): en el teléfono se recorta solo el lugar */
-function planHead(hd) {
-  const cut = hd.lastIndexOf(' - '), tail = cut > 0 && hd.length - cut <= 24 ? hd.slice(cut) : '';
-  return `<b class="sch"><span class="hm">${esc(tail ? hd.slice(0, cut) : hd)}</span>${tail ? `<span class="ht">${esc(tail)}</span>` : ''}`;
-}
 /* un campo de una línea cuyo texto no se corta: debajo va una copia que pasa a la línea siguiente entre palabras
    y hace crecer la fila; al escribir se ve el campo */
 const wrapIn = (input, val, ph) => `<span class="wfld">${input}<span class="wfld-v${ea(val ? '' : ' ph')}" aria-hidden="true">${esc(val || ph || '')}</span></span>`;
@@ -142,34 +179,39 @@ function planRowHTML(i, ed) {
   const key = itemKey(it), sel = plSel().has(key);
   const notes = `<span class="c-tx c-tech${ea(PL_NOTE.has(key + ':tech') ? ' open' : '')}"><textarea rows="1" data-bind="pl-f" data-f="tech" data-i="${i}" aria-label="Notas técnicas" placeholder="${ea(ed ? 'Notas técnicas' : '')}" ${dis}>${esc(it.tech || '')}</textarea></span>
     <span class="c-tx c-obs${ea(PL_NOTE.has(key + ':obs') ? ' open' : '')}"><textarea rows="1" data-bind="pl-f" data-f="obs" data-i="${i}" aria-label="Observaciones" placeholder="${ea(ed ? 'Observaciones' : '')}" ${dis}>${esc(it.obs || '')}</textarea></span>`;
-  const tt = PL_TIMES.get(i);
   // solo el tiempo estimado de la escena (las horas van en la hoja de llamado)
   const est = fmtDur(rowEstDur(it)) || '—';
   const time = `<span class="c-t" title="${ea(it.dur ? 'Tiempo escrito a mano (bórralo para volver al estimado: ' + est + ')' : 'Tiempo estimado por el largo de la escena: escríbelo para cambiarlo')}">${`<input type="text" class="dur" maxlength="10" value="${esc(it.dur ? fmtDur(num(it.dur)) : '')}" placeholder="${esc(fmtDur(rowEstDur(it)))}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo estimado" ${dis}>`}</span>`;
+  // (lote U) el asa para arrastrar al comienzo y el menú ⋮ al final (también con clic derecho)
+  const grip = `<span class="c-grip" aria-hidden="true">${ed ? PL_ICO.grip : ''}</span>`;
+  const more = lab => `<span class="c-more"><button type="button" class="pmore" data-act="pl-row" data-i="${i}" aria-haspopup="menu" aria-label="${ea(lab)}" title="Opciones (también con clic derecho)">${PL_ICO.vmore}</button></span>`;
   if (it.e) {
     const hc = hlc(it) || lgCol('plan', 'ev');   // su color de la leyenda: el resaltado, o «Evento»
     return `<div class="prow ev hl${ea(sel ? ' sel' : '')}${ea(lgDark(hc))}" data-i="${i}" data-key="${esc(key)}" style="--rc:${ea(hc)};--rb:${ea(barOf(hc))}">
-      <span class="c-evn">${wrapIn(`<input type="text" value="${esc(it.name || '')}" placeholder="Evento" data-bind="pl-f" data-f="name" data-i="${i}" aria-label="Evento" ${dis}>`, it.name, 'Evento')}<button class="pmore" data-act="pl-row" data-i="${i}" aria-label="Opciones del evento">${ICO.more}</button></span>
-      ${time}<span class="c-evd">${wrapIn(`<input type="text" value="${esc(it.det || '')}" placeholder="${ea(ed ? 'Detalle: lugar, duración, responsable…' : '')}" data-bind="pl-f" data-f="det" data-i="${i}" aria-label="Detalle" ${dis}>`, it.det, ed ? 'Detalle: lugar, duración, responsable…' : '')}</span>${notes}</div>`;
+      ${grip}<span class="c-evn">${wrapIn(`<input type="text" value="${esc(it.name || '')}" placeholder="Evento" data-bind="pl-f" data-f="name" data-i="${i}" aria-label="Evento" ${dis}>`, it.name, 'Evento')}</span>
+      <span class="c-evd">${wrapIn(`<input type="text" value="${esc(it.det || '')}" placeholder="${ea(ed ? 'Detalle: lugar, duración, responsable…' : '')}" data-bind="pl-f" data-f="det" data-i="${i}" aria-label="Detalle" ${dis}>`, it.det, ed ? 'Detalle: lugar, duración, responsable…' : '')}</span>${time}${notes}<span class="c-bd"></span>${more('Opciones del evento')}</div>`;
   }
   const s = sceneOfKey(it.k);
   const set = (P.schedule.setLoc || {})[s.locBase] || '';
   const e8 = partEighths(it);
   // una parte de escena dividida elige sus octavos; la principal se queda con el resto
-  let eCell = `<span class="c-n c-e8 tnum">${fmtEighths(e8)}</span>`;
+  let eCell = `<span class="c-n c-pgs tnum" title="${ea(fmtEighths(e8) + ' págs.')}">${e8HTML(e8)}</span>`;
   if (it.sp && ed) {
     const main = P.schedule.items.find(x => x.k === it.k && !x.sp);
     const max = e8 + (main ? partEighths(main) : 0);
-    eCell = `<span class="c-n c-e8"><select class="e8" data-bind="pl-e8" data-i="${i}" aria-label="Octavos de la escena ${esc(rowCode(it))}">${Array.from({ length: max + 1 }, (_, v) => `<option value="${ea(v)}" ${v === e8 ? 'selected' : ''}>${v ? fmtEighths(v) : '0'}</option>`).join('')}</select></span>`;
+    eCell = `<span class="c-n c-pgs"><select class="e8" data-bind="pl-e8" data-i="${i}" aria-label="Octavos de la escena ${esc(rowCode(it))}">${Array.from({ length: max + 1 }, (_, v) => `<option value="${ea(v)}" ${v === e8 ? 'selected' : ''}>${v ? fmtEighths(v) : '0'}</option>`).join('')}</select></span>`;
   }
-  const hc = hlc(it);   // resaltada con un color de la leyenda; si no, su tira de día o de noche
-  return `<div class="prow sc${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${ea(lgDark(hc || stripColor(s)))}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}"${hc ? '' : ` data-dn="${s.dn === 'N' ? 'n' : 'd'}"`} style="--rc:${ea(hc || stripColor(s))};--rb:${ea(hc ? barOf(hc) : stripBar(s))}">
-    <span class="c-loc">${wrapIn(`<input type="text" list="plLocs" value="${esc(it.loc || set)}" placeholder="${ed ? esc(titleCase(s.locBase)) : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${it.loc ? '' : set ? 'Locación del decorado «' + esc(titleCase(s.locBase)) + '»' : ''}" ${dis}>`, it.loc || set, ed ? titleCase(s.locBase) : '')}</span>
-    <button class="c-esc" data-act="pl-row" data-i="${i}" title="Opciones de la escena (también con clic derecho)">${esc(rowCode(it))}</button>${time}
-    ${(sh => `<span class="c-hd${sh ? ' th' : ''}" title="`)(planThumbShot(it))}${esc(s.heading + (synopsisOf(s) ? ' · ' + synopsisOf(s) : ''))}">${planThumbHTML(it)}${planHead(s.heading)}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b>${synopsisOf(s) ? `<small>${esc(synopsisOf(s))}</small>` : ''}</span>
-    <span class="c-cast">${castPills(s)}</span>
+  const hc = hlc(it), sk = stripKey(s), col = hc || lgCol('plan', sk);   // resaltada con un color de la leyenda; si no, su tira
+  const syn = synopsisOf(s), dn = DN_LAB[stripDN(s)], th = planThumbShot(it);
+  return `<div class="prow sc${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${ea(lgDark(col))}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}" data-strip="${ea(hc ? 'hl' : sk)}" style="--rc:${ea(col)};--rb:${ea(barOf(col))}">
+    ${grip}<span class="c-esc tnum">${esc(rowCode(it))}</span><span class="c-ie">${esc(ieLab(s))}</span>
+    <span class="c-set${th ? ' th' : ''}" title="${ea(s.heading + (syn ? ' · ' + syn : ''))}">${planThumbHTML(it)}<b>${esc(setOf(s))}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b><small><span class="m-only${syn ? ' sep' : ''}">${esc(ieLab(s))} · ${esc(dn)}</span>${esc(syn)}</small></span>
+    <span class="c-dn">${esc(dn)}</span>
+    <span class="c-cast">${castCircles(s, ed)}</span>
     <span class="c-fig"><input type="number" min="0" step="1" value="${ea(it.fig ?? '')}" data-bind="pl-f" data-f="fig" data-i="${i}" aria-label="Figurantes" ${dis}></span>
-    ${eCell}<span class="c-n c-pg tnum">${D.metrics.page[s.idx]}</span>${notes}</div>`;
+    <span class="c-loc${it.loc || set ? '' : ' none'}">${ICO.pin}${wrapIn(`<input type="text" list="plLocs" value="${esc(it.loc || set)}" placeholder="${ed ? 'Asignar locación…' : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${it.loc ? '' : set ? 'Locación del decorado «' + esc(titleCase(s.locBase)) + '»' : ''}" ${dis}>`, it.loc || set, ed ? 'Asignar locación…' : '')}</span>
+    ${eCell}<span class="c-n c-pg tnum">${D.metrics.page[s.idx]}</span>${time}${notes}
+    <span class="c-bd"><button type="button" class="pbd" data-act="pl-bd" data-k="${ea(s.key)}" aria-label="${ea('Hoja de desglose de la escena ' + rowCode(it))}" title="Abrir su hoja de desglose">${PL_ICO.sheet}</button></span>${more('Opciones de la escena ' + rowCode(it))}</div>`;
 }
 function planBreakHTML(d, n, dates, ed) {
   const b = d.brk, inf = dayInfo(d.keys, d.rows), done = dayDone(d);
@@ -216,12 +258,12 @@ function selBarHTML(days, dates) {
 function planHeadHTML(o) {
   const { days, dates, shootDays, doneDays, totalE, bank, stages, ed } = o;
   const d0 = dates[0], d1 = dates[dates.length - 1];
-  const dm = x => x.toLocaleDateString('es-PE', { day: 'numeric', month: 'long' }), title = !d0 ? 'Stripboard'
+  const dm = x => x.toLocaleDateString('es-PE', { day: 'numeric', month: 'long' }), title = !d0 ? 'Plan de rodaje'
     : d0.getTime() === d1.getTime() ? capFirst(dm(d0)) : d0.getMonth() === d1.getMonth() && d0.getFullYear() === d1.getFullYear() ? `${d0.getDate()} – ${dm(d1)}` : `${dm(d0)} – ${dm(d1)}`;
   const S = P.schedule, scn = days.reduce((a, d) => a + d.rows.filter(i => S.items[i] && S.items[i].k).length, 0);
   const start = `<label class="hd-date${ed ? '' : ' ro'}" title="Fecha de la primera jornada">${HD_ICO.cal}<span>Empieza</span>${fechaFieldHTML({ iso: d0 ? isoDay(d0) : S.start || '', key: 'pl-start', label: 'Fecha de la primera jornada', disabled: !ed })}</label>`;
   const act = (bank.length ? hdPill('warn', `${bank.length === 1 ? 'escena' : 'escenas'} sin programar`, { n: bank.length, attrs: 'data-act="pl-gobank" title="Ir a «Sin programar»"' }) : days.length ? hdPill('ok', 'Todo programado') : '') + start;
-  return `<section class="hd pl-hd" aria-label="Cabecera del stripboard">${hdHead({ title: esc(title), sub: `<span data-no-tr>${esc(P.meta.title || '')}</span> · Stripboard${stages.length ? ` · ${stages.length} ${stages.length === 1 ? 'etapa' : 'etapas'}` : ''}`, act })}
+  return `<section class="hd pl-hd" aria-label="Cabecera del plan de rodaje">${hdHead({ title: esc(title), sub: `<span data-no-tr>${esc(P.meta.title || '')}</span> · Plan de rodaje${stages.length ? ` · ${stages.length} ${stages.length === 1 ? 'etapa' : 'etapas'}` : ''}`, act })}
     ${hdPass([
       { lab: 'Jornadas', cls: 'big', val: `${shootDays}`, cap: `${scn} ${scn === 1 ? 'escena programada' : 'escenas programadas'}` },
       { lab: 'Completadas', val: `${doneDays} <small>de ${days.length}</small>`, html: `<div class="hd-bar" role="progressbar" aria-label="Jornadas completadas" aria-valuemin="0" aria-valuemax="${days.length}" aria-valuenow="${doneDays}"><i style="width:${days.length ? (doneDays / days.length * 100).toFixed(1) : 0}%"></i></div>` },
@@ -266,11 +308,12 @@ RENDER.plan = function () {
   const castLegend = Object.entries(D.castNum).sort((a, b) => a[1] - b[1]).map(([id, n]) => `<span><b>${n}</b> ${esc(titleCase(P.elements[id].name))}</span>`).join('');
   const PC = planColsCSS();
   const locNames = [...new Set([...(S.locs || []).map(l => l.name), ...Object.values(S.setLoc || {}), ...S.items.map(it => it.loc)].filter(Boolean))];
-  // vista «Por actor»: días por actor (plan-dood.js); el plan se edita en «Jornadas»
+  // (lote U) arriba la pestaña es «Plan de rodaje»; abajo, sus dos vistas: «Stripboard» (la tabla de jornadas, donde se
+  // edita el plan) y «DOOD» (días por actor, plan-dood.js)
   const dood = ls.get('plView', 'days') === 'cast';
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
-      ${hdSeg([{ label: 'Jornadas', attrs: 'data-act="pl-view" data-v="days" title="Una tabla por jornada"', on: !dood }, { label: 'DOOD', attrs: 'data-act="pl-view" data-v="cast" title="Qué jornadas trabaja cada actor (días por actor)"', on: dood }], 'Vista del plan')}
+      ${hdSeg([{ label: 'Stripboard', attrs: 'data-act="pl-view" data-v="days" title="Las jornadas con sus tiras: una fila por escena"', on: !dood }, { label: 'DOOD', attrs: 'data-act="pl-view" data-v="cast" title="Qué jornadas trabaja cada actor (días por actor)"', on: dood }], 'Vista del plan')}
       <span class="grow"></span>
       ${ed ? hdBtn('sec', 'Locaciones…', { sm: true, cls: 'hide-sm', attrs: 'data-act="pl-locs" aria-haspopup="dialog" title="Cambiar el nombre de las locaciones de rodaje (cambia todas sus escenas)"' }) : ''}
       ${ed && !dood && isSeries(P) ? hdBtn('sec', 'Bloque', { icon: 'plus', sm: true, cls: 'hide-sm', attrs: 'data-act="pl-block" aria-haspopup="dialog" title="Jornadas con las escenas de varios episodios juntas, por locación (rodaje por bloques)"' }) : ''}
@@ -279,7 +322,7 @@ RENDER.plan = function () {
     </div>
     <div class="scroller pad" data-keep="plan"><div class="plan">
       ${planHeadHTML({ days, dates, shootDays, doneDays, totalE, bank, stages, ed })}
-      ${dood ? doodHTML() : `${ed ? '' : '<p class="hint" style="margin:-4px 0 0">Stripboard de solo lectura.</p>'}
+      ${dood ? doodHTML() : `${ed ? '' : '<p class="hint" style="margin:-4px 0 0">Plan de rodaje de solo lectura.</p>'}
       ${ed && !days.length ? `<div class="pl-start"><b>Arma las jornadas a tu manera.</b> Crea una con «+ Jornada» y arrastra a ella las escenas de «Sin programar». Si prefieres una propuesta para empezar, usa «Sugerir jornadas»: se puede deshacer.<span class="pl-start-b"><button class="btn primary sm" data-act="pl-addday">+ Jornada</button><button class="btn sm" data-act="pl-bank">Sugerir jornadas</button></span></div>` : ''}
       ${ed ? tipHTML('plan-drag2', TOUCHY ? 'Mantén el dedo sobre una escena para moverla. En la barra de la jornada: mantén el dedo y arrastra para moverla entera, o suelta para ver sus opciones.' : 'Arrastra una escena para moverla; arrastra desde un espacio vacío para elegir varias. Arrastra la barra de la jornada para moverla entera. Clic derecho: opciones.') : ''}
       ${legendHTML('plan')}
@@ -571,6 +614,59 @@ function moveItems(keys, target) {
   P.schedule.items = rest;
   return moving.length;
 }
+/* ---------- ordenar por columna (lote U) ----------
+   Tocar el título de una columna ordena las escenas dentro de cada jornada y dentro de «Sin programar»: ninguna escena
+   pasa a otra jornada, los eventos (traslados, comidas) y los cortes se quedan en su lugar y las escenas ocupan, en el
+   orden nuevo, los lugares que tenían. Otra vez el mismo título: al revés. Se deshace con el historial. */
+const PL_IE = { INT: 0, EXT: 1, 'INT/EXT': 2 }, PL_DN = { am: 0, d: 1, at: 2, n: 3 };
+const spRank = sp => String(sp || '').split('').reduce((a, ch) => a * 27 + (ch.charCodeAt(0) - 64), 0);
+function planSortVal(c, it) {
+  const s = it.k && sceneOfKey(it.k); if (!s) return '';
+  if (c === 'esc') return s.idx * 1e4 + spRank(it.sp);
+  if (c === 'ie') return PL_IE[s.ie] ?? 3;
+  if (c === 'set') return setOf(s);
+  if (c === 'dn') return PL_DN[stripDN(s)];
+  if (c === 'loc') return planLoc(it, s);
+  if (c === 'pgs') return partEighths(it);
+  return '';
+}
+/* items: las filas del plan; val(fila) → número o texto; dir: 1 o -1. Devuelve las filas en el orden nuevo (no cambia
+   items). Lo vacío va al final en los dos sentidos */
+function sortInDays(items, val, dir) {
+  const out = items.slice();
+  const cmp = (a, b) => {
+    const ea_ = a === '' || a == null, eb = b === '' || b == null;
+    if (ea_ || eb) return ea_ === eb ? 0 : ea_ ? 1 : -1;
+    return (typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' })) * dir;
+  };
+  let seg = [];
+  const flush = () => {
+    const at = seg.filter(i => items[i].k);
+    const sorted = at.map((i, j) => ({ it: items[i], j, v: val(items[i]) })).sort((a, b) => cmp(a.v, b.v) || a.j - b.j);
+    at.forEach((i, j) => { out[i] = sorted[j].it; });
+    seg = [];
+  };
+  items.forEach((it, i) => { if (it.d) flush(); else seg.push(i); });
+  flush();
+  return out;
+}
+/* ¿el plan ya está en ese orden? (para mostrar la flechita solo mientras siga así) */
+function planSortedBy(c, dir) {
+  const items = P.schedule.items, out = sortInDays(items, it => planSortVal(c, it), dir);
+  return out.every((x, i) => x === items[i]);
+}
+function planSort(c) {
+  if (!planEditable()) return;
+  const col = PL_COLS.find(x => x[0] === c && x[3]); if (!col) return;
+  const same = PL_SORT.pid === (P && P.id) && PL_SORT.c === c && planSortedBy(c, PL_SORT.dir);
+  const dir = same ? -PL_SORT.dir : 1;
+  Object.assign(PL_SORT, { c, dir, pid: P.id });
+  const items = P.schedule.items, out = sortInDays(items, it => planSortVal(c, it), dir);
+  if (out.every((x, i) => x === items[i])) { render(); toast(`Ya estaba ordenado por ${col[1]}.`); return; }
+  histNote(`Ordenar por ${col[1]}`);
+  P.schedule.items = out; changed('data'); render();
+  toastUndo(`Ordenado por ${col[1]}${dir < 0 ? ' (al revés)' : ''} dentro de cada jornada.`, 4200);
+}
 function stripMenu(anchor, i) {
   const items = P.schedule.items, it = items[i];
   if (!it) return;
@@ -641,7 +737,7 @@ function splitRow(i) {
   if (it.loc) part.loc = it.loc;
   if (it.sp) it.e8 = cur - half;   // la principal se queda sola con lo que falte
   items.splice(i + 1, 0, part);
-  toast(`Escena ${rowCode(it)} dividida: la nueva parte es ${rowCode(part)}. Ajusta sus octavos en la columna 1/8.`, 4200);
+  toast(`Escena ${rowCode(it)} dividida: la nueva parte es ${rowCode(part)}. Ajusta sus octavos en la columna Págs.`, 4200);
 }
 /* ---------- etapas ---------- */
 // el orden de las etapas sigue al de sus jornadas
@@ -890,6 +986,9 @@ Object.assign(ACT, {
   },
   'pl-unbreak': b => { P.schedule.items.splice(+b.dataset.i, 1); changed('data'); render(); toastUndo('Jornadas unidas.'); },
   'pl-row': b => stripMenu(b, +b.dataset.i),
+  // (lote U) ordenar por columna y la hoja de desglose de la escena
+  'pl-sort': b => planSort(b.dataset.c),
+  'pl-bd': b => { const sc = sceneOfKey(b.dataset.k); if (!sc) return; UI.scene = sc.idx; UI.bdView = 'sheet'; setTab('breakdown'); },
   'pl-day': b => dayMenu(b, +b.dataset.n),
   'pl-brkm': b => brkMenu(b, +b.dataset.i),
   'pl-date': b => dateMenu(b, +b.dataset.n),
@@ -966,7 +1065,7 @@ function planSheets() {
   const S = P.schedule, M = P.meta, br = M.brand || {};
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
-  const NC = 11, INK = '#222222', T = xlTab();   // los colores de la pestaña, como en la app
+  const NC = 13, INK = '#222222', T = xlTab();   // los colores de la pestaña, como en la app
   const shade = (hex, k) => '#' + rgbOf(hex).map(v => Math.round(v * k).toString(16).padStart(2, '0')).join('');
   const rows = [];
   const row = (cells, h) => rows.push(h == null ? { cells } : { cells, h });
@@ -978,30 +1077,33 @@ function planSheets() {
     `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`].filter(Boolean).join('   ·   ');
   full(sub, { color: T.ink, fill: T.bar, border: false, wrap: false }, 18);
   full('', { fill: T.c, border: false }, 4);
-  const COLS = [12, 22, 6, 7, 40, 18, 6, 7, 6, 28, 28];
+  // (lote U) las columnas del stripboard de la pantalla (y la fecha, como siempre, en la primera)
+  const COLS = [12, 6, 5, 40, 10, 14, 6, 22, 7, 6, 8, 28, 28];
   const lg = xlLegend(lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk))), COLS);
   if (lg.length) { row([], 6); rows.push(...lg); row([], 6); }
   const headAt = rows.length + 1;
-  const HEAD = ['Fecha', 'Locación (rodaje)', 'Esc.', 'Tiempo', 'Encabezado de escena', 'Reparto', 'Fig.', '1/8', 'Pág.', 'Notas técnicas', 'Observaciones'];
-  row(HEAD.map((v, j) => ({ v, s: { bold: true, fill: T.bar, color: T.ink, line: '#5A5A5A', h: j === 2 || j >= 6 && j <= 8 ? 'center' : 'left' } })), 22);
+  const HEAD = ['Fecha', 'Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo', 'Notas técnicas', 'Observaciones'];
+  row(HEAD.map((v, j) => ({ v, s: { bold: true, fill: T.bar, color: T.ink, line: '#5A5A5A', h: j === 1 || j === 6 || j === 8 || j === 9 ? 'center' : 'left' } })), 22);
   const castOf = s => { const list = sceneCast(s.idx); return S.castMode === 'name' ? list.map(e => titleCase(e.name)).join(', ') : list.map(e => D.castNum[e.id]).filter(Boolean).join(', '); };
   const cells = (i, tone) => {
     const it = S.items[i];
     if (it.e) {
       const ef = hlc(it) || lgCol('plan', 'ev'), st = { fill: ef, bold: true, line: '#5A5A5A', ...(lgDark(ef) ? { color: '#F4F4F4' } : {}) };
-      return [{ v: it.name || 'Evento', cs: 2, s: st }, { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } }, { v: it.det || '', cs: 5, s: { ...st, bold: false } }, { v: it.tech || '', s: { ...st, bold: false } }, { v: it.obs || '', s: { ...st, bold: false } }];
+      return [{ v: it.name || 'Evento', cs: 3, s: st }, { v: it.det || '', cs: 6, s: { ...st, bold: false } }, { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } }, { v: it.tech || '', s: { ...st, bold: false } }, { v: it.obs || '', s: { ...st, bold: false } }];
     }
-    const s = sceneOfKey(it.k), fill = hlc(it) || stripColor(s);   // resaltada con su color de la leyenda, o la tira de día o de noche, entera
-    const st = { fill, line: '#5A5A5A', ...(lgDark(fill) ? { color: '#F4F4F4' } : {}) }, code = rowCode(it);
+    const s = sceneOfKey(it.k), fill = hlc(it) || stripColor(s);   // resaltada con su color de la leyenda, o su tira, entera
+    const st = { fill, line: '#5A5A5A', ...(lgDark(fill) ? { color: '#F4F4F4' } : {}) }, code = rowCode(it), set = setOf(s) + (it.sp ? ` (parte ${it.sp})` : ''), syn = synopsisOf(s);
     return [
-      { v: planLoc(it, s), s: { ...st, bold: true } },
       { v: /^\d+$/.test(code) ? +code : code, s: { ...st, bold: true, h: 'center' } },
-      { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } },
-      { v: s.heading + (it.sp ? ` (parte ${it.sp})` : '') + (synopsisOf(s) ? '\n' + synopsisOf(s) : ''), s: st, ...(synopsisOf(s) ? { runs: [{ t: s.heading + (it.sp ? ` (parte ${it.sp})` : '') }, { t: '\n' + synopsisOf(s), i: true, color: st.color ? '#D8D8D8' : '#4A5260' }] } : {}) },
+      { v: ieLab(s), s: st },
+      { v: set + (syn ? '\n' + syn : ''), s: st, ...(syn ? { runs: [{ t: set, b: true }, { t: '\n' + syn, i: true, color: st.color ? '#D8D8D8' : '#4A5260' }] } : { s: { ...st, bold: true } }) },
+      { v: DN_LAB[stripDN(s)], s: st },
       { v: castOf(s), s: st },
       { v: it.fig != null ? +it.fig : '', s: { ...st, h: 'right' } },
+      { v: planLoc(it, s), s: { ...st, bold: true } },
       { v: fmtEighths(partEighths(it)), s: { ...st, h: 'right' } },
       { v: +D.metrics.page[s.idx] || String(D.metrics.page[s.idx]), s: { ...st, h: 'right' } },
+      { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } },
       { v: it.tech || '', s: { ...st, v: 'top' } },
       { v: it.obs || '', s: { ...st, v: 'top' } },
     ];
@@ -1071,7 +1173,7 @@ async function exportPlanXLSX() {
   if (!proGate('excel')) return;
   if (!D.sc.scenes.length) { toast('Primero escribe o importa el guion.'); return; }
   try {
-    const bytes = xlsxBook(planSheets(), { title: P.meta.title + ' · Stripboard' });
+    const bytes = xlsxBook(planSheets(), { title: P.meta.title + ' · Plan de rodaje' });
     await offerFile(fileSafe(P.meta.title) + '_plan_de_rodaje.xlsx', new Blob([bytes], { type: XLSX_MIME }));
   } catch (e) { console.error(e); toast('No se pudo crear el Excel. Vuelve a intentarlo; si se repite, escribe a soporte desde Ayuda.'); }
 }
@@ -1081,7 +1183,7 @@ SETTINGS.plan = () => {
   const S = P.schedule, ed = planEditable(), off = new Set(S.off || []);
   return `<div class="fld"><span>Días sin rodaje</span><div class="daytoggle">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label title="${ea(['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d])}"><input type="checkbox" aria-label="${ea(['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][d])}" data-bind="pl-off" value="${ea(d)}" ${off.has(d) ? 'checked' : ''} ${ed ? '' : 'disabled'}>${WEEKDAYS[d]}</label>`).join('')}</div></div>
     <div class="fld"><span>Reparto</span><div class="seg" role="group" aria-label="Reparto"><button data-act="pl-cast" data-v="num" aria-pressed="${ea(S.castMode !== 'name')}">Por número</button><button data-act="pl-cast" data-v="name" aria-pressed="${ea(S.castMode === 'name')}">Por nombre</button></div></div>
-    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen.</span></div>
+    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración (Fig.)'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen (también la figuración).</span></div>
     <div class="fld"><span>Horas estimadas</span><label class="inl"><input type="number" min="5" max="240" step="5" value="${ea(minPerPage())}" data-bind="pl-mpp" aria-label="Minutos por página" ${ed ? '' : 'disabled'}><span>minutos por página de guion</span></label><span class="hint">Cada escena muestra su hora de inicio y su duración estimada desde el llamado. Una hora escrita a mano manda.</span></div>
     <div class="fld"><span>Sugerir jornadas</span><label class="inl"><input type="number" min="0.5" max="20" step="0.5" value="${ea(num(S.pagesPerDay) || 4.5)}" data-bind="pl-ppd" aria-label="Páginas por jornada" ${ed ? '' : 'disabled'}><span>páginas por jornada</span></label><span class="hint">≈ ${esc(fmtDur(Math.round((num(S.pagesPerDay) || 4.5) * minPerPage())))} de rodaje por jornada, con los minutos por página de arriba.</span></div>
 `;
@@ -1089,13 +1191,15 @@ SETTINGS.plan = () => {
 // en el teléfono la barra no muestra «Locaciones…» ni «+ Etapa»: van en su «⋯»
 TOOLS_EXTRA.plan = () => planEditable() ? [[ICO.pin, 'Locaciones de rodaje…', () => locsDialog()], [ICO.plus, 'Etapa de rodaje…', () => stagesDialog(true)], ...(isSeries(P) ? [[ICO.plus, 'Bloque de episodios…', () => planBlockDialog()]] : [])] : [];
 HELP.plan = [
+  ['Stripboard', 'Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo, las notas, la hoja de desglose y el menú ⋮.'],
+  ['Ordenar', 'Toca el título de una columna (Esc., I/E, Locación, D/N, Locación de rodaje o Págs.) para ordenar las escenas dentro de cada jornada y en «Sin programar»; otra vez, al revés. Ninguna escena cambia de jornada y los eventos se quedan en su lugar. Se deshace con Deshacer.'],
   ['Mover escenas', 'Presiona cualquier parte de una escena (fuera de los campos) y arrástrala: las demás le hacen espacio y los cambios se aplican al soltar. En el teléfono, mantén el dedo un instante antes de arrastrar. También: clic derecho › Mover a. Esc cancela.'],
   ['Elegir varias', 'Clic en una escena la elige y otro clic la suelta; Ctrl o ⌘ suma o quita, Mayús elige un tramo. Arrastra desde un espacio vacío para elegir varias con un recuadro, y luego arrastra una para moverlas juntas. Un clic en un espacio vacío (o Esc) quita la selección.'],
-  ['Horas', 'Cada escena muestra su hora estimada (en gris) y su duración, desde el llamado de la jornada y según los minutos por página de Ajustes. Escribe una hora para fijarla: las siguientes se corren desde ahí.'],
+  ['Tiempo', 'Cada escena muestra su tiempo estimado (en gris), según sus octavos y los minutos por página de Ajustes. Escribe otro para cambiarlo (45, 1 h 15, 1:30). Las horas de cada escena y de cada plano se escriben en la hoja de llamado.'],
   ['Jornadas', 'Cada jornada empieza con su barra (número, fecha, llamado, escenas y duración estimada) y termina con la barra de cierre. Clic derecho en una barra (en el teléfono, mantén el dedo y suelta) abre sus opciones: color, completada, insertar jornada o quitar el corte; su «+» agrega eventos con hora. «Cortar la jornada aquí» (clic derecho en una escena) parte una jornada en dos.'],
   ['Mover jornadas', 'Arrastra la barra de inicio de la jornada (en el teléfono, mantén el dedo y arrastra), o usa sus opciones › Subir / Bajar jornada. La fecha fijada a mano viaja con la jornada; las automáticas siguen el nuevo orden al soltar. Su hoja de llamado va con ella.'],
   ['Fechas', 'Toca la fecha en la barra de la jornada para cambiarla. Las siguientes de la misma etapa se corren con ella; las de otras etapas no. El llamado se escribe en la misma barra.'],
-  ['Dividir una escena', 'Clic derecho › Dividir crea 5A, 5B… Elige sus octavos en la columna 1/8.'],
+  ['Dividir una escena', 'Clic derecho › Dividir crea 5A, 5B… Elige sus octavos en la columna Págs.'],
   ['Etapas y locaciones', 'Clic derecho (o el botón ⋯ de la jornada) › Nueva etapa aquí, o «+ Etapa» en la barra. Los nombres de las locaciones se cambian en «Locaciones…», en la barra.'],
   ['Series: bloques', 'En una serie, «+ Bloque» elige varios episodios y arma jornadas nuevas con sus escenas sin programar ordenadas por locación, juntando los episodios, en una etapa con su nombre y quién dirige. Cada jornada muestra sus episodios (Ep. 101 · 102) y cada escena su número con el episodio delante (101-12).'],
   ['Eventos', 'El «+» de la barra de cada jornada agrega traslados, comidas o ensayos con hora.'],
@@ -1103,4 +1207,4 @@ HELP.plan = [
   ['Apariencia', 'En «⋯» de las pestañas › Apariencia… En «Tu pantalla», solo para ti: el modo claro u oscuro, el color de las etapas, la letra, las barras y las líneas. En «Colores del proyecto», para todo el equipo y los PDF: la paleta (Estándar, Original, Sobria, Alto contraste, Escala de grises), cada color y tus paletas guardadas para usarlas en otro proyecto. La leyenda también lleva ahí.'],
   ['DOOD', 'Muestra qué jornadas trabaja cada actor: I inicio, T trabaja, E en espera (entre su primera y su última jornada, sin escenas), F fin, IF un solo día. Al lado, sus jornadas de trabajo, de espera y el total de su contrato. Sale del plan y del desglose; toca el número de una jornada para verla en el plan. Exportar › Días por actor (PDF); también va en el Excel del plan.'],
 ];
-EXPORTS.plan = () => [pdfItem('Stripboard (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('DOOD (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Stripboard (Excel)', hint: 'La tabla del plan, las locaciones y los días por actor, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];
+EXPORTS.plan = () => [pdfItem('Stripboard (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('DOOD (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Plan de rodaje (Excel)', hint: 'El stripboard, las locaciones y el DOOD, cada uno en su hoja, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];

@@ -39,6 +39,7 @@ botones) se aplican tal cual en todo el programa y en los PDF; las frases los us
 | Storyboard | Storyboard |
 | Animatic | Animatic |
 | Plan de rodaje | Shooting Schedule |
+| Stripboard (la vista del plan de rodaje con una tira por escena) | Stripboard |
 | Calendario | Calendar |
 | Presupuesto | Budget |
 | Hoja de llamado | Call Sheet |
@@ -144,6 +145,8 @@ botones) se aplican tal cual en todo el programa y en los PDF; las frases los us
 |---|---|
 | Jornada · Jornada 1 | Shoot Day · Day 1 |
 | Jornadas | Shoot Days |
+| Tiras del stripboard: INT. día · EXT. día · INT. noche · EXT. noche · amanecer o atardecer | Strips: INT. day · EXT. day · INT. night · EXT. night · dawn or dusk |
+| Locación de rodaje | Shooting Location |
 | Por actor (vista) | By Cast |
 | Días por actor | Day Out of Days (DOOD) |
 | Códigos de días por actor: I · T · E · F · IF | DOOD codes: SW · W · H · WF · SWF |
@@ -157,7 +160,7 @@ botones) se aplican tal cual en todo el programa y en los PDF; las frases los us
 | Leyenda | Legend |
 | Resaltar | Highlight |
 | Preproducción · Rodaje · Posproducción · Otras fechas | Pre-production · Production · Post-production · Other dates |
-| Meses · Línea de tiempo · Tablero | Months · Timeline · Board |
+| Meses · Tablero · Línea de tiempo | Months · Board · Timeline |
 | Tarea · Responsable · Área | Task · Owner · Department |
 | Lista de pendientes | Checklist |
 | Hecha | Done |
@@ -183,6 +186,11 @@ botones) se aplican tal cual en todo el programa y en los PDF; las frases los us
 | Catering | Craft Services / Catering |
 | Nota para el equipo | Crew Notes |
 | Próxima jornada | Advance Schedule (next day) |
+| Avance (la jornada siguiente en la hoja de llamado) | Advance Schedule |
+| Utilería especial | Special props |
+| Canales de radio | Radio channels |
+| Personas (la tabla del reparto y el equipo) | People |
+| Fin de rodaje | That's a wrap |
 | Hoja de script | Script Supervisor Report |
 | Toma · Tomas | Take · Takes |
 | Buena · NG | Print (circled) · NG |

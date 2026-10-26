@@ -148,8 +148,9 @@ test('hoja de llamado: sin centro de salud, el aviso lo pide y su fila queda mar
   run(`P.callsheet.hospital = { name: '', addr: '', phone: '' }; for (const d of Object.values(P.callsheet.days || {})) if (d && d.hosp) d.hosp = {};`);
   const miss = JSON.parse(run(`JSON.stringify(callMissing(0).map(x => x.k))`));
   assert.ok(miss.includes('hosp'), 'callMissing no pide el centro de salud: ' + miss);
-  const h = head(A.show('call'), 'cl-hd');
-  has(h, /data-bind="cs-hosp" data-f="name"[^>]*data-miss="1"/);
+  // (lote U) el centro de salud va al pie de la hoja, como en la referencia (antes, en la cabecera)
+  const h = A.show('call');
+  has(h, /<footer class="cl-foot">[^]*data-bind="cs-hosp" data-f="name"[^>]*data-miss="1"/);
 });
 
 /* ---------- desglose (mejora 7) ---------- */

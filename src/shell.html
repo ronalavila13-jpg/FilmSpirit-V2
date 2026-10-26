@@ -694,13 +694,26 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .pl-start b{color:var(--ink)}
 .pl-start-b{display:flex;gap:6px;flex-wrap:wrap}
 .pl-scroll{overflow-x:auto;margin-inline:-4px;padding:0 4px 6px}
-.pl{--pl-cols:150px 50px 66px minmax(240px,1.7fr) 112px 46px 46px 38px minmax(140px,1fr) minmax(140px,1fr);--evd:5;
-  min-width:var(--pl-min,1090px);display:grid;gap:12px;position:relative;color:var(--ink)}
-.pl.no-fig{--evd:4}
+/* (lote U) columnas como la referencia: asa · Esc. · I/E · Locación (con su sinopsis) · D/N · Reparto · Fig. · Locación de
+   rodaje · Págs. · Pág. · Tiempo · notas · hoja de desglose · ⋮ (--evd: lo que ocupa el detalle de un evento) */
+.pl{--pl-cols:24px 52px 42px minmax(280px,1.7fr) 78px 112px 46px minmax(150px,1fr) 58px 40px 68px minmax(140px,1fr) minmax(140px,1fr) 34px 34px;--evd:6;
+  min-width:var(--pl-min,1290px);display:grid;gap:12px;position:relative;color:var(--ink)}
+.pl.no-fig{--evd:5}
 .pl.no-fig .c-fig,.pl.no-tech .c-tech,.pl.no-obs .c-obs{display:none}
 .pl-head{display:grid;grid-template-columns:var(--pl-cols);font-size:var(--fs-2);font-weight:600;color:var(--muted);padding:0;margin:2px 0 -6px}
-.pl-head span{padding:0 8px}
+.pl-head{align-items:center}
+.pl-head>*{padding:0 6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-head .r{text-align:right}
+/* (lote U) los títulos que ordenan: tocar uno ordena las escenas dentro de cada jornada; la flechita dice el sentido */
+.pl-head .srt{display:flex;align-items:center;gap:3px;height:24px;border:0;background:none;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:var(--r-xs)}
+.pl-head .srt>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pl-head .srt.r{justify-content:flex-end}
+.pl-head .c-esc{justify-content:center}
+.pl-head .srt .ar{display:none;font-style:normal;font-size:11px;flex:none}
+.pl-head .srt:hover,.pl-head .srt:focus-visible{color:var(--ink);background:var(--fill)}
+.pl-head .srt:hover .ar,.pl-head .srt:focus-visible .ar{display:inline;opacity:.55}
+.pl-head .srt.on{color:var(--ink)}
+.pl-head .srt.on .ar{display:inline;opacity:1}
 .pl-stage{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:10px 2px 0;color:var(--ink);font-size:var(--fs-3)}
 .pl-stage::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--stg);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .pl-stage b{font-size:var(--fs-5);font-weight:700}
@@ -738,9 +751,13 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 2px 2px 0;background:var(--rb,transparent)}
 .prow>*{padding:6px 8px;display:flex;align-items:center;min-width:0}
 .prow:not(.brk)>:first-child{padding-left:14px}
+/* (lote U) el asa para arrastrar, al comienzo de cada fila */
+.prow:not(.brk)>.c-grip{padding:0;justify-content:center;color:var(--muted);opacity:.5}
+.prow:hover>.c-grip{opacity:.9}
+.prow .c-grip .ic{width:14px;height:14px}
 .prow.ev{background:color-mix(in srgb,var(--rc,var(--fill)) calc(var(--tint) * 2.5),var(--surface));font-weight:600;min-height:46px}
 .prow.sel{box-shadow:inset 0 0 0 2px var(--accent);z-index:1}
-.prow .c-hd em{font-style:normal;font-weight:600;color:var(--muted)}
+.prow .c-set em{font-style:normal;font-weight:600;color:var(--muted);text-transform:none}
 .prow.part .c-esc{font-style:italic}
 .prow select.e8{width:100%;min-width:0;background:var(--fill);border:0;border-radius:var(--r-xs);font:inherit;font-weight:650;color:inherit;padding:3px 2px;text-align:right}
 .prow input,.prow textarea{width:100%;min-width:0;background:transparent;border:1px solid transparent;border-radius:var(--r-sm);font:inherit;color:inherit;padding:5px 7px;outline:none;box-shadow:none}
@@ -765,22 +782,41 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .wfld:focus-within>.wfld-v{visibility:hidden}
 .prow .c-loc input::placeholder{color:var(--muted)}
 .prow .c-t input{font-weight:650;font-variant-numeric:tabular-nums}
-.prow .c-esc{font:inherit;font-weight:750;font-size:var(--fs-5);background:none;border:0;color:inherit;cursor:pointer;justify-content:center;border-radius:var(--r-sm);margin:6px 2px;padding:0;font-variant-numeric:tabular-nums}
-.prow .c-esc:hover{background:var(--fill)}
-.prow .c-hd{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding-block:9px}
-.prow .c-hd b{font-weight:650;line-height:1.3;font-size:var(--fs-3)}
-.prow .c-hd small{font-size:var(--fs-2);color:var(--muted);font-style:normal;line-height:1.35;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.prow .c-esc{font-weight:750;font-size:var(--fs-5);justify-content:center;font-variant-numeric:tabular-nums}
+.prow .c-ie,.prow .c-dn{font-size:var(--fs-2);font-weight:650;letter-spacing:.02em}
+/* la locación del guion en negrita y su sinopsis debajo, en una línea */
+.prow .c-set{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding-block:8px}
+.prow .c-set b{font-weight:700;line-height:1.3;font-size:var(--fs-3);text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
+.prow .c-set small{display:block;max-width:100%;font-size:var(--fs-2);color:var(--muted);font-style:normal;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .m-only{display:none}
 .prow .c-cast{flex-wrap:wrap;gap:4px;align-content:center}
-.prow .c-cast i{font-style:normal;display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 7px;border-radius:2px;background:var(--fill);font-size:var(--fs-2);font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* el reparto en números con su círculo (por nombre, como texto) */
+.prow .c-cast .cn{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;border:1.5px solid color-mix(in srgb,currentColor 70%,transparent);font-size:var(--fs-1);font-weight:750;font-variant-numeric:tabular-nums;line-height:1}
+.prow .c-cast .cnm{font-weight:650;font-size:var(--fs-2)}
+.prow .c-cast .cnm:not(:last-child)::after{content:","}
 .prow .c-cast .none{color:var(--muted)}
+.prow .pl-addcast,.prow .pbd{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:var(--r-xs);background:none;color:var(--muted);cursor:pointer;padding:0}
+.prow .pl-addcast{border:1.5px dashed color-mix(in srgb,currentColor 55%,transparent);border-radius:999px;width:26px;height:26px}
+.prow :is(.pl-addcast,.pbd):hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
+.prow :is(.pl-addcast,.pbd) .ic{width:16px;height:16px}
+.prow .c-loc{gap:2px}
+.prow .c-loc>.ic{flex:none;width:15px;height:15px;color:var(--muted)}
+/* las páginas como en una tira: el entero grande y la fracción chica (1 ³⁄₈) */
+.prow .c-pgs .e8{display:inline-flex;align-items:center;gap:2px;font-variant-numeric:tabular-nums}
+.prow .c-pgs .e8 b{font-size:var(--fs-5);font-weight:750}
+.prow .c-pgs .fr{display:inline-flex;align-items:center;font-size:12px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.prow .c-pgs .fr sup{align-self:flex-start;font-size:inherit;vertical-align:0;line-height:1}
+.prow .c-pgs .fr sub{align-self:flex-end;font-size:inherit;vertical-align:0;line-height:1}
+.prow .c-bd,.prow .c-more{justify-content:center;padding-inline:0}
 .prow .c-fig input{text-align:right}
 .prow .c-n{justify-content:flex-end;font-weight:650;font-variant-numeric:tabular-nums}
 .prow .c-pg{color:var(--muted);font-weight:500}
-.prow .c-evn{grid-column:span 2;gap:2px}
+.prow .c-evn{grid-column:span 3;gap:2px}
 .prow .c-evd{grid-column:span var(--evd)}
 .prow .c-evd input{font-weight:400}
-.prow .pmore{border:0;background:none;color:inherit;cursor:pointer;font-weight:800;padding:3px 7px;border-radius:var(--r-xs);color:var(--muted)}
-.prow .pmore:hover{background:var(--fill);color:var(--ink)}
+.prow .pmore{display:grid;place-items:center;width:28px;height:28px;border:0;background:none;cursor:pointer;padding:0;border-radius:var(--r-xs);color:var(--muted)}
+.prow .pmore .ic{width:18px;height:18px}
+.prow .pmore:hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
 .prow.empty{grid-template-columns:minmax(0,1fr);background:var(--surface)}
 .prow.empty .c-empty{font-size:var(--fs-3);color:var(--muted)}
 .prow.brk{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:10px 16px;font-size:var(--fs-3);min-height:44px;background:var(--brk-bg);color:var(--brk-ink);border-top:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:filter .15s}
@@ -853,39 +889,46 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 @media (max-width:760px){
   .pl-scroll{overflow:visible;margin:0;padding:0}
   .pl{min-width:0}
-  .pl-head{display:none}
   .pstart{gap:6px 12px;padding:9px 12px}
-  /* dos líneas por escena: n.º, encabezado y sinopsis en una línea cada uno, octavos | hora, locación, reparto */
-  .prow.sc{grid-template-columns:54px minmax(0,1.1fr) minmax(0,1fr) auto;min-height:0;padding:1px 0 3px 2px}
+  /* (lote U) cada escena en dos líneas: el número, la locación del guion (con I/E · D/N y la sinopsis debajo) y las
+     páginas; abajo la locación de rodaje, el reparto, el tiempo y el menú ⋮. Sin asa (se mantiene el dedo), sin la
+     página ni la hoja de desglose (van en ⋮ › Ver en) */
+  .prow.sc{grid-template-columns:40px minmax(0,1fr) auto auto auto 34px;min-height:0;padding:2px 0 4px 2px}
   .prow.sc::before{top:6px;bottom:6px}
   .prow.sc>*{padding:2px 6px}
-  .prow.sc>.c-esc{grid-column:1;grid-row:1;margin:3px 2px 0;min-height:0;font-size:var(--fs-4)}
-  .prow.sc>.c-hd{grid-column:2/4;grid-row:1;padding-block:5px 1px;gap:0}
-  .prow.sc>.c-hd small{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  /* el encabezado en una línea: se recorta el lugar, no el momento del día (DÍA, NOCHE…) */
-  .prow.sc>.c-hd b{display:flex;max-width:100%;min-width:0;white-space:nowrap;font-size:var(--fs-2);line-height:1.35}
-  .prow.sc>.c-hd b>.hm{min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .prow.sc>.c-hd b>.ht,.prow.sc>.c-hd b>em{flex:none;white-space:pre}
-  .prow.sc>.c-hd small{-webkit-line-clamp:unset;line-height:1.35}
-  .prow.sc>.c-e8{grid-column:4;grid-row:1;padding-top:5px;align-items:flex-start}
-  .prow.sc>.c-pg{display:none}
-  .prow.sc>.c-t{grid-column:1;grid-row:2;padding:0 2px;align-content:center}
-  .prow.sc>.c-t input{padding:1px 2px}
-  .prow.sc>.c-t .c-dur{margin-top:-1px}
-  .prow.sc>.c-loc{grid-column:2;grid-row:2;padding:0 2px 0 0}
+  .prow.sc>:is(.c-grip,.c-ie,.c-dn,.c-pg,.c-bd){display:none}
+  .prow.sc>.c-esc{grid-column:1;grid-row:1;align-items:flex-start;padding-top:7px;font-size:var(--fs-4)}
+  .prow.sc>.c-set{grid-column:2/6;grid-row:1;padding-block:6px 0;gap:0}
+  .prow.sc>.c-set b{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-2);line-height:1.4}
+  .prow.sc>.c-set .m-only{display:inline;font-weight:650}
+  .prow.sc>.c-set .m-only.sep::after{content:" · "}
+  .prow.sc>.c-set.th{padding-left:66px;min-height:40px}
+  .prow.sc .pl-th{left:6px;width:52px}
+  .prow.sc>.c-pgs{grid-column:6;grid-row:1;align-items:flex-start;justify-content:flex-end;padding-top:6px}
+  .prow.sc>.c-loc{grid-column:1/3;grid-row:2;padding:0 2px 0 8px}
   .prow.sc>.c-loc input{padding:2px 4px}
   .prow.sc>.c-loc .wfld-v{padding:3px 5px}
-  .prow.sc>.c-cast{grid-column:3;grid-row:2;padding:0 4px;justify-content:flex-end;gap:3px}
-  .prow.sc>.c-cast i{min-width:20px;height:20px;padding:0 5px}
+  .prow.sc>.c-cast{grid-column:3;grid-row:2;padding:0 4px;justify-content:flex-end;gap:3px;flex-wrap:nowrap}
+  .prow.sc>.c-cast .cn{min-width:20px;height:20px}
   .prow.sc>.c-fig{grid-column:4;grid-row:2;padding:0 4px 0 0;width:48px}
   .prow.sc>.c-fig input{padding:2px 4px}
   .prow.sc>.c-fig input:placeholder-shown:not(:focus){opacity:0}
+  .prow.sc>.c-t{grid-column:5;grid-row:2;padding:0 2px;align-content:center;width:68px}
+  .prow.sc>.c-t input{padding:1px 2px}
+  .prow.sc>.c-more{grid-column:6;grid-row:2;padding:0}
   .prow.sc>.c-tx{grid-column:1/-1;padding:0 6px 4px}
-  .prow.ev{grid-template-columns:minmax(0,1fr) 74px;padding-left:6px}
+  .prow.ev{grid-template-columns:minmax(0,1fr) 74px 34px;padding-left:6px}
+  .prow.ev>:is(.c-grip,.c-bd){display:none}
   .prow.ev>.c-evn{grid-column:1;grid-row:1}
   .prow.ev>.c-t{grid-column:2;grid-row:1}
+  .prow.ev>.c-more{grid-column:3;grid-row:1;padding:0}
   .prow.ev>.c-evd{grid-column:1/-1;grid-row:2;padding-top:0}
   .prow.ev>.c-tx{grid-column:1/-1;padding-top:0}
+  /* los títulos que ordenan, como fichas en una fila (los demás no se ven) */
+  .pl-head{display:flex;flex-wrap:nowrap;gap:4px;margin:0 -2px -4px;padding:0 2px 2px;align-items:center;overflow-x:auto;scrollbar-width:none}
+  .pl-head>:not(.srt){display:none}
+  .pl-head .srt{flex:none;height:30px;padding:0 10px;border-radius:999px;background:var(--fill);font-size:var(--fs-1);color:var(--ink)}
+  .pl-head .srt .ar{opacity:.55}
   .prow>.c-tx:has(textarea:placeholder-shown):not(:focus-within):not(.open){display:none}
 }
 
@@ -2752,6 +2795,179 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cs .hint{color:var(--muted)}
 /* hoja de llamado (1.2): en el orden de una orden de rodaje, en bloques compactos */
 .cs.cl{max-width:1320px;gap:10px;background:transparent}
+/* ---------- (lote U) la hoja de llamado como la referencia: una página que se lee de un vistazo ----------
+   arriba la marca y el estado; tres columnas (productora y equipo clave · proyecto, jornada, fecha y llamado general en
+   grande · clima, punto de encuentro y locación); la nota y la utilería especial al centro; el cronograma en lista; el
+   avance; una sola tabla de personas; al pie el centro de salud y los canales de radio. Después, lo que la referencia no
+   tiene (por plano, horarios del reparto, punto de encuentro con fotos, movilidad y proveedores) */
+.cl-doc{background:var(--surface);border:var(--l1) solid var(--card-line);border-radius:var(--r);padding:12px 26px 18px;display:grid;gap:20px;min-width:0}
+.cl-doc>.cl-hd{margin:0;display:grid;gap:14px}
+.cl-acts{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding-bottom:10px;border-bottom:var(--l1) solid var(--line-2)}
+.cl-mark{font-size:11px;color:var(--muted);letter-spacing:.02em}
+.cl-mark b{font-weight:750;color:var(--ink)}
+.cl-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+.cl-c1,.cl-c3{display:grid;gap:11px;align-content:start;font-size:var(--fs-3);min-width:0}
+.cl-c2{display:grid;justify-items:center;text-align:center;gap:3px;padding-inline:14px;border-inline:var(--l1) solid var(--line-2);min-width:0}
+.cl-co{font:700 16px/1.25 var(--font-display);color:var(--ink)}
+.cl-clogo{max-height:36px;max-width:150px;object-fit:contain;justify-self:start}
+.cl-kc{display:grid;gap:1px;min-width:0}
+.cl-kl{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cl-kc b{font-weight:650}
+.cl-kp{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cl-kp a{color:inherit;text-decoration:none}
+.cl-kp .ic{width:13px;height:13px;flex:none}
+.cl-dim{color:var(--muted)}
+.cl-plogo{max-height:58px;max-width:230px;object-fit:contain}
+.cl-ttl{margin:0;font:750 26px/1.15 var(--font-display);letter-spacing:-.01em;color:var(--ink)}
+.cl-jn{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:4px 8px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cl-jn .hd-step{margin:0}
+.cl-ep{letter-spacing:0;text-transform:none;font-weight:650}
+.cl-date{font:650 19px/1.25 var(--font-display);color:var(--ink);margin-top:1px}
+.cl-callg{display:grid;justify-items:center;margin-top:6px}
+.cl-big{display:inline-flex;align-items:center;gap:6px}
+.cl .cl-big input.tm{font:750 44px/1.05 var(--font-display);width:4.3ch;text-align:center;padding:0 2px;letter-spacing:-.02em;color:var(--ink)}
+.cl .cl-big input.tm::placeholder{color:var(--ink)}
+.cl .cl-big input.tm[data-miss]::placeholder{color:var(--warn-text)}
+.cl-sub{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 14px;font-size:var(--fs-2);color:var(--muted)}
+.cl-sub label{display:inline-flex;align-items:center;gap:3px}
+.cl .cl-sub input{width:60px;font-weight:700;color:var(--ink);text-align:center;padding:2px 4px}
+.cl .cl-sub .cl-craft input{width:130px;font-weight:500;text-align:left}
+.cl .cl-sub input.hd-auto::placeholder{color:var(--ink)}
+.cl-sum{font-size:var(--fs-2);color:var(--muted)}
+.cl-ir{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;align-items:start;min-width:0}
+.cl-ir>.ic{width:18px;height:18px;margin-top:5px;color:var(--muted)}
+.cl-irb{border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:var(--r-xs)}
+.cl-irb>span{padding-top:3px}
+.cl-irb small{display:block;color:var(--muted);font-size:var(--fs-2)}
+.cl-irb:hover b{text-decoration:underline}
+.cl-wx{display:grid;gap:1px;min-width:0}
+.cl .cl-wx .cl-temp{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:2px 4px;color:var(--muted);font-size:var(--fs-2);width:auto}
+.cl .cl-wx .cl-temp input{width:44px;max-width:none;text-align:center !important;color:var(--ink);font-weight:650;padding:2px 3px}
+.cl-sunr{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:var(--fs-2);color:var(--muted)}
+.cl-sunr label{display:inline-flex;align-items:center;gap:3px}
+.cl .cl-sunr input.tm{width:58px;font-weight:650;color:var(--ink);text-align:center;padding:2px 3px}
+.cl .cl-park{padding-block:3px}
+.cl-irl>div{display:grid;gap:1px;min-width:0}
+.cl-irl b{font-weight:700}
+.cl-irl small{color:var(--muted);font-size:var(--fs-2)}
+.cl-map{justify-self:start;margin-top:3px;font-weight:650;font-size:var(--fs-2);color:var(--accent-text)}
+/* la nota del 1.er asistente y la utilería especial, al centro */
+.cl-notes{display:grid;justify-items:center;gap:8px;text-align:center}
+.cl-notes:empty{display:none}
+.cl-notes .cl-note{width:min(100%,760px)}
+.cl-notes .cl-noteadd{width:min(100%,560px);text-align:left}
+.cl-util{margin:0;font-size:var(--fs-3);max-width:780px;line-height:1.45}
+.cl-util b{font-weight:700}
+/* las secciones de la hoja: el título con una regla firme debajo */
+.cl-sec{display:grid;gap:4px;min-width:0}
+.cl-sec>header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;border-bottom:calc(var(--l2) * .75) solid var(--ink);padding-bottom:5px}
+.cl-sec>header h3{margin:0;font-size:var(--fs-5)}
+.cl-sec>header .linkbtn{margin-left:auto}
+/* el cronograma en lista: hora o número de escena · I/E · encabezado, sinopsis y reparto · D/N · páginas */
+.cl-list{width:100%;border-collapse:collapse;font-size:var(--fs-3)}
+.cl-list th{text-align:left;font-size:var(--fs-1);font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:5px 8px;white-space:nowrap}
+.cl-list td{padding:7px 8px;vertical-align:top;border-top:var(--l1) solid var(--line-2)}
+.cl-list th:nth-child(1){width:84px}.cl-list th:nth-child(2){width:44px}.cl-list th:nth-child(4){width:86px}.cl-list th:last-child{width:60px;text-align:right}
+.cl-advt th:nth-child(5){width:96px}
+.cl-list .m-only{display:none}
+.cl-ln{white-space:nowrap}
+/* la franja de la tira de cada escena (un poco más oscura: la de interior de día es blanca) */
+.cl-lsc .cl-ln{box-shadow:inset 4px 0 0 color-mix(in srgb,var(--rc) 80%,var(--ink));padding-left:13px}
+.cl-sn{display:block;font:750 var(--fs-5)/1.15 var(--font-ui);font-variant-numeric:tabular-nums}
+.cl-lsd b{display:block;font-weight:700;text-transform:uppercase;letter-spacing:.01em;line-height:1.3}
+.cl-lsd b em{font-style:normal;text-transform:none;font-weight:600;color:var(--muted)}
+.cl-syn{display:block;color:var(--muted);font-size:var(--fs-2);line-height:1.4;margin-top:1px}
+.cl-lc{display:block;font-size:var(--fs-2);margin-top:3px;font-weight:600}
+.cl-lie,.cl-ldn{font-size:var(--fs-2);font-weight:650}
+.cl-lpg{text-align:right;font-weight:700;white-space:nowrap}
+.cl-lcn{font-weight:650}
+.cl-lev td{background:color-mix(in srgb,var(--rc,var(--fill)) 50%,var(--surface));vertical-align:middle}
+.cl-lev td b{font-weight:700}
+.cl-lev td span{margin-left:10px;color:var(--muted)}
+/* el traslado: una banda celeste a todo el ancho, con su dirección y el mapa */
+.cl-lmv td{background:#DDEFFC;vertical-align:middle}
+.cl-mvb{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.cl-mvb .ic{width:18px;height:18px;flex:none}
+.cl-mvb b{font-weight:700}
+.cl-mvb a{font-weight:650;color:var(--accent-text)}
+.cl-lend td{border-top:calc(var(--l2) * .75) solid var(--ink);vertical-align:middle}
+.cl-lend b{font-weight:700}
+.cl-tot{margin:2px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:flex-end;font-size:var(--fs-3);color:var(--muted)}
+.cl-tot b{color:var(--ink)}
+.cl-fin{margin:0;padding:12px 0 4px;font:700 var(--fs-5) var(--font-display);text-align:center}
+/* las horas que se tocan: el borde del campo se ve al pasar el mouse (en el teléfono, siempre) */
+.cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr,.cl-big) input.tm:not(:disabled){border:1px solid transparent;border-radius:var(--r-xs);background:transparent}
+.cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr,.cl-big) input.tm:not(:disabled):hover{border-color:color-mix(in srgb,var(--ink) 38%,transparent);background:var(--surface)}
+.cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr,.cl-big) input.tm:not(:disabled):focus{border-color:var(--accent);background:var(--surface)}
+.cl .cl-ln input.tm{display:block;width:62px;margin-top:2px;padding:1px 4px;font-weight:650;font-size:var(--fs-2);color:var(--ink);font-variant-numeric:tabular-nums}
+.cl .cl-lev .cl-ln input.tm,.cl .cl-lmv .cl-ln input.tm{font-size:var(--fs-3);font-weight:700;margin-top:0}
+.cl .cl-ln input.tm::placeholder{color:var(--ink);opacity:.85}
+.cl :is(.cl-ln,.cl-sub,.cl-sunr,.cl-big,.cl-c3,.cl-tt) input::placeholder{font-style:normal}
+.cl-lend .cl-lpg small{font-size:var(--fs-1);font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cl .cl-pc input.tm:not(:disabled){border-color:color-mix(in srgb,var(--ink) 16%,transparent)}
+@media (hover:none){ .cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr) input.tm:not(:disabled){border-color:color-mix(in srgb,var(--ink) 28%,transparent)} }
+/* una sola tabla de personas: el área es un separador fino */
+.cl-ptbl th:nth-child(1){width:25%}.cl-ptbl th:nth-child(2){width:25%}.cl-ptbl th:nth-child(3){width:76px}.cl-ptbl th:nth-child(4){width:17%}.cl-ptbl th:nth-child(6){width:32px}
+.cl .cl-ptbl td{vertical-align:middle;padding:2px 6px}
+.cl-sep td{padding:12px 8px 3px !important;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:0}
+.cl-sep .cs-add{display:inline-grid;margin:0 0 0 6px;width:22px;height:22px;font-size:16px;vertical-align:-5px}
+.cl-sep input.tm{font-size:var(--fs-2);letter-spacing:0}
+.cl-ptbl .cl-pn input{font-weight:650}
+.cl-ptbl .cl-pr input{color:var(--muted)}
+.cl-ptbl .cl-pj{white-space:nowrap}
+.cl-ptbl .cl-pj small{display:inline;margin-left:8px}
+.cl-ptbl .cl-tt input{width:62px;font-weight:700;text-align:center}
+.cl-ptbl input[type=tel],.cl-ptbl input[type=email]{font-size:var(--fs-2);color:var(--muted)}
+.cl-ptbl input[type=tel]:focus,.cl-ptbl input[type=email]:focus{color:var(--ink)}
+.cl-ptbl tr:hover .cs-x{opacity:1}
+.cl-people .cs-folds,.cl-people .cs-out{margin-left:8px;margin-right:8px}
+/* el pie: centro de salud y canales de radio */
+.cl-foot{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;border-top:calc(var(--l2) * .75) solid var(--ink);padding-top:10px}
+.cl-fh,.cl-fr{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:start}
+.cl-fh>.ic,.cl-fr>.ic{width:20px;height:20px;margin-top:2px;color:var(--muted)}
+.cl-fh>div{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:0 6px}
+.cl-fh .cl-kl,.cl-fh input[data-f="addr"]{grid-column:1/-1}
+.cl-fh input[data-f="name"]{font-weight:650}
+.cl-fh input.hd-auto::placeholder{color:var(--ink);font-style:normal}
+.cl .cl-park{resize:none;field-sizing:fixed;min-height:26px;line-height:1.4;padding-block:3px;font-size:var(--fs-3);overflow:hidden}
+.cl-fr>div{display:grid}
+.cl-more{display:grid;gap:10px;margin-top:14px;min-width:0}
+.cl-more .cl-card{border:var(--l1) solid var(--card-line);border-radius:var(--r)}
+:root[data-tone="dark"] .cl-lmv td{background:color-mix(in srgb,#5AA9E6 24%,var(--surface))}
+:root[data-tone="dark"] .cl-lev td{background:color-mix(in srgb,var(--rc,var(--fill)) 14%,var(--surface))}
+@media (max-width:760px){
+  .cl-doc{padding:10px 12px 16px}
+  .cl-top{grid-template-columns:minmax(0,1fr);gap:14px}
+  .cl-c2{order:-1;border-inline:0;border-bottom:var(--l1) solid var(--line-2);padding:0 0 12px}
+  .cl .cl-big input.tm{font-size:40px}
+  /* el cronograma y el avance como filas de una cuadrícula: la hora o el número, la escena (con I/E · D/N) y las páginas */
+  .cl-list,.cl-list tbody{display:block}
+  .cl-list thead{display:none}
+  .cl-list tr{display:grid;grid-template-columns:64px minmax(0,1fr) auto;border-top:var(--l1) solid var(--line-2)}
+  .cl-advt tr{grid-template-columns:44px minmax(0,1fr) auto auto}
+  .cl-list td{border-top:0;padding:6px 5px}
+  .cl-list td.cl-lie,.cl-list td.cl-ldn{display:none}
+  .cl-list td[colspan]{grid-column:2/-1}
+  .cl-list tr.cl-lmv td[colspan]{grid-column:2/-1}
+  .cl-list .m-only{display:block;font-size:var(--fs-1);font-weight:650;color:var(--muted);margin-top:1px}
+  .cl-lsc .cl-ln{padding-left:10px}
+  .cl .cl-ln input.tm{width:52px;padding-inline:3px}
+  .cl-ptbl thead{display:none}
+  .cl-ptbl,.cl-ptbl tbody{display:block}
+  .cl-ptbl tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 68px 30px;border-top:var(--l1) solid var(--line-2);padding:4px 0}
+  .cl .cl-ptbl td{border:0;padding:1px 4px}
+  .cl-ptbl td:nth-child(1){grid-column:1/3;grid-row:1}
+  .cl-ptbl td:nth-child(2){grid-column:1/-1;grid-row:2}
+  .cl-ptbl td:nth-child(3){grid-column:3;grid-row:1}
+  .cl-ptbl td:nth-child(4){grid-column:1;grid-row:3}
+  .cl-ptbl td:nth-child(5){grid-column:2/-1;grid-row:3}
+  .cl-ptbl td:nth-child(6){grid-column:4;grid-row:1}
+  .cl-ptbl tr.cl-sep{display:flex;align-items:center;border-top:0;padding-top:8px}
+  .cl-ptbl tr.cl-sep td{padding:0 4px !important}
+  .cl-ptbl tr.cl-sep td:empty{display:none}
+  .cl-foot{grid-template-columns:minmax(0,1fr);gap:12px}
+  .cl-sec>header .linkbtn{margin-left:0}
+}
 /* la locación, el dato que se busca primero: grande, con su dirección debajo y «Ver mapa» al lado */
 a.cl-maps{color:var(--ink)}   /* botones, no enlaces azules */
 /* la cabecera de la hoja (lote I): la locación de la tarjeta, la nota y los campos que siguen al plan o a Proyecto */
@@ -3412,7 +3628,7 @@ body.sweeping,body.sweeping *{user-select:none!important}
 .pday.lifted{max-height:48px;overflow:hidden;outline:1.5px dashed var(--accent);outline-offset:-1px;border-radius:var(--r-sm);opacity:.75}
 .pday.lifted .pday-rows{visibility:hidden}
 .pday.target{box-shadow:inset 3px 0 0 var(--accent)}
-.prow .c-t{display:grid;align-content:start;gap:0;padding-inline:4px}
+.prow .c-t{display:grid;align-content:center;gap:0;padding-inline:4px}
 .prow .c-t input{padding-inline:4px}
 .prow .c-t input::placeholder{color:var(--ph);font-weight:500}
 .c-dur{font-size:var(--fs-1);color:var(--muted);line-height:1;padding-left:2px;white-space:nowrap}
@@ -3732,7 +3948,7 @@ td>.nb{top:50%;right:6px;transform:translateY(-50%)}
 td>.nb:hover{transform:translateY(-50%) scale(1.1)}
 .scn>.nb{top:-2px;left:auto;right:calc(100% + 8px);visibility:visible}
 .sb-scene>header>.nb,summary>.nb.nb-sum{position:relative;top:auto;right:auto;margin-left:8px;vertical-align:middle}
-.prow>.nb{top:3px;right:3px}
+.prow>.nb{top:3px;right:38px}   /* (lote U) a la izquierda del menú ⋮ */
 .note-hover{outline:2px dashed var(--accent)!important;outline-offset:2px}
 .note-flash{animation:noteFlash 1.6s ease-out}
 @keyframes noteFlash{0%,55%{box-shadow:0 0 0 3px var(--note)}100%{box-shadow:0 0 0 0 transparent}}
@@ -3827,10 +4043,9 @@ button.np-a:hover{background:var(--fill)}
 /* ---------- estructura común a todos los estilos (Color, Clásico claro y oscuro) ---------- */
 /* stripboard: los números del reparto como texto de la fila (no parecen botones) y líneas verticales cortas
    entre columnas, que no llegan a tocar las horizontales */
-.prow .c-cast{gap:2px 10px}
-.prow .c-cast i{min-width:0;height:auto;padding:0;background:none;border-radius:0;font-size:var(--fs-3);font-weight:700}
+.prow .c-cast{gap:4px 4px}
 .prow.sc>*:not(:last-child){position:relative}
-.prow.sc>*:not(:last-child)::after{content:"";position:absolute;right:0;top:calc(13px + (100% - 26px) * .15);bottom:calc(13px + (100% - 26px) * .15);width:1px;background:var(--vline,var(--line));pointer-events:none}
+@media (min-width:761px){ .prow.sc>:is(.c-esc,.c-ie,.c-set,.c-dn,.c-cast,.c-fig,.c-loc,.c-pgs,.c-pg,.c-t,.c-tech)::after{content:"";position:absolute;right:0;top:calc(13px + (100% - 26px) * .15);bottom:calc(13px + (100% - 26px) * .15);width:1px;background:var(--vline,var(--line));pointer-events:none} }
 /* Compartir: al pasar el mouse, verde (cercano al de WhatsApp) */
 #shareBtn:hover{background:#3FB96D;border-color:#3FB96D;color:#08321A}
 /* calendario: menos divisiones (las filas sin líneas entre sí, los días con líneas muy suaves) */
@@ -4703,6 +4918,9 @@ label:has(>.file-in:focus-visible){outline:2px solid var(--accent);outline-offse
 :root[data-tone="light"] .prow.sc[data-dn="d"]{background:var(--strip-d)}
 :root[data-tone="light"] .prow.sc[data-dn="n"]{background:var(--strip-n)}
 :root[data-tone="light"] .prow.sc{border-top-color:color-mix(in oklab,var(--ink) 28%,transparent)}
+/* (lote U) en la apariencia oscura, las cinco tiras con un velo más fuerte para que se distingan (la letra sigue clara) */
+:root[data-tone="dark"] .prow.sc{background:color-mix(in srgb,var(--rc,var(--surface)) 21%,var(--surface))}
+:root[data-tone="dark"] .prow.sc[data-strip="di"]{background:color-mix(in srgb,#FFFFFF 10%,var(--surface))}
 :root[data-tone="light"] .supsc[data-dn="d"]>header{background:var(--strip-d);border-bottom:0}
 :root[data-tone="light"] .supsc[data-dn="n"]>header{background:var(--strip-n);border-bottom:0}
 /* sobre el color entero, los textos secundarios salen de la tinta (no de un gris que se pierde) */
@@ -5088,8 +5306,8 @@ details.sec .tbl th:nth-child(2){width:64px}details.sec .tbl th:nth-child(3){wid
 details.sec .tbl td,details.sec .tbl th{padding-inline:10px}
 .prow>*{padding:7px 10px}
 /* miniatura del storyboard: en el stripboard (primer plano de la escena) y en cada plano del cronograma de la hoja */
-.prow .c-hd.th{position:relative;padding-left:96px;min-height:58px}
-.pl-th{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:76px;aspect-ratio:16/9;object-fit:cover;border-radius:3px;background:var(--fill);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
+.prow .c-set.th{position:relative;padding-left:86px;min-height:52px}
+.pl-th{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:66px;aspect-ratio:16/9;object-fit:cover;border-radius:3px;background:var(--fill);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
 .cl-tbl td.cl-d.th{position:relative;padding-left:96px;min-height:46px}
 .cl-th{position:absolute;left:10px;top:7px;width:76px;aspect-ratio:16/9;object-fit:cover;border-radius:3px;background:var(--fill);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 14%,transparent)}
 .cl-tbl tr.cl-sh td{height:58px}
@@ -5124,7 +5342,7 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
     <button class="tab" data-g="1" role="tab" id="tab-casting" aria-controls="view" data-tab="casting"><span class="n">7</span>Casting</button>
     <button class="tab" data-g="2" role="tab" id="tab-board" aria-controls="view" data-tab="board"><span class="n">4</span>Storyboard</button>
     <button class="tab" data-g="2" role="tab" id="tab-animatic" aria-controls="view" data-tab="animatic"><span class="n">5</span>Animatic</button>
-    <button class="tab" data-g="3" role="tab" id="tab-plan" aria-controls="view" data-tab="plan"><span class="n">6</span>Stripboard</button>
+    <button class="tab" data-g="3" role="tab" id="tab-plan" aria-controls="view" data-tab="plan"><span class="n">6</span>Plan de rodaje</button>
     <button class="tab" data-g="3" role="tab" id="tab-cal" aria-controls="view" data-tab="cal"><span class="n">7</span>Calendario</button>
     <button class="tab" data-g="3" role="tab" id="tab-budget" aria-controls="view" data-tab="budget"><span class="n">8</span>Presupuesto</button>
     <button class="tab" data-g="3" role="tab" id="tab-gastos" aria-controls="view" data-tab="gastos" hidden><span class="n">9</span>Gastos</button>

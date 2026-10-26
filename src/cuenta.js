@@ -30,7 +30,7 @@ const PAY_TX = {
   es: {
     all: 'Todo lo que incluye cada plan', title: 'Planes de FilmSpirit', you: 'Tu plan',
     rows: ['Guiones', 'Coescritura', 'Proyectos de producción activos', 'Personas por proyecto de producción', 'Espacio'],
-    more: ['Editor de guion e importación (Final Draft, Fountain, PDF)', 'PDF del guion sin marca de agua', 'Desglose, stripboard, calendario, hoja de llamado y presupuesto', 'Storyboard 2D y 3D y animatic', 'Fotos y exportaciones sin marca de agua', 'Equipo con permisos por área', 'Scouting con mapas y casting', 'Plantillas de productora, varios administradores y resumen de proyectos', 'Proyectos archivados'],
+    more: ['Editor de guion e importación (Final Draft, Fountain, PDF)', 'PDF del guion sin marca de agua', 'Desglose, plan de rodaje, calendario, hoja de llamado y presupuesto', 'Storyboard 2D y 3D y animatic', 'Fotos y exportaciones sin marca de agua', 'Equipo con permisos por área', 'Scouting con mapas y casting', 'Plantillas de productora, varios administradores y resumen de proyectos', 'Proyectos archivados'],
     unl: 'Sin límite', people: '{n} personas', solo: 'Solo tú', text: 'Solo texto', free: 'Gratis', soonTag: 'pronto',
     yes: 'Sí', from: 'Pagas desde', pe: 'Perú · soles · Mercado Pago', intl: 'Otro país · dólares · tarjeta', plan: 'Plan', month: 'Mensual', year: 'Anual', perM: 'al mes', perY: 'al año', code: 'Código de descuento', opt: 'Opcional', apply: 'Aplicar', mpMail: 'Correo de tu cuenta de Mercado Pago', mail: 'Tu correo (para el recibo)',
     freeDays: '<b>Hoy no pagas nada.</b> Tienes {n} días gratis de Pro; el primer cobro es el {date}.', usedTrial: '<b>Se cobra hoy</b> (tu cuenta ya usó la prueba de 30 días).', today: '<b>Se cobra hoy.</b>',
@@ -381,7 +381,7 @@ function freeLimitNotice(kind, msg) {
   const me = APITEAM.me || { plan: 'free', limits: PLAN_DEFAULTS.free };
   const L = me.limits, k = kind || (me.plan === 'free' ? 'guion' : 'prod');
   const text = msg || (k === 'guion' ? `El plan Guion permite ${L.scripts} guiones activos. Archiva uno que terminaste o pasa a Indie, Pro o Studio (guiones sin límite).`
-    : me.plan === 'free' ? 'Los proyectos de producción (desglose, storyboard, stripboard, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Prueba Pro 30 días gratis.'
+    : me.plan === 'free' ? 'Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Prueba Pro 30 días gratis.'
       : me.plan === 'indie' ? `Tu plan Indie permite ${L.projects} proyectos de producción activos. Archiva uno que ya no uses o pasa a Pro (${(me.plans && me.plans.pro.projects) || 7}).`
         : me.plan === 'pro' ? `Tu plan Pro permite ${L.projects} proyectos de producción activos. Archiva uno que ya no uses o pasa a Studio (${(me.plans && me.plans.studio.projects) || 20}).`
           : `Tu plan permite ${L.projects} proyectos de producción activos a la vez. Archiva uno que ya no uses.`);
