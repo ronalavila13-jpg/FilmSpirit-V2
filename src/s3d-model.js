@@ -317,9 +317,9 @@ function s3Default(sh) {
   if (set === 'auto' && !ms && typeof envCarCam === 'function') envCarCam(s3);
   s3ApplyMove(s3, sh.move, shotDur(sh), sh.desc);
   if ((s3.set === 'plano' || s3.set === 'calle') && typeof s3CamInside === 'function') s3CamInside(s3);
-  for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   if (ms && typeof bsLights === 'function') bsLights(s3, P.sets3d[ms]);   // lote W · las luces de un escenario construido
   if (typeof escLocSet === 'function') escLocSet(s3, s && s.loc);   // lote W · la locación (para la escala de la calle)
+  for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   return s3;
 }
 
@@ -500,8 +500,8 @@ function s3Follow(sh, ms) {
   if (s3.set === 'auto' && !s3.set3d && typeof envCarCam === 'function') envCarCam(s3);
   s3ApplyMove(s3, sh.move, shotDur(sh), sh.desc);
   if ((s3.set === 'plano' || s3.set === 'calle') && typeof s3CamInside === 'function') s3CamInside(s3);
-  for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   if (typeof escLocSet === 'function' && typeof sceneOfKey === 'function') escLocSet(s3, (sceneOfKey(sh.sc) || {}).loc);   // lote W
+  for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   return s3;
 }
 
