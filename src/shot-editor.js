@@ -2080,9 +2080,8 @@ function openShotEditor(id, isNew, from2d, waited) {
   function escRow() {
     const T = escTarget(); if (!T) return '';
     const pc = Math.round(T.v * 100), lv = Math.round(Math.log2(T.v) * 100) / 100;
-    return `<div class="esc-row"><label class="rr"><span>Escala</span><input type="range" min="-2" max="2" step="0.01" value="${ea(lv)}" data-k="esc" style="--p:${ea(rangePct(lv, -2, 2))}%" aria-label="Escala del escenario" aria-valuetext="${ea(pc + ' %')}" ${UI.readOnly ? 'disabled' : ''}><output class="tnum">${pc} %</output></label>
-      <button class="btn sm ghost" data-c="escreset" ${pc === 100 || UI.readOnly ? 'disabled' : ''}>Tamaño original</button></div>
-      ${pc !== 100 ? '<p class="hint esc-h">En todos los planos con este escenario. Las figuras no cambian de tamaño.</p>' : ''}`;
+    return `<label class="rr"><span>Escala</span><input type="range" min="-2" max="2" step="0.01" value="${ea(lv)}" data-k="esc" style="--p:${ea(rangePct(lv, -2, 2))}%" aria-label="Escala del escenario" aria-valuetext="${ea(pc + ' %')}" ${UI.readOnly ? 'disabled' : ''}><output class="tnum">${pc} %</output></label>
+      <div class="esc-row"><span class="hint esc-h">${pc !== 100 ? 'En todos los planos con este escenario. Las figuras no cambian.' : ''}</span><button class="btn sm ghost" data-c="escreset" ${pc === 100 || UI.readOnly ? 'disabled' : ''}>Tamaño original</button></div>`;
   }
   /* mientras se arrastra se ve; al soltar queda (un paso del proyecto, con «Deshacer» en el aviso) */
   function escSet(v, done) {
