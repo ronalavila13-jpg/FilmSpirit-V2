@@ -147,7 +147,7 @@ const OFFLINE = {
           lost++; why = e.message || ''; await this.dropFrame(f.id);
         }
       }
-      if (lost) problem(`${lost === 1 ? 'Una imagen' : lost + ' imágenes'} que esperaba${lost === 1 ? '' : 'n'} en este equipo no se pudo subir${why ? ': ' + why : '.'}`);
+      if (lost) problem(lost === 1 ? `Una imagen que esperaba en este equipo no se pudo subir${why ? ': ' + why : '.'}` : `${lost} imágenes que esperaban en este equipo no se pudieron subir${why ? ': ' + why : '.'}`);
       return true;
     })().finally(() => { this.flushing = null; });
     return this.flushing;

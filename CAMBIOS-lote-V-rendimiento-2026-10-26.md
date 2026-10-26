@@ -81,6 +81,13 @@ y archivos de lib/ de otra versión. Revisó sin problemas el camino de `have` (
 conexión, fusión), las tres compilaciones y los archivos comprimidos. Queda: si una foto de una candidata (scouting,
 casting) falla justo cuando llega un cambio del equipo, su referencia queda sin imagen (no se ve; se puede volver a subir).
 
+## Al unir con el clonado de atributos (rama lote-t-clonar-atributos, PR #3)
+
+- No tocan los mismos archivos: se unió sin conflictos. Cada parte conserva su nota (esta y CAMBIOS-lote-V-2026-10-26.md).
+- Textos nuevos en inglés (i18n/en-manual.json): el aviso de fotos que terminan de subir, los de fotos rechazadas, los
+  del lector 3D y los de imágenes que esperaban en el equipo (este último ahora en plural cuando son varias).
+- Las ramas del lote W (en curso en otro chat) parten del clonado y se unen sin conflictos con esta.
+
 ## Pruebas
 
 Nuevas: server/test/rendimiento.test.js (7: historial, otra persona encima, modelo 3D enorme, `have`, cola de correos,
@@ -92,6 +99,9 @@ servidor real: al abrir no están las letras ni los lectores 3D; al recargar el 
 la copia local; el PDF del guion se exporta con Courier Prime y Archivo; cuatro guardados seguidos dejan una sola copia
 en el historial.
 
-Archivos: build.sh, server/lib/{api,auth,db,mail,billing,reclamos,admin}.js, server/server.js, server/make.js,
+Después de unir: pasan otra vez todas (también test/clonar.test.js, 18) y compilan web, escritorio y servidor; la
+prueba en el navegador da lo mismo.
+
+Archivos: build.sh, i18n/en-manual.json, server/lib/{api,auth,db,mail,billing,reclamos,admin}.js, server/server.js, server/make.js,
 server/web/{reclamaciones,admin}.js, server/LEEME-VPS.md, src/{share-api,laminas,tab-scout,proyectos,arranque,importar,pdf,modelos}.js,
 server/test/rendimiento.test.js, test/rendimiento-v.test.js.

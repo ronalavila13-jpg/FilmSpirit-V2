@@ -1451,5 +1451,14 @@
 "Atributos del {0} clonados en {1}. En {2} la imagen subida tapa la escena 3D.": "Attributes of {0} cloned to {1}. In {2}, the uploaded image covers the 3D scene.",
 "Atributos del {0} clonados en {1}. En {2} la escena 3D queda debajo del dibujo (capa «Viñeta 3D»).": "Attributes of {0} cloned to {1}. In {2}, the 3D scene sits under the drawing (“3D panel” layer).",
 "El {0} es el máster de su escena: con la puesta en escena, los planos que lo siguen también la toman.": "{0} is its scene's master: with the staging, the shots that follow it take it too.",
-"{0} son másters de su escena: con la puesta en escena, los planos que los siguen también la toman.": "{0} are their scenes' masters: with the staging, the shots that follow them take it too."
+"{0} son másters de su escena: con la puesta en escena, los planos que los siguen también la toman.": "{0} are their scenes' masters: with the staging, the shots that follow them take it too.",
+"// lote V · rendimiento": "fotos que se ven mientras suben, lectores 3D a demanda, imágenes que esperaban en el equipo",
+"Terminando de subir las fotos…": "Finishing uploading the photos…",
+"No se pudo guardar la foto: {0}": "Couldn't save the photo: {0}",
+"No se pudieron guardar las fotos: {0}": "Couldn't save the photos: {0}",
+"{0} de {1} fotos no se pudieron guardar: {2}": "{0} of {1} photos couldn't be saved: {2}",
+"No se pudo cargar el lector de modelos 3D. Revisa tu conexión.": "Couldn't load the 3D model reader. Check your connection.",
+"No se pudo cargar el lector de modelos 3D. Recarga la página.": "Couldn't load the 3D model reader. Reload the page.",
+"Una imagen que esperaba en este equipo no se pudo subir{0}": "An image waiting on this device couldn't be uploaded{0}",
+"{0} imágenes que esperaban en este equipo no se pudieron subir{1}": "{0} images waiting on this device couldn't be uploaded{1}"
 }
