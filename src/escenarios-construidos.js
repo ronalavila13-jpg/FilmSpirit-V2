@@ -37,9 +37,10 @@ const ESC_MIN = .25, ESC_MAX = 4;
 const escClamp = v => { v = +v; return isFinite(v) && v > 0 ? Math.min(ESC_MAX, Math.max(ESC_MIN, Math.round(v * 100) / 100)) : 1; };
 /* la escala de un escenario de P.sets3d o de un plano de planta de P.plans (1: tamaño original) */
 const escOf = x => x && x.esc != null ? escClamp(x.esc) : 1;
-/* los hechos por código que se escalan: los exteriores. La habitación tiene su ancho, fondo y alto (y sus muebles van
-   contra los muros) y el interior de vehículo tiene su tamaño real (los asientos son los del modelo): esos no */
-const ENV_ESC_SETS = ['ext', 'calle', 'parque', 'bosque', 'montana', 'playa', 'mar', 'desierto', 'canaveral', 'jardin_d', 'jardin_t'];
+/* los hechos por código que se escalan: la calle, los jardines y los paisajes. La habitación ya tiene su ancho, fondo y
+   alto (sus muebles van contra los muros): esa es su escala. El interior de vehículo tiene su tamaño real (las figuras
+   van en sus asientos), el exterior abierto es un piso con su cuadrícula de 1 m y el estudio, vacío: esos no */
+const ENV_ESC_SETS = ['calle', 'parque', 'bosque', 'montana', 'playa', 'mar', 'desierto', 'canaveral', 'jardin_d', 'jardin_t'];
 /* la locación (del guion) de una escena 3D: la de su plano. Las escenas que no son de un plano guardado (la del editor,
    las de la planta general) se anotan con escLocSet */
 const ESC_LOC = new WeakMap();
@@ -275,12 +276,12 @@ function bsSync(s3, d) {
     const fl = new T.Mesh(new T.PlaneGeometry(600, 600), toon(C3.floorExt)); fl.rotation.x = -Math.PI / 2; fl.position.y = -.03; fl.receiveShadow = true; G.add(fl);
     G.userData.ground = fl;
   }
-  const U = G.userData, key = 'c' + d.id + ':' + d.v;
+  const U = G.userData, key = 'c' + d.id + ':' + d.v + ':' + escOf(d);
   if (U.key !== key) {
     U.key = key;
     if (U.hold) { G.remove(U.hold); if (U.bs) bsDispose(U.hold); U.hold = null; }
     U.ground.material.color.set(d.int !== false ? C3.ground : C3.floorExt);
-    U.hold = bsBuild(d); U.bs = true; G.add(U.hold);
+    U.hold = bsBuild(d); U.hold.scale.setScalar(escOf(d)); U.bs = true; G.add(U.hold);
     R3.shSig = null;
   }
   return true;

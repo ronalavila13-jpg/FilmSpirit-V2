@@ -481,7 +481,7 @@ function removeLight(L, k) {
 const _m4 = () => new THREE.Matrix4();
 function syncPlan(s3) {
   const pl = planOf(s3), T = THREE;
-  const key = pl ? pl.id + ':' + pl.v + ':' + (s3.planFloor !== false) + ':' + !!planPic(pl) : '';
+  const key = pl ? pl.id + ':' + pl.v + ':' + (pl.esc || 1) + ':' + (s3.planFloor !== false) + ':' + !!planPic(pl) : '';
   if (R3.planKey === key) { if (R3.planG) R3.planG.visible = !!pl; return; }
   if (R3.planG) { R3.sets.int.remove(R3.planG); R3.planG.traverse(o => { if (disposable(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); }); R3.planG = null; }
   R3.planKey = key;
@@ -509,6 +509,8 @@ function r3Sync(s3, st, opts) {
   let vis = s3.set === 'plano' ? 'int' : s3.set === 'modelo' ? (typeof set3dSync === 'function' && set3dSync(s3) ? 'modelo' : 'ext') : s3.set;
   if (!R3.sets[vis] && !(envGroup(vis))) vis = 'ext';   // entornos: se arman la primera vez
   for (const k in R3.sets) R3.sets[k].visible = k === vis;
+  // lote W · la calle, los jardines y los paisajes a la escala de su locación (escenarios-construidos.js)
+  if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(vis) && R3.sets[vis]) R3.sets[vis].scale.setScalar(envEscOf(s3));
   if (R3.room) R3.room.visible = s3.set === 'int';
   syncPlan(s3);
   const T = THREE;
@@ -608,7 +610,7 @@ function r3Viewport(W, H) {
 /* lo que cambia las sombras: objetos, posturas, luces, escenario y figuras (no la cámara) */
 function r3ShadowSig(s3, st) {
   const { keys, objs, aim, shake, ...scene } = s3;     // todo lo del escenario (set, atmósfera, sol, habitación, plano, luz) menos la cámara
-  let k = JSON.stringify(scene) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
+  let k = JSON.stringify(scene) + '|' + (typeof sceneEsc === 'function' ? sceneEsc(s3) : 1) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
   for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
   return k;
 }

@@ -129,10 +129,11 @@ function fpBBox(rects) {
 const planOf = s3 => s3 && s3.set === 'plano' && P.plans && P.plans[s3.planId] || null;
 function planWorld(pl) {
   const b = fpBBox(pl.rects) || { cx: pl.w / 2, cy: pl.h / 2, w: pl.w, h: pl.h, x0: 0, y0: 0, x1: pl.w, y1: pl.h };
-  const k = pl.sc;
+  // lote W · la escala del escenario (pl.esc) agranda o achica el plano alrededor del centro de sus muros
+  const k = pl.sc * (typeof escOf === 'function' ? escOf(pl) : 1);
   return { b, k, x: px => (px - b.cx) * k, z: py => (py - b.cy) * k };
 }
-const planSig = sh => { const s3 = s3Of(sh), pl = planOf(s3); if (!pl) return ''; const im = PLAN_IMG.get(pl.id); return pl.id + ':' + pl.v + ':' + (s3.planFloor !== false) + ':' + !!(im && im._v === pl.v && im.complete && im.naturalWidth); };
+const planSig = sh => { const s3 = s3Of(sh), pl = planOf(s3); if (!pl) return ''; const im = PLAN_IMG.get(pl.id); return pl.id + ':' + pl.v + ':' + (pl.esc || 1) + ':' + (s3.planFloor !== false) + ':' + !!(im && im._v === pl.v && im.complete && im.naturalWidth); };
 
 /* ---------- importador ---------- */
 function openPlanImporter(opts, done) {
@@ -318,10 +319,10 @@ function preloadPlans() {
 const PLAN_RW = new Map();
 function planRectsWorld(pl) {
   const c = PLAN_RW.get(pl.id);
-  if (c && c.v === pl.v) return c.r;
+  if (c && c.v === pl.v && c.e === (pl.esc || 1)) return c.r;
   const W = planWorld(pl);
   const r = pl.rects.map(([x, y, w, h]) => [W.x(x), W.z(y), W.x(x + w), W.z(y + h)]);
-  PLAN_RW.set(pl.id, { v: pl.v, r });
+  PLAN_RW.set(pl.id, { v: pl.v, e: pl.esc || 1, r });
   return r;
 }
 /* primer cruce (0..1) del segmento a→b con un rectángulo, o null */
@@ -342,7 +343,8 @@ const CALLE_BLOCKS = [[-200, 8.5, 200, 14.5], [-200, -17.5, 200, -11.5]];
    un dolly sigue siendo un dolly, y la cámara conserva lo que el movimiento gira (tilt, paneo). */
 function s3CamInside(s3) {
   const pl = planOf(s3);
-  const R = pl ? planRectsWorld(pl) : s3 && s3.set === 'calle' ? CALLE_BLOCKS : null;
+  // lote W · la calle a la escala de su locación (escenarios-construidos.js)
+  const R = pl ? planRectsWorld(pl) : s3 && s3.set === 'calle' ? (k => k === 1 ? CALLE_BLOCKS : CALLE_BLOCKS.map(r => r.map(v => v * k)))(typeof envEscOf === 'function' ? envEscOf(s3) : 1) : null;
   if (!R) return 0;
   const inR = (x, z, r) => x > r[0] && x < r[2] && z > r[1] && z < r[3];
   const look = [];

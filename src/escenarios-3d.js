@@ -15,17 +15,20 @@ const S3D_UNITS = [['m', 1, 'Metros'], ['cm', .01, 'Centímetros'], ['mm', .001,
 const S3D_CUT = 1.5;      // la planta: corte a 1,5 m del piso
 const S3D_ROOF = 2.2;     // la vista 3D del importador, «sin techo»: corte a 2,2 m
 const set3dOf = s3 => (s3 && s3.set === 'modelo' && typeof P !== 'undefined' && P.sets3d && P.sets3d[s3.set3d]) || null;
-const set3dKey = s3 => { const d = set3dOf(s3); return d ? m3Key('s', d.id) : null; };
+const set3dKey = s3 => { const d = set3dOf(s3); return d && !(typeof bsIs === 'function' && bsIs(d)) ? m3Key('s', d.id) : null; };
 const set3dPicKey = id => 'm3p~' + id;
-const set3dSig = s3 => { const d = set3dOf(s3); return d ? d.id + ':' + d.v : ''; };
+// lote W · con la escala del escenario (también la de un plano de planta o una calle): cambia la viñeta
+const set3dSig = s3 => { const d = set3dOf(s3), k = typeof sceneEsc === 'function' ? sceneEsc(s3) : 1; return (d ? d.id + ':' + d.v : '') + (k !== 1 ? ':e' + k : ''); };
 const set3dList = () => Object.values((typeof P !== 'undefined' && P.sets3d) || {}).sort((a, b) => String(a.n).localeCompare(String(b.n), 'es'));
 const set3dForLoc = loc => { const id = loc && P.locSet3d && P.locSet3d[loc]; return id && P.sets3d && P.sets3d[id] ? id : null; };
 const set3dUnit = u => S3D_UNITS.find(x => x[0] === u) || S3D_UNITS[0];
 const set3dM = v => (Math.round(v * 100) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // la niebla según el tamaño del escenario (que no tape el fondo de un modelo grande)
-function set3dFog(d) { const D = d && d.b ? Math.hypot(d.b[2] - d.b[0], d.b[3] - d.b[1]) : 30; return [Math.max(30, D * 1.1), Math.max(90, D * 3)]; }
+function set3dFog(d) { const D = d && d.b ? Math.hypot(d.b[2] - d.b[0], d.b[3] - d.b[1]) * set3dEsc(d) : 30; return [Math.max(30, D * 1.1), Math.max(90, D * 3)]; }
+// lote W · escala: la del escenario (escenarios-construidos.js), 1 si no tiene
+const set3dEsc = d => typeof escOf === 'function' ? escOf(d) : 1;
 // la parte del escenario que entra al encuadrar la planta: alrededor de la acción, aunque el modelo sea una ciudad
-const set3dFitBox = d => d && d.b ? [Math.max(d.b[0], -14), Math.max(d.b[1], -14), Math.min(d.b[2], 14), Math.min(d.b[3], 14)] : null;
+const set3dFitBox = d => { if (!d || !d.b) return null; const k = set3dEsc(d); return [Math.max(d.b[0] * k, -14), Math.max(d.b[1] * k, -14), Math.min(d.b[2] * k, 14), Math.min(d.b[3] * k, 14)]; };
 
 /* ---------- en la vista 3D ---------- */
 const set3dInk = () => STY.e3ink || (STY.e3ink = new THREE.LineBasicMaterial({ color: STY.ink, transparent: true, opacity: .42 }));
@@ -64,6 +67,8 @@ function set3dLate() {
    listo (mientras se baja o se abre, solo el piso). false: el plano no tiene un escenario 3D que exista */
 function set3dSync(s3) {
   const d = set3dOf(s3); if (!d) return false;
+  // lote W · un escenario construido se arma con sus piezas (escenarios-construidos.js)
+  if (typeof bsIs === 'function' && bsIs(d)) return bsSync(s3, d);
   const T = THREE;
   let G = R3.sets.modelo;
   if (!G) {
@@ -74,15 +79,16 @@ function set3dSync(s3) {
   const U = G.userData, k = m3Key('s', d.id);
   const t = m3Tpl(k, U.wait === k ? null : () => { U.wait = null; set3dLate(); });
   if (!t) U.wait = k;
-  const key = t ? d.id + ':' + d.v + ':' + ((M3.tpl.get(k) || {}).sig || '') : 'x' + d.id;
+  const key = t ? d.id + ':' + d.v + ':' + set3dEsc(d) + ':' + ((M3.tpl.get(k) || {}).sig || '') : 'x' + d.id;
   if (U.key !== key) {
     U.key = key;
-    if (U.hold) { G.remove(U.hold); U.hold = null; }
+    if (U.hold) { G.remove(U.hold); if (U.bs && typeof bsDispose === 'function') bsDispose(U.hold); U.hold = null; U.bs = false; }
     U.ground.material.color.set(d.int ? C3.floorInt : C3.floorExt);
     if (t) {
       // las caras un poco más atrás que sus aristas (que no titilen)
       for (const m of m3Mats(t)) if (!m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; }
-      U.hold = set3dHold(t, d, { cast: !d.int, recv: true }); G.add(U.hold);
+      // lote W · la escala del escenario: alrededor del centro de la escena (donde se paran las figuras)
+      U.hold = new T.Group(); U.hold.scale.setScalar(set3dEsc(d)); U.hold.add(set3dHold(t, d, { cast: !d.int, recv: true })); G.add(U.hold);
     }
     R3.shSig = null;
   }
@@ -106,7 +112,7 @@ function set3dPic(d, cb) {
 }
 /* antes de un PDF: las plantas de todos los escenarios, ya abiertas */
 async function set3dPreload() {
-  const L = Object.values((typeof P !== 'undefined' && P.sets3d) || {});
+  const L = Object.values((typeof P !== 'undefined' && P.sets3d) || {}).filter(d => !(typeof bsIs === 'function' && bsIs(d)));
   const ks = L.map(d => set3dPicKey(d.id)).filter(k => !FRAMES[k] && frameHas(k));
   if (ks.length) await framesNeed(ks).catch(() => { });
   await Promise.all(L.map(d => new Promise(res => { const im = set3dPic(d, res); if (im) res(); setTimeout(res, 3000); })));
@@ -114,7 +120,10 @@ async function set3dPreload() {
 /* la planta del escenario bajo lo demás (s3d-plan.js); sin la imagen todavía, el contorno */
 function set3dDrawPlan(ctx, s3, toS, redraw) {
   const d = set3dOf(s3); if (!d || !d.b) return;
-  const [a, b] = toS(d.b[0], d.b[1]), [c, e] = toS(d.b[2], d.b[3]);
+  // lote W · el construido se dibuja con sus piezas; los dos, a la escala del escenario
+  const k = set3dEsc(d);
+  if (typeof bsIs === 'function' && bsIs(d)) { const o0 = toS(0, 0); bsDrawPlan(ctx, d, toS, { sc: toS(1, 0)[0] - o0[0] }, { esc: k }); return; }
+  const [a, b] = toS(d.b[0] * k, d.b[1] * k), [c, e] = toS(d.b[2] * k, d.b[3] * k);
   const im = set3dPic(d, redraw);
   if (im) { ctx.save(); ctx.globalAlpha = .72; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, a, b, c - a, e - b); ctx.restore(); }
   else { ctx.save(); ctx.strokeStyle = PLAN_C.muted; ctx.lineWidth = 1; ctx.setLineDash([5, 4]); ctx.strokeRect(a, b, c - a, e - b); ctx.restore(); }
@@ -152,7 +161,7 @@ function set3dFloors(t, zup) {
 }
 /* ¿el piso quedó en el techo? Casi todo el modelo queda debajo de donde se paran las figuras (en el editor del plano) */
 function set3dRoofy(d) {
-  if (!d) return false;
+  if (!d || d.kind === 'c') return false;
   let dn = +d.dn;
   if (!(dn >= 0)) {
     // escenarios importados antes: lo que hay debajo del piso sale del modelo, si ya está abierto
