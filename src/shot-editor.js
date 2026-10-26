@@ -1805,7 +1805,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     return `<label class="fld"><span>Escenario</span><select data-c="set">${setOptions().map(([k, n]) => `<option value="${ea(k)}" ${k === setCur() ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>` : ''}
       ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM((d3.b[2] - d3.b[0]) * escOf(d3))} × ${set3dM((d3.b[3] - d3.b[1]) * escOf(d3))} m · ${bsIs(d3) ? (d3.int !== false ? 'construido, interior' : 'construido, exterior') : d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
-        <button class="btn sm ghost" data-c="edit3d">${bsIs(d3) ? 'Editar…' : 'Ajustar…'}</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
+        <button class="btn sm ghost" data-c="edit3d">${bsIs(d3) ? (sbCanBuild() && sbCanEdit() ? 'Editar…' : 'Ver…') : 'Ajustar…'}</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
         ${set3dRoofy(d3) ? '<p class="hint e3-warn">¿El piso quedó en el techo? Muévelo en Piso (Ajustar…).</p>' : ''}` : ''}
       ${E.s3.set === 'vacio' ? '' : `<div class="grid2"><label class="fld"><span>Atmósfera</span><select data-c="atm">${S3_ATM.map(([k, n]) => `<option value="${k}" ${k === atmOf(E.s3) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="opt" style="padding:6px 10px;align-self:end"><input type="checkbox" data-c="rain" ${A.rain || E.s3.rain ? 'checked' : ''} ${A.rain ? 'disabled' : ''}><span><b>Lluvia</b></span></label></div>
@@ -2065,7 +2065,6 @@ function openShotEditor(id, isNew, from2d, waited) {
   }
   /* lote W · el constructor de escenarios: uno nuevo para la locación de este plano o editar el que se usa (edit: su id) */
   function build3d(edit) {
-    if (!edit && !sbCanBuild()) { toast('El constructor de escenarios se usa en la computadora. En el teléfono se ven y se asignan los que ya están hechos.', 5200); return; }
     openSetBuilder({ id: edit, loc: s.loc, name: titleCase(s.loc), int: s.ie !== 'EXT' }, (sid, applyLoc) => {
       snapshot(); E.custom = true;
       useSet3d(E.s3, sid);

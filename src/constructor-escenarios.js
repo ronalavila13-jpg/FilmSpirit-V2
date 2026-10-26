@@ -20,7 +20,8 @@ const sbCanBuild = () => !(matchMedia('(max-width: 760px)').matches || (matchMed
 function openSetBuilder(opts = {}, done) {
   if (!r3Init()) { toast('Este equipo no puede mostrar 3D.'); return; }
   const ed0 = opts.id && P.sets3d && P.sets3d[opts.id] && bsIs(P.sets3d[opts.id]) ? P.sets3d[opts.id] : null;
-  const view = UI.readOnly || !sbCanBuild();
+  if (!ed0 && !opts.from && (!sbCanBuild() || !sbCanEdit())) { toast(sbCanEdit() ? 'El constructor de escenarios se usa en la computadora. En el teléfono se ven y se asignan los que ya están hechos.' : 'Para construir escenarios hace falta poder editar el storyboard.', 5200); return; }
+  const ro = !sbCanEdit(), view = ro || !sbCanBuild();
   const T = THREE;
   const B = { d: bsClean(JSON.parse(JSON.stringify(opts.from || ed0 || bsNew(opts.name || 'Escenario', opts.loc)))), hist: [], fut: [], tool: view ? 'view' : 'sel', sel: null, v3: false, saved: false, changed: !!opts.from, draft: null };
   if (opts.int != null && !ed0 && !opts.from) B.d.int = !!opts.int;
@@ -46,7 +47,7 @@ function openSetBuilder(opts = {}, done) {
       </div>
       <div class="sb-r" id="sbR"></div>
     </div></div>
-    <footer><span class="left hint" id="sbCount"></span><button class="btn" data-x>${view ? 'Cerrar' : 'Cancelar'}</button>${UI.readOnly ? '' : `<button class="btn primary" id="sbOk">${view ? 'Guardar' : ed0 ? 'Guardar' : 'Guardar escenario'}</button>`}</footer></div>`;
+    <footer><span class="left hint" id="sbCount"></span><button class="btn" data-x>${view ? 'Cerrar' : 'Cancelar'}</button>${ro ? '' : `<button class="btn primary" id="sbOk">${view ? 'Guardar' : ed0 ? 'Guardar' : 'Guardar escenario'}</button>`}</footer></div>`;
   document.body.appendChild(ov);
   const $o = s => ov.querySelector(s);
   const cv = $o('#sbC'), c3 = $o('#sb3'), wrap = $o('#sbWrap'), g = cv.getContext('2d');
@@ -199,20 +200,20 @@ function openSetBuilder(opts = {}, done) {
   function paint() {
     const d = B.d, opts = locs.map(l => `<option value="${ea(l)}" ${l === (B.locSel ?? L0) ? 'selected' : ''}>${esc(titleCase(l))}</option>`).join('');
     $o('#sbR').innerHTML = `
-      <label class="fld"><span>Nombre</span><input type="text" id="sbName" value="${ea(d.n)}" maxlength="80" ${UI.readOnly ? 'disabled' : ''}></label>
+      <label class="fld"><span>Nombre</span><input type="text" id="sbName" value="${ea(d.n)}" maxlength="80" ${ro ? 'disabled' : ''}></label>
       ${selPanel()}
       ${view ? '' : `<div class="grid2">${numIn('Alto de muros', 'wh', d.wh, 1, 12)}${numIn('Grosor nuevo', 'wt0', B.wt || BS_T, .03, 1.5)}</div>`}
       ${colorRow('Muros', 'wc', SB_COLORS, d.wc)}
       ${colorRow('Piso', 'fc', SB_FLOORS, d.fc)}
       <div class="fld"><span>Lugar</span><div class="seg" role="group"><button data-in="1" aria-pressed="${ea(d.int !== false)}" ${view ? 'disabled' : ''}>Interior</button><button data-in="0" aria-pressed="${ea(d.int === false)}" ${view ? 'disabled' : ''}>Exterior</button></div></div>
-      ${UI.readOnly ? '' : `<label class="fld"><span>Asignar a locación</span><select id="sbLoc"><option value="">Ninguna (solo en la lista)</option>${opts}</select></label>
+      ${ro ? '' : `<label class="fld"><span>Asignar a locación</span><select id="sbLoc"><option value="">Ninguna (solo en la lista)</option>${opts}</select></label>
       <label class="opt sb-all"><input type="checkbox" id="sbAll" ${(B.all ?? locNow) ? 'checked' : ''}><span><b>Usar en toda la locación</b><span class="hint">Los planos nuevos de esa locación lo traen.</span></span></label>`}`;
     $o('#sbCount').textContent = `${bsCount(d)} de ${BS_MAX} piezas`;
     ov.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === B.tool));
     ov.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === +B.v3)));
     const u = ov.querySelector('[data-u="-1"]'), r = ov.querySelector('[data-u="1"]'); if (u) { u.disabled = !B.hist.length; r.disabled = !B.fut.length; }
     $o('#sbHint').textContent = B.v3 ? 'Arrastra para girar y usa la rueda para acercarte. La figura mide 1,72 m.'
-      : view ? (UI.readOnly ? 'Solo lectura: se ve, no se edita.' : 'En el teléfono se mira y se asigna; se construye en la computadora.')
+      : view ? (ro ? 'Solo lectura: se ve, no se edita.' : 'En el teléfono se mira y se asigna; se construye en la computadora.')
       : { sel: 'Toca algo para elegirlo; arrástralo para moverlo. Supr lo quita.', wall: 'Arrastra de una punta a la otra del muro. Se pega a la cuadrícula de 5 cm (con Mayús, libre).', door: 'Toca un muro donde va la puerta.', win: 'Toca un muro donde va la ventana.', floor: 'Toca cada esquina del piso; toca el primer punto (o doble clic) para cerrarlo.', vol: 'Arrastra un rectángulo: un mostrador, una tarima o una columna. El alto se cambia en el panel.', add: 'Elige un mueble, un objeto o una luz y tócalo en la planta.' }[B.tool] || '';
     cv.style.cursor = B.tool === 'sel' || B.tool === 'view' ? 'default' : 'crosshair';
   }
@@ -431,7 +432,7 @@ function openSetBuilder(opts = {}, done) {
   addEventListener('keydown', onKey, true);
   // ---------- guardar ----------
   function save() {
-    if (UI.readOnly) return;
+    if (ro) return;
     const name = (($o('#sbName') || {}).value || B.d.n || '').trim().slice(0, 80) || 'Escenario';
     const loc = ($o('#sbLoc') || {}).value ?? L0, all = !!(loc && $o('#sbAll') && $o('#sbAll').checked);
     if (!view && !B.d.walls.length && !B.d.items.length && B.d.floor.length < 3) { toast('Dibuja al menos un muro, el piso o un objeto.'); return; }
@@ -467,9 +468,32 @@ function openSetBuilder(opts = {}, done) {
   addEventListener('resize', onRs);
   paint();
   requestAnimationFrame(() => fit());
-  if (view && !UI.readOnly && !opts.quiet) setTimeout(() => toast('En el teléfono se mira y se asigna; para construir o cambiar muros, ábrelo en la computadora.', 5000), 300);
+  if (view && !ro && !opts.quiet) setTimeout(() => toast('En el teléfono se mira y se asigna; para construir o cambiar muros, ábrelo en la computadora.', 5000), 300);
   return ov;
 }
+/* quién puede construir y asignar: quien puede editar el storyboard (los escenarios viajan con él) */
+const sbCanEdit = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('storyboard'));
+/* ---------- en la ficha de cada lugar de Scouting: «Construir su escenario» o, si ya tiene, abrirlo ----------
+   El lugar del Scouting es la locación base (CINE PRIMAVERA); sus escenas pueden tener varias locaciones del guion
+   (CINE PRIMAVERA - SALA, - CABINA…): el constructor se abre con la primera elegida (la lista trae todas) */
+const sbPlaceLocs = b => [...new Set(((D.sc && D.sc.scenes) || []).filter(s => (s.locBase || s.loc) === b).map(s => s.loc).filter(Boolean))];
+function sbPlaceSet(b) {
+  const L = sbPlaceLocs(b), S = P.sets3d || {};
+  for (const l of L) { const id = (P.locSet3d || {})[l]; if (id && bsIs(S[id])) return S[id]; }
+  return Object.values(S).find(d => bsIs(d) && L.includes(d.loc)) || null;
+}
+function sbScoutBtn(pl) {
+  if (!pl || pl.gone || typeof hdBtn !== 'function') return '';
+  const d = sbPlaceSet(pl.b);
+  if (!d && (!sbCanEdit())) return '';
+  return hdBtn('sec', d ? `Su escenario: ${esc(d.n)}` : 'Construir su escenario', { attrs: `data-act="sb-scout" data-b="${ea(pl.b)}" title="${ea(d ? 'Abrir el escenario construido de este lugar' : 'Constructor de escenarios: muros, puertas, ventanas y muebles, para el storyboard 3D')}"` });
+}
+if (typeof ACT !== 'undefined') Object.assign(ACT, {
+  'sb-scout': b => {
+    const pl = b.dataset.b, d = sbPlaceSet(pl), L = sbPlaceLocs(pl), ie = ((D.sc && D.sc.scenes) || []).filter(s => (s.locBase || s.loc) === pl).map(s => s.ie);
+    openSetBuilder({ id: d ? d.id : null, loc: (d && L.includes(d.loc) && d.loc) || L[0] || '', name: titleCase(pl), int: !ie.length || ie.some(x => x !== 'EXT') }, () => render());
+  },
+});
 /* el plano pasa al escenario construido: sus figuras quedan donde estaban; sus luces entran al plano */
 function sbUse(s3, id) {
   const d = P.sets3d && P.sets3d[id]; if (!d || !s3) return;
