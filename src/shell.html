@@ -1977,6 +1977,9 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .badge.s2b{background:var(--accent-soft);color:var(--accent-text)}
 /* el máster de la escena (lote U): un contorno, sin relleno, para no competir con el tamaño del plano */
 .badge.mst{background:none;box-shadow:inset 0 0 0 1.25px currentColor;color:var(--accent-text)}
+/* lote W · el máster cambió de escenario: una marca chica, sin texto */
+.badge.stg{background:var(--warn-soft);color:var(--warn-text);padding:0 4px;display:inline-flex;align-items:center}
+.badge.stg svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:980px){
   .s2-body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,1fr) auto minmax(0,auto)}
   .s2-rail{flex-direction:row;border-right:0;border-top:var(--l1) solid var(--line);overflow-x:auto;order:2;padding:6px 8px;gap:2px}

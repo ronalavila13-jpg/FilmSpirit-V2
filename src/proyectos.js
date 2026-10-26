@@ -219,6 +219,9 @@ function sanitizeProject(Px) {
   if (Px.shots && typeof Px.shots === 'object') for (const sh of Object.values(Px.shots)) {
     if (!sh || typeof sh !== 'object') continue;
     if ('master' in sh && typeof sh.master !== 'boolean') delete sh.master;
+    // lote W · D: los cambios de escenario del máster y el último que vio cada plano (s3d-model.js)
+    if ('stgN' in sh && !(Number.isInteger(sh.stgN) && sh.stgN > 0)) delete sh.stgN;
+    if ('stgSeen' in sh && !(typeof sh.stgSeen === 'string' && /^[\w~-]{1,80}:\d{1,9}$/.test(sh.stgSeen))) delete sh.stgSeen;
     if (sh.d2 && typeof sh.d2 === 'object' && Array.isArray(sh.d2.layers)) for (const L of sh.d2.layers) {
       if (!L || typeof L !== 'object') continue;
       if ('back' in L && (L.back !== true || L.kind !== 'image')) delete L.back;   // detrás de las figuras: solo imágenes

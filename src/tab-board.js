@@ -433,7 +433,7 @@ function boardPanelsHTML(scenes) {
     return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="sb-hr"><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · ${shots.length} ${shots.length === 1 ? 'plano' : 'planos'}</span>${sbPlantaBtn(s, shots)}</span></header>
       <div class="sb-grid" data-sc="${esc(s.key)}">${shots.map(sh => `<div class="pcell${ea(sbSel().has(sh.id) ? ' sel' : '')}" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"><button class="panel${ea(sh.done ? ' done' : '')}${ea(shotB(sh) ? ' has-b' : '')}" data-act="shot" data-id="${ea(sh.id)}">
         ${sbFrames(sh)}
-        <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${isMaster(sh) ? '<span class="badge mst" title="Máster de la escena: los demás planos toman de aquí la ubicación de los personajes y el escenario">Máster</span>' : ''}${d2On(sh) ? `<span class="badge s2b" title="${ea(shot3D(sh) ? 'Con dibujo 2D sobre la escena 3D' : 'Dibujado a mano en el espacio 2D')}">2D</span>` : ''}<span class="count">${!shot3D(sh) ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (d2On(sh) && sh.d2.frames.length > 1 ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
+        <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${isMaster(sh) ? '<span class="badge mst" title="Máster de la escena: los demás planos toman de aquí la ubicación de los personajes y el escenario">Máster</span>' : ''}${sbStgMark(sh)}${d2On(sh) ? `<span class="badge s2b" title="${ea(shot3D(sh) ? 'Con dibujo 2D sobre la escena 3D' : 'Dibujado a mano en el espacio 2D')}">2D</span>` : ''}<span class="count">${!shot3D(sh) ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (d2On(sh) && sh.d2.frames.length > 1 ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
         ${sh.desc ? `<span class="pd">${esc(sh.desc)}</span>` : ''}<span class="px">${esc(shotTextExcerpt(sh, 140))}</span></span></button>${sbBlankBtn(sh)}${UI.readOnly ? '' : `<button class="sbmore" data-act="sb-more" data-id="${ea(sh.id)}" aria-haspopup="menu" aria-label="Acciones del plano ${esc(D.code[sh.id])}" title="Duplicar, mover o eliminar · arrastra la viñeta para cambiarla de lugar">${ICO.more}</button>`}</div>`).join('')}
         ${UI.readOnly ? '' : `<div class="sb-addc" data-i="${ea(s.idx)}"><button class="panel add" data-act="shot-scene" data-i="${ea(s.idx)}"><span class="hd-pl">${ICO.plus}</span>Nuevo plano</button>${sbImgBtn(s)}</div>`}</div></section>`;
   }).join('');
@@ -499,7 +499,7 @@ function sbMoreMenu(anchor, sh) {
   const to = sbSelList().filter(x => x.id !== sh.id);
   const clone = to.length ? `<button data-m="clone" class="sb-cl-m" title="Elige qué pasa del ${ea(D.code[sh.id] || '')} a ${ea(sbCodes(to))}: tamaño, ángulo, lente, la cámara 3D…">${esc(to.length <= 3 ? `Clonar sus atributos en ${sbCodes(to)}…` : `Clonar sus atributos en los ${to.length} elegidos…`)}</button><hr>` : '';
   const pick = `<button data-m="pick" title="${ea(`También con ${MOD_KEY === 'Meta' ? '⌘' : 'Ctrl'}+clic en la viñeta. Luego, en el plano que quieres copiar: «Clonar sus atributos…»`)}">${picked ? 'Quitar de los elegidos' : 'Elegir para clonar'}</button>`;
-  popover(anchor, `<div class="menu">${clone}<button data-m="open">Abrir</button>${pick}<button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
+  popover(anchor, `<div class="menu">${clone}<button data-m="open">Abrir</button>${pick}<button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
     const x = e.target.closest('[data-m]'); if (!x) return; closePop();
     const m = x.dataset.m;
     if (m === 'clone') sbCloneDialog(sh, to);
@@ -513,7 +513,38 @@ function sbMoreMenu(anchor, sh) {
     if (m === 'noimg') sbClearImg(sh);
     if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
     if (m === 'master') sbMaster(sh);
+    if (m === 'stgupd') stageUpdate([sh]);
+    if (m === 'stgkeep') stageKeep(sh);
   }));
+}
+
+/* ---------- lote W · el máster cambió de escenario (obs. 9) ----------
+   Un plano ajustado a mano (con escena 3D propia) se queda con su escenario cuando el máster cambia el suyo: su viñeta
+   lleva una marca chica y su editor, un aviso. «Actualizar escenario» trae del máster el decorado, sus muebles y objetos,
+   las luces del set, la hora y la lluvia (s3TakeSet): la cámara y las figuras del plano no cambian. Al guardar el máster
+   con otro escenario, un aviso ofrece «Actualizar los N planos». Todo se deshace */
+const sbStgMark = sh => stageStale(sh) ? `<span class="badge stg" title="El máster cambió de escenario: este plano sigue con el de antes. ⋯ › Actualizar escenario" aria-label="El máster cambió de escenario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.2v4.6h-4.6"/></svg></span>` : '';
+function stageUpdate(list, quiet) {
+  list = list.filter(sh => sh && sh.s3 && stageStale(sh)); if (!list.length) return 0;
+  const ms = shotMaster(list[0].sc); if (!ms) return 0;
+  histNote(list.length === 1 ? `Actualizar el escenario del plano ${D.code[list[0].id] || ''}` : `Actualizar el escenario de ${list.length} planos`, null, 'board');
+  const src = s3Of(ms);
+  for (const sh of list) { sh.s3 = s3TakeSet(sh.s3, src); stageSeen(sh, ms); }
+  changed('data'); derive(); render();
+  if (!quiet) toastUndo(list.length === 1 ? `El plano ${D.code[list[0].id] || ''} tiene el escenario del máster; su cámara y sus figuras siguen igual.` : `${list.length} planos tienen el escenario del máster; sus cámaras y sus figuras siguen igual.`);
+  return list.length;
+}
+function stageKeep(sh) {
+  const ms = shotMaster(sh.sc); if (!ms) return;
+  histNote(`Mantener el escenario del plano ${D.code[sh.id] || ''}`, null, 'board');
+  stageSeen(sh, ms); changed('data'); render();
+  toastUndo(`El plano ${D.code[sh.id] || ''} se queda con su escenario. Si el máster vuelve a cambiar, se avisa otra vez.`);
+}
+/* después de guardar el máster con otro escenario: una sola vez, para no ir plano por plano */
+function stageOffer(m, list) {
+  const codes = typeof sbCodes === 'function' ? sbCodes(list) : list.map(x => D.code[x.id]).join(', ');
+  setTimeout(() => toast(list.length === 1 ? `El máster cambió de escenario. El plano ${codes} sigue con el de antes.` : `El máster cambió de escenario. ${list.length} planos ajustados a mano siguen con el de antes (${codes}).`, 9000,
+    { label: list.length === 1 ? 'Actualizar el plano' : `Actualizar los ${list.length} planos`, fn: () => stageUpdate(list.map(x => P.shots[x.id]).filter(Boolean)) }), 60);
 }
 
 /* ---------- elegir viñetas y clonar en ellas los atributos de otro plano (lote V) ----------

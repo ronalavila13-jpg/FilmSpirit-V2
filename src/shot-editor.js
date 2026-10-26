@@ -1528,8 +1528,25 @@ function openShotEditor(id, isNew, from2d, waited) {
     panel(); paintTop();
     toast(`Guion técnico: ${d.map(x => `${READ_W[x.k]} ${x.k === 'size' ? x.v : x.v.toLowerCase()}`).join(', ')}. Se guarda con el plano.`);
   }
+  /* lote W · «Actualizar escenario» (el del máster, con la cámara y las figuras de este plano) o «Mantener así». Lo
+     primero se deshace con ↶ como cualquier cambio de la escena; los dos quedan al guardar el plano */
+  function stageAct(upd) {
+    const ms = shotMaster(sh.sc); if (!ms) return;
+    if (upd) {
+      snapshot(); E.custom = true;
+      if (E.cam === 'b') { s3SwapB(E.s3); E.cam = 'a'; camBadge(); }
+      E.s3 = s3TakeSet(E.s3, s3Of(ms));
+      if (E.sel && E.sel !== 'cam' && !E.s3.objs.some(o => o.id === E.sel)) E.sel = null;
+      E.tmp = null; stCache = null; commit(); redraw(); plan.fit();
+      toast(`Escenario del máster (${D.code[ms.id] || ''}): decorado, objetos, luces, hora y lluvia. La cámara y las figuras siguen igual.`, 4200);
+    } else { E.stageOk = true; panel(); toast('Este plano se queda con su escenario. Si el máster vuelve a cambiar, se avisa otra vez.', 3600); }
+    E.stageSeen = true;
+  }
   /* el máster de la escena (lote U): qué dice el panel Plano y cómo volver a seguirlo */
   function masterHint() {
+    // lote W · el máster cambió de escenario y este plano (ajustado a mano) quedó con el de antes (obs. 9)
+    const ms = E.custom && !E.stageOk ? stageStale({ ...sh, s3: JSON.parse(jsonA()) }) : null;
+    if (ms) return `<div class="sx-read sx-stg" role="status"><p>El máster cambió de escenario (${esc(D.code[ms.id] || '')}). Este plano sigue con el de antes.</p><div class="sx-read-b"><button type="button" class="btn sm" data-o="stgupd" title="Trae del máster el decorado, sus muebles y objetos, las luces del set, la hora y la lluvia. La cámara y las figuras de este plano no cambian">Actualizar escenario</button><button type="button" class="btn sm ghost" data-o="stgkeep" title="Quita el aviso; si el máster vuelve a cambiar de escenario, vuelve">Mantener así</button></div></div>`;
     if (isMaster(sh)) return '<p class="hint" style="margin:0">Máster de la escena: los demás planos toman de aquí dónde está cada personaje, el escenario y la hora; cada uno pone su cámara.</p>';
     const mo = masterOf({ ...sh, s3: null }); if (!mo) return '';
     const code = esc(D.code[mo.id] || '');
@@ -2213,6 +2230,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.o === 'copyprev') { copyPrev(); return; }
     if (b.dataset.o === 'refollow') { refollow(); return; }
     if (b.dataset.o === 'readuse') { readUse(); return; }
+    if (b.dataset.o === 'stgupd' || b.dataset.o === 'stgkeep') { stageAct(b.dataset.o === 'stgupd'); return; }
     if (b.dataset.o === 'screset') { const ob = selOb(); if (!ob || !ob.sc) return; snapshot(); E.custom = true; scSet(ob, 1); commit(); redraw(); toast(`${(S3_PROPS[ob.kind] || {}).name || 'Objeto'}: tamaño original.`); return; }
     if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }
     const ob = selOb();
@@ -2666,7 +2684,15 @@ function openShotEditor(id, isNew, from2d, waited) {
     let p0 = E.form.p0, p1 = E.form.p1; if (p1 < p0) [p0, p1] = [p1, p0]; sh.p0 = p0; sh.p1 = p1;
     if (E.durSet) sh.dur = String(E.dur);
     if (E.cam === 'b') { s3SwapB(E.s3); E.cam = 'a'; }   // se guarda con la cámara A en su lugar
+    // lote W · el escenario del máster cambió: los planos ajustados a mano que quedaron con el de antes lo avisan (obs. 9)
+    const wasM = isMaster(sh), sig0 = wasM && E.custom ? shotStageSig(sh) : '';
     if (E.custom) { sh.s3 = E.s3; s3SyncShot(sh); if (shotBlank(sh)) { if (P.meta.sbBlank) sh.blank = false; else delete sh.blank; } }   // armó la escena 3D: se ve
+    let stale = [];
+    if (wasM && E.custom && sig0 !== shotStageSig(sh)) {
+      sh.stgN = (+sh.stgN || 0) + 1;
+      stale = (D.shotsBy[sh.sc] || []).filter(o => o && o.id !== sh.id && o.s3 && stageStale(o));
+    }
+    if (E.stageSeen) { const ms = shotMaster(sh.sc); if (ms && ms.id !== sh.id) stageSeen(sh, ms); }
     else if (E.refollow) delete sh.s3;   // «Volver a seguir al máster»: sin puesta propia, se arma desde el máster
     // los personajes del plano: los de su escena 3D. Si sigue al máster, la escena trae a todos los del máster: el plano
     // conserva los suyos (a quién encuadra)
@@ -2689,6 +2715,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (E.refDirty) { if (E.ref) FRAMES[id] = E.ref; else delete FRAMES[id]; writes.push([id, E.ref]); }
     closeModal();
     changed('data'); derive(); render();
+    if (stale.length && !to2d && !next) stageOffer(sh, stale);
     if (writes.length && !UI.readOnly) {
       if (P._sample && !P._saved) await flushSave();
       const bad = [];
