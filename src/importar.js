@@ -182,7 +182,9 @@ async function restoreBackup(text) {
   FRAMES = imgs; FRAMES_PID = Pn.id; FRIDX = null; FR_KNOWN = Pn.id;
   (async () => {
     const bad = [];
-    for (const [sid, url] of Object.entries(imgs)) { try { await Store.saveFrame(Pn.id, sid, url); } catch (e) { bad.push([sid, url]); } }
+    // de a tres a la vez (antes, una por una: un storyboard con cien viñetas tardaba cien viajes seguidos)
+    const list = Object.entries(imgs);
+    await Promise.all([0, 1, 2].map(async () => { for (let it; (it = list.shift());) { try { await Store.saveFrame(Pn.id, it[0], it[1]); } catch (e) { bad.push(it); } } }));
     if (bad.length) problem(`${bad.length} ${bad.length === 1 ? 'imagen de la copia no se pudo guardar' : 'imágenes de la copia no se pudieron guardar'}.`, async () => { let n = 0; for (const [sid, url] of bad) { try { await Store.saveFrame(Pn.id, sid, url); } catch (e) { n++; } } if (n) problem(`Siguen sin guardarse ${n} imágenes.`); else toast('Imágenes guardadas.'); });
   })();
   render();

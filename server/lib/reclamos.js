@@ -72,9 +72,10 @@ function makeReclamos(S, cfg, mail) {
       return { n, code, ts, tipo };
     });
     const body = text(r, d);
-    const sent = canMail(d.email) ? await mail.send({ to: d.email, subject: `Libro de reclamaciones · hoja ${r.code}`, text: body, replyTo: cfg.supportEmail || undefined }) : { sent: false };
-    if (cfg.supportEmail && canSupport()) mail.send({ to: cfg.supportEmail, subject: `Nuevo ${tipo} ${r.code}`, text: body });
-    sendJSON(res, 201, { code: r.code, ts: r.ts, copy: body, emailed: sent.sent });
+    // la copia: se intenta en el momento; si el servicio de correo falla, queda en cola y se reintenta (lib/mail.js)
+    const sent = canMail(d.email) ? await mail.deliver({ kind: 'reclamo', to: d.email, subject: `Libro de reclamaciones · hoja ${r.code}`, text: body, replyTo: cfg.supportEmail || undefined }) : { sent: false, queued: false };
+    if (cfg.supportEmail && canSupport()) mail.queue({ kind: 'reclamo-soporte', to: cfg.supportEmail, subject: `Nuevo ${tipo} ${r.code}`, text: body });
+    sendJSON(res, 201, { code: r.code, ts: r.ts, copy: body, emailed: sent.sent, queued: !!sent.queued });
     return true;
   }
   return { handle, text };

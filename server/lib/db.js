@@ -101,6 +101,12 @@ const MIGRATIONS = [
   `CREATE TABLE gone(h TEXT PRIMARY KEY, trial INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL);`,
   // 10 · contadores de escritura y racha de cada persona (pestaña Guion · lib/escritura.js)
   `ALTER TABLE users ADD COLUMN writing TEXT;`,
+  // 11 · cola de correos (lib/mail.js): si el servicio de envío falla, se reintenta (antes se perdían)
+  `CREATE TABLE outbox(
+     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL DEFAULT '', to_addr TEXT NOT NULL, subject TEXT NOT NULL,
+     body TEXT NOT NULL, reply_to TEXT, tries INTEGER NOT NULL DEFAULT 0, next INTEGER NOT NULL, created INTEGER NOT NULL,
+     sent INTEGER, dead INTEGER, err TEXT);
+   CREATE INDEX outbox_next ON outbox(next) WHERE sent IS NULL AND dead IS NULL;`,
 ];
 
 function open(dataDir) {

@@ -177,6 +177,8 @@ MAIL_FROM=FilmSpirit <hola@tudominio.pe>
 
 Sin esto todo funciona; solo no se envían correos (la persona igual ve e imprime su hoja de reclamación).
 
+Si el servicio de correo falla (caído, sin cupo), FilmSpirit reintenta solo: al minuto, a los 5, a los 15, a la hora… hasta unas 48 horas. Lo que el servicio rechaza (una dirección inválida, el remitente sin verificar) o lo que no sale en ese plazo queda anotado en el panel de administración, pestaña **Bitácora**, como `mail_failed`. Para ver la cola: `sudo sqlite3 /var/lib/filmspirit/filmspirit.db "SELECT id, kind, to_addr, tries, err FROM outbox WHERE sent IS NULL AND dead IS NULL"`.
+
 ## Día a día
 
 | Para | Comando |

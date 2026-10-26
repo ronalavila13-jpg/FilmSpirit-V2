@@ -96,7 +96,7 @@ function createServer(over) {
   // con https, el navegador recuerda usar siempre https
   if (/^https:/.test(cfg.baseUrl)) SEC_HEADERS['Strict-Transport-Security'] = 'max-age=31536000';
   const S = open(cfg.dataDir);
-  const mail = makeMail(cfg);
+  const mail = makeMail(cfg, S);
   const auth = makeAuth(S, cfg);
   const live = makeLive();
   const api = makeApi(S, auth, live, cfg);
@@ -117,20 +117,36 @@ function createServer(over) {
   const PAY_CSP = [`default-src 'self'`, `script-src 'self' ${PAD}`, `style-src 'self' 'unsafe-inline' ${PAD}`, `img-src 'self' data: ${PAD}`, `font-src 'self' data: ${PAD}`,
     `connect-src 'self' ${PAD}`, `frame-src ${PAD}`, "object-src 'none'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self' https://*.paddle.com"].join('; ');
   const htmlCache = new Map();
-  /* textos comprimidos una vez y guardados en memoria (brotli o gzip, según el navegador) */
-  const zCache = new Map();
+  /* textos comprimidos una vez y guardados en memoria (brotli o gzip, según el navegador).
+     Primero se busca la copia comprimida al compilar (make.js deja app.js.br y app.js.gz al lado); si no está, se
+     comprime fuera del hilo principal (zlib asíncrono). Antes se comprimía aquí mismo y, tras cada actualización, el
+     primero que abría la app dejaba el servidor (un solo núcleo) trabado cerca de un segundo para todos. */
+  const zCache = new Map(), zPend = new Map();
   const ZTYPES = /^(text\/|application\/(json|javascript|manifest)|image\/svg)/;
-  function packed(req, key, mtime, type, getBody) {
+  const brotliA = (b, o) => new Promise((res, rej) => zlib.brotliCompress(b, o, (e, r) => e ? rej(e) : res(r)));
+  const gzipA = (b, o) => new Promise((res, rej) => zlib.gzip(b, o, (e, r) => e ? rej(e) : res(r)));
+  async function packed(req, key, mtime, type, getBody, file) {
     const ae = String(req.headers['accept-encoding'] || '');
     const enc = /\bbr\b/.test(ae) ? 'br' : /\bgzip\b/.test(ae) ? 'gzip' : '';
     if (!enc || !ZTYPES.test(type)) return null;
     const k = key + '|' + enc, c = zCache.get(k);
     if (c && c.m === mtime) return { enc, body: c.body };
-    const raw = Buffer.from(getBody());
-    if (raw.length < 1024) return null;
-    const body = enc === 'br' ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 } }) : zlib.gzipSync(raw, { level: 9 });
-    zCache.set(k, { m: mtime, body });
-    return { enc, body };
+    let job = zPend.get(k);
+    if (!job || job.m !== mtime) {
+      job = { m: mtime };
+      job.p = (async () => {
+        if (file) {
+          const pre = file + (enc === 'br' ? '.br' : '.gz');
+          try { if ((await fs.promises.stat(pre)).mtimeMs >= mtime) return await fs.promises.readFile(pre); } catch (e) { }
+        }
+        const raw = Buffer.from(await getBody());
+        if (raw.length < 1024) return null;
+        return enc === 'br' ? brotliA(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }) : gzipA(raw, { level: 9 });
+      })().then(body => { if (body) zCache.set(k, { m: mtime, body }); return body; }).finally(() => { if (zPend.get(k) === job) zPend.delete(k); });
+      zPend.set(k, job);
+    }
+    const body = await job.p;
+    return body ? { enc, body } : null;
   }
 
   /* páginas HTML: se completan con la configuración pública (id de cliente de Google), los precios de la
@@ -189,7 +205,7 @@ function createServer(over) {
     if (q && LANGS.includes(q) && res) addCookie(res, cookie('fs_lang', q, { maxAge: 365 * 86400, httpOnly: false, secure: /^https:/.test(cfg.baseUrl) }));
     return { lang, region: regionOf(g.country) };
   }
-  function serveFile(req, res, rel, csp) {
+  async function serveFile(req, res, rel, csp) {
     let file = path.resolve(pub, '.' + rel);
     if (file !== pub && !file.startsWith(pub + path.sep)) return notFound(res);
     let st;
@@ -199,7 +215,7 @@ function createServer(over) {
     const headers = { ...SEC_HEADERS, 'Content-Type': type };
     headers.Vary = 'Accept-Encoding';
     if (ext === '.html') {
-      const v = visitor(req, res), body = page(file, v), z = packed(req, file + '|' + v.lang + '|' + v.region + '|' + (Date.now() < cfg.founder.until ? 'f' : ''), st.mtimeMs, type, () => body);
+      const v = visitor(req, res), body = page(file, v), z = await packed(req, file + '|' + v.lang + '|' + v.region + '|' + (Date.now() < cfg.founder.until ? 'f' : ''), st.mtimeMs, type, () => body);
       headers.Vary = 'Accept-Encoding, Accept-Language, Cookie';
       res.writeHead(200, { ...headers, 'Content-Security-Policy': csp || CSP, 'Cache-Control': 'no-cache', ...(z ? { 'Content-Encoding': z.enc } : {}) });
       return res.end(req.method === 'HEAD' ? undefined : z ? z.body : body);
@@ -210,7 +226,7 @@ function createServer(over) {
     if (rel === '/app/sw.js') headers['Service-Worker-Allowed'] = '/app/';
     headers.ETag = etag;
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
-    const z = st.size < 20 * 1048576 ? packed(req, file, st.mtimeMs, type, () => fs.readFileSync(file)) : null;
+    const z = st.size < 20 * 1048576 ? await packed(req, file, st.mtimeMs, type, () => fs.promises.readFile(file), file) : null;
     if (z) { res.writeHead(200, { ...headers, 'Content-Encoding': z.enc, 'Content-Length': z.body.length }); return res.end(req.method === 'HEAD' ? undefined : z.body); }
     // videos de la portada: por partes (Safari y los teléfonos piden rangos para reproducir)
     headers['Accept-Ranges'] = 'bytes';
@@ -400,16 +416,18 @@ function createServer(over) {
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 70000;
   server.requestTimeout = 120000;
-  server.on('close', () => { sec.flush(); sec.stop(); S.close(); });
-  return { server, cfg, S, live, billing, api, sec };
+  server.on('close', () => { mail.stop(); sec.flush(); sec.stop(); S.close(); });
+  return { server, cfg, S, live, billing, api, sec, mail };
 }
 
 if (require.main === module) {
-  const { server, cfg, billing } = createServer();
+  const { server, cfg, billing, mail } = createServer();
   billing.start();
+  mail.start();   // la cola de correos: reintenta cada minuto lo que no salió
   if (!cfg.googleClientId) console.warn('Aviso: falta GOOGLE_CLIENT_ID; nadie podrá entrar con Google.');
   server.listen(cfg.port, cfg.host, () => console.log(`FilmSpirit escuchando en http://${cfg.host}:${cfg.port} (${cfg.baseUrl})`));
-  const stop = () => { console.log('Cerrando…'); server.close(() => process.exit(0)); server.closeAllConnections(); setTimeout(() => process.exit(0), 4000).unref(); };
+  // la cola de correos termina lo que está enviando (hasta 3 s) antes de cerrar la base
+  const stop = () => { console.log('Cerrando…'); mail.stop(); setTimeout(() => process.exit(0), 6000).unref(); Promise.race([mail.idle(), new Promise(r => setTimeout(r, 3000))]).then(() => { server.close(() => process.exit(0)); server.closeAllConnections(); }); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
 }
 

@@ -6,14 +6,22 @@ let PDF_MISS = 0;     // imágenes que no entraron al PDF (se avisa al terminar)
    segundos después de abrir, o al exportar si todavía no llegó */
 let PDFLIB_P = null;
 function loadPdfLib() {
-  const ok = () => !!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable);
+  // en la web con servidor, las letras de los PDF (pdf-fuente*.js) van aparte en lib/pdf-fuentes-<huella>.js (build.sh): se bajan
+  // con jsPDF y no en app.js (eran ~640 kB que todos descargaban al abrir la app). En escritorio y en Claude, van dentro
+  const fonts = () => typeof pdfFonts === 'function' && typeof pdfFontX === 'function';
+  const ok = () => !!(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) && fonts();
   if (ok()) return Promise.resolve(true);
   if (PDFLIB_P) return PDFLIB_P;
   const local = DESK || typeof LOCAL_LIBS !== 'undefined';
   const urls = local ? ['lib/jspdf.umd.min.js', 'lib/jspdf.plugin.autotable.min.js']
     : ['https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js'];
-  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error(src)); document.head.appendChild(s); });
-  return (PDFLIB_P = (async () => { if (!(window.jspdf && window.jspdf.jsPDF)) await load(urls[0]); await load(urls[1]); return ok(); })().catch(e => { console.warn('PDF:', e); PDFLIB_P = null; return false; }));
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); });
+  return (PDFLIB_P = (async () => {
+    if (!(window.jspdf && window.jspdf.jsPDF)) await load(urls[0]);
+    if (!(window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)) await load(urls[1]);
+    if (!fonts() && local) await load('lib/pdf-fuentes-' + PDFF_V + '.js');
+    return ok();
+  })().catch(e => { console.warn('PDF:', e); PDFLIB_P = null; return false; }));
 }
 setTimeout(() => { const go = () => loadPdfLib(); if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 8000 }); else go(); }, 4000);
 const PDF_MAP = { '—': '-', '–': '-', '‒': '-', '‐': '-', '“': '"', '”': '"', '„': '"', '«': '«', '»': '»', '‘': "'", '’': "'", '′': "'", '″': '"', '•': '-', ' ': ' ' };
@@ -113,9 +121,9 @@ function newDoc(orientation = 'portrait', format = 'letter') {
   // «courier» la Courier Prime del guion y «title» la de los títulos (Familjen Grotesk)
   const sf = doc.setFont.bind(doc);
   // la letra elegida en «Apariencia › Tu pantalla» (pdf-fuente-x.js): regular y negrita, para todo lo que no es guion
-  const fx = typeof fontOf === 'function' ? pdfFontX(doc, fontOf(screenGet())[4]) : '';
+  const fx = typeof fontOf === 'function' && typeof pdfFontX === 'function' ? pdfFontX(doc, fontOf(screenGet())[4]) : '';
   const fxSt = st => st === 'bold' || st === 'bolditalic' ? 'bold' : 'normal';
-  if (pdfFonts(doc)) doc.setFont = (n, st, w) => {
+  if (typeof pdfFonts === 'function' && pdfFonts(doc)) doc.setFont = (n, st, w) => {
     if (fx && (n === 'helvetica' || n === 'title')) return sf(fx, fxSt(st), w);
     if (n === 'helvetica') return sf(PDF_UI, st, w);
     if (n === 'courier') return sf(pdfFontOn(doc, PDF_MONO) ? PDF_MONO : 'courier', st, w);

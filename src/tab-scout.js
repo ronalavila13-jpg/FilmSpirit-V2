@@ -48,29 +48,23 @@ function scoutPlaces() {
 }
 
 /* ---------- fotos (compartido con el casting) ---------- */
+// cada foto aparece apenas se comprime y se sube detrás (laminas.js · photosAdd)
 async function candAddPhotos(c, keyOf, files) {
-  if (!proGate('photos')) return 0;
-  const list = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
-  if (!list.length) { toast('Elige fotos JPG, PNG o WebP.'); return 0; }
-  let n = 0;
-  for (const f of list) {
-    let r;
-    try { r = await compressPhoto(f); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
-    const id = uid('f'), k = keyOf(id);
-    try { await Store.saveFrame(P.id, k, r.url); }
-    catch (err) { toast('No se pudo guardar la foto: ' + (err && err.code === 'quota_exceeded' ? 'se llenó el espacio de la página.' : /quota/i.test(String(err && err.name)) ? 'no queda espacio en este navegador.' : err && err.message && /permiso/i.test(err.message) ? err.message : 'inténtalo de nuevo.'), 4200); break; }
-    FRAMES[k] = r.url;
-    c.ph = [...(c.ph || []), { id, w: r.w, h: r.h }];
-    n++;
-  }
-  if (n) { changed('data'); toast(`${n} ${n === 1 ? 'foto agregada' : 'fotos agregadas'}.`); }
-  return n;
+  const Px = P;
+  const r = await photosAdd(files, {
+    keyOf, paint: () => { if (P === Px) render(); },
+    add: x => { c.ph = [...(c.ph || []), x]; },
+    drop: id => { c.ph = (c.ph || []).filter(p => p.id !== id); },
+  });
+  if (r.n) toast(`${r.n} ${r.n === 1 ? 'foto agregada' : 'fotos agregadas'}.`);
+  return r.n;
 }
 function candDelPhoto(c, keyOf, pid, tab) {
   const k = keyOf(pid);
   histNote('Quitar una foto', FRAMES[k] ? { [k]: FRAMES[k] } : null, tab);
   delete FRAMES[k];
-  Store.saveFrame(P.id, k, null).catch(() => { });
+  // si todavía se está subiendo, photosAdd la borra en el servidor al terminar (laminas.js · photoCancel)
+  if (!photoCancel(k)) Store.saveFrame(P.id, k, null).catch(() => { });
   c.ph = (c.ph || []).filter(x => x.id !== pid);
   changed('data');
 }
