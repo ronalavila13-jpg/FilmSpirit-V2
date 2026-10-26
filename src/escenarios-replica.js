@@ -23,11 +23,12 @@ function rpGrid(T, opt = {}) {
   const k = Math.min(.1, Math.max(opt.k || .02, Math.max(W, H) / (opt.px || 900)));
   return { x0: x0 - pad, z0: z0 - pad, k, w: Math.max(4, Math.ceil(W / k)), h: Math.max(4, Math.ceil(H / k)) };
 }
-/* el corte a la altura c: una máscara (1 = cortado) */
-function rpSection(T, G, c) {
+/* el corte a la altura c: una máscara (1 = cortado). fill: lo más grueso que se rellena (los muros, RP_MAXT; para los
+   volúmenes bajos, más: un mostrador tiene 60 cm de fondo) */
+function rpSection(T, G, c, fill = RP_MAXT) {
   const { x0, z0, k, w, h } = G, p = T.p, I = T.i, M = new Uint8Array(w * h);
   const rows = Array.from({ length: h }, () => []), cols = Array.from({ length: w }, () => []);
-  const maxT = RP_MAXT / k;
+  const maxT = fill / k;
   const seg = (ax, az, bx, bz) => {
     const u1 = (ax - x0) / k, v1 = (az - z0) / k, u2 = (bx - x0) / k, v2 = (bz - z0) / k;
     // la línea del corte (las caras sueltas, sin grosor, también cuentan)
@@ -49,9 +50,9 @@ function rpSection(T, G, c) {
     if (sc !== sa) cut(C, A, yc, ya);
     if (pts.length === 4) seg(pts[0], pts[1], pts[2], pts[3]);
   }
-  // entre dos cruces seguidos a menos de RP_MAXT: es el grosor de un muro
-  rows.forEach((L, r) => { L.sort((a, b) => a - b); for (let j = 0; j + 1 < L.length; j++) if (L[j + 1] - L[j] <= maxT) for (let u = Math.max(0, Math.floor(L[j])); u <= Math.min(w - 1, Math.floor(L[j + 1])); u++) M[r * w + u] = 1; });
-  cols.forEach((L, q) => { L.sort((a, b) => a - b); for (let j = 0; j + 1 < L.length; j++) if (L[j + 1] - L[j] <= maxT) for (let v = Math.max(0, Math.floor(L[j])); v <= Math.min(h - 1, Math.floor(L[j + 1])); v++) M[v * w + q] = 1; });
+  // por fila y por columna, de a pares (entra y sale de un sólido): si está a menos de RP_MAXT, es el grosor de un muro
+  rows.forEach((L, r) => { L.sort((a, b) => a - b); for (let j = 0; j + 1 < L.length; j += 2) if (L[j + 1] - L[j] <= maxT) for (let u = Math.max(0, Math.floor(L[j])); u <= Math.min(w - 1, Math.floor(L[j + 1])); u++) M[r * w + u] = 1; });
+  cols.forEach((L, q) => { L.sort((a, b) => a - b); for (let j = 0; j + 1 < L.length; j += 2) if (L[j + 1] - L[j] <= maxT) for (let v = Math.max(0, Math.floor(L[j])); v <= Math.min(h - 1, Math.floor(L[j + 1])); v++) M[v * w + q] = 1; });
   rpFillHoles(M, w, h, Math.round(1 / (k * k)));   // el interior de una columna gruesa (hasta 1 m²)
   return M;
 }
@@ -192,18 +193,18 @@ const rpT = (M, w, h) => { const o = new Uint8Array(w * h); for (let y = 0; y < 
 function rpWallTop(T, G, M15, top) {
   let n15 = 0; for (const v of M15) n15 += v; if (!n15) return 2.6;
   let best = RP_CUT.wall;
-  for (let c = 1.7; c <= Math.min(top, 8); c += .2) {
+  for (let c = 1.7; c <= Math.min(top, 8) + .001; c += .1) {
     const m = rpSection(T, G, c); let s = 0; for (let i = 0; i < m.length; i++) if (M15[i] && m[i]) s++;
     if (s >= n15 * .5) best = c; else break;
   }
-  return Math.round(Math.min(Math.max(best + .1, 2.2), 8) * 20) / 20;
+  return Math.round(Math.min(Math.max(best, 2.2), 8) * 20) / 20;
 }
 /* la réplica: { walls, floor, items, wh, n: { muros, huecos, volúmenes } } en el formato del constructor */
 function rpReplicate(T, opt = {}) {
   const G = rpGrid(T, opt); if (!G) return null;
   const { w, h, k } = G;
   let top = 0; for (let i = 1; i < T.p.length; i += 3) if (T.p[i] > top) top = T.p[i];
-  const M = { wall: rpSection(T, G, RP_CUT.wall), low: rpSection(T, G, RP_CUT.low), mid: rpSection(T, G, RP_CUT.mid), top: rpSection(T, G, RP_CUT.top), plat: rpSection(T, G, RP_CUT.plat) };
+  const M = { wall: rpSection(T, G, RP_CUT.wall), low: rpSection(T, G, RP_CUT.low, 3), mid: rpSection(T, G, RP_CUT.mid, 3), top: rpSection(T, G, RP_CUT.top), plat: rpSection(T, G, RP_CUT.plat, 3) };
   const wh = opt.wh || rpWallTop(T, G, M.wall, top);
   const Tt = rpThick(M.wall, w, h), Lmin = Math.max(.6 / k, 3 * Tt);
   const o = { k, gapMin: Math.round(.45 / k), gapMax: Math.round(2.6 / k) };

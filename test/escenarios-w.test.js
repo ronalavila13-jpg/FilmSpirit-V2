@@ -122,5 +122,35 @@ test('las luces de un escenario construido entran al plano (a su escala); al cam
   assert.strictEqual(s3.objs.filter(o => o.kind === 'luz').length, 0);
 });
 
+/* ---------- réplica de un escenario importado (escenarios-replica.js) ---------- */
+const RP = require(R + '/src/escenarios-replica.js'), ROOM = require(__dirname + '/datos/cuarto-sintetico.js');
+const near = (a, b, t, m) => assert.ok(Math.abs(a - b) <= t, `${m || ''} ${a} ≠ ${b} (±${t})`);
+for (const flip of [false, true]) test(`réplica de un cuarto de 6 × 4 m${flip ? ' (con un muro con las caras al revés, como SketchUp)' : ''}: muros, puerta, ventana, columna y mostrador`, () => {
+  const r = RP.rpReplicate(ROOM.room({ flip }));
+  assert.strictEqual(r.walls.length, 4);
+  near(r.wh, 2.7, .05, 'alto de muros');
+  const N = r.walls.find(w => w.z0 === w.z1 && w.z0 < 0), S = r.walls.find(w => w.z0 === w.z1 && w.z0 > 0), O = r.walls.find(w => w.x0 === w.x1 && w.x0 < 0);
+  assert.ok(N && S && O);
+  near(N.z0, -2, .05); near(Math.abs(N.x1 - N.x0), 6, .1, 'largo'); near(N.t, .15, .03, 'grosor');
+  assert.strictEqual(N.o.length, 1); assert.strictEqual(N.o[0].k, 'v'); near(N.o[0].a, 1.2, .06, 'ancho de ventana'); near(N.o[0].y0, .9, .01);
+  near(Math.min(N.x0, N.x1) + N.o[0].u, 0, .06, 'la ventana al medio');
+  assert.strictEqual(S.o.length, 1); assert.strictEqual(S.o[0].k, 'p'); near(S.o[0].a, .9, .06, 'ancho de puerta'); assert.strictEqual(S.o[0].y0, 0);
+  near(Math.min(S.x0, S.x1) + S.o[0].u, 1.45, .06, 'la puerta en su lugar');
+  assert.strictEqual(O.o.length, 0);
+  const col = r.items.find(it => it.hh >= 2.5), mos = r.items.find(it => it.hh < 2);
+  assert.ok(col, 'la columna'); near(col.x, 1.65, .06); near(col.z, -.5, .06); near(col.w, .3, .06);
+  assert.ok(mos, 'el mostrador'); near(mos.x, -1.6, .08); near(mos.z, .9, .06); near(mos.w, 2, .1); near(mos.d, .6, .06);
+  assert.strictEqual(r.items.length, 2);
+  assert.strictEqual(r.floor.length, 4, 'el piso: un rectángulo'); near(r.floor[0][0], -3, .1); near(r.floor[2][1], 2, .1);
+});
+test('la réplica pasa la limpieza del constructor y entra en el tope de piezas', () => {
+  const r = RP.rpReplicate(ROOM.room()), d = X.bsClean({ ...X.bsNew('Réplica'), walls: r.walls, floor: r.floor, items: r.items, wh: r.wh });
+  assert.strictEqual(d.walls.length, 4); assert.strictEqual(X.bsCount(d), 8);
+  for (const w of d.walls) assert.strictEqual(X.bsOps(w, d.wh).length, w.o.length, 'los huecos caben en sus muros');
+});
+test('un modelo sin nada cerca del piso no se replica', () => {
+  assert.strictEqual(RP.rpReplicate({ p: new Float32Array([0, 10, 0, 1, 10, 0, 0, 10, 1]), i: new Uint32Array([0, 1, 2]) }), null);
+});
+
 console.log(fail ? `\n${fail} prueba(s) fallaron` : '\nTodo bien.');
 process.exitCode = fail ? 1 : 0;
