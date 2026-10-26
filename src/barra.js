@@ -450,7 +450,7 @@ function tabsPickSet(t, on) {
   const h = tabsHidden(); on ? h.delete(t) : h.add(t);
   ls.set('tabsHidden', [...h]);
   if (typeof P === 'undefined' || !P) return;
-  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab('script'); else sharePaintTabs();
+  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab('script'); else { sharePaintTabs(); tabStripPaint(); }   // también la franja de arriba, sin esperar a otro repintado
 }
 
 /* ---------- ayuda y soporte (el ícono junto a Compartir) ----------
