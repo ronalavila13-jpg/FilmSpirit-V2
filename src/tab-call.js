@@ -888,64 +888,86 @@ function exportCallXLSX(all) {
   offerFile(fileSafe(P.meta.title) + (all ? '_hojas_de_llamado.xlsx' : `_hoja_de_llamado_J${list[0] + 1}.xlsx`), new Blob([bytes], { type: XLSX_MIME }))
     .then(ok => { if (ok === true) callExported(list, vers); });   // («captured»: va dentro del ZIP del proyecto, no se envió)
 }
+/* el Excel de una hoja (lote W): en el mismo orden que la pantalla y el PDF. La cabecera (el equipo clave, el llamado
+   general y la jornada, el clima, el punto de encuentro y la locación), la nota y la utilería especial, el cronograma por
+   escena con sus planos debajo, el avance, las personas (reparto y equipo por área, con sus horarios), la movilidad, los
+   proveedores y, al pie, el centro de salud y los canales de radio */
 function callSheetXLSX(X) {
-  const NC = 8, rows = [], C = CALL();
+  const NC = 10, rows = [];
   const row = (cells, h) => rows.push(h == null ? { cells } : { cells, h });
-  // como en la app y en el PDF: secciones en el color de la barra, tiras de día y de noche, la nota en amarillo suave
+  // como en la app y en el PDF: secciones en el color de la barra, las tiras del plan, la nota en amarillo suave
   const T = xlTab(), L = T.line;
   const band = (v, fill = T.bar, color = T.ink) => row([{ v, cs: NC, s: { bold: true, font: 'title', fill, color, h: fill === T.black ? 'center' : 'left', size: 12, line: L } }], 22);
-  const H = { bold: true, fill: T.fill, color: '#222222', line: L }, Y = { fill: lgMix(T.note, '#FFFFFF', .4), line: L }, G = { fill: T.ev, line: L };
-  const SIDE = { fill: T.fill, line: '#FFFFFF' }, MID = { fill: T.fill2, line: '#FFFFFF' };
-  const span = (r, a, b) => [r.t0 || r.t || '', r.t1 || r.end || ''].filter(Boolean).join(' - ');
-  // cabecera: teléfonos clave, título y jefes de equipo
-  row([{ v: P.meta.title, cs: 4, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, line: T.bar } }, { v: [...X.heads, ...(X.eps ? [['Episodios', X.eps]] : [])].map(([k, v]) => `${k}: ${v}`).join('\n'), cs: 4, s: { size: 9, fill: T.bar, color: T.ink, line: T.bar } }], 30);
+  const H = { bold: true, fill: T.fill, color: '#222222', line: L }, Y = { fill: lgMix(T.note, '#FFFFFF', .4), line: L };
+  const SIDE = { fill: T.fill, line: '#FFFFFF' }, MID = { fill: T.fill2, line: '#FFFFFF' }, MU = { color: '#666666' }, CC = { h: 'center' };
+  const span = r => [r.t0 || r.t || '', r.t1 || r.end || ''].filter(Boolean).join(' - ');
+  // 1. la cabecera: el proyecto y la versión; tres columnas como en la hoja
+  row([{ v: P.meta.title + (X.eps ? ' · ' + X.eps : ''), cs: 6, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, line: T.bar } }, { v: X.ver ? trDone(tr('Hoja de llamado') + ' · ' + callVerTxt(X.ver)) : trDone(tr('Hoja de llamado')), cs: 4, s: { size: 9, fill: T.bar, color: T.ink, line: T.bar, h: 'right' } }], 30);
   row([{ v: '', cs: NC, s: { fill: T.c, border: false } }], 4);
-  if (X.ver) row([{ v: trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`) + ' · ' + callVerTxt(X.ver)), cs: NC, s: { size: 9, color: '#555555' } }]);
-  if (X.keys.length) row([{ v: X.keys.map(c => `${c.role}: ${c.name}${c.phone ? ' ' + c.phone : ''}`).join('   ·   '), cs: NC, s: { size: 9 } }]);
-  // franja: clima · fecha y llamado general · datos de la jornada
-  const wx = [X.dd.wx && 'Previsión: ' + X.dd.wx, (X.dd.hi || X.dd.lo) && `Temperatura: ${[X.dd.hi, X.dd.lo].filter(Boolean).join(' / ')} °C`, X.dd.hum && `Humedad: ${X.dd.hum} %`, X.dd.sunrise && 'Amanecer: ' + X.dd.sunrise, X.dd.sunset && 'Anochece: ' + X.dd.sunset].filter(Boolean).join('\n');
-  const info = [`Jornada ${X.n + 1} de ${X.total}`, `Horario: ${X.call || '—'} a ${X.end || '—'}`, `Listos motor: ${X.motor || '—'}`, X.lunch && 'Almuerzo: ' + X.lunch, X.dd.craft && 'Catering: ' + X.dd.craft, 'Centro de salud: ' + ([X.hosp.name, X.hosp.addr, X.hosp.phone].filter(Boolean).join(' · ') || '—'), X.radio && 'Canales de radio: ' + X.radio].filter(Boolean).join('\n');
-  row([{ v: wx || 'Clima: —', cs: 3, s: SIDE }, { v: `${X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha'}\nLLAMADO GENERAL\n${X.call || '—'}`, cs: 2, s: { ...MID, bold: true, font: 'title', size: 13, h: 'center' } }, { v: info, cs: 3, s: SIDE }], 78);
-  row([{ v: 'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—'), cs: NC, s: { bold: true } }]);
+  const key = [P.meta.company, ...[...X.keyCrew, ...(X.keyMore || [])].map(k => `${k.lab}: ${k.name || 'Por confirmar'}${k.phone ? ' · ' + k.phone : ''}`)].filter(Boolean).join('\n');
+  const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha';
+  const mid = [`Jornada ${X.n + 1} de ${X.total}`, date, 'LLAMADO GENERAL', X.call || '—', [X.motor && 'Listos motor ' + X.motor, X.lunch && 'Almuerzo ' + X.lunch].filter(Boolean).join(' · '), X.dd.craft && 'Catering: ' + X.dd.craft].filter(Boolean).join('\n');
+  const m = X.meet, mLinks = (m.links || []).map(safeUrl).filter(Boolean);
+  const wx = [X.dd.wx, (X.dd.hi || X.dd.lo) && [X.dd.hi && `Máx. ${X.dd.hi}°`, X.dd.lo && `Mín. ${X.dd.lo}°`].filter(Boolean).join(' · '), X.dd.hum && `Hum. ${X.dd.hum} %`].filter(Boolean).join(' · ');
+  const right = [wx && 'Clima: ' + wx, [X.dd.sunrise && 'Amanecer ' + X.dd.sunrise, X.dd.sunset && 'Anochece ' + X.dd.sunset].filter(Boolean).join(' · '),
+    (m.addr || m.note) && 'Punto de encuentro: ' + [m.addr, m.note].filter(Boolean).join(' · '), ...mLinks,
+    'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—')].filter(Boolean).join('\n');
+  row([{ v: key || '—', cs: 3, s: SIDE }, { v: mid, cs: 4, s: { ...MID, bold: true, font: 'title', size: 12, h: 'center' } }, { v: right, cs: 3, s: SIDE }], 96);
+  // 2. la nota y la utilería especial
   if (X.dd.notes) { row([{ v: 'Nota para el equipo', cs: NC, s: { ...Y, bold: true, h: 'center' } }]); row([{ v: X.dd.notes, cs: NC, s: { ...Y, h: 'center' } }]); }
-  if (X.props.length) row([{ v: 'Utilería especial: ' + X.props.join(', '), cs: NC, s: { h: 'center' } }]);   // (lote U)
-  const COLS = [14, 8, 34, 34, 16, 9, 9, 14];
+  if (X.props.length) row([{ v: 'Utilería especial: ' + X.props.join(', '), cs: NC, s: { h: 'center' } }]);
+  const COLS = [22, 16, 9, 9, 9, 9, 9, 16, 16, 4];
   const lu = pdfPlanUsed(X.sched.rows.map(r => r.it)); lu.note = !!(X.dd.notes || '').trim();
   const lg = xlLegend(lgDocItems('call', lu).map(([nm, c]) => nm === LG.call.note[0] ? [nm, Y.fill] : [nm, c]), COLS);
   if (lg.length) { row([], 6); rows.push(...lg); row([], 4); }
+  // 3. el cronograma por escena, con sus planos debajo
   band('CRONOGRAMA');
-  row(['Hora', 'Plano', 'Descripción', 'Acción', 'Set', 'Lente', 'Sonido', 'Personajes'].map(v => ({ v, s: H })));
-  for (const r of X.sched.rows) {
-    if (r.ev) { const ge = { fill: hlc(r.it) || T.ev, line: L, color: lgInk(hlc(r.it) || T.ev) === '#FFFFFF' ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true, h: 'center' } }]); continue; }
-    const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // (lote U) la tira estándar, como en el plan
-    row([{ v: span(r), s: { ...f, bold: true } }, { v: r.code, s: { ...f, bold: true, h: 'center' } }, { v: `${r.s.heading} · ${r.pages} págs.${r.props ? '\nUtilería y arte: ' + r.props : ''}`, cs: NC - 2, s: { ...f, bold: true } }]);
-    if (!r.shots.length) row([{ v: '' }, { v: r.it.sp ? 'Parte ' + r.it.sp : '' }, { v: 'Escena completa' }, { v: synopsisOf(r.s) || '' }, { v: r.set }, { v: '' }, { v: '' }, { v: r.cast + (r.fig ? ` · fig. ${r.fig}` : '') }]);
-    for (const x of r.shots) row([{ v: X.shotT ? span(x) : '', s: { h: 'center' } }, { v: x.code, s: { bold: true, h: 'center' } }, { v: `${x.size}${x.size && x.det.length ? ' · ' : ''}${x.det.join(' · ')}` }, { v: x.act }, { v: r.set }, { v: x.lens, s: { h: 'center' } }, { v: x.snd || '—', s: { h: 'center' } }, { v: x.cast.join(', ') || '—', s: { h: 'center' } }]);
+  row([{ v: 'Hora · Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 7, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
+  if (X.sched.byShot) row([{ v: 'Plano · hora', s: { ...H, fill: T.fill2 } }, { v: 'Descripción', s: { ...H, fill: T.fill2 } }, { v: 'Acción', cs: 4, s: { ...H, fill: T.fill2 } }, { v: 'Lente', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Sonido', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Personajes', cs: 2, s: { ...H, fill: T.fill2 } }]);
+  for (const r of [...X.sched.rows, ...X.sched.close]) {
+    if (r.ev) { const ef = hlc(r.it) || T.ev, ge = { fill: isMove(r) ? '#DDEFFC' : ef, line: L, color: lgInk(ef) === '#FFFFFF' && !isMove(r) ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true } }]); continue; }
+    const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
+    row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
+      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
+    for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
   }
-  for (const r of X.sched.close) row([{ v: span(r), s: { bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { bold: true } }]);
-  band('FIN DE JORNADA: ' + (X.end || '—'), T.black, lgInk(T.black));
-  band('REPARTO');
-  row(['Personaje', 'Actor / actriz', 'Teléfono', 'Recojo', 'Llamado', 'Vest. / Maq.', 'Listos', 'Obs.'].map(v => ({ v, s: H })));
-  for (const { el, sc } of X.cast) { const T = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {}; row([{ v: `${D.castNum[el.id] || ''}. ${titleCase(el.name)} (esc. ${sc.join(', ')})`, s: { bold: true } }, { v: T.actor || '' }, { v: T.phone || '' }, { v: Z.pu || '', s: { h: 'center' } }, { v: Z.call || X.call || '', s: { h: 'center', bold: true } }, { v: [Z.ves, Z.mq].map(x => x || '—').join(' / '), s: { h: 'center' } }, { v: Z.ready || '', s: { h: 'center' } }, { v: Z.obs || '' }]); }
-  if (X.fig) row([{ v: `Figuración: ${X.fig}`, cs: NC, s: { bold: true } }]);
-  band('CITACIÓN DEL EQUIPO');
+  band('FIN DE JORNADA: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.d.keys, X.d.rows).e) + ' págs.', T.black, lgInk(T.black));
+  // 4. el avance de la jornada siguiente (o «Fin de rodaje»)
+  const A = X.adv;
+  band(A ? trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') : 'FIN DE RODAJE');
+  if (A) {
+    row([{ v: 'Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 5, s: H }, { v: 'Reparto', cs: 2, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
+    for (const r of A.rows) { const fc = hlc(r.it) || lgCol('plan', r.strip); row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}` }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5 }, { v: r.cast.join(', '), cs: 2 }, { v: fmtEighths(r.e8), s: { h: 'right', bold: true } }]); }
+    row([{ v: `Total ${fmtEighths(A.e8)} págs.` + (A.cast.length ? ' · Reparto: ' + A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') : ''), cs: NC, s: { h: 'right', ...MU } }]);
+  }
+  // 5. las personas: el reparto y el equipo por área (con su citación), con los horarios
+  band('PERSONAS');
+  row(['Nombre', 'Rol / Personaje', 'Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos', 'Teléfono', 'Observaciones', ''].map((v, j) => ({ v, s: { ...H, ...(j >= 2 && j <= 6 ? CC : {}) } })));
+  const sep = (name, dc) => row([{ v: name.toUpperCase(), cs: 3, s: { ...H, fill: T.fill2 } }, { v: dc || '', s: { ...H, fill: T.fill2, h: 'center' } }, { v: '', cs: NC - 4, s: { ...H, fill: T.fill2 } }]);
+  const tel = (t, e) => [t, e].filter(Boolean).join('\n');
+  if (X.cast.length) {
+    sep('Reparto', '');
+    for (const { el, sc } of X.cast) { const Tl = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {};
+      row([{ v: Tl.actor || 'Por confirmar', s: Tl.actor ? { bold: true } : MU }, { v: `${D.castNum[el.id] ? D.castNum[el.id] + '. ' : ''}${titleCase(el.name)} (esc. ${sc.join(', ')})` }, { v: Z.pu || '', s: CC }, { v: Z.call || X.call || '', s: { ...CC, bold: true } }, { v: Z.ves || '', s: CC }, { v: Z.mq || '', s: CC }, { v: Z.ready || '', s: CC }, { v: tel(Tl.phone, Tl.email) }, { v: Z.obs || '', cs: 2 }]); }
+    if (X.fig) row([{ v: `Figuración: ${X.fig}`, cs: NC, s: MU }]);
+  }
   for (const [name, list, dc] of X.crew) {
-    row([{ v: name.toUpperCase(), cs: 7, s: { ...H, fill: T.fill2 } }, { v: dc || '', s: { ...H, fill: T.fill2, h: 'center' } }]);
-    for (const c of list) row([{ v: c.role, cs: 3, s: { ...G, bold: true } }, { v: c.name, cs: 2 }, { v: c.phone, cs: 2 }, { v: c.call, s: { h: 'center', bold: true } }]);
+    sep(name, dc);
+    for (const c of list) row([{ v: c.name, s: { bold: true } }, { v: c.role, s: MU }, { v: '' }, { v: c.call, s: { ...CC, bold: true } }, { v: '' }, { v: '' }, { v: '' }, { v: tel(c.phone, c.email) }, { v: '', cs: 2 }]);
+  }
+  // 6. la movilidad y los proveedores
+  if (X.mov.length) {
+    band('MOVILIDAD');
+    row([{ v: 'Vehículo', cs: 2, s: H }, { v: 'Conductor', cs: 2, s: H }, { v: 'Pasajeros', cs: NC - 4, s: H }]);
+    X.mov.forEach((x, i) => row([{ v: `${i + 1}. ${x.name || 'Vehículo'}`, cs: 2, s: { bold: true } }, { v: x.driver || '', cs: 2 }, { v: x.pax.join(', '), cs: NC - 4 }]));
   }
   if (X.vend.length) {
     band('PROVEEDORES');
-    row([{ v: 'Proveedor', cs: 2, s: H }, { v: 'Equipo o servicio', cs: 2, s: H }, { v: 'Teléfono', s: H }, { v: 'Contacto', cs: 2, s: H }, { v: 'Llamado', s: H }]);
-    for (const x of X.vend) row([{ v: x.name, cs: 2, s: { bold: true } }, { v: x.gear, cs: 2 }, { v: x.phone }, { v: x.contact, cs: 2 }, { v: x.call, s: { h: 'center' } }]);
+    row([{ v: 'Proveedor', s: H }, { v: 'Equipo o servicio', cs: 3, s: H }, { v: 'Contacto', cs: 3, s: H }, { v: 'Teléfono', s: H }, { v: 'Llamado', cs: 2, s: { ...H, h: 'center' } }]);
+    for (const x of X.vend) row([{ v: x.name, s: { bold: true } }, { v: x.gear || '', cs: 3 }, { v: x.contact || '', cs: 3 }, { v: x.phone || '' }, { v: x.call || '', cs: 2, s: { ...CC, bold: true } }]);
   }
-  const m = X.meet;
-  if (m.addr || m.note || (m.links || []).length || X.mov.length) {
-    band('PUNTO DE ENCUENTRO Y MOVILIDAD');
-    row([{ v: 'Dirección de citación: ' + ([m.addr, m.note].filter(Boolean).join(' · ') || '—'), cs: NC, s: { bold: true } }]);
-    for (const u of (m.links || []).map(safeUrl).filter(Boolean)) row([{ v: u, cs: NC }]);
-    if (X.mov.length) { row([{ v: 'Vehículo', cs: 2, s: H }, { v: 'Conductor', cs: 2, s: H }, { v: 'Pasajeros', cs: 4, s: H }]); X.mov.forEach((x, i) => row([{ v: `${i + 1}. ${x.name || 'Vehículo'}`, cs: 2, s: { bold: true } }, { v: x.driver || '—', cs: 2 }, { v: x.pax.join(', ') || '—', cs: 4 }])); }
-  }
-  // (lote U) el avance de la jornada siguiente (o «Fin de rodaje»), en una línea
-  row([{ v: trDone(advLine(X.adv)), cs: NC, s: { italic: true, border: false } }]);
+  // 7. al pie: el centro de salud y los canales de radio
+  row([], 6);
+  row([{ v: 'Centro de salud: ' + ([X.hosp.name, X.hosp.phone, X.hosp.addr].filter(Boolean).join(' · ') || 'Por confirmar'), cs: 6, s: { bold: true, line: L } }, { v: 'Canales de radio: ' + (X.radio || 'Por confirmar'), cs: 4, s: { line: L } }]);
   return { name: `Jornada ${X.n + 1}`, cols: COLS, rows, landscape: false };
 }
