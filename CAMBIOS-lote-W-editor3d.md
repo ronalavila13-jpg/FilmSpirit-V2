@@ -19,7 +19,8 @@ Frente D del lote W. Base: lotes T, U y V unidos. Rama `lote-w-d`. Cuatro pedido
   metros (de 0,30 a 30 m; el número se puede escribir).
 - **Tocar para enfocar**: el botón chico junto a «Foco en» (un visor con un punto). Con él prendido, la viñeta lleva un borde
   verde y un toque en cualquier punto enfoca ahí, como en el celular; después el modo se apaga solo (Esc también lo apaga).
-  Así tocar sigue eligiendo figuras el resto del tiempo, sin confundir las dos cosas.
+  Así tocar sigue eligiendo figuras el resto del tiempo, sin confundir las dos cosas. En el modo foco, tocar sobre un
+  nombre o una figura también enfoca (no abre la lista de posturas).
 - En la **planta** de arriba, el plano de foco es la raya verde que cruza el cono de la cámara, con la zona nítida
   sombreada. Tiene un tirador al medio: **arrastrar la raya** acerca o aleja el foco.
 - Tocar un punto o arrastrar la raya pasa «Foco en» a **A mano** con esa distancia. La línea «Foco a … · nítido de … a …» se

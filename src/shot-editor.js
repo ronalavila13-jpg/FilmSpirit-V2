@@ -884,12 +884,13 @@ function openShotEditor(id, isNew, from2d, waited) {
     e.preventDefault(); vpC.setPointerCapture(e.pointerId);
     syncView();
     const [px, py] = vpPos(e);
+    // lote W · modo foco: el toque enfoca en el punto (la distancia sobre el eje de la cámara hasta lo que hay ahí),
+    // aunque caiga sobre un nombre o una figura
+    if (E.focusTap && !E.free) { closePoseMenu(); vDrag = { t: 'focus', px, py, sx: e.clientX, sy: e.clientY }; return; }
     // el triangulito ▾ junto al nombre: lista de posturas (se abre al soltar, si no se arrastró)
     const ph = r3PoseHit(px, py, VW, VH);
     if (ph) { vDrag = { t: 'posemenu', id: ph.id, hit: ph, sx: e.clientX, sy: e.clientY, dead: E.poseOpen === ph.id }; return; }
     closePoseMenu();
-    // lote W · modo foco: el toque enfoca en el punto (la distancia sobre el eje de la cámara hasta lo que hay ahí)
-    if (E.focusTap && !E.free) { vDrag = { t: 'focus', px, py, sx: e.clientX, sy: e.clientY }; return; }
     // lote W · una esquina del objeto elegido: agrandar o achicar
     const sci = scHit(px, py);
     if (sci != null) { const ob = selOb(), B = E.scBox; vDrag = { t: 'scale', id: E.sel, c: B.c, d0: Math.max(4, Math.hypot(px - B.c[0], py - B.c[1])), s0: objSc(ob), sx: e.clientX, sy: e.clientY }; return; }
