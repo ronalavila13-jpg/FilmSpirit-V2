@@ -882,6 +882,79 @@ function objScClean(ob) {
   if (scalable(ob) && isFinite(v) && v > 0 && Math.abs(v - 1) > .004) ob.sc = Math.round(clamp(v, OBJ_SC[0], OBJ_SC[1]) * 100) / 100; else delete ob.sc;
 }
 
+/* ---------- lote W · el escenario del plano y el del máster (obs. 9) ----------
+   «Escenario» es lo que el lote U llama así: el decorado (set, set3d, planId y lo del plano de planta, la habitación, el
+   interior de vehículo con su modelo y su color), la hora del día (atm) y el sol, la lluvia, la luz ambiente del lugar y
+   los objetos y luces que no son figuras (muebles, objetos, vehículos, animales, luces del set), quietos en su instante 0.
+   No entran las figuras ni los extras, lo que una figura sostiene, la cámara ni lo de la cámara (exposición, balance).
+   s3StageSig: su firma (texto). Un plano ajustado a mano (sh.s3) cuyo escenario ya no coincide con el de su máster
+   después de que el máster cambió de escenario lleva un aviso: el máster cuenta sus cambios (master.stgN, al guardar su
+   editor) y cada plano anota hasta qué cambio vio (sh.stgSeen = '<máster>:<n>'), al actualizarse o «Mantener así». */
+const STAGE_F = ['set', 'set3d', 'planId', 'planFloor', 'wildWalls', 'room', 'car', 'atm', 'rain', 'sunAz'];
+const isSetObj = o => !!o && o.kind !== 'actor' && o.kind !== 'gente' && !o.hold;
+function s3StageSig(s3, fbAtm) {
+  if (!s3 || !Array.isArray(s3.objs) || !Array.isArray(s3.keys) || !s3.keys.length) return '';
+  const st = s3At(s3, 0, true), r = v => Math.round(v * 100) / 100, L = s3.light || {};
+  const sc = {};
+  for (const f of STAGE_F) if (s3[f] != null && s3[f] !== false && s3[f] !== '') sc[f] = s3[f];
+  sc.atm = s3.atm || fbAtm || 'dia';
+  if (sc.planFloor === true) delete sc.planFloor;
+  if (sc.room && typeof sc.room === 'object') sc.room = { w: r(+sc.room.w || 8), d: r(+sc.room.d || 8), h: r(+sc.room.h || 3), kind: sc.room.kind || '' };
+  if (sc.set !== 'int') delete sc.room;
+  if (sc.set !== 'auto') delete sc.car;
+  if (sc.set !== 'plano') { delete sc.planId; delete sc.planFloor; delete sc.wildWalls; }
+  if (sc.set !== 'modelo') delete sc.set3d;
+  const sim = L.mode === 'sim';
+  sc.light = sim ? ['sim', r(L.amb ?? .22)] : ['previs', r(L.amb ?? .22)];
+  sc.objs = s3.objs.filter(isSetObj).map(o => {
+    const p = st.o[o.id] || {}, q = {};
+    for (const f of ['x', 'z', 'rot', 'h', 'open', 'tilt', 'int', 'k', 'ang']) if (typeof p[f] === 'number') q[f] = f === 'rot' ? Math.round(p[f]) : r(p[f]);
+    return [o.id, o.kind, o.type || '', o.fx || '', o.mod || '', o.model || '', o.paint || '', o.sc || 1, q];
+  }).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  return JSON.stringify(sc);
+}
+/* el escenario de src en dst: decorado, objetos y luces del set (quietos, como en src en su instante 0), la hora, el sol,
+   la lluvia y la luz ambiente. La cámara de dst, sus figuras (dónde están, su postura y su animación), sus extras y lo
+   que sus figuras sostienen no cambian */
+function s3TakeSet(dst, src) {
+  const out = JSON.parse(JSON.stringify(dst));
+  for (const f of STAGE_F) { if (src[f] != null) out[f] = JSON.parse(JSON.stringify(src[f])); else delete out[f]; }
+  const Ls = src.light || {}, Ld = out.light || {};
+  if (src.light || out.light) { out.light = { ...Ld, mode: Ls.mode || 'previs', amb: Ls.amb ?? .22 }; if (Ls.mode !== 'sim' && Ld.mode == null) delete out.light.mode; }
+  const old = new Set(out.objs.filter(isSetObj).map(o => o.id));
+  const keep = out.objs.filter(o => !old.has(o.id));
+  const st = s3At(src, 0, true), add = [];
+  for (const o of src.objs.filter(isSetObj)) {
+    const n = JSON.parse(JSON.stringify(o));
+    // (un id de src que en dst es de una figura: otro id)
+    if (keep.some(x => x.id === n.id)) { let i = 0; while (keep.some(x => x.id === n.id + 'm' + i) || src.objs.some(x => x.id === n.id + 'm' + i)) i++; n.id = n.id + 'm' + i; }
+    // una luz que apunta a una figura de src: a la misma de dst (por personaje)
+    if (n.aim) n.aim = s3MapObj(o.aim, src, out) || null;
+    add.push([n, st.o[o.id]]);
+  }
+  out.objs = [...keep, ...add.map(a => a[0])];
+  for (const k of out.keys) {
+    for (const id of old) delete k.o[id];
+    if (k.co) continue;
+    for (const [n, p] of add) if (p) { const q = { ...p }; delete q.walk; delete q.walkN; k.o[n.id] = q; }
+  }
+  if (out.aim && !out.objs.some(o => o.id === out.aim)) out.aim = null;
+  if (out.focus && !out.objs.some(o => o.id === out.focus)) delete out.focus;
+  return out.keys.some(k => k.co || k.oo) ? s3Bake(out) : out;
+}
+/* la hora que propone el guion para la escena del plano (la que el editor pone si el plano no eligió una) */
+const shotAtmFb = sh => { const s = typeof sceneOfKey === 'function' && typeof D !== 'undefined' && D && D.sc ? sceneOfKey(sh.sc) : null; return s && typeof envFromScene === 'function' ? envFromScene(s).atm : null; };
+const shotStageSig = sh => s3StageSig(s3Of(sh), shotAtmFb(sh));
+/* el máster de un plano ajustado a mano cuyo escenario quedó atrás (null si no hace falta avisar) */
+function stageStale(sh) {
+  if (!sh || !sh.s3) return null;
+  const m = shotMaster(sh.sc);
+  if (!m || m.id === sh.id || !(+m.stgN > 0) || sh.stgSeen === m.id + ':' + m.stgN) return null;
+  return shotStageSig(sh) !== shotStageSig(m) ? m : null;
+}
+/* el plano queda al día con el máster (se actualizó o se mantiene así) */
+function stageSeen(sh, m) { if (m && +m.stgN > 0) sh.stgSeen = m.id + ':' + m.stgN; }
+
 /* ---------- lote W · lo que muestra la viñeta 3D: tamaño, ángulo y movimiento ----------
    Para avisar en el editor cuando la cámara 3D no coincide con el guion técnico. Sin THREE: proyecta con la cámara del
    plano (posición, altura, paneo, tilt, holandés, lente y sensor) igual que el visor (s3d-render, giros en orden YXZ).
@@ -1199,4 +1272,4 @@ function s3Of(sh) {
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable, s3StageSig, s3TakeSet, stageStale, stageSeen };
