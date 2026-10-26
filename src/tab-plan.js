@@ -59,11 +59,11 @@ function dayDone(d) {
   const shots = d.keys.flatMap(k => D.shotsBy[k] || []);
   return shots.length && d.keys.every(k => (D.shotsBy[k] || []).length) && shots.every(s => s.done) ? 'script' : '';
 }
-const PL_HEAD = [['Locación', ''], ['Esc.', ''], ['Hora', ''], ['Escena', ''], ['Reparto', ''], ['Fig.', 'c-fig r'], ['1/8', 'r'], ['Pág.', 'r'], ['Notas técnicas', 'c-tech'], ['Observaciones', 'c-obs']];
-const PL_TIP = { 'Fig.': 'Figuración: cuántos extras', '1/8': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza' };
+const PL_HEAD = [['Locación', ''], ['Esc.', ''], ['Tiempo', ''], ['Escena', ''], ['Reparto', ''], ['Fig.', 'c-fig r'], ['1/8', 'r'], ['Pág.', 'r'], ['Notas técnicas', 'c-tech'], ['Observaciones', 'c-obs']];
+const PL_TIP = { 'Tiempo': 'Tiempo estimado de rodaje de cada escena: escríbelo para cambiarlo (45, 1 h 15, 1:30)', 'Fig.': 'Figuración: cuántos extras', '1/8': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza' };
 const plHeadHTML = () => `<div class="pl-head" aria-hidden="true">${PL_HEAD.map(([h, c]) => `<span${c ? ` class="${ea(c)}"` : ''}${PL_TIP[h] ? ` title="${ea(PL_TIP[h])}"` : ''}>${h}</span>`).join('')}</div>`;
 /* columnas opcionales de la pantalla (cada persona elige las suyas; el PDF y el Excel siempre las llevan) */
-const planCols = () => ({ fig: ls.get('plFig', true), tech: ls.get('plTech', true), obs: ls.get('plObs', true) });
+const planCols = () => ({ fig: ls.get('plFig', true), tech: ls.get('plTech', true), obs: ls.get('plObs', true), thumb: ls.get('plThumb', true) });
 function planColsCSS() {
   const c = planCols();
   // las notas vacías en todo el plan ceden su ancho a la escena (siguen ahí para escribir)
@@ -83,19 +83,31 @@ const minPerPage = () => Math.max(5, num(P.schedule.minPerPage) || MPP0);
 const EV_MIN = name => /almuerzo|comida|cena/i.test(name) ? 60 : /desayuno|traslado/i.test(name) ? 30 : /maquillaje|vestuario|preparativo/i.test(name) ? 45 : /ensayo/i.test(name) ? 20 : 0;
 const hmToMin = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || '')); return m ? +m[1] * 60 + +m[2] : null; };
 const minToHm = m => m == null ? '' : `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+/* duración escrita a mano: «45», «45 min», «1 h», «1 h 15», «1:15», «1.5 h» → minutos */
+function parseDur(v) {
+  v = String(v || '').trim().toLowerCase().replace(',', '.'); if (!v) return null;
+  let m = /^(\d{1,2}):(\d{1,2})$/.exec(v); if (m) return +m[1] * 60 + +m[2];
+  m = /^(\d+(?:\.\d+)?)\s*h(?:oras?|s)?\s*(\d{1,2})?\s*(?:m|min|mins|minutos?)?$/.exec(v); if (m) return Math.round(+m[1] * 60 + +(m[2] || 0));
+  m = /^(\d{1,3})\s*(?:m|min|mins|minutos?|')?$/.exec(v); if (m) return +m[1];
+  return null;
+}
 const fmtDur = m => !m ? '' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) : ''}`;
-function planDayTimes(d) {
+/* el tiempo de una fila sin tiempo escrito: los octavos × los minutos por página (los eventos, lo de costumbre) */
+const rowEstDur = it => it.e ? EV_MIN(it.name || '') : Math.max(5, Math.round(partEighths(it) * minPerPage() / 8 / 5) * 5);
+/* at: las horas escritas en la hoja de llamado de la jornada ({ clave de la fila: 'HH:MM' }); mandan sobre las del plan */
+function planDayTimes(d, at) {
   const out = new Map(), items = P.schedule.items;
   let t = hmToMin(callOf(d.id, d));
   for (const i of d.rows) {
     const it = items[i]; if (!it) continue;
-    const own = hmToMin(it.t);
+    const own = hmToMin((at && at[itemKey(it)]) || it.t);
     if (own != null) t = own;
-    const dur = num(it.dur) || (it.e ? EV_MIN(it.name || '') : Math.max(5, Math.round(partEighths(it) * minPerPage() / 8 / 5) * 5));
+    const dur = num(it.dur) || rowEstDur(it);
     out.set(i, { start: t, dur, est: own == null });
     if (t != null) t += dur;
   }
   out.end = t;
+  out.total = [...out.values()].reduce((a, x) => a + (x.dur || 0), 0);
   return out;
 }
 let PL_TIMES = new Map();
@@ -117,6 +129,13 @@ document.addEventListener('input', e => {
   const w = e.target.parentElement; if (!w || !w.classList || !w.classList.contains('wfld')) return;
   const v = w.lastElementChild; v.textContent = e.target.value || e.target.placeholder || ''; v.classList.toggle('ph', !e.target.value);
 }, true);
+/* la miniatura del storyboard de una escena: la viñeta de su primer plano (se elige en «Columnas en pantalla») */
+const planThumbShot = it => it.k && planCols().thumb && typeof thumbCached === 'function' ? (D.shotsBy[it.k] || [])[0] || null : null;
+function planThumbHTML(it) {
+  const sh = planThumbShot(it); if (!sh) return '';
+  const u = thumbCached(sh);
+  return `<img class="pl-th${ea(u ? '' : ' wait')}" draggable="false" alt="" src="${ea(u || BLANK)}" ${u ? '' : `data-thumb="${ea(sh.id)}"`}>`;
+}
 function planRowHTML(i, ed) {
   const it = P.schedule.items[i];
   const dis = ed ? '' : 'disabled';
@@ -124,7 +143,9 @@ function planRowHTML(i, ed) {
   const notes = `<span class="c-tx c-tech${ea(PL_NOTE.has(key + ':tech') ? ' open' : '')}"><textarea rows="1" data-bind="pl-f" data-f="tech" data-i="${i}" aria-label="Notas técnicas" placeholder="${ea(ed ? 'Notas técnicas' : '')}" ${dis}>${esc(it.tech || '')}</textarea></span>
     <span class="c-tx c-obs${ea(PL_NOTE.has(key + ':obs') ? ' open' : '')}"><textarea rows="1" data-bind="pl-f" data-f="obs" data-i="${i}" aria-label="Observaciones" placeholder="${ea(ed ? 'Observaciones' : '')}" ${dis}>${esc(it.obs || '')}</textarea></span>`;
   const tt = PL_TIMES.get(i);
-  const time = `<span class="c-t" ${tt && tt.start != null ? `title="${ea(tt.est ? 'Hora estimada' : 'Hora')} ${ea(minToHm(tt.start))} · dura ${esc(fmtDur(tt.dur))}"` : ''}>${tmIn(it.t, tt && tt.est ? minToHm(tt.start) : '', `data-bind="pl-f" data-f="t" data-i="${i}" aria-label="Hora"`, dis)}${tt && tt.dur ? `<small class="c-dur">${esc(fmtDur(tt.dur))}</small>` : ''}</span>`;
+  // solo el tiempo estimado de la escena (las horas van en la hoja de llamado)
+  const est = fmtDur(rowEstDur(it)) || '—';
+  const time = `<span class="c-t" title="${ea(it.dur ? 'Tiempo escrito a mano (bórralo para volver al estimado: ' + est + ')' : 'Tiempo estimado por el largo de la escena: escríbelo para cambiarlo')}">${`<input type="text" class="dur" maxlength="10" value="${esc(it.dur ? fmtDur(num(it.dur)) : '')}" placeholder="${esc(fmtDur(rowEstDur(it)))}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo estimado" ${dis}>`}</span>`;
   if (it.e) {
     const hc = hlc(it) || lgCol('plan', 'ev');   // su color de la leyenda: el resaltado, o «Evento»
     return `<div class="prow ev hl${ea(sel ? ' sel' : '')}${ea(lgDark(hc))}" data-i="${i}" data-key="${esc(key)}" style="--rc:${ea(hc)};--rb:${ea(barOf(hc))}">
@@ -145,7 +166,7 @@ function planRowHTML(i, ed) {
   return `<div class="prow sc${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${ea(lgDark(hc || stripColor(s)))}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}"${hc ? '' : ` data-dn="${s.dn === 'N' ? 'n' : 'd'}"`} style="--rc:${ea(hc || stripColor(s))};--rb:${ea(hc ? barOf(hc) : stripBar(s))}">
     <span class="c-loc">${wrapIn(`<input type="text" list="plLocs" value="${esc(it.loc || set)}" placeholder="${ed ? esc(titleCase(s.locBase)) : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${it.loc ? '' : set ? 'Locación del decorado «' + esc(titleCase(s.locBase)) + '»' : ''}" ${dis}>`, it.loc || set, ed ? titleCase(s.locBase) : '')}</span>
     <button class="c-esc" data-act="pl-row" data-i="${i}" title="Opciones de la escena (también con clic derecho)">${esc(rowCode(it))}</button>${time}
-    <span class="c-hd" title="${esc(s.heading + (synopsisOf(s) ? ' · ' + synopsisOf(s) : ''))}">${planHead(s.heading)}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b>${synopsisOf(s) ? `<small>${esc(synopsisOf(s))}</small>` : ''}</span>
+    ${(sh => `<span class="c-hd${sh ? ' th' : ''}" title="`)(planThumbShot(it))}${esc(s.heading + (synopsisOf(s) ? ' · ' + synopsisOf(s) : ''))}">${planThumbHTML(it)}${planHead(s.heading)}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b>${synopsisOf(s) ? `<small>${esc(synopsisOf(s))}</small>` : ''}</span>
     <span class="c-cast">${castPills(s)}</span>
     <span class="c-fig"><input type="number" min="0" step="1" value="${ea(it.fig ?? '')}" data-bind="pl-f" data-f="fig" data-i="${i}" aria-label="Figurantes" ${dis}></span>
     ${eCell}<span class="c-n c-pg tnum">${D.metrics.page[s.idx]}</span>${notes}</div>`;
@@ -155,30 +176,24 @@ function planBreakHTML(d, n, dates, ed) {
   const cast = [...inf.cast].map(id => P.schedule.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
   const hc = hlc(b);
   return `<div class="prow brk ${ea(hc ? 'hl' : 'black')}" data-i="${ea(d.i)}" data-n="${n}" data-key="${esc(itemKey(b))}" ${hc ? `style="--rc:${ea(hc)}"` : ''} ${ed ? `title="${ea(TOUCHY ? 'Mantén el dedo' : 'Clic derecho')}: opciones del cierre"` : ''}>
-    <b>Cierre de jornada ${n + 1}</b>
-    ${(calc => `<label class="brk-t">Fin ${hdAuto(tmIn(b.t, calc || 'Hora', `data-bind="pl-f" data-f="t" data-i="${ea(d.i)}" aria-label="Hora de cierre"`, ed ? '' : 'disabled'), !b.t && !!calc)}${!b.t && calc ? '<span class="brk-tag" title="Calculada con la duración de las escenas: escríbela para fijarla">calculada</span>' : ''}</label>`)(PL_TIMES.ends && PL_TIMES.ends.get(n) != null ? minToHm(PL_TIMES.ends.get(n)) : '')}
+    <b>Cierre de jornada ${n + 1} de ${dates.length}</b>
     <span class="tnum">${fmtEighths(inf.e)} págs.</span><span>${d.keys.length} esc.</span>
     ${inf.locs.size ? `<span>${esc([...inf.locs].join(', '))}</span>` : ''}
     <span class="tnum">Rep. ${esc(cast.join(', ') || '—')}</span>${inf.fig ? `<span class="tnum">Fig. ${inf.fig}</span>` : ''}
     ${done ? `<span class="brk-ok">✓ Completada</span>` : ''}${ed ? `<button class="pdots" data-act="pl-brkm" data-i="${ea(d.i)}" aria-haspopup="menu" aria-label="Opciones del cierre de la jornada ${ea(n + 1)}" title="Opciones del cierre">${ICO.more}</button>` : ''}</div>`;
 }
-/* barra de inicio de jornada: número, fecha, llamado, escenas y duración estimada.
+/* barra de inicio de jornada: número, fecha, escenas y tiempo estimado (el llamado y las horas van en la hoja de llamado).
    Se arrastra para mover la jornada entera; clic derecho (o el dedo sostenido) abre sus opciones. */
 function planStartHTML(d, n, dates, ed) {
   const dt = dates[n], done = dayDone(d), items = P.schedule.items;
   const clash = n > 0 && dt && dates[n - 1] && dt <= dates[n - 1];
-  const own = (((P.call || {}).days || {})[d.id] || {}).crewCall || '';
-  const evCall = d.rows.map(i => items[i]).find(it => it && it.e && /llamado/i.test(it.name || '') && it.t);
-  const inh = evCall ? evCall.t : (P.schedule.call || '');
-  const t0 = hmToMin(own || inh), t1 = PL_TIMES.ends && PL_TIMES.ends.get(n);
-  const dur = t0 != null && t1 != null && t1 > t0 ? t1 - t0 : 0;
+  const dur = (PL_TIMES.totals && PL_TIMES.totals.get(n)) || 0;
   const nsc = d.rows.filter(i => items[i] && items[i].k).length;
   const hc = hlc(d.brk), tone = hc ? 'hl' : 'black';
   return `<div class="pstart ${ea(tone)}" data-n="${n}" ${hc ? `style="--rc:${ea(hc)}"` : ''} ${ed ? `title="Arrastra para mover la jornada · ${ea(TOUCHY ? 'mantén el dedo' : 'clic derecho')}: opciones"` : ''}>
     <b>Jornada ${n + 1}</b>
     <button class="pdate" data-act="pl-date" data-n="${n}" ${ed ? '' : 'disabled'} title="${ea(ed ? 'Cambiar la fecha de esta jornada' : '')}">${dt ? esc(cap1(fmtDate(dt))) : 'Sin fecha'}${d.brk.date ? '<i title="Fecha fijada a mano">●</i>' : ''}</button>
-    <label class="brk-t">Llamado ${hdAuto(tmIn(own, inh || 'Hora', `data-bind="pl-call" data-n="${n}" aria-label="Hora de llamado de la jornada ${ea(n + 1)}"`, ed ? '' : 'disabled'), !own && !!inh)}${!own && inh ? '<span class="brk-tag" title="La hora general del plan: escríbela para cambiarla solo en esta jornada">general</span>' : ''}</label>
-    <span class="tnum">${nsc} esc.</span>${(E => E.length ? `<span class="pl-eps tnum" title="Episodios de esta jornada">Ep. ${esc(E.join(' · '))}</span>` : '')(epsOfKeys(d.keys))}${dur ? `<span class="tnum" title="Duración estimada, del llamado al cierre">${esc(fmtDur(dur))}</span>` : ''}
+    <span class="tnum">${nsc} esc.</span>${(E => E.length ? `<span class="pl-eps tnum" title="Episodios de esta jornada">Ep. ${esc(E.join(' · '))}</span>` : '')(epsOfKeys(d.keys))}${dur ? `<span class="tnum" title="Tiempo estimado de la jornada (suma de sus escenas y eventos)">${esc(fmtDur(dur))}</span>` : ''}
     ${clash ? `<span class="pwarn" title="Esta fecha no va después de la jornada anterior">${ICO.warn} fecha</span>` : ''}${done ? `<span class="brk-ok" title="${ea(done === 'script' ? 'Todos sus planos están rodados en la hoja de script' : 'Marcada como completada')}">✓ Completada</span>` : ''}${ed ? `<button class="pdots pplus" data-act="pl-ev" data-n="${n}" aria-haspopup="menu" aria-label="Agregar evento con hora a la jornada ${ea(n + 1)}" title="Agregar evento con hora (traslado, comida, ensayo…)">+</button><button class="pdots" data-act="pl-day" data-n="${n}" aria-haspopup="menu" aria-label="Opciones de la jornada ${ea(n + 1)}" title="Opciones de la jornada">${ICO.more}</button>` : ''}</div>`;
 }
 function planDayHTML(d, n, dates, ed) {
@@ -201,12 +216,12 @@ function selBarHTML(days, dates) {
 function planHeadHTML(o) {
   const { days, dates, shootDays, doneDays, totalE, bank, stages, ed } = o;
   const d0 = dates[0], d1 = dates[dates.length - 1];
-  const dm = x => x.toLocaleDateString('es-PE', { day: 'numeric', month: 'long' }), title = !d0 ? 'Plan de rodaje'
+  const dm = x => x.toLocaleDateString('es-PE', { day: 'numeric', month: 'long' }), title = !d0 ? 'Stripboard'
     : d0.getTime() === d1.getTime() ? capFirst(dm(d0)) : d0.getMonth() === d1.getMonth() && d0.getFullYear() === d1.getFullYear() ? `${d0.getDate()} – ${dm(d1)}` : `${dm(d0)} – ${dm(d1)}`;
   const S = P.schedule, scn = days.reduce((a, d) => a + d.rows.filter(i => S.items[i] && S.items[i].k).length, 0);
   const start = `<label class="hd-date${ed ? '' : ' ro'}" title="Fecha de la primera jornada">${HD_ICO.cal}<span>Empieza</span>${fechaFieldHTML({ iso: d0 ? isoDay(d0) : S.start || '', key: 'pl-start', label: 'Fecha de la primera jornada', disabled: !ed })}</label>`;
   const act = (bank.length ? hdPill('warn', `${bank.length === 1 ? 'escena' : 'escenas'} sin programar`, { n: bank.length, attrs: 'data-act="pl-gobank" title="Ir a «Sin programar»"' }) : days.length ? hdPill('ok', 'Todo programado') : '') + start;
-  return `<section class="hd pl-hd" aria-label="Cabecera del plan de rodaje">${hdHead({ title: esc(title), sub: `<span data-no-tr>${esc(P.meta.title || '')}</span> · Plan de rodaje${stages.length ? ` · ${stages.length} ${stages.length === 1 ? 'etapa' : 'etapas'}` : ''}`, act })}
+  return `<section class="hd pl-hd" aria-label="Cabecera del stripboard">${hdHead({ title: esc(title), sub: `<span data-no-tr>${esc(P.meta.title || '')}</span> · Stripboard${stages.length ? ` · ${stages.length} ${stages.length === 1 ? 'etapa' : 'etapas'}` : ''}`, act })}
     ${hdPass([
       { lab: 'Jornadas', cls: 'big', val: `${shootDays}`, cap: `${scn} ${scn === 1 ? 'escena programada' : 'escenas programadas'}` },
       { lab: 'Completadas', val: `${doneDays} <small>de ${days.length}</small>`, html: `<div class="hd-bar" role="progressbar" aria-label="Jornadas completadas" aria-valuemin="0" aria-valuemax="${days.length}" aria-valuenow="${doneDays}"><i style="width:${days.length ? (doneDays / days.length * 100).toFixed(1) : 0}%"></i></div>` },
@@ -220,8 +235,8 @@ RENDER.plan = function () {
   const ed = planEditable();
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
-  PL_TIMES = new Map(); PL_TIMES.ends = new Map();
-  days.forEach((d, n) => { const T = planDayTimes(d); for (const [i, x] of T) PL_TIMES.set(i, x); PL_TIMES.ends.set(n, T.end); });
+  PL_TIMES = new Map(); PL_TIMES.ends = new Map(); PL_TIMES.totals = new Map();
+  days.forEach((d, n) => { const T = planDayTimes(d); for (const [i, x] of T) PL_TIMES.set(i, x); PL_TIMES.ends.set(n, T.end); PL_TIMES.totals.set(n, T.total); });
   // la selección solo guarda filas que siguen existiendo
   const live = new Set(S.items.map(itemKey));
   for (const k of [...plSel()]) if (!live.has(k)) plSel().delete(k);
@@ -255,7 +270,7 @@ RENDER.plan = function () {
   const dood = ls.get('plView', 'days') === 'cast';
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
-      ${hdSeg([{ label: 'Jornadas', attrs: 'data-act="pl-view" data-v="days" title="Una tabla por jornada"', on: !dood }, { label: 'Por actor', attrs: 'data-act="pl-view" data-v="cast" title="Qué jornadas trabaja cada actor (días por actor)"', on: dood }], 'Vista del plan')}
+      ${hdSeg([{ label: 'Jornadas', attrs: 'data-act="pl-view" data-v="days" title="Una tabla por jornada"', on: !dood }, { label: 'DOOD', attrs: 'data-act="pl-view" data-v="cast" title="Qué jornadas trabaja cada actor (días por actor)"', on: dood }], 'Vista del plan')}
       <span class="grow"></span>
       ${ed ? hdBtn('sec', 'Locaciones…', { sm: true, cls: 'hide-sm', attrs: 'data-act="pl-locs" aria-haspopup="dialog" title="Cambiar el nombre de las locaciones de rodaje (cambia todas sus escenas)"' }) : ''}
       ${ed && !dood && isSeries(P) ? hdBtn('sec', 'Bloque', { icon: 'plus', sm: true, cls: 'hide-sm', attrs: 'data-act="pl-block" aria-haspopup="dialog" title="Jornadas con las escenas de varios episodios juntas, por locación (rodaje por bloques)"' }) : ''}
@@ -264,7 +279,7 @@ RENDER.plan = function () {
     </div>
     <div class="scroller pad" data-keep="plan"><div class="plan">
       ${planHeadHTML({ days, dates, shootDays, doneDays, totalE, bank, stages, ed })}
-      ${dood ? doodHTML() : `${ed ? '' : '<p class="hint" style="margin:-4px 0 0">Plan de rodaje de solo lectura.</p>'}
+      ${dood ? doodHTML() : `${ed ? '' : '<p class="hint" style="margin:-4px 0 0">Stripboard de solo lectura.</p>'}
       ${ed && !days.length ? `<div class="pl-start"><b>Arma las jornadas a tu manera.</b> Crea una con «+ Jornada» y arrastra a ella las escenas de «Sin programar». Si prefieres una propuesta para empezar, usa «Sugerir jornadas»: se puede deshacer.<span class="pl-start-b"><button class="btn primary sm" data-act="pl-addday">+ Jornada</button><button class="btn sm" data-act="pl-bank">Sugerir jornadas</button></span></div>` : ''}
       ${ed ? tipHTML('plan-drag2', TOUCHY ? 'Mantén el dedo sobre una escena para moverla. En la barra de la jornada: mantén el dedo y arrastra para moverla entera, o suelta para ver sus opciones.' : 'Arrastra una escena para moverla; arrastra desde un espacio vacío para elegir varias. Arrastra la barra de la jornada para moverla entera. Clic derecho: opciones.') : ''}
       ${legendHTML('plan')}
@@ -275,7 +290,7 @@ RENDER.plan = function () {
       <div class="pl-selbar" id="plSelBar" ${plSel().size && ed ? '' : 'hidden'}>${selBarHTML(days, dates)}</div>`}
     </div></div></section></div>`;
   bindView();
-  if (!dood) bindBoard();
+  if (!dood) { bindBoard(); if (planCols().thumb && typeof hydrateThumbs === 'function') hydrateThumbs(); }
 };
 function paintSel() {
   const sel = plSel();
@@ -891,7 +906,7 @@ Object.assign(ACT, {
   'pl-addstage': () => stagesDialog(true),
   'pl-ev': b => evMenu(b, +b.dataset.n),
   'pl-locs': () => locsDialog(),
-  'pl-col': b => { const k = { fig: 'plFig', tech: 'plTech', obs: 'plObs' }[b.dataset.c]; ls.set(k, !planCols()[b.dataset.c]); render(); },
+  'pl-col': b => { const k = { fig: 'plFig', tech: 'plTech', obs: 'plObs', thumb: 'plThumb' }[b.dataset.c]; ls.set(k, !planCols()[b.dataset.c]); render(); },
   'pl-cast': b => { P.schedule.castMode = b.dataset.v; if (planEditable()) changed('data'); render(); },
 });
 Object.assign(BIND, {
@@ -933,10 +948,17 @@ Object.assign(BIND, {
       if (v && !(S.locs || []).some(l => l.name === v)) (S.locs = S.locs || []).push({ name: v, addr: '' });
       changed('data'); render(); return;
     }
+    else if (f === 'dur') {
+      if (ev !== 'change') return;
+      const m = parseDur(el.value);
+      if (el.value.trim() && m == null) { toast('Escribe el tiempo en minutos (45) o en horas (1 h 15, 1:30).', 3500); el.value = it.dur ? fmtDur(num(it.dur)) : ''; return; }
+      if (m) it.dur = clamp(m, 1, 24 * 60); else delete it.dur;
+      el.value = it.dur ? fmtDur(it.dur) : '';
+    }
     else if (f === 't' && el.classList.contains('tm')) { if (ev !== 'change') return; const v = el.value = normHM(el.value); if (v) it.t = v; else delete it.t; }
     else { const v = f === 'tech' || f === 'obs' ? el.value : el.value.trim(); if (v) it[f] = v; else delete it[f]; }
     changed('data');
-    if (ev === 'change' && (f === 'fig' || f === 't')) render();
+    if (ev === 'change' && (f === 'fig' || f === 't' || f === 'dur')) render();
   },
 });
 /* ---------- Excel: la misma tabla del PDF, con la fecha en celdas combinadas ---------- */
@@ -951,7 +973,7 @@ function planSheets() {
   const full = (v, s, h) => row([{ v, cs: NC, s }], h);
   const people = (l, lab) => { const n = (l || []).map(personName).filter(Boolean); return n.length ? lab + ': ' + n.join(', ') : ''; };
   // encabezado del documento (nombre del proyecto y de la empresa, si están activados)
-  full([br.project !== false ? M.title : '', 'Plan de rodaje'].filter(Boolean).join(' · '), { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false }, 30);
+  full([br.project !== false ? M.title : '', 'Stripboard'].filter(Boolean).join(' · '), { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false }, 30);
   const sub = [br.company !== false ? M.company : '', people(M.directors, 'Dirección'), people(M.producers, 'Producción'),
     `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`].filter(Boolean).join('   ·   ');
   full(sub, { color: T.ink, fill: T.bar, border: false, wrap: false }, 18);
@@ -960,21 +982,21 @@ function planSheets() {
   const lg = xlLegend(lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk))), COLS);
   if (lg.length) { row([], 6); rows.push(...lg); row([], 6); }
   const headAt = rows.length + 1;
-  const HEAD = ['Fecha', 'Locación (rodaje)', 'Esc.', 'Hora', 'Encabezado de escena', 'Reparto', 'Fig.', '1/8', 'Pág.', 'Notas técnicas', 'Observaciones'];
+  const HEAD = ['Fecha', 'Locación (rodaje)', 'Esc.', 'Tiempo', 'Encabezado de escena', 'Reparto', 'Fig.', '1/8', 'Pág.', 'Notas técnicas', 'Observaciones'];
   row(HEAD.map((v, j) => ({ v, s: { bold: true, fill: T.bar, color: T.ink, line: '#5A5A5A', h: j === 2 || j >= 6 && j <= 8 ? 'center' : 'left' } })), 22);
   const castOf = s => { const list = sceneCast(s.idx); return S.castMode === 'name' ? list.map(e => titleCase(e.name)).join(', ') : list.map(e => D.castNum[e.id]).filter(Boolean).join(', '); };
   const cells = (i, tone) => {
     const it = S.items[i];
     if (it.e) {
       const ef = hlc(it) || lgCol('plan', 'ev'), st = { fill: ef, bold: true, line: '#5A5A5A', ...(lgDark(ef) ? { color: '#F4F4F4' } : {}) };
-      return [{ v: it.name || 'Evento', cs: 2, s: st }, { v: it.t || '', s: { ...st, h: 'center' } }, { v: it.det || '', cs: 5, s: { ...st, bold: false } }, { v: it.tech || '', s: { ...st, bold: false } }, { v: it.obs || '', s: { ...st, bold: false } }];
+      return [{ v: it.name || 'Evento', cs: 2, s: st }, { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } }, { v: it.det || '', cs: 5, s: { ...st, bold: false } }, { v: it.tech || '', s: { ...st, bold: false } }, { v: it.obs || '', s: { ...st, bold: false } }];
     }
     const s = sceneOfKey(it.k), fill = hlc(it) || stripColor(s);   // resaltada con su color de la leyenda, o la tira de día o de noche, entera
     const st = { fill, line: '#5A5A5A', ...(lgDark(fill) ? { color: '#F4F4F4' } : {}) }, code = rowCode(it);
     return [
       { v: planLoc(it, s), s: { ...st, bold: true } },
       { v: /^\d+$/.test(code) ? +code : code, s: { ...st, bold: true, h: 'center' } },
-      { v: it.t || '', s: { ...st, h: 'center' } },
+      { v: fmtDur(num(it.dur) || rowEstDur(it)), s: { ...st, h: 'center' } },
       { v: s.heading + (it.sp ? ` (parte ${it.sp})` : '') + (synopsisOf(s) ? '\n' + synopsisOf(s) : ''), s: st, ...(synopsisOf(s) ? { runs: [{ t: s.heading + (it.sp ? ` (parte ${it.sp})` : '') }, { t: '\n' + synopsisOf(s), i: true, color: st.color ? '#D8D8D8' : '#4A5260' }] } : {}) },
       { v: castOf(s), s: st },
       { v: it.fig != null ? +it.fig : '', s: { ...st, h: 'right' } },
@@ -1004,7 +1026,7 @@ function planSheets() {
     const inf = dayInfo(d.keys, d.rows);
     const cast = [...inf.cast].map(id => S.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
     const black = jdark;
-    full(`CIERRE DE JORNADA ${n + 1}${d.brk.t ? '  ·  Fin ' + d.brk.t : ''}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}  ·  Rep. ${cast.join(', ') || '-'}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  COMPLETADA' : ''}`,
+    full(`CIERRE DE JORNADA ${n + 1} DE ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}  ·  Rep. ${cast.join(', ') || '-'}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  COMPLETADA' : ''}`,
       { fill: jc, color: black ? '#F2F2F2' : INK, bold: true, line: '#5A5A5A' }, 20);
     if (n < days.length - 1 || bankRows.length) spacer();
   });
@@ -1019,7 +1041,7 @@ function planSheets() {
     row([{ v: '#', s: { bold: true, fill: T.bar, color: T.ink, h: 'center', line: T.line } }, { v: 'Reparto', s: { bold: true, fill: T.bar, color: T.ink, line: T.line } }], 20);
     for (const [id, n] of legend) row([{ v: n, s: { h: 'center', line: T.line } }, { v: titleCase(P.elements[id].name), s: { line: T.line } }]);
   }
-  const plan = { name: 'Plan de rodaje', cols: COLS, rows, freeze: headAt, landscape: true, printRows: `${headAt}:${headAt}` };
+  const plan = { name: 'Stripboard', cols: COLS, rows, freeze: headAt, landscape: true, printRows: `${headAt}:${headAt}` };
   // hoja de locaciones: dirección, escenas y jornadas de cada una
   const byLoc = new Map();
   const touch = n => { if (!byLoc.has(n)) byLoc.set(n, { esc: [], days: new Set() }); return byLoc.get(n); };
@@ -1049,7 +1071,7 @@ async function exportPlanXLSX() {
   if (!proGate('excel')) return;
   if (!D.sc.scenes.length) { toast('Primero escribe o importa el guion.'); return; }
   try {
-    const bytes = xlsxBook(planSheets(), { title: P.meta.title + ' · Plan de rodaje' });
+    const bytes = xlsxBook(planSheets(), { title: P.meta.title + ' · Stripboard' });
     await offerFile(fileSafe(P.meta.title) + '_plan_de_rodaje.xlsx', new Blob([bytes], { type: XLSX_MIME }));
   } catch (e) { console.error(e); toast('No se pudo crear el Excel. Vuelve a intentarlo; si se repite, escribe a soporte desde Ayuda.'); }
 }
@@ -1059,7 +1081,7 @@ SETTINGS.plan = () => {
   const S = P.schedule, ed = planEditable(), off = new Set(S.off || []);
   return `<div class="fld"><span>Días sin rodaje</span><div class="daytoggle">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label title="${ea(['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d])}"><input type="checkbox" aria-label="${ea(['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][d])}" data-bind="pl-off" value="${ea(d)}" ${off.has(d) ? 'checked' : ''} ${ed ? '' : 'disabled'}>${WEEKDAYS[d]}</label>`).join('')}</div></div>
     <div class="fld"><span>Reparto</span><div class="seg" role="group" aria-label="Reparto"><button data-act="pl-cast" data-v="num" aria-pressed="${ea(S.castMode !== 'name')}">Por número</button><button data-act="pl-cast" data-v="name" aria-pressed="${ea(S.castMode === 'name')}">Por nombre</button></div></div>
-    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['fig', 'Figuración'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen.</span></div>
+    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen.</span></div>
     <div class="fld"><span>Horas estimadas</span><label class="inl"><input type="number" min="5" max="240" step="5" value="${ea(minPerPage())}" data-bind="pl-mpp" aria-label="Minutos por página" ${ed ? '' : 'disabled'}><span>minutos por página de guion</span></label><span class="hint">Cada escena muestra su hora de inicio y su duración estimada desde el llamado. Una hora escrita a mano manda.</span></div>
     <div class="fld"><span>Sugerir jornadas</span><label class="inl"><input type="number" min="0.5" max="20" step="0.5" value="${ea(num(S.pagesPerDay) || 4.5)}" data-bind="pl-ppd" aria-label="Páginas por jornada" ${ed ? '' : 'disabled'}><span>páginas por jornada</span></label><span class="hint">≈ ${esc(fmtDur(Math.round((num(S.pagesPerDay) || 4.5) * minPerPage())))} de rodaje por jornada, con los minutos por página de arriba.</span></div>
 `;
@@ -1079,6 +1101,6 @@ HELP.plan = [
   ['Eventos', 'El «+» de la barra de cada jornada agrega traslados, comidas o ensayos con hora.'],
   ['La leyenda', 'Arriba de la tabla: qué significa cada color (día, noche, jornada y cierre, evento y los tuyos). Toca un color para cambiarlo en todo el proyecto, en los PDF y en los Excel; «+ Color» suma uno con nombre. Para resaltar una escena, un evento o una jornada, en sus opciones (clic derecho) elige un color de la leyenda.'],
   ['Apariencia', 'En «⋯» de las pestañas › Apariencia… En «Tu pantalla», solo para ti: el modo claro u oscuro, el color de las etapas, la letra, las barras y las líneas. En «Colores del proyecto», para todo el equipo y los PDF: la paleta (Estándar, Original, Sobria, Alto contraste, Escala de grises), cada color y tus paletas guardadas para usarlas en otro proyecto. La leyenda también lleva ahí.'],
-  ['Por actor', 'Muestra qué jornadas trabaja cada actor: I inicio, T trabaja, E en espera (entre su primera y su última jornada, sin escenas), F fin, IF un solo día. Al lado, sus jornadas de trabajo, de espera y el total de su contrato. Sale del plan y del desglose; toca el número de una jornada para verla en el plan. Exportar › Días por actor (PDF); también va en el Excel del plan.'],
+  ['DOOD', 'Muestra qué jornadas trabaja cada actor: I inicio, T trabaja, E en espera (entre su primera y su última jornada, sin escenas), F fin, IF un solo día. Al lado, sus jornadas de trabajo, de espera y el total de su contrato. Sale del plan y del desglose; toca el número de una jornada para verla en el plan. Exportar › Días por actor (PDF); también va en el Excel del plan.'],
 ];
-EXPORTS.plan = () => [pdfItem('Plan de rodaje (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('Días por actor (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Plan de rodaje (Excel)', hint: 'La tabla del plan, las locaciones y los días por actor, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];
+EXPORTS.plan = () => [pdfItem('Stripboard (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('DOOD (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Stripboard (Excel)', hint: 'La tabla del plan, las locaciones y los días por actor, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];

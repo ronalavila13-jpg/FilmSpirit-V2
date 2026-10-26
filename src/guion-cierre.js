@@ -38,7 +38,7 @@ const lockCanClose = () => {
   if (lockTeam()) return !SHARE.ro && (SHARE.admin || isProducer(SHARE.me.role)) && canEditSec('guion');
   return edEditableBase();
 };
-const lkWhen = t => new Date(t).toLocaleString('es-PE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const lkWhen = t => new Date(t).toLocaleString('es-PE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 const lkDay = t => new Date(t).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
 const lkCanEnter = () => { const L = scriptLock(); return !!L && (lockTeam() ? !!lockMine() : (L.people || []).some(p => p && p.h)); };
 function lkLog(txt) {

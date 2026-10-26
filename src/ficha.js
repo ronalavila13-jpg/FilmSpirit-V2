@@ -181,7 +181,7 @@ function openFicha(id, done) {
         ${row('Pelo', peloPicker(lk, 'data-fk="pelo"', dis), ' fi-top')}
         ${row('Color del pelo', peloColors(lk, 'data-fk="peloColor"', dis))}
         ${row('Piel', sws(S3_TONOS, 'tono', lk.tono))}
-        ${row('<span title="Color de la figura en la planta y en el plan de rodaje">Color</span>', sws(S3_COLORS, 'color', lk.color, `<label class="sw sw-pick" style="--sw:${ea(hex)}" title="Otro color"><input type="color" data-fkc="color" value="${ea(hex)}" aria-label="Otro color" ${dis}></label>`))}
+        ${row('<span title="Color de la figura en la planta y en el stripboard">Color</span>', sws(S3_COLORS, 'color', lk.color, `<label class="sw sw-pick" style="--sw:${ea(hex)}" title="Otro color"><input type="color" data-fkc="color" value="${ea(hex)}" aria-label="Otro color" ${dis}></label>`))}
         ${row('Tallas', `<div class="fi-sz">${[['camisa', 'Camisa', 'M'], ['pantalon', 'Pantalón', '32'], ['calzado', 'Calzado', '41']].map(([k, n, ph2]) => `<label><span>${n}</span><input type="text" data-fs="${k}" value="${esc(sz[k] || '')}" placeholder="${ea(ph2)}" ${dis}></label>`).join('')}</div>`)}
         ${row('Fotos', `${photos}${ed ? `<button class="btn sm" data-fph title="De frente, perfil y espalda: la figura toma su rostro, sus colores o su silueta">${has.length ? 'Cambiar fotos…' : 'Agregar fotos…'}</button>` : ''}${has.length ? '' : '<span class="hint">la figura toma su rostro o su silueta</span>'}`, ' fi-ph')}
       </div>`;

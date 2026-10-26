@@ -623,8 +623,8 @@ function kbCardHTML(t) {
 function calBoardHTML(sh, ed) {
   const by = calKb(), cols = by === 'st' ? KB_ST : CAL_PH;
   const all = P.calendar.tasks.slice().sort((x, y) => x.start.localeCompare(y.start) || x.end.localeCompare(y.end));
-  const shoot = sh.length ? `<button class="kb-card kb-shoot" data-act="cal-plan" style="--c:${ea(lgCol('cal', 'rod'))}" title="Las jornadas salen del plan de rodaje"><span class="kb-lab"></span><b class="kb-t">Rodaje · ${sh.length} ${sh.length === 1 ? 'jornada' : 'jornadas'}</b>
-    <span class="kb-meta"><span class="kb-chip">${KB_I.cal}${esc(shortD(sh[0].date))}${sh.length > 1 ? ' – ' + esc(shortD(sh[sh.length - 1].date)) : ''}</span><span class="grow"></span><span class="hint">Plan de rodaje ›</span></span></button>` : '';
+  const shoot = sh.length ? `<button class="kb-card kb-shoot" data-act="cal-plan" style="--c:${ea(lgCol('cal', 'rod'))}" title="Las jornadas salen del stripboard"><span class="kb-lab"></span><b class="kb-t">Rodaje · ${sh.length} ${sh.length === 1 ? 'jornada' : 'jornadas'}</b>
+    <span class="kb-meta"><span class="kb-chip">${KB_I.cal}${esc(shortD(sh[0].date))}${sh.length > 1 ? ' – ' + esc(shortD(sh[sh.length - 1].date)) : ''}</span><span class="grow"></span><span class="hint">Stripboard ›</span></span></button>` : '';
   return `<div class="scroller kb-sc" data-keep="calkb"><div class="kb-top"><span class="hint">Columnas</span><div class="seg" role="group" aria-label="Columnas del tablero">${[['ph', 'Por fase'], ['st', 'Por estado']].map(([k, n]) => `<button data-act="cal-kb" data-v="${k}" aria-pressed="${ea(by === k)}">${n}</button>`).join('')}</div></div>${ed ? tipHTML('cal-kb2', 'Mantén presionada una tarjeta y llévala a otra columna para cambiarla de fase (o, por estado, para marcarla hecha). Toca dos veces una tarjeta (o su flecha ⌄) para abrirla: etiqueta, responsable, fechas, lista de pendientes y notas.') : ''}
     <div class="kb" data-by="${ea(by)}">${cols.map(([k, n]) => {
     const list = all.filter(t => by === 'st' ? taskState(t) === k : (t.ph || 'pre') === k);
@@ -725,7 +725,7 @@ function calTemplate() {
   const sh = calShoot();
   const F = sh.length ? sh[0].date : addD(todayIso(), 42), L = sh.length ? sh[sh.length - 1].date : addD(F, 4);
   const T = [
-    ['pre', 'Desglose y plan de rodaje', 'Producción', -42, -36], ['pre', 'Casting', 'Casting', -35, -21], ['pre', 'Scouting de locaciones', 'Locaciones', -35, -22],
+    ['pre', 'Desglose y stripboard', 'Producción', -42, -36], ['pre', 'Casting', 'Casting', -35, -21], ['pre', 'Scouting de locaciones', 'Locaciones', -35, -22],
     ['pre', 'Permisos de locación', 'Producción', -21, -10], ['pre', 'Diseño de arte y compras', 'Arte', -21, -5], ['pre', 'Pruebas de vestuario y maquillaje', 'Vestuario', -10, -6],
     ['pre', 'Lectura y ensayos', 'Dirección', -7, -3], ['pre', 'Prueba de cámara', 'Fotografía', -5, -5], ['pre', 'Reunión técnica', 'Producción', -3, -3], ['pre', 'Recojo de equipos', 'Producción', -1, -1],
     ['post', 'Respaldo y sincronización', 'Montaje', 1, 3], ['post', 'Montaje', 'Montaje', 3, 24], ['post', 'Música', 'Música', 14, 30], ['post', 'VFX y títulos', 'VFX', 20, 30],
@@ -782,7 +782,7 @@ HELP.cal = [
   ['Varias fechas en una línea', 'Si una tarea se repite (casting en dos rondas), Alt + arrastrar en su fila le agrega otra fecha, y doble clic agrega un día. En la tarjeta, «+ Otra fecha». Cada tramo se mueve y se estira por separado.'],
   ['Tablero', 'Mantén presionada una tarjeta y llévala a otra columna para cambiarla de fase o, por estado, para marcarla hecha. Con el mouse, un clic en la tarjeta (o en su flecha ⌄) la abre; en el teléfono, dos toques. En el celular, cambia la fase desde la tarjeta.'],
   ['Contraer y expandir', 'Toca el nombre de una fase para plegarla en una fila de resumen. «Contraer todo», arriba a la izquierda, pliega las fases.'],
-  ['Rodaje', 'Las jornadas salen del plan de rodaje y se actualizan solas. La flecha ⌄ de un día (en el encabezado) o de una jornada abre su detalle y su hoja de llamado (un clic; en el teléfono, dos toques).'],
+  ['Rodaje', 'Las jornadas salen del stripboard y se actualizan solas. La flecha ⌄ de un día (en el encabezado) o de una jornada abre su detalle y su hoja de llamado (un clic; en el teléfono, dos toques).'],
 ];
 EXPORTS.cal = () => [
   { label: 'Calendario por meses (PDF)', hint: 'Una hoja por mes, como en la vista Meses, con sus notas', run: btn => exportPDF('calmes', btn), pdf: { kind: 'calmes', opts: null } },

@@ -4,7 +4,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fd = t => t ? new Date(t).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const fdt = t => t ? new Date(t).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fdt = t => t ? new Date(t).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) : '—';
   const until = t => !t ? '—' : t > 4e12 ? 'sin fecha' : fd(t);
   const soles = n => n == null ? '—' : 'S/ ' + (+n).toFixed(2);
   const money = (n, cur) => n == null ? '—' : (cur === 'USD' ? 'US$ ' : 'S/ ') + (+n).toFixed(2);

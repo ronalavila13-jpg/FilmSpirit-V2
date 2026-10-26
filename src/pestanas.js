@@ -66,7 +66,7 @@ function tabInView(smooth = true) {
 }
 /* las pestañas se agrupan en las cuatro etapas de la producción y cada etapa es un menú desplegable.
    Las pestañas siguen siendo los mismos botones (permisos, preferencias, atajos y notas no cambian). */
-const TAB_GROUPS = [['0', 'Guion'], ['1', 'Desarrollo'], ['2', 'Imagen'], ['3', 'Producción'], ['4', 'Rodaje']];
+const TAB_GROUPS = [['0', 'Guion'], ['1', 'Preparación'], ['2', 'Imagen'], ['3', 'Producción'], ['4', 'Rodaje']];
 const tgOn = () => !!document.querySelector('#tabs .stg');
 const TG_LAST = {};
 function tabGroupsBuild() {

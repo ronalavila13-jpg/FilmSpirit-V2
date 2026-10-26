@@ -14,8 +14,8 @@ function peopleListHTML(key, list, ed, rolePh) {
 function headerPreviewHTML() {
   const M = P.meta, b = M.brand || {};
   const pOn = b.project !== false, cOn = b.company !== false;
-  const left = pOn ? (M.projLogo ? `<img src="${esc(M.projLogo)}" alt=""><div><b class="lab">Plan de rodaje</b><span>4 jornadas · lun 19 oct. a jue 22 oct.</span></div>` : `<div><b class="ttl">${esc(M.title)}</b><span>Plan de rodaje · 4 jornadas</span></div>`)
-    : `<div><b class="lab">Plan de rodaje</b><span>4 jornadas</span></div>`;
+  const left = pOn ? (M.projLogo ? `<img src="${esc(M.projLogo)}" alt=""><div><b class="lab">Stripboard</b><span>4 jornadas · lun 19 oct. a jue 22 oct.</span></div>` : `<div><b class="ttl">${esc(M.title)}</b><span>Stripboard · 4 jornadas</span></div>`)
+    : `<div><b class="lab">Stripboard</b><span>4 jornadas</span></div>`;
   const right = cOn ? (M.logo ? `<img src="${esc(M.logo)}" alt="">` : M.company ? `<b class="co">${esc(M.company.toUpperCase())}</b>` : '') : '';
   return `<div class="pj-prev"><div class="pv-l">${left}</div><div class="pv-r">${right}<span>${esc(new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }))}</span></div></div>`;
 }
@@ -30,7 +30,7 @@ RENDER.project = function () {
   // la cabecera (lote I): el nombre del proyecto como título y lo del guion en gris; sin guion, cómo empezar
   const sub = `<b>Proyecto</b>${P.paras.length ? ` · ${nSc} ${nSc === 1 ? 'escena' : 'escenas'}${nPg ? ` · ${nPg} ${nPg === 1 ? 'página' : 'páginas'}` : ''}` : ''}${[M.author, M.draft].filter(Boolean).map(x => `<span data-no-tr> · ${esc(x)}</span>`).join('')}`;   // el « · » va dentro: el texto de antes no termina en « · » (en inglés no se traduciría)
   const head = hdHead({ title: `<span data-no-tr>${esc(M.title || 'Sin título')}</span>`, sub, act: P.paras.length && ed && !P._sample ? hdBtn('sec', 'Importar otra versión…', { icon: 'doc', attrs: 'data-act="import"' }) : '' });
-  const start = P.paras.length ? '' : hdEmpty({ icon: 'doc', title: 'Importa el guion para empezar', text: `Final Draft (.fdx), Fountain (.fountain) o el PDF del guion${planAllows('pdf') ? '' : ' (con Pro)'}. Las escenas, el reparto y los elementos probables se marcan solos; el plan de rodaje se arma con ellos.`, btn: ed ? hdBtn('pri', 'Importar guion', { attrs: 'data-act="import"' }) : '' });
+  const start = P.paras.length ? '' : hdEmpty({ icon: 'doc', title: 'Importa el guion para empezar', text: `Final Draft (.fdx), Fountain (.fountain) o el PDF del guion${planAllows('pdf') ? '' : ' (con Pro)'}. Las escenas, el reparto y los elementos probables se marcan solos; el stripboard se arma con ellos.`, btn: ed ? hdBtn('pri', 'Importar guion', { attrs: 'data-act="import"' }) : '' });
   const mIn = (k, lab, phd) => `<input type="text" value="${esc(M[k] || '')}" data-bind="pj-meta" data-k="${k}" placeholder="${ea(ed ? phd : '-')}" aria-label="${ea(lab)}" ${ed ? '' : 'readonly'}>`;
   const gData = hdGroup('Datos', hdRow('Título', `<input type="text" class="pj-title" value="${esc(M.title)}" data-bind="pj-meta" data-k="title" aria-label="Título" ${ed ? '' : 'readonly'}>`)
     + hdRow('Guion', mIn('author', 'Guionista', 'Agregar')) + hdRow('Versión', mIn('draft', 'Versión', 'Versión y fecha')) + hdRow('Productora', mIn('company', 'Productora o empresa', 'Agregar'))

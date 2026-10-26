@@ -1,5 +1,5 @@
 /* ============================================================
-   Pestaña · HOJA DE LLAMADO — una por jornada, a partir del plan de rodaje
+   Pestaña · HOJA DE LLAMADO — una por jornada, a partir del stripboard
    Encabezado (proyecto, productora, fecha, jornada), producción y dirección,
    centro de salud, horarios (almuerzo, amanecer, atardecer), clima, llamado
    general y locaciones; cronograma de la jornada; equipo técnico por área con
@@ -23,6 +23,9 @@ const CALL = () => P.call;
 /* hora por plano: apagada por defecto. En rodaje se trabaja con inicio y fin de escena; repartir la escena
    entre sus planos es solo una estimación y, con varias unidades, no se puede seguir */
 const callShotTimes = () => !!(P.call && P.call.shotTimes);
+/* la miniatura del storyboard en cada plano del cronograma (encendida salvo que se apague) */
+const callThumbs = () => !(P.call && P.call.noThumbs) && typeof thumbCached === 'function';
+const callThumb = sh => { const u = thumbCached(sh); return `<img class="cl-th${ea(u ? '' : ' wait')}" draggable="false" alt="" src="${ea(u || BLANK)}" ${u ? '' : `data-thumb="${ea(sh.id)}"`}>`; };
 /* directorio del equipo: la primera vez se arma con los cargos típicos y los nombres del Proyecto */
 function callCrew() {
   const C = CALL();
@@ -47,12 +50,11 @@ const peekDay = id => CALL().days[id] || {};
 /* filas del cronograma: escenas y eventos de la jornada, con hora de inicio y de fin */
 function callRows(d) {
   const items = d.rows.map(i => P.schedule.items[i]);
-  // horas escritas en el plan; si faltan, las estimadas (con «~»)
-  const T = planDayTimes(d);
-  const tOf = j => { const it = items[j]; if (it.t) return it.t; const x = T.get(d.rows[j]); return x && x.start != null ? '~' + minToHm(x.start) : ''; };
+  // una sola hora por fila: la escrita en la hoja (o en el plan); si falta, la que sigue del llamado y los tiempos
+  const at = peekDay(d.id).at, T = planDayTimes(d, at);
+  const tOf = j => { const it = items[j], own = (at && at[itemKey(it)]) || it.t; if (own) return own; const x = T.get(d.rows[j]); return x && x.start != null ? minToHm(x.start) : ''; };
   return items.map((it, j) => {
-    const x = T.get(d.rows[j]);
-    const end = j + 1 < items.length ? tOf(j + 1) : (d.brk.t || (x && x.start != null ? '~' + minToHm(x.start + x.dur) : ''));
+    const end = '';
     const t0 = tOf(j);
     if (it.e) return { ev: true, it, name: it.name || 'Evento', t: t0, end, det: it.det || '' };
     const s = sceneOfKey(it.k);
@@ -82,7 +84,7 @@ function callLocs(d) {
 function callMissing(n) {
   const { days, dates } = callDays(), d = days[n]; if (!d) return [];
   const C = CALL(), dd = peekDay(d.id), def = callDefaults(d), out = [];
-  if (!dates[n]) out.push({ k: 'date', txt: 'la fecha', tab: 'plan', hint: 'Se pone en el plan de rodaje: «Inicio».' });
+  if (!dates[n]) out.push({ k: 'date', txt: 'la fecha', tab: 'plan', hint: 'Se pone en el stripboard: «Inicio».' });
   if (!(dd.crewCall || def.crewCall)) out.push({ k: 'call', txt: 'el llamado general', sel: '[data-bind="cs-day"][data-f="crewCall"]' });
   const m = dd.meet || {}, locs = callLocs(d);
   if (!(m.addr || '').trim() && !(locs[0] && locs[0][1])) out.push({ k: 'meet', txt: 'la dirección de citación', sel: '.cl-addr' });
@@ -99,7 +101,7 @@ function callSig(n, cd) {
   // calcular los lentes de la planta 3D (caro); cd: callDays() ya calculado
   const { days, dates } = cd || callDays(), d = days[n]; if (!d) return '';
   const C = CALL(), dd = peekDay(d.id), M = P.meta, next = days[n + 1];
-  const T = planDayTimes(d);
+  const T = planDayTimes(d, dd.at);
   const el = id => { const e = P.elements[id]; return e ? e.cat + ':' + e.name : id; };
   const rows = d.rows.map(i => {
     const it = P.schedule.items[i], x = T.get(i) || {};
@@ -218,21 +220,19 @@ function shotOffsets(shots, dur, at) {
    Las horas de las escenas son las del plan (escritas o estimadas); cada plano toma una parte igual de su escena,
    salvo los que tienen su hora escrita en la hoja (shotOffsets) */
 function callSched(d) {
-  const T = planDayTimes(d);
+  const dd = peekDay(d.id), T = planDayTimes(d, dd.at);
   const base = callRows(d), seen = new Set();
-  const hm = (m, est) => m == null ? '' : (est ? '~' : '') + minToHm(m);
+  const hm = m => m == null ? '' : minToHm(m);
   const rows = base.map((r, j) => {
-    const x = T.get(d.rows[j]) || {}, est = !P.schedule.items[d.rows[j]].t;
-    const o = { ...r, start: x.start, dur: x.dur, est, t0: hm(x.start, est), t1: x.start != null && x.dur ? hm(x.start + x.dur, est) : '' };
+    const it = P.schedule.items[d.rows[j]], x = T.get(d.rows[j]) || {}, est = !((dd.at || {})[itemKey(it)] || it.t);
+    const o = { ...r, key: itemKey(it), start: x.start, dur: x.dur, est, t0: hm(x.start), t1: '' };
     if (!r.ev) {
       const first = !seen.has(r.it.k); seen.add(r.it.k);
       const shots = first && !r.it.sp ? (D.shotsBy[r.it.k] || []) : [];
       const P0 = x.start != null && x.dur ? shotOffsets(shots, x.dur, peekDay(d.id).shotAt) : null;
       o.shots = shots.map((sh, i) => {
         const a = P0 ? x.start + P0.pos[i] : null, b = P0 ? x.start + (i + 1 < shots.length ? P0.pos[i + 1] : x.dur) : null;
-        // «~» en lo repartido; la hora escrita va sin él
-        const fx = j => !!(P0 && P0.fix[j] != null);
-        return { sh, ...shotCallInfo(sh), t0: hm(a == null ? null : Math.round(a), !fx(i)), t1: hm(b == null ? null : Math.round(b), i + 1 < shots.length ? !fx(i + 1) : est),
+        return { sh, ...shotCallInfo(sh), t0: hm(a == null ? null : Math.round(a)), t1: hm(b == null ? null : Math.round(b)),
           fixed: !!(P0 && P0.fix[i] != null), a0: P0 ? P0.lo[i] : 0, b0: P0 ? P0.hi[i] : 0, lo: P0 ? hm(x.start + P0.lo[i]) : '', hi: P0 ? hm(x.start + P0.hi[i]) : '' };
       });
       if (P0) Object.assign(o, { sStart: x.start, sDur: x.dur });
@@ -243,7 +243,7 @@ function callSched(d) {
   });
   // el cierre: los eventos después de la última escena (desmontaje, regreso…) y el fin de la jornada
   let last = -1; rows.forEach((r, j) => { if (!r.ev) last = j; });
-  const end = d.brk.t || (T.end != null ? hm(T.end, true) : '');
+  const end = dd.end || d.brk.t || (T.end != null ? hm(T.end) : '');
   return { rows: last < 0 ? rows : rows.slice(0, last + 1), close: last < 0 ? [] : rows.slice(last + 1), end, byShot: rows.some(r => r.shots && r.shots.length), motor: (rows.find(r => !r.ev) || {}).t0 || '' };
 }
 /* personas que pueden ir en la movilidad: el equipo de la jornada (con nombre) y el reparto */
@@ -275,7 +275,7 @@ RENDER.call = function () {
   $$('.toast.t-stale').forEach(t => t.remove());   // ya se está en la hoja
   if (!D.sc.scenes.length) { v.innerHTML = emptyScript(); bindView(); return; }
   const { days, dates } = callDays();
-  if (!days.length) { v.innerHTML = `<div class="ws ws-1"><section class="center"><div class="scroller pad"><p class="hint">Primero arma el plan de rodaje: cada jornada tendrá su hoja de llamado.</p></div></section></div>`; bindView(); return; }
+  if (!days.length) { v.innerHTML = `<div class="ws ws-1"><section class="center"><div class="scroller pad"><p class="hint">Primero arma el stripboard: cada jornada tendrá su hoja de llamado.</p></div></section></div>`; bindView(); return; }
   if (UI.callDay == null || UI.callDay >= days.length) UI.callDay = 0;
   const n = UI.callDay, d = days[n], dt = dates[n];
   const ed = callEditable(), dis = ed ? '' : 'disabled';
@@ -294,7 +294,7 @@ RENDER.call = function () {
   const show = UI.csShow || (UI.csShow = new Set());
   const xBtn = (act, id, lab = 'Quitar') => ed ? `<button class="cs-x" data-act="${ea(act)}" data-id="${ea(id)}" aria-label="${esc(lab)}" title="${esc(lab)}"${act === 'cs-crew-x' ? ' aria-haspopup="menu"' : ''}>${ICO.close}</button>` : '';
   const dateTxt = dt ? capFirst(dt.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')) : 'Sin fecha';
-  const S = callSched(d), shotT = callShotTimes();
+  const S = callSched(d), shotT = callShotTimes(), thumbs = callThumbs();
   const edSnd = !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('storyboard'));   // el sonido es del plano: lo marca quien edita el storyboard
   // cabecera: teléfonos clave (asistente de dirección, jefatura de producción) y jefes de equipo
   const keys = [...crewBy(/^1\.?er asistente de direcci|asistente de direcci/i, dd).slice(0, 1), ...crewBy(/jefatura de producci|jefe de producci|^producción$/i, dd).slice(0, 1)];
@@ -304,14 +304,15 @@ RENDER.call = function () {
   const logos = [imgOk(M.projLogo), imgOk(M.logo)].filter(Boolean);
   const tel = p => p ? `<a href="tel:${ea(String(p).replace(/[^\d+]/g, ''))}">${esc(p)}</a>` : '';
   // cronograma
-  const tcell = (a, b) => `<td class="cl-t tnum">${a ? `<b>${esc(a)}</b>` : '—'}${b ? `<small>${esc(b)}</small>` : ''}</td>`;
-  const evRow = r => `<tr class="cl-ev${ea(lgDark(hlc(r.it) || lgCol('plan', 'ev')))}" style="--rc:${ea(hlc(r.it) || lgCol('plan', 'ev'))}">${tcell(r.t0 || r.t, r.t1 || r.end)}<td colspan="6"><b>${esc(r.name)}</b>${r.det ? `<span>${esc(r.det)}</span>` : ''}</td></tr>`;
+  // la hora de cada fila se escribe aquí, libre (vacía: sigue del llamado y de los tiempos del stripboard)
+  const tcell = (a, b, r) => `<td class="cl-t tnum">${r && ed ? tmIn((dd.at || {})[r.key] || r.it.t || '', a || 'Hora', `data-bind="cl-at" data-k="${ea(r.key)}" aria-label="${ea('Hora de ' + (r.ev ? r.name : 'la escena ' + r.code))}" title="Escribe la hora; vacía, sigue a la fila anterior"`, dis) : a ? `<b>${esc(a)}</b>` : '—'}</td>`;
+  const evRow = r => `<tr class="cl-ev${ea(lgDark(hlc(r.it) || lgCol('plan', 'ev')))}" style="--rc:${ea(hlc(r.it) || lgCol('plan', 'ev'))}">${tcell(r.t0 || r.t, '', r)}<td colspan="6"><b>${esc(r.name)}</b>${r.det ? `<span>${esc(r.det)}</span>` : ''}</td></tr>`;
   const scRow = r => {
     const hc = hlc(r.it), tone = hc ? '' : ` data-dn="${r.s.dn === 'N' ? 'n' : 'd'}"`, st = `style="--rb:${ea(hc ? barOf(hc) : stripBar(r.s))};--rc:${ea(hc || stripColor(r.s))}"`;
-    const head = `<tr class="cl-sc${ea(lgDark(hc || stripColor(r.s)))}"${tone} ${st}>${tcell(r.t0 || r.t, r.t1 || r.end)}<td colspan="6"><span class="cs-no">${esc(r.code)}</span><b class="sch">${esc(r.s.heading)}</b><span class="cl-pg tnum">${esc(r.pages)} págs.</span>${r.shots.length && synopsisOf(r.s) ? `<span class="scd cl-sd">${esc(synopsisOf(r.s))}</span>` : ''}${r.props ? `<span class="cl-props">Utilería y arte: ${esc(r.props)}</span>` : ''}</td></tr>`;
+    const head = `<tr class="cl-sc${ea(lgDark(hc || stripColor(r.s)))}"${tone} ${st}>${tcell(r.t0 || r.t, '', r)}<td colspan="6"><span class="cs-no">${esc(r.code)}</span><b class="sch">${esc(r.s.heading)}</b><span class="cl-pg tnum">${esc(r.pages)} págs.</span>${r.shots.length && synopsisOf(r.s) ? `<span class="scd cl-sd">${esc(synopsisOf(r.s))}</span>` : ''}${r.props ? `<span class="cl-props">Utilería y arte: ${esc(r.props)}</span>` : ''}</td></tr>`;
     if (!r.shots.length) return head + `<tr class="cl-sh cl-whole"><td colspan="2">${r.it.sp ? 'Parte ' + esc(r.it.sp) : 'Escena completa'}</td><td>${esc(synopsisOf(r.s) || '')}</td><td>${esc(r.set)}</td><td></td><td></td><td class="tnum">${esc(r.cast)}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</td></tr>`;
     // el plano en su cuadrito y, si se pide, su hora justo debajo; la descripción en una sola línea
-    return head + r.shots.map(x => `<tr class="cl-sh"><td class="cl-t cl-pc tnum"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td><td class="cl-d"><b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</td><td>${esc(x.act)}</td><td>${esc(r.set)}</td><td class="tnum">${esc(x.lens)}</td><td>${edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '—')}</td><td class="tnum">${esc(x.cast.join(', ') || '—')}</td></tr>`).join('');
+    return head + r.shots.map(x => `<tr class="cl-sh"><td class="cl-t cl-pc tnum"><span class="cl-code">${esc(x.code)}</span>${shotT && x.t0 ? shotTime(x) : ''}</td><td class="cl-d${thumbs ? ' th' : ''}">${thumbs ? callThumb(x.sh) : ''}<b>${esc(x.size)}</b>${x.det.length ? `<span>${esc(x.det.join(' · '))}</span>` : ''}</td><td>${esc(x.act)}</td><td>${esc(r.set)}</td><td class="tnum">${esc(x.lens)}</td><td>${edSnd ? `<select class="cl-snd" data-bind="cl-snd" data-id="${ea(x.sh.id)}" aria-label="Sonido del plano ${esc(x.code)}">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(x.sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select>` : esc(x.snd || '—')}</td><td class="tnum">${esc(x.cast.join(', ') || '—')}</td></tr>`).join('');
   };
   // la hora del plano: se puede cambiar, siempre dentro de su escena (vacía, sigue el reparto parejo)
   const shotTime = x => !ed ? `<small title="${ea(x.t0 + (x.t1 ? ' – ' + x.t1 : ''))}">${esc(x.t0)}</small>`
@@ -375,10 +376,10 @@ RENDER.call = function () {
   const locHTML = locs.length ? locs.map(([nm, addr]) => `<div class="cl-locn"><b>${esc(nm)}</b>${addr ? `<small>${esc(addr)}</small>` : ''}</div>`).join('')
     + (mapLink(m, locs) ? `<div class="cl-loca">${hdBtn('sec', 'Ver mapa', { icon: 'pin', sm: true, href: mapLink(m, locs), attrs: `title="${ea('Abre el enlace del punto de encuentro (más abajo)')}"` })}</div>`
       : ed ? `<div class="cl-loca">${hdBtn('tint', 'Enlace del mapa', { icon: 'plus', sm: true, attrs: 'data-act="cl-maplink"' })}</div>` : '')
-    : '<p class="hint cl-locn">Asigna locaciones en el plan de rodaje.</p>';
+    : '<p class="hint cl-locn">Asigna locaciones en el stripboard.</p>';
   const pass = hdPass([
     { lab: 'Llamado general', cls: 'big', val: tmIn(call, ph('Falta', '-'), `data-bind="cs-day" data-f="crewCall" aria-label="Llamado general"${!call && ed ? ' data-miss="1"' : ''}`, dis), tag: fromPlan ? 'del plan' : '',
-      cap: `${S.end ? `Termina <b class="tnum">${esc(S.end)}</b><br>` : ''}${inf.e ? esc(fmtEighths(inf.e)) + ' págs. · ' : ''}${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${shots ? ` · ${shots} planos` : ''}` },
+      cap: `${inf.e ? esc(fmtEighths(inf.e)) + ' págs. · ' : ''}${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${shots ? ` · ${shots} planos` : ''}` },
     { lab: 'Listos motor', val: hdAuto(tmIn(dd.motor, S.motor.replace('~', '') || ph('Hora', '-'), 'data-bind="cs-day" data-f="motor" aria-label="Listos motor" title="La hora en que se rueda el primer plano"', dis), motorPlan), tag: motorPlan ? 'del plan' : '', cap: 'El primer plano del día' },
     { lab: 'Locación', wide: true, html: locHTML },
   ]);
@@ -412,12 +413,12 @@ RENDER.call = function () {
     <div class="scroller pad" data-keep="call"><div class="cs cl">
       <section class="hd cl-hd" aria-label="Cabecera de la hoja de llamado">${head}${pass}${hdGroups([gJornada, gSeg, gWx, gKeys], 3)}${noteHTML}</section>
       <section class="cl-card cl-sched">
-        <header><h3>Cronograma</h3><span class="hint">${S.byShot ? 'por plano, del storyboard' : 'por escena'} · horas del plan de rodaje${S.byShot && shotT ? (ed ? '; cada plano, una parte de su escena o la hora que le escribas' : '; cada plano, una parte de su escena') : ''}</span>${S.byShot ? `<label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo inicio y fin de escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label>` : ''}<button class="linkbtn" data-act="cs-plan">Horas y orden en el plan ›</button></header>
+        <header><h3>Cronograma</h3><span class="hint">${S.byShot ? 'por plano, del storyboard' : 'por escena'} · ${ed ? 'escribe la hora de cada escena en la tabla' : 'horas de la jornada'}${S.byShot && shotT ? (ed ? '; cada plano, una parte de su escena o la hora que le escribas' : '; cada plano, una parte de su escena') : ''}</span>${S.byShot ? `<label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo inicio y fin de escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label>` : ''}<button class="linkbtn" data-act="cs-plan">Orden y tiempos en el stripboard ›</button></header>
         <div class="cl-tw"><table class="cl-tbl">
           <thead><tr><th>${S.byShot ? 'Hora · plano' : 'Hora'}</th><th>Descripción</th><th>Acción</th><th>Set</th><th>Lente</th><th>Sonido</th><th>Personajes</th></tr></thead>
           <tbody>${sched || '<tr><td colspan="7" class="hint">Jornada sin escenas.</td></tr>'}</tbody></table></div>
-        <div class="cl-close">${S.close.map(r => `<div class="cl-cr"><span class="tnum">${esc(r.t0 || r.t || '—')}${r.t1 || r.end ? ' – ' + esc(r.t1 || r.end) : ''}</span><b>${esc(r.name)}</b>${r.det ? `<small>${esc(r.det)}</small>` : ''}</div>`).join('')}
-          <div class="cl-end">Fin de jornada<b class="tnum">${esc(S.end || '—')}</b></div></div>
+        <div class="cl-close">${S.close.map(r => `<div class="cl-cr"><span class="tnum">${ed ? tmIn((dd.at || {})[r.key] || r.it.t || '', r.t0 || r.t || 'Hora', `data-bind="cl-at" data-k="${ea(r.key)}" aria-label="${ea('Hora de ' + r.name)}"`, dis) : esc(r.t0 || r.t || '—')}</span><b>${esc(r.name)}</b>${r.det ? `<small>${esc(r.det)}</small>` : ''}</div>`).join('')}
+          <div class="cl-end">Fin de jornada${ed ? `<span class="cl-endt">${tmIn(dd.end || '', S.end || 'Hora', 'data-bind="cl-end" aria-label="Hora de fin de jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis)}</span>` : `<b class="tnum">${esc(S.end || '—')}</b>`}</div></div>
       </section>
       <div class="cl-two cl-cols">
         <div class="cl-col">
@@ -457,6 +458,7 @@ RENDER.call = function () {
       <section class="cl-next">${next ? `<b>Próxima jornada ${n + 2}${dates[n + 1] ? ' · ' + esc(fmtDate(dates[n + 1])) : ''}</b>${peekDay(next.id).crewCall || callDefaults(next).crewCall ? `<span>Llamado <b class="tnum">${esc(peekDay(next.id).crewCall || callDefaults(next).crewCall)}</b></span>` : ''}<span>${esc(callLocs(next).map(x => x[0]).join(', '))}</span><span>Escenas ${esc(next.keys.join(', ') || '—')}</span>` : '<span>Es la última jornada.</span>'}</section>
     </div></div></section></div>`;
   bindView();
+  if (thumbs && typeof hydrateThumbs === 'function') hydrateThumbs();
 };
 /* el punto de encuentro de la jornada abierta (create: lo crea si no existe) */
 const meetOf = create => { const id = curDayId(); if (!id) return null; const d = create ? dayData(id) : peekDay(id); if (!d.meet && create) d.meet = { addr: '', note: '', links: [], ph: [] }; return d.meet || null; };
@@ -533,7 +535,7 @@ Object.assign(ACT, {
   // el aviso «Faltan datos»: la lista, con dónde se completa cada uno; un toque lleva al campo
   'cl-miss': b => {
     const miss = callMissing(UI.callDay || 0); if (!miss.length) { render(); return; }
-    const WHERE = { date: 'En el plan de rodaje', call: 'Arriba, en la tarjeta', meet: 'Punto de encuentro', hosp: 'Arriba, en Seguridad', cast: 'Reparto', crew: 'Citación del equipo' };
+    const WHERE = { date: 'En el stripboard', call: 'Arriba, en la tarjeta', meet: 'Punto de encuentro', hosp: 'Arriba, en Seguridad', cast: 'Reparto', crew: 'Citación del equipo' };
     const items = miss.map(x => ({ txt: capFirst(x.txt) + (x.name ? ` <span data-no-tr>${esc(x.name)}</span>` : ''), sub: WHERE[x.k] || '', attrs: `data-k="${ea(x.k)}"` }));
     popover(b, hdPopList(miss.length === 1 ? 'Para enviarla falta 1 dato' : `Para enviarla faltan ${miss.length} datos`, items,
       `<span>${miss.length === 1 ? 'Sin ese dato, el PDF dice «Por confirmar».' : 'Sin esos datos, el PDF dice «Por confirmar».'}</span>${hdBtn('sec', 'Exportar igual', { sm: true, attrs: 'data-x="1"' })}`), p => p.addEventListener('click', e => {
@@ -613,6 +615,16 @@ Object.assign(BIND, {
     if (c !== off) toast(`La hora del plano ${x.code} va de ${x.lo} a ${x.hi}: dentro de su escena y en el orden de los planos. Quedó en ${minToHm(r.sStart + c)}.`, 6000);
     (dd.shotAt = dd.shotAt || {})[x.sh.id] = c; changed('data'); render();
   },
+  // la hora de una fila del cronograma, solo en esta hoja (el stripboard lleva los tiempos, no las horas)
+  'cl-at': (el, ev) => {
+    if (ev !== 'change') return; const id = curDayId(); if (!id) return;
+    const v = el.value = normHM(el.value); if (v && hmToMin(v) == null) return;
+    const d = dayData(id); d.at = d.at || {};
+    setOrDel(d.at, el.dataset.k, v); if (!Object.keys(d.at).length) delete d.at;
+    changed('data'); render();
+  },
+  'cl-end': (el, ev) => { if (ev !== 'change') return; const id = curDayId(); if (!id) return; const v = el.value = normHM(el.value); if (v && hmToMin(v) == null) return; setOrDel(dayData(id), 'end', v); changed('data'); render(); },
+  'cl-thumbs': (el, ev) => { if (ev !== 'change') return; if (el.checked) delete CALL().noThumbs; else CALL().noThumbs = true; changed('data'); render(); },
   'cl-shott': (el, ev) => { if (ev !== 'change') return; if (el.checked) CALL().shotTimes = true; else delete CALL().shotTimes; changed('data'); render(); },
   'cl-snd': (el, ev) => { if (ev !== 'change') return; const sh = P.shots[el.dataset.id]; if (!sh) return; if (el.value) sh.snd = el.value; else delete sh.snd; changed('data'); },
   'cl-veh': el => { const v = movOf(el.dataset.id); if (!v) return; v.name = el.value; changed('data'); },
@@ -655,9 +667,9 @@ SETTINGS.call = () => {
 };
 HELP.call = [
   ['La leyenda', 'Arriba de la hoja: los colores del plan (día, noche, jornada, eventos y los tuyos) y el de la nota para el equipo. Los del plan se cambian en su leyenda; la nota, aquí. El PDF y el Excel salen con los mismos colores y su leyenda.'],
-  ['De dónde sale', 'El cronograma, las locaciones y el reparto de cada jornada vienen del plan de rodaje y del desglose. Si cambias el plan, la hoja se actualiza sola.'],
+  ['De dónde sale', 'El cronograma, las locaciones y el reparto de cada jornada vienen del stripboard y del desglose. Si cambias el plan, la hoja se actualiza sola.'],
   ['Orden de la hoja', 'Arriba, los teléfonos clave, el título y los jefes de equipo; luego el clima, la fecha con el llamado general y los datos de la jornada (horario, listos motor, centro de salud). Después la nota para el equipo, el cronograma, el cierre, el reparto junto a la citación del equipo y el punto de encuentro junto a la movilidad.'],
-  ['Cronograma', 'Si el storyboard tiene planos, va plano por plano: tamaño, quién, soporte y ángulo; la acción, el set, el lente, el sonido y los personajes. Las horas de cada escena son las del plan de rodaje; cada plano toma una parte igual de su escena (~ es estimada). El sonido de cada plano se marca aquí o en el editor del plano.'],
+  ['Cronograma', 'Si el storyboard tiene planos, va plano por plano: tamaño, quién, soporte y ángulo; la acción, el set, el lente, el sonido y los personajes. Las horas de cada escena son las del stripboard; cada plano toma una parte igual de su escena (~ es estimada). El sonido de cada plano se marca aquí o en el editor del plano.'],
   ['Directorio', 'Nombres y teléfonos del equipo, de los actores y de los proveedores se escriben una vez y sirven para todas las jornadas.'],
   ['Horarios del día', 'El llamado general, el almuerzo, el clima y el centro de salud son de cada jornada. Cada área tiene su citación (vacía: el llamado general) y cada persona puede tener la suya. En el reparto: recojo, llamado, vestuario, maquillaje y listos.'],
   ['Punto de encuentro y movilidad', 'La dirección de citación con su referencia, enlaces y fotos; «Abrir en Google Maps» usa el enlace de Maps o busca la dirección. La movilidad reparte al equipo y al reparto en vehículos con su conductor; «Copiar la de la jornada anterior» la repite.'],
@@ -710,7 +722,7 @@ function callSheetData(n) {
 function exportCallXLSX(all) {
   if (!proGate('excel')) return;
   const { days } = callDays();
-  if (!days.length) { toast('Primero arma el plan de rodaje.'); return; }
+  if (!days.length) { toast('Primero arma el stripboard.'); return; }
   const list = all ? days.map((_, i) => i) : [UI.callDay || 0];
   const cd = callDays(), rec = !(typeof OFFER_CAPTURE !== 'undefined' && OFFER_CAPTURE), vers = Object.fromEntries(list.map(i => [i, callVer(i, cd, rec)]));
   const sheets = list.map(i => callSheetXLSX({ ...callSheetData(i), ver: vers[i] }));

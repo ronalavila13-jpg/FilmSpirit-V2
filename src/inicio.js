@@ -170,7 +170,7 @@ function newMenu(anchor) {
   const paid = !api || !!(me && me.limits && me.limits.projects);
   popover(anchor, `<div class="menu xmenu new-menu">
       <button data-n="guion"><b>Guion</b><small>En blanco, para escribir. Se guarda solo.</small></button>
-      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y plan de rodaje: Indie, Pro y Studio. Prueba Pro 30 días gratis.'}</small></button>
+      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, stripboard, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y stripboard: Indie, Pro y Studio. Prueba Pro 30 días gratis.'}</small></button>
     </div>`, p => p.addEventListener('click', e => { const x = e.target.closest('[data-n]'); if (!x) return; closePop(); newOf(x.dataset.n); }));
 }
 async function newOf(kind) {

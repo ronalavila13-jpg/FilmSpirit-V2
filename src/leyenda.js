@@ -151,7 +151,7 @@ function lgCan(k) {
   }
   return true;
 }
-const LG_WHO = { plan: 'el plan de rodaje', cal: 'el calendario', call: 'la hoja de llamado', cat: 'todo el desglose', tab: 'el guion' };
+const LG_WHO = { plan: 'el stripboard', cal: 'el calendario', call: 'la hoja de llamado', cat: 'todo el desglose', tab: 'el guion' };
 
 /* ---------- cambiar (pasa por el deshacer, se guarda y se repinta) ---------- */
 function lgDo(label, fn) {
@@ -566,7 +566,7 @@ const lgAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + (EN ?
 function lgWhoCanTxt() {
   if (P && UI.readOnly) return 'Solo puedes mirarlos: el proyecto está abierto solo para mirar.';
   const who = lgWhoCan();
-  if (!who.length) return 'Solo puedes mirarlos: los cambia quien edita el plan de rodaje, el calendario, la hoja de llamado o el desglose.';
+  if (!who.length) return 'Solo puedes mirarlos: los cambia quien edita el stripboard, el calendario, la hoja de llamado o el desglose.';
   return `Solo puedes mirarlos: los cambia ${lgAnd(who.length > 4 ? [...who.slice(0, 3), `${who.length - 3} ${EN ? 'more' : 'más'}`] : who)}.`;
 }
 /* aplicar una paleta: los colores en lo que se puede editar del proyecto. No toca la pantalla (ni el modo oscuro).
@@ -606,7 +606,7 @@ const LK_ICO = {
 /* el color de las etapas, en muestra: Vivos (de color entero) y Suaves (tonos claros) */
 const LK_SEC = { solido: ['#222222', '#CE0C1C', '#6B6259', '#FFBE0B', '#E8730C'], pastel: ['#E3DFD9', '#F4CACD', '#E2E0DD', '#FFF1C9', '#FCE3CB'], neutro: ['#2A2A2A', '#6E6E6E', '#BDBDBD', '#E6E6E6', '#F5F5F5'] };
 /* color por color: los nombres cortos de las entradas fijas */
-const LK_CC = [['Plan de rodaje', [['plan', 'd', 'Día'], ['plan', 'n', 'Noche'], ['plan', 'brk', 'Jornada'], ['plan', 'ev', 'Evento']]],
+const LK_CC = [['Stripboard', [['plan', 'd', 'Día'], ['plan', 'n', 'Noche'], ['plan', 'brk', 'Jornada'], ['plan', 'ev', 'Evento']]],
   ['Calendario', [['cal', 'pre', 'Preproducción'], ['cal', 'rod', 'Rodaje'], ['cal', 'post', 'Posproducción'], ['cal', 'otro', 'Otras']]],
   ['Hoja de llamado', [['call', 'note', 'Nota para el equipo']]]];
 function lookPanel(tab) {

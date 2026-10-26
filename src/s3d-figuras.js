@@ -346,9 +346,11 @@ function fig3dExpr(A, expr) {
 }
 /* traslada la pose del maniquí (proxies) a los huesos */
 const _fq = [];
+let _fv = null, _fz = null;
 function fig3dApply(A) {
   const T = THREE, tp = A.fig, b = A.bone, c = tp.comp;
   const q = i => _fq[i] || (_fq[i] = new T.Quaternion());
+  if (!_fv) { _fv = new T.Vector3(); _fz = new T.Vector3(0, 0, 1); }
   const restY = tp.bones[tp.idx.pelvis].h[1] - tp.bones[tp.idx.Root].h[1];
   const pel = b('pelvis');
   pel.position.set(A.hips.position.x, A.hips.position.y, A.hips.position.z).multiplyScalar(restY / .95);
@@ -359,7 +361,13 @@ function fig3dApply(A) {
   b('head').quaternion.copy(A.head.quaternion);
   for (const [s, arm, leg] of [['l', A.armL, A.legL], ['r', A.armR, A.legR]]) {
     const cu = c['upperarm_' + s], cl = c['lowerarm_' + s], ct = c['thigh_' + s], cc = c['calf_' + s];
-    b('upperarm_' + s).quaternion.copy(arm.sh.quaternion).multiply(cu);
+    // el hombro acompaña al brazo que sube por encima del pecho: la clavícula se eleva (hasta unos 22°) y el brazo
+    // gira lo que falta; si todo el giro va al brazo, la piel entre el cuello y el hombro se hunde
+    const cv = _fv.set(0, -1, 0).applyQuaternion(arm.sh.quaternion);
+    const el = Math.acos(Math.max(-1, Math.min(1, -cv.y))), lt = Math.max(0, Math.min(1, (el - .9) / 1.6));
+    const cq = q(4).setFromAxisAngle(_fz, (s === 'l' ? 1 : -1) * .38 * lt * lt * (3 - 2 * lt));
+    b('clavicle_' + s).quaternion.copy(cq);
+    b('upperarm_' + s).quaternion.copy(cq.invert()).multiply(arm.sh.quaternion).multiply(cu);
     b('lowerarm_' + s).quaternion.copy(q(1).copy(cu).invert()).multiply(arm.el.quaternion).multiply(cl);
     b('hand_' + s).quaternion.copy(cl).invert();
     b('thigh_' + s).quaternion.copy(leg.hp.quaternion).multiply(ct);

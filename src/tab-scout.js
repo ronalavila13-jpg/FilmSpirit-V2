@@ -1,6 +1,6 @@
 /* ============================================================
    Pestaña · SCOUTING — locaciones candidatas para cada lugar del guion (etapa Desarrollo)
-   Viaja con el plan de rodaje (sección «plan» del equipo): al elegir una candidata, su nombre y su dirección
+   Viaja con el stripboard (sección «plan» del equipo): al elegir una candidata, su nombre y su dirección
    pasan a las locaciones del plan, y de ahí a la hoja de llamado.
    Datos: P.scout = { places: { lugar: { cands: [{ id, name, addr, map, contact, phone, permit, cost, status,
      notes, ph: [{ id, w, h }] }], pick, note } } }   (lugar = la locación del encabezado, como en el plan)
@@ -124,7 +124,7 @@ function scCandHTML(pl, c, ed) {
         ${candFld(c, 'cost', `Costo por día (${cur})`, 'sc-c', ed, 'inputmode="decimal"')}
       </div>
       <textarea class="cand-in cand-nt" rows="2" data-bind="sc-c" data-id="${ea(c.id)}" data-f="notes" placeholder="${ea(ed ? 'Luz, ruido, acceso, estacionamiento, corriente, baños, horarios…' : '')}" aria-label="Notas" ${ed ? '' : 'readonly'}>${esc(c.notes)}</textarea>
-      ${ed ? `<div class="cand-a">${picked ? `<button class="btn" data-act="sc-unpick" data-id="${ea(c.id)}">Quitar la elección</button>` : `<button class="btn" data-act="sc-pick" data-id="${ea(c.id)}" title="Pasa al plan de rodaje como la locación de estas escenas">Elegir esta locación</button>`}</div>` : ''}
+      ${ed ? `<div class="cand-a">${picked ? `<button class="btn" data-act="sc-unpick" data-id="${ea(c.id)}">Quitar la elección</button>` : `<button class="btn" data-act="sc-pick" data-id="${ea(c.id)}" title="Pasa al stripboard como la locación de estas escenas">Elegir esta locación</button>`}</div>` : ''}
     </div>
   </article>`;
 }
@@ -149,7 +149,7 @@ RENDER.scout = function () {
     const addBtn = ed ? hdBtn('pri', 'Agregar candidata', { icon: 'plus', attrs: 'data-act="sc-add"' }) : '';
     body = `<section class="hd cand-hd">${hdHead({ title: esc(titleCase(cur.b)), sub: esc(info), act: order.length ? addBtn : '' })}</section>
       ${order.length ? `<div class="cand-grid">${order.map(c => scCandHTML(d, c, ed)).join('')}</div>`
-        : hdEmpty({ icon: 'pin', title: 'Aún no hay candidatas', text: `Agrega cada sitio que visites con sus fotos, su dirección y quién da el permiso. Al elegir una, pasa al plan de rodaje como la locación de ${cur.scenes.length === 1 ? 'su escena' : 'sus ' + cur.scenes.length + ' escenas'}.`, btn: addBtn })}
+        : hdEmpty({ icon: 'pin', title: 'Aún no hay candidatas', text: `Agrega cada sitio que visites con sus fotos, su dirección y quién da el permiso. Al elegir una, pasa al stripboard como la locación de ${cur.scenes.length === 1 ? 'su escena' : 'sus ' + cur.scenes.length + ' escenas'}.`, btn: addBtn })}
       <label class="hd-tx hd-txc cand-pn"><span>Notas del lugar</span><textarea class="cand-in" rows="2" data-bind="sc-pnote" placeholder="${ea(ed ? 'Qué pide el guion: época, tamaño, vista, acceso para el equipo' : '')}" ${ed ? '' : 'readonly'}>${esc(d.note)}</textarea></label>`;
   }
   v.innerHTML = `<div class="ws ws-2">
@@ -184,7 +184,7 @@ function scPick(id) {
   scSyncPick(b);
   const n = D.sc.scenes.filter(s => (s.locBase || s.loc) === b).length;
   changed('data'); render();
-  toast(`«${c.name}» queda como la locación de ${n === 1 ? 'su escena' : n + ' escenas'} en el plan de rodaje.`, 4600);
+  toast(`«${c.name}» queda como la locación de ${n === 1 ? 'su escena' : n + ' escenas'} en el stripboard.`, 4600);
 }
 function scUnpick(id) {
   const x = scCand(id); if (!x) return;
@@ -244,8 +244,8 @@ Object.assign(BIND, {
 HELP.scout = [
   ['Lugares', 'A la izquierda, cada lugar que pide el guion (la locación del encabezado de sus escenas), con cuántas candidatas tiene y la elegida (✓).'],
   ['Candidatas', '«+ Candidata» agrega un sitio que visitaste o que vas a visitar: fotos, dirección, enlace al mapa, quién da el permiso, su teléfono, el costo por día y notas (luz, ruido, acceso…).'],
-  ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el plan de rodaje, con su dirección; de ahí pasa a la hoja de llamado.'],
-  ['Equipo', 'El scouting viaja con el plan de rodaje: lo edita quien puede editar el plan.'],
+  ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el stripboard, con su dirección; de ahí pasa a la hoja de llamado.'],
+  ['Equipo', 'El scouting viaja con el stripboard: lo edita quien puede editar el plan.'],
   ['Exportar', 'Un dossier en PDF con cada lugar y sus candidatas, con o sin fotos, o solo con las elegidas.'],
 ];
 EXPORTS.scout = () => [

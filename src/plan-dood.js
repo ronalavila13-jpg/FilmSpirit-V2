@@ -57,7 +57,7 @@ function pdfDood() {
   const { cols, rows } = doodData();
   const W = doc.internal.pageSize.getWidth();
   const dates = cols.filter(c => c.date);
-  let y = docHeader(doc, 'Días por actor', `${rows.length} ${rows.length === 1 ? 'personaje' : 'personajes'} · ${cols.length} ${cols.length === 1 ? 'jornada' : 'jornadas'}${dates.length ? ' · ' + fmtDate(dates[0].date) + ' a ' + fmtDate(dates[dates.length - 1].date) : ''}`);
+  let y = docHeader(doc, 'DOOD · Días por actor', `${rows.length} ${rows.length === 1 ? 'personaje' : 'personajes'} · ${cols.length} ${cols.length === 1 ? 'jornada' : 'jornadas'}${dates.length ? ' · ' + fmtDate(dates[0].date) + ' a ' + fmtDate(dates[dates.length - 1].date) : ''}`);
   const IN = rgb(tabTone().tint), IT = rgb(tabTone().deep);   // inicio y fin, en un tono de la pestaña (del tema)
   const FILL = { I: IN, T: PDF_BLACK, E: PT.fill, F: IN, IF: IN };   // como en la app: trabaja en negro, inicio y fin en azul
   const TXT = { I: IT, T: [255, 255, 255], E: [110, 116, 124], F: IT, IF: IT };
@@ -67,7 +67,7 @@ function pdfDood() {
   const per = Math.max(8, Math.floor(room / dayW));
   for (let a = 0; a < Math.max(1, cols.length); a += per) {
     const part = cols.slice(a, a + per), last = a + per >= cols.length;
-    if (a > 0) { doc.addPage(); y = docHeader(doc, 'Días por actor', `Jornadas ${a + 1} a ${a + part.length}`); }
+    if (a > 0) { doc.addPage(); y = docHeader(doc, 'DOOD · Días por actor', `Jornadas ${a + 1} a ${a + part.length}`); }
     const head = [[{ content: 'Reparto', styles: { halign: 'left' } }, ...part.map(c => `${c.n + 1}${c.date ? '\n' + (dayW >= 26 ? (EN ? (c.date.getMonth() + 1) + '/' + c.date.getDate() : c.date.getDate() + '/' + (c.date.getMonth() + 1)) : c.date.getDate()) : ''}`), ...(last ? ['Trab.', 'Esp.', 'Total', 'Inicio', 'Fin'] : [])]];
     const body = rows.map(r => [pdfSafe(`${r.n}. ${r.name}`), ...part.map(c => ddc(r.codes[c.n])), ...(last ? [String(r.work), r.hold ? String(r.hold) : '', r.total ? String(r.total) : '', pdfSafe(r.first ? (r.first.date ? doodDay(r.first.date) : (EN ? 'D' : 'J') + (r.first.n + 1)) : ''), pdfSafe(r.last ? (r.last.date ? doodDay(r.last.date) : (EN ? 'D' : 'J') + (r.last.n + 1)) : '')] : [])]);
     body.push([{ content: 'Actores por jornada', styles: { fontStyle: 'bold' } }, ...part.map(c => c.cast.size ? String(c.cast.size) : ''), ...(last ? [String(rows.reduce((s, r) => s + r.work, 0)), '', '', '', ''] : [])]);
@@ -80,7 +80,7 @@ function pdfDood() {
   }
   doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED);
   doc.text(trDone(pdfSafe(DOOD_CODES.map(([c, n, h]) => `${ddc(c)} ${n.toLowerCase()}${h ? ' (' + h + ')' : ''}`).join('   ·   '))), 36, Math.min(y + 4, doc.internal.pageSize.getHeight() - 34), { maxWidth: W - 72 });
-  pageNumbers(doc, 'Días por actor');
+  pageNumbers(doc, 'DOOD');
   return { doc, name: fileSafe(P.meta.title) + '_dias_por_actor.pdf' };
 }
 function doodSheet() {
@@ -89,7 +89,7 @@ function doodSheet() {
   const FILL = { I: '#D9E8F7', T: '#222222', E: T.fill, F: '#D9E8F7', IF: '#D9E8F7' }, TXT = { I: '#184A82', T: '#FFFFFF', E: '#646464', F: '#184A82', IF: '#184A82' };
   const NC = cols.length + 6;
   const out = [
-    { cells: [{ v: `${P.meta.title} · Días por actor`, cs: NC, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false } }], h: 30 },
+    { cells: [{ v: `${P.meta.title} · DOOD`, cs: NC, s: { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false } }], h: 30 },
     { cells: [{ v: trDone(DOOD_CODES.map(([c, n]) => `${ddc(c)} ${n.toLowerCase()}`).join('  ·  ')), cs: NC, s: { color: T.ink, fill: T.bar, border: false, wrap: false } }], h: 18 },
     { cells: [{ v: '', cs: NC, s: { fill: T.c, border: false } }], h: 4 },
     { cells: [{ v: 'Reparto', s: { ...hs, h: 'left' } }, ...cols.map(c => ({ v: `${EN ? 'D' : 'J'}${c.n + 1}${c.date ? '\n' + (EN ? (c.date.getMonth() + 1) + '/' + c.date.getDate() : c.date.getDate() + '/' + (c.date.getMonth() + 1))  : ''}`, s: hs })), ...['Trab.', 'Esp.', 'Total', 'Inicio', 'Fin'].map(v => ({ v, s: hs }))], h: 30 },
@@ -98,5 +98,5 @@ function doodSheet() {
       { v: r.first ? (r.first.date ? isoDay(r.first.date) : (EN ? 'D' : 'J') + (r.first.n + 1)) : '', s: { h: 'center' } }, { v: r.last ? (r.last.date ? isoDay(r.last.date) : (EN ? 'D' : 'J') + (r.last.n + 1)) : '', s: { h: 'center' } }] })),
     { cells: [{ v: 'Actores por jornada', s: { bold: true, fill: T.fill2 } }, ...cols.map(c => ({ v: c.cast.size || '', s: { h: 'center', fill: T.fill2 } })), { v: rows.reduce((s, r) => s + r.work, 0), s: { h: 'center', fill: T.fill2 } }, ...[0, 1, 2, 3].map(() => ({ v: '', s: { fill: T.fill2 } }))] },
   ];
-  return { name: 'Días por actor', cols: [26, ...cols.map(() => 5.5), 7, 7, 7, 11, 11], rows: out, freeze: 4, landscape: true, printRows: '4:4' };
+  return { name: 'DOOD', cols: [26, ...cols.map(() => 5.5), 7, 7, 7, 11, 11], rows: out, freeze: 4, landscape: true, printRows: '4:4' };
 }
