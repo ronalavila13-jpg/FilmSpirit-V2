@@ -191,7 +191,7 @@ function openSetBuilder(opts = {}, done) {
     if (S.t === 'o') return `<div class="sb-sel"><h3>${S.o.k === 'p' ? 'Puerta' : 'Ventana'}</h3><div class="grid3">${numIn('Ancho', 'oa', S.o.a, .3, 10)}${S.o.k === 'v' ? numIn('Desde', 'oy0', S.o.y0, 0, 10) : ''}${numIn('Hasta', 'oy1', S.o.y1, .5, 12)}</div>${del}</div>`;
     if (S.t === 'it') {
       const it = S.it, f = bsItemFp(it), vol = it.k === 'vol';
-      return `<div class="sb-sel"><h3>${esc(vol ? 'Volumen' : f.name)}</h3>${vol ? `<div class="grid3">${numIn('Ancho', 'iw', it.w, .05, 40)}${numIn('Fondo', 'id', it.d, .05, 40)}${numIn('Alto', 'ihh', it.hh, .05, 12)}</div>` : ''}
+      return `<div class="sb-sel"><h3>${esc(vol ? 'Volumen' : f.name)}</h3>${vol ? `<div class="grid3">${numIn('Ancho', 'iw', it.w, .05, 40)}${numIn('Profundidad', 'id', it.d, .05, 40)}${numIn('Alto', 'ihh', it.hh, .05, 12)}</div>` : ''}
         <div class="grid2">${numIn('Giro', 'ir', it.r || 0, -180, 180, 5, '°')}${numIn(vol ? 'Sobre el piso' : 'Altura', 'ih', it.h || 0, 0, 10)}</div>${del}</div>`;
     }
     if (S.t === 'fl') return `<div class="sb-sel"><h3>Piso</h3><p class="hint">${B.d.floor.length} puntos. Arrastra un punto para moverlo.</p>${view ? '' : '<button class="btn sm ghost sb-del" data-del="1">Quitar el contorno</button>'}</div>`;
