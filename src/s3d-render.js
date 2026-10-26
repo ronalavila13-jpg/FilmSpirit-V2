@@ -552,7 +552,7 @@ function r3Sync(s3, st, opts) {
     // sobre el suelo que tiene debajo (la vereda) más lo que se subió a mano (figuras y objetos pequeños)
     E.root.position.set(p.x, liftOf(s3, p, !!(S3_PROPS[ob.kind] || {}).small || ob.kind === 'actor'), p.z);
     E.root.rotation.set(0, rad(p.rot || 0), 0);
-    E.root.scale.setScalar(1);
+    E.root.scale.setScalar(objSc(ob));   // lote W · la escala del objeto (1 en figuras y extras)
     E.blob.visible = !sim;
     if (E.kind === 'actor' && E.cut) { E.look = look; }
     else if (E.kind === 'actor') {
@@ -592,7 +592,7 @@ function r3Sync(s3, st, opts) {
     const m = _m4().multiplyMatrices(anchor.matrixWorld, off);
     const pos = new T.Vector3(), q = new T.Quaternion(), sc = new T.Vector3();
     m.decompose(pos, q, sc);
-    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(1);
+    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(objSc(ob));   // lote W · con su escala
     E.blob.visible = false; E.sel.visible = false;
     if (E.parts.hg) objLay(E.parts, true);
   }
@@ -609,7 +609,7 @@ function r3Viewport(W, H) {
 function r3ShadowSig(s3, st) {
   const { keys, objs, aim, shake, ...scene } = s3;     // todo lo del escenario (set, atmósfera, sol, habitación, plano, luz) menos la cámara
   let k = JSON.stringify(scene) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
-  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
+  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.sc ? 's' + o.sc : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
   return k;
 }
 function r3Draw(ctx, s3, t, W, H, opts = {}) {
@@ -805,6 +805,21 @@ function r3Pick(px, py, W, H, s3) {
   return null;
 }
 
+/* lote W · lo que hay bajo un punto de la viñeta, para enfocar ahí (obs. 8): la distancia sobre el eje de la cámara
+   (la que usa el desenfoque) hasta lo primero visible: figuras, objetos, decorado o piso. Sin nada (el cielo), null */
+function r3DepthAt(px, py, W, H) {
+  if (!R3.scene || !R3.cam) return null;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(px / W * 2 - 1, -(py / H) * 2 + 1), R3.cam);
+  const vis = o => { for (let q = o; q; q = q.parent) if (q.visible === false) return false; return true; };
+  const skip = m => !m || m === R3.mats.blob || m === R3.mats.sel || m.isShadowMaterial || m.transparent && m.opacity < .2;
+  // (los contornos son una copia hacia atrás de cada malla: se saltan con sus caras de atrás)
+  const hit = ray.intersectObjects(R3.scene.children, true).find(h => h.object.isMesh && vis(h.object) && !skip(h.object.material) && h.object.material.side !== THREE.BackSide);
+  let p = hit ? hit.point : null;
+  if (!p) { const f = r3FloorAt(px, py, W, H); if (f) p = new THREE.Vector3(f.x, 0, f.z); }
+  if (!p) return null;
+  const v = p.clone().applyMatrix4(R3.cam.matrixWorldInverse), d = -v.z;
+  return d > .05 && isFinite(d) ? Math.round(d * 100) / 100 : null;
+}
 /* parte del cuerpo de una figura bajo el puntero (para doblarla) */
 function r3PickPart(px, py, W, H, id) {
   const E = R3.objs.get(id);

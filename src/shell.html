@@ -1535,6 +1535,22 @@ details.lx-box[open]{display:grid}
 .fp-pos input{border:0;background:none;min-width:0;width:100%;padding:6px 6px;font:inherit;font-size:var(--fs-3);text-align:right;color:var(--ink);box-shadow:none;outline:0}
 .fp-quick,.fp-two{display:flex;flex-wrap:wrap;gap:6px}
 .fp-two .btn{flex:1}
+/* lote W · avisos del editor del plano: la viñeta no coincide con el guion técnico (obs. 6) y el máster cambió de escenario (obs. 9) */
+.sx-read{border-left:3px solid var(--warn);background:var(--warn-soft);padding:8px 10px;border-radius:var(--r);display:grid;gap:7px}
+.sx-read p{margin:0;font-size:var(--fs-3);color:var(--ink);line-height:1.4}
+.sx-read-b{display:flex;flex-wrap:wrap;gap:6px}
+/* lote W · escala del objeto (obs. 10): el deslizador y, debajo a la derecha, «Tamaño original» */
+.fp-sc{display:grid;gap:0}
+.fp-sc .linkbtn{justify-self:end;font-size:var(--fs-2);margin-top:-2px}
+.fp-sc .linkbtn:disabled{color:var(--faint);cursor:default;text-decoration:none}
+/* lote W · el foco a mano (obs. 8): el botón de tocar para enfocar y la viñeta en modo foco */
+.rr-fo .rr-pick{grid-column:2/-1;justify-content:flex-end}
+.rr-fo .rr-pick select{flex:0 1 auto;text-align:right}
+.icbtn.fo-tap{width:26px;height:26px;background:none;flex:none}
+.icbtn.fo-tap svg{width:16px;height:16px}
+.icbtn.fo-tap[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text)}
+.vp.fo-tap #vpC{cursor:crosshair}
+.vp.fo-tap::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 2px var(--ok);border-radius:inherit;z-index:3}
 .icbtn{width:30px;height:30px;border:0;background:none;color:var(--muted);border-radius:var(--r-xs);display:inline-grid;place-items:center;cursor:pointer;padding:0;flex:none}
 .icbtn:hover{background:var(--fill);color:var(--ink)}
 .icbtn:disabled{opacity:.35;cursor:default;background:none}
@@ -1971,6 +1987,9 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .badge.s2b{background:var(--accent-soft);color:var(--accent-text)}
 /* el máster de la escena (lote U): un contorno, sin relleno, para no competir con el tamaño del plano */
 .badge.mst{background:none;box-shadow:inset 0 0 0 1.25px currentColor;color:var(--accent-text)}
+/* lote W · el máster cambió de escenario: una marca chica, sin texto */
+.badge.stg{background:var(--warn-soft);color:var(--warn-text);padding:0 4px;display:inline-flex;align-items:center}
+.badge.stg svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:980px){
   .s2-body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,1fr) auto minmax(0,auto)}
   .s2-rail{flex-direction:row;border-right:0;border-top:var(--l1) solid var(--line);overflow-x:auto;order:2;padding:6px 8px;gap:2px}

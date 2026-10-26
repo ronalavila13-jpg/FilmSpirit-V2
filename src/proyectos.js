@@ -98,6 +98,10 @@ function normalizeProject(Px) {
     if (typeof carClean === 'function') carClean(sh.s3);   // el vehículo del interior: modelo que existe y color válido
     // las medidas de la planta: solo las que tienen dos puntas válidas (s3d-plan.js)
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
+    // lote W · D: la escala de los objetos (s3d-model.js)
+    if (Array.isArray(sh.s3.objs)) for (const o of sh.s3.objs) objScClean(o);
+    // el foco a mano: metros sobre el eje de la cámara
+    if ('focusD' in sh.s3) { const d = +sh.s3.focusD; if (isFinite(d) && d > 0) sh.s3.focusD = Math.round(clamp(d, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; else delete sh.s3.focusD; }
   }
   sanitizeProject(Px);
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas
@@ -217,6 +221,9 @@ function sanitizeProject(Px) {
   if (Px.shots && typeof Px.shots === 'object') for (const sh of Object.values(Px.shots)) {
     if (!sh || typeof sh !== 'object') continue;
     if ('master' in sh && typeof sh.master !== 'boolean') delete sh.master;
+    // lote W · D: los cambios de escenario del máster y el último que vio cada plano (s3d-model.js)
+    if ('stgN' in sh && !(Number.isInteger(sh.stgN) && sh.stgN > 0)) delete sh.stgN;
+    if ('stgSeen' in sh && !(typeof sh.stgSeen === 'string' && /^[\w~-]{1,80}:\d{1,9}$/.test(sh.stgSeen))) delete sh.stgSeen;
     if (sh.d2 && typeof sh.d2 === 'object' && Array.isArray(sh.d2.layers)) for (const L of sh.d2.layers) {
       if (!L || typeof L !== 'object') continue;
       if ('back' in L && (L.back !== true || L.kind !== 'image')) delete L.back;   // detrás de las figuras: solo imágenes

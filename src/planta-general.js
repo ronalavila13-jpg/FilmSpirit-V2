@@ -88,10 +88,10 @@ function pgDraw(ctx, W, H, G, opt = {}) {
       ctx.fillStyle = PLAN_C.muted; ctx.font = font(600, 10); ctx.textAlign = 'center'; ctx.fillText(genteLabel(ob), sx, sy + 3 * k);
       continue;
     }
-    const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };
+    const fp = propFoot(ob);   // lote W · D: la huella con la escala del objeto
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot || 0));
     ctx.fillStyle = PLAN_C.prop; ctx.strokeStyle = PLAN_C.propLine; ctx.lineWidth = 1.1 * k;
-    const w = (ob.kind === 'puerta' ? .9 : ob.kind === 'ventana' ? 1.3 : fp.w) * V.sc, d = (ob.kind === 'puerta' || ob.kind === 'ventana' ? .12 : fp.d) * V.sc;
+    const w = (ob.kind === 'puerta' ? .9 * objSc(ob) : ob.kind === 'ventana' ? 1.3 * objSc(ob) : fp.w) * V.sc, d = (ob.kind === 'puerta' || ob.kind === 'ventana' ? .12 : fp.d) * V.sc;
     ctx.fillRect(-w / 2, -d / 2, w, d); ctx.strokeRect(-w / 2, -d / 2, w, d); ctx.restore();
     if (V.sc > 14 * k && ob.kind !== 'puerta' && ob.kind !== 'ventana') { ctx.fillStyle = PLAN_C.muted; ctx.font = font(600, 10); ctx.textAlign = 'center'; ctx.fillText(fp.name || ob.name || '', sx, sy + 3 * k); }
   }
@@ -128,7 +128,7 @@ function pgDraw(ctx, W, H, G, opt = {}) {
       boxes.push([sx - 10 * k, sy - 10 * k, 20 * k, 34 * k]);
       elHits.push({ id: ob.id, x: sx, y: sy, r: 14 * k });
     } else {
-      const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind }, w = Math.max(6 * k, fp.w * V.sc), d = Math.max(6 * k, fp.d * V.sc);
+      const fp = propFoot(ob), w = Math.max(6 * k, fp.w * V.sc), d = Math.max(6 * k, fp.d * V.sc);   // lote W · D: con su escala
       ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot || 0));
       ctx.fillStyle = fp.cat === 'animal' ? '#EFE6D6' : PLAN_C.prop; ctx.strokeStyle = on ? PLAN_C.cam : PLAN_C.propLine; ctx.lineWidth = (on ? 2.4 : 1.2) * k;
       ctx.fillRect(-w / 2, -d / 2, w, d); ctx.strokeRect(-w / 2, -d / 2, w, d);
