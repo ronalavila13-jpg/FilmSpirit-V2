@@ -278,8 +278,11 @@ function openShotEditor(id, isNew, from2d, waited) {
     const cur = jsonA();
     while (from.length && from[from.length - 1] === cur) from.pop();
     if (!from.length) { paintTop(); return; }
-    to.push(cur);
-    setS3A(from.pop()); camBadge();
+    // (lote W) un paso de «Usar lo de la viñeta» devuelve también el tamaño, el ángulo y el movimiento anotados
+    const nx = histUnwrap(from.pop());
+    to.push(nx.f ? '\u0001' + JSON.stringify({ f: formPick(), s: cur }) : cur);
+    if (nx.f) Object.assign(E.form, nx.f);
+    setS3A(nx.s); camBadge();
     E.gesture = false; E.tmp = null; E.part = null; stCache = null; E.custom = true;
     if (E.sel && E.sel !== 'cam' && !E.s3.objs.some(o => o.id === E.sel)) E.sel = null;
     panel(); redraw();
@@ -1441,6 +1444,38 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (i >= 0) { if (E.s3.keys[i] === camKeys(E.s3)[0]) return; snapshot(); E.s3.keys.splice(i, 1); commit(); redraw(); toast('Clave quitada'); return; }
     snapshot(); E.custom = true; s3KeyAt(E.s3, E.t, true); commit(); redraw(); toast('Clave en ' + E.t.toFixed(1) + ' s');
   };
+  /* ---------- lote W · la viñeta 3D frente al guion técnico (obs. 6) ----------
+     El panel Plano compara lo que muestra la cámara 3D (s3Read: tamaño por la figura principal, ángulo por la
+     inclinación, movimiento solo si es claro) con lo anotado. Si algo no coincide, en lugar de la nota gris va un aviso con
+     «Usar lo de la viñeta» (cambia el formulario: se guarda con el plano y se deshace con ↶) y «Reencuadrar» (la cámara va a
+     lo anotado). Se lee con la cámara A al rehacer el panel (al soltar lo que se arrastra: commit), no mientras se arrastra:
+     no parpadea. Solo en un plano con escena 3D propia (los automáticos se arman con lo anotado). */
+  const READ_W = { size: 'tamaño', angle: 'ángulo', move: 'movimiento' };
+  function readNow() {
+    if (!has3D || !E.custom || E.cam === 'b') return [];
+    try { return s3ReadDiff(s3Read(JSON.parse(jsonA())), E.form); } catch (er) { return []; }
+  }
+  function readHTML() {
+    const d = E.readD = readNow();
+    if (!d.length) return E.custom ? '<p class="hint" style="margin:0">Para aplicar estos datos a la escena 3D: «Reencuadrar» o «Animar» en Cámara.</p>' : '';
+    const sz = d.find(x => x.k === 'size'), rest = d.filter(x => x.k !== 'size');
+    const what = x => x.k === 'size' ? `${x.v} · ${SIZE_NAME[x.v] || ''}` : x.v.toLowerCase();
+    let t = sz ? `La viñeta 3D muestra un ${what(sz)}; en el guion técnico dice ${sz.was}` : `La viñeta 3D muestra ${rest.map(x => `${READ_W[x.k]} ${what(x)}`).join(' y ')}; en el guion técnico dice ${rest.map(x => x.was.toLowerCase()).join(' y ')}`;
+    if (sz && rest.length) t += ` (y ${rest.map(x => `${READ_W[x.k]} ${what(x)}, no ${x.was.toLowerCase()}`).join('; ')})`;
+    return `<div class="sx-read" role="status"><p>${esc(t)}.</p><div class="sx-read-b"><button type="button" class="btn sm" data-o="readuse" title="Cambia en el guion técnico ${esc(d.map(x => READ_W[x.k]).join(', '))} a lo que muestra la viñeta">Usar lo de la viñeta</button><button type="button" class="btn sm ghost" data-c="frame" title="Mueve la cámara a ${esc(E.form.size)} · ${esc(E.form.angle)}">Reencuadrar</button></div></div>`;
+  }
+  /* «Usar lo de la viñeta»: el formulario toma lo que muestra el 3D (la escena 3D no cambia). Va al deshacer del editor
+     como un paso marcado (\u0001 + { f: el formulario de antes, s: la escena }): ↶ devuelve los datos anotados */
+  const FORM_RD = ['size', 'angle', 'move'];
+  const formPick = () => Object.fromEntries(FORM_RD.map(k => [k, E.form[k]]));
+  const histUnwrap = x => x && x.charCodeAt(0) === 1 ? JSON.parse(x.slice(1)) : { s: x };
+  function readUse() {
+    const d = E.readD || []; if (!d.length) return;
+    E.hist.push('\u0001' + JSON.stringify({ f: formPick(), s: jsonA() })); if (E.hist.length > 60) E.hist.shift(); E.fut = []; E.gesture = false;
+    for (const x of d) E.form[x.k] = x.v;
+    panel(); paintTop();
+    toast(`Guion técnico: ${d.map(x => `${READ_W[x.k]} ${x.k === 'size' ? x.v : x.v.toLowerCase()}`).join(', ')}. Se guarda con el plano.`);
+  }
   /* el máster de la escena (lote U): qué dice el panel Plano y cómo volver a seguirlo */
   function masterHint() {
     if (isMaster(sh)) return '<p class="hint" style="margin:0">Máster de la escena: los demás planos toman de aquí dónde está cada personaje, el escenario y la hora; cada uno pone su cámara.</p>';
@@ -1842,7 +1877,7 @@ function openShotEditor(id, isNew, from2d, waited) {
           <label class="fld"><span>Movimiento</span><select data-f="move">${MOVES.map(a => `<option ${a === f.move ? 'selected' : ''}>${a}</option>`).join('')}${MOVES.includes(f.move) ? '' : `<option selected>${esc(f.move)}</option>`}</select></label>
           <label class="fld"><span>Soporte</span><select data-f="support"><option value=""></option>${SUPPORTS.map(a => `<option ${a === f.support ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
           <label class="fld" title="Para la hoja de llamado y el reporte de sonido: se graba sonido directo, solo ambiente o nada (MOS)"><span>Sonido</span><select data-f="snd">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(f.snd || '') === k ? 'selected' : ''}>${k ? t : 'Sin definir'}</option>`).join('')}</select></label></div>
-        ${E.custom ? '<p class="hint" style="margin:0">Para aplicar estos datos a la escena 3D: «Reencuadrar» o «Animar» en Cámara.</p>' : ''}${masterHint()}
+        <div id="sxRead">${readHTML()}</div>${masterHint()}
         <label class="fld"><span>Descripción del plano</span><textarea data-f="desc" rows="2" placeholder="Qué se ve y qué pasa en el cuadro">${esc(f.desc)}</textarea></label>
         <div class="grid2"><label class="fld"><span>Desde</span><select data-f="p0">${paraOpts(f.p0)}</select></label><label class="fld"><span>Hasta</span><select data-f="p1">${paraOpts(f.p1)}</select></label></div>
         <label class="fld"><span>Notas (sonido, arte, continuidad)</span><textarea data-f="notes" rows="2">${esc(f.notes)}</textarea></label>
@@ -2121,6 +2156,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.o === 'addobj') { addObj({ currentTarget: b }); return; }
     if (b.dataset.o === 'copyprev') { copyPrev(); return; }
     if (b.dataset.o === 'refollow') { refollow(); return; }
+    if (b.dataset.o === 'readuse') { readUse(); return; }
     if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }
     const ob = selOb();
     if (b.dataset.o === 'exprmenu' && ob) { if (!E.exprOpen) openExprMenu(ob, b); return; }
