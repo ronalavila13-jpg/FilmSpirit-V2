@@ -291,7 +291,7 @@ async function rpLightPack(t, name) {
     const m = new T.MeshBasicMaterial({ color: d.c, map: d.t >= 0 ? t.texs[d.t] : null, transparent: !!d.tr, opacity: d.op ?? 1, alphaTest: d.at || 0, side: d.ds ? T.DoubleSide : T.FrontSide, vertexColors: !!d.vc });
     mats.push(m); root.add(new T.Mesh(p.geo, m));
   }
-  try { return await m3Pack(root, { kind: 'set', budget: RP_LIGHT.tris, texTop: RP_LIGHT.texTop, texAll: RP_LIGHT.texAll, extra: { n: name || '' } }); }
+  try { return await m3Pack(root, { kind: 'set', budget: RP_LIGHT.tris, keep: 3000, texTop: RP_LIGHT.texTop, texAll: RP_LIGHT.texAll, extra: { n: name || '' } }); }
   finally { for (const m of mats) m.dispose(); }
 }
 const rpKB = kb => kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(kb)) + ' kB';

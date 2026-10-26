@@ -254,14 +254,18 @@ function m3Merge(parts) {
   }
   return out;
 }
-/* menos triángulos si pasa del tope (meshoptimizer); sin él, se avisa */
-async function m3Simplify(parts, budget) {
+/* menos triángulos si pasa del tope (meshoptimizer); sin él, se avisa. keep (lote W · versión liviana): las partes de
+   hasta keep triángulos no se tocan (los muros y lo simple quedan rectos) y lo que sobra se quita de las pesadas */
+async function m3Simplify(parts, budget, keep = 0) {
   const tris = parts.reduce((a, P) => a + P.idx.length / 3, 0);
   if (tris <= budget) return { tris, cut: false };
   const S = glbLib().MeshoptSimplifier;
   try { await S.ready; } catch (e) { throw new Error(`El modelo tiene ${Math.round(tris).toLocaleString('es-PE')} triángulos y aquí se acepta hasta ${budget.toLocaleString('es-PE')}. Simplifícalo antes de exportarlo (quita lo que no sale en cámara).`); }
-  const r = budget / tris;
+  const small = keep ? parts.reduce((a, P) => a + (P.idx.length / 3 <= keep ? P.idx.length / 3 : 0), 0) : 0;
+  const lite = keep && small < budget * .5;
+  const r = lite ? (budget - small) / Math.max(1, tris - small) : budget / tris;
   for (const P of parts) {
+    if (lite && P.idx.length / 3 <= keep) continue;
     const target = Math.max(3, Math.floor(P.idx.length * r / 3) * 3);
     if (target >= P.idx.length) continue;
     const [ni] = S.simplify(P.idx, P.pos, 3, target, .02, ['LockBorder']);
@@ -276,7 +280,7 @@ async function m3Pack(root, o) {
   const R = m3Parts(root, kind);
   let parts = kind === 'set' ? m3Merge(R.parts) : R.parts;
   if (!parts.length) throw new Error('El archivo no trae mallas que se puedan mostrar.');
-  const sim = await m3Simplify(parts, o.budget || M3_TRIS[kind]);
+  const sim = await m3Simplify(parts, o.budget || M3_TRIS[kind], o.keep || 0);
   // texturas: lado mayor 1024 px y hasta unos 170 kB cada una (con muchas, menos: el total no pasa de unos 4 MB)
   const nT = R.texs.length, top = Math.min(o.texTop || IMG_TOP, Math.floor((o.texAll || 4 * 1024 * 1024) / Math.max(1, nT))), side = nT > 24 || o.texTop ? 512 : 1024;
   const texB = R.texs.map(t => m3Tex(t.img, side, top));
