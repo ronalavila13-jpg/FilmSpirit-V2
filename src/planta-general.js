@@ -22,6 +22,7 @@ function pgData(scKey, live) {
   // con máster (lote U): los planos que lo siguen se arman desde él; si es el del editor abierto, con sus cambios
   const M = shotMaster(scKey), liveM = live && M && live.id === M.id ? live.s3 : null;
   const s3s = all.map(sh => live && live.id === sh.id ? live.s3 : liveM && masterOf(sh) ? s3Follow(sh, liveM) : s3Of(sh));
+  if (typeof escLocSet === 'function') { const sc0 = sceneOfKey(scKey); for (const x of s3s) escLocSet(x, sc0 && sc0.loc); }   // lote W · la escala de la calle de la locación
   const iM = M ? all.findIndex(sh => sh.id === M.id) : -1;
   const base = s3s[iM >= 0 ? iM : all.findIndex(sh => sh.s3 || (live && live.id === sh.id))] || s3s[0] || null;
   const shots = all.map((sh, i) => {

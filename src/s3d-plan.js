@@ -46,7 +46,10 @@ function measClean(list) {
 const PLAN_C = { bg: '#F7F6F2', grid: '#E7E4DD', grid5: '#D5D0C6', wall: '#AFA798', road: '#E3E0D9', prop: '#E4DED2', propLine: '#968E80', ink: '#2A2D33', muted: '#7B8089', cam: '#2C47CF', camFill: 'rgba(44,71,207,.10)' };
 /* el lugar en la planta: interior con sus muros, calle, playa o mar, auto y el plano de planta importado (lo mismo
    en la planta del plano y en la planta general de la escena) */
-function planDrawSet(ctx, s3, V, toS, redraw) {
+function planDrawSet(ctx, s3, V, toS0, redraw) {
+  // lote W · la calle, los jardines y los paisajes, a la escala de su locación (el escenario 3D y el plano de planta
+  // llevan la suya: usan toS0)
+  const ke = typeof envEscOf === 'function' ? envEscOf(s3) : 1, toS = ke === 1 ? toS0 : (x, z) => toS0(x * ke, z * ke);
   // set
   if (s3.set === 'int') {
     const R = roomOf(s3);
@@ -87,7 +90,7 @@ function planDrawSet(ctx, s3, V, toS, redraw) {
     ctx.fillStyle = '#E9E5DD'; const [, b0] = toS(0, -17.5), [, b1] = toS(0, -11.5); ctx.fillRect(0, b0, V.W, b1 - b0);
     const [, c0] = toS(0, 8.5), [, c1] = toS(0, 14.5); ctx.fillRect(0, c0, V.W, c1 - c0);
   }
-  if (typeof set3dDrawPlan === 'function') set3dDrawPlan(ctx, s3, toS, redraw);   // la planta de un escenario 3D
+  if (typeof set3dDrawPlan === 'function') set3dDrawPlan(ctx, s3, toS0, redraw);   // la planta de un escenario 3D
   const pl = planOf(s3);
   if (pl) {
     const W = planWorld(pl), im = planPic(pl, redraw);

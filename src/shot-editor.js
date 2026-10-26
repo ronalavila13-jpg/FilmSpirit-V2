@@ -1947,8 +1947,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     const car = E.s3.set === 'auto' ? carOf(E.s3) : null, own = car && !VEH_COLORS.some(c => c.toLowerCase() === car.c.toLowerCase());
     return `<label class="fld"><span>Escenario</span><select data-c="set">${setOptions().map(([k, n]) => `<option value="${ea(k)}" ${k === setCur() ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>` : ''}
-      ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM(d3.b[2] - d3.b[0])} × ${set3dM(d3.b[3] - d3.b[1])} m · ${d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
-        <button class="btn sm ghost" data-c="edit3d">Ajustar…</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
+      ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM((d3.b[2] - d3.b[0]) * escOf(d3))} × ${set3dM((d3.b[3] - d3.b[1]) * escOf(d3))} m · ${bsIs(d3) ? (d3.int !== false ? 'construido, interior' : 'construido, exterior') : d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
+        <button class="btn sm ghost" data-c="edit3d">${bsIs(d3) ? (sbCanBuild() && sbCanEdit() ? 'Editar…' : 'Ver…') : 'Ajustar…'}</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
         ${set3dRoofy(d3) ? '<p class="hint e3-warn">¿El piso quedó en el techo? Muévelo en Piso (Ajustar…).</p>' : ''}` : ''}
       ${E.s3.set === 'vacio' ? '' : `<div class="grid2"><label class="fld"><span>Atmósfera</span><select data-c="atm">${S3_ATM.map(([k, n]) => `<option value="${k}" ${k === atmOf(E.s3) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="opt" style="padding:6px 10px;align-self:end"><input type="checkbox" data-c="rain" ${A.rain || E.s3.rain ? 'checked' : ''} ${A.rain ? 'disabled' : ''}><span><b>Lluvia</b></span></label></div>
@@ -1958,6 +1958,7 @@ function openShotEditor(id, isNew, from2d, waited) {
         <label class="opt" style="padding:6px 10px"><input type="checkbox" data-c="planFloor" ${E.s3.planFloor !== false ? 'checked' : ''}><span><b>Ver el dibujo del plano en el piso</b></span></label>
         <label class="opt" style="padding:6px 10px" title="Oculta los muros que se interponen entre la cámara y las figuras, como al retirar una pared del set"><input type="checkbox" data-c="wild" ${E.s3.wildWalls ? 'checked' : ''}><span><b>Muros móviles</b></span></label>
         <button class="btn sm" data-c="caminside">Meter la cámara dentro del plano</button>` : ''}
+      ${escRow()}
       <button class="btn sm" data-c="importplan">Importar plano de planta…</button>
       <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb, .kmz (SketchUp), .dae, .obj, .gltf o .fbx">Importar escenario 3D…</button>
       ${E.s3.set === 'int' ? `<div class="grid3"><label class="fld"><span>Ancho (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rw" value="${ea(R.w)}"></label><label class="fld"><span>Fondo (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rd" value="${ea(R.d)}"></label><label class="fld"><span>Alto (m)</span><input type="number" min="2" max="12" step="0.1" data-c="rh" value="${ea(R.h)}"></label></div>` : ''}`;
@@ -2057,6 +2058,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
     if (key === 'focusD') { if (!E.gesture) snapshot(); E.gesture = true; focusSet(v, true); return; }
     if (key === 'osc') { const ob = selOb(); if (!ob) return; if (!E.gesture) snapshot(); E.custom = true; scSet(ob, v / 100); stCache = null; redraw(); return; }
+    if (key === 'esc') { const k = escFromSlider(v); if (out) out.textContent = Math.round(k * 100) + ' %'; escSet(k); return; }   // lote W
     if (key.startsWith('lk:')) {
       const ob = selOb(); if (!ob) return;
       if (ob.el && P.elements[ob.el]) { const el = P.elements[ob.el]; el.look = { ...(el.look || {}), [key.slice(3)]: v }; E.lookDirty = true; }
@@ -2079,6 +2081,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (el.dataset.lkc) { const ob = selOb(); if (ob) setLook(ob, el.dataset.lkc, el.value); return; }
     if (el.dataset.opc) { const ob = selOb(); if (ob) { snapshot(); ob.paint = el.value; E.custom = true; commit(); panel(); redraw(); } return; }
     if (el.dataset.cpc) { if (E.carC0 !== undefined) carSet(E.s3, 'c', E.carC0); delete E.carC0; snapshot(); carSet(E.s3, 'c', el.value); E.custom = true; commit(); panel(); redraw(); return; }
+    if (el.dataset.k === 'esc') { escSet(escFromSlider(+el.value), true); return; }   // lote W · la escala del escenario
     if (el.type === 'range') { commit(); return; }
     if (el.dataset.lks) { const ob = selOb(); if (ob && ob.el) { const e2 = P.elements[ob.el]; e2.look = { ...(e2.look || {}), sizes: { ...((e2.look || {}).sizes || {}), [el.dataset.lks]: el.value.trim() } }; E.lookDirty = true; } return; }
     if (el.id === 'trM') { E.trM = clamp(num(el.value) || 2, .1, 50); return; }
@@ -2136,6 +2139,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (el.dataset.c === 'set') {
       if (el.value === 'plano' && !Object.keys(P.plans || {}).length) { el.value = setCur(); importPlan(); return; }
       if (el.value === 'modelo:+') { el.value = setCur(); import3d(); return; }
+      if (el.value === 'modelo:+c') { el.value = setCur(); build3d(); return; }   // lote W · «Construir uno nuevo…»
       pickSet(el.value, true); return;
     }
     if (el.dataset.c === 'atm') { snapshot(); E.s3.atm = el.value; delete E.s3.sunAz; E.custom = true; commit(); redraw(); return; }
@@ -2207,6 +2211,53 @@ function openShotEditor(id, isNew, from2d, waited) {
     const hadRoom = s3.objs.some(o => o.room);
     s3.set = 'modelo'; s3.set3d = sid; delete s3.planId;
     if (hadRoom) roomFurnish(s3, '');
+    bsLights(s3, P.sets3d[sid]);   // lote W · las luces de un escenario construido entran al plano (las de otro se van)
+  }
+  /* lote W · el constructor de escenarios: uno nuevo para la locación de este plano o editar el que se usa (edit: su id) */
+  function build3d(edit) {
+    openSetBuilder({ id: edit, loc: s.loc, name: titleCase(s.loc), int: s.ie !== 'EXT' }, (sid, applyLoc) => {
+      snapshot(); E.custom = true;
+      useSet3d(E.s3, sid);
+      if (applyLoc) for (const o of Object.values(P.shots)) { const os = sceneOfKey(o.sc); if (o.id !== id && o.s3 && os && os.loc === s.loc) useSet3d(o.s3, sid); }
+      stCache = null; commit(); redraw(); plan.fit(); panel(); paintTop();
+    });
+  }
+  /* ---------- lote W · la escala del escenario ----------
+     La guarda el escenario, no el plano: el importado o construido (P.sets3d), el plano de planta (P.plans) y la calle,
+     los jardines y los paisajes, por locación (P.envEsc). Todos los planos que lo usan lo ven del mismo tamaño; las
+     figuras no cambian. La barra va de 25 % a 400 % con el 100 % al medio (es logarítmica) */
+  function escTarget() {
+    const s3 = E.s3, d3 = s3.set === 'modelo' ? set3dOf(s3) : null, pl = s3.set === 'plano' ? planOf(s3) : null;
+    const put = o => v => { if (v === 1) delete o.esc; else o.esc = v; };
+    if (d3) return { v: escOf(d3), put: put(d3) };
+    if (pl) return { v: escOf(pl), put: put(pl) };
+    if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(s3.set)) {
+      const k = envEscKey(s.loc, s3.set);
+      return { v: envEscOf(s3), put: v => { const o = P.envEsc = P.envEsc || {}; if (v === 1) delete o[k]; else o[k] = v; if (!Object.keys(o).length) delete P.envEsc; } };
+    }
+    return null;
+  }
+  // (cerca de un número redondo, se queda en él: 150 %, no 149 %)
+  const escFromSlider = v => { if (Math.abs(v) < .04) return 1; const k = Math.pow(2, v), r = Math.round(k * 20) / 20; return escClamp(Math.abs(k - r) < .012 ? r : k); };
+  function escRow() {
+    const T = escTarget(); if (!T) return '';
+    const pc = Math.round(T.v * 100), lv = Math.round(Math.log2(T.v) * 100) / 100;
+    return `<label class="rr"><span>Escala</span><input type="range" min="-2" max="2" step="0.01" value="${ea(lv)}" data-k="esc" style="--p:${ea(rangePct(lv, -2, 2))}%" aria-label="Escala del escenario" aria-valuetext="${ea(pc + ' %')}" ${UI.readOnly ? 'disabled' : ''}><output class="tnum">${pc} %</output></label>
+      <div class="esc-row"><span class="hint esc-h">${pc !== 100 ? 'En todos los planos con este escenario. Las figuras no cambian.' : ''}</span><button class="btn sm ghost" data-c="escreset" ${pc === 100 || UI.readOnly ? 'disabled' : ''}>Tamaño original</button></div>`;
+  }
+  /* mientras se arrastra se ve; al soltar queda (un paso del proyecto, con «Deshacer» en el aviso) */
+  function escSet(v, done) {
+    const T = escTarget(); if (!T || UI.readOnly) return;
+    v = escClamp(v);
+    if (E.esc0 === undefined) { E.esc0 = T.v; histNote('Escala del escenario', null, 'board'); }
+    T.put(v); stCache = null; redraw(); plan.draw();
+    if (!done) return;
+    const v0 = E.esc0; delete E.esc0;
+    plan.fit(); panel();
+    if (v0 === v) { HIST.label = ''; return; }   // volvió a donde estaba: no es un paso
+    changed('data');
+    const back = () => { T.put(v0); changed('data'); if (EDT === E) { stCache = null; redraw(); plan.fit(); panel(); } else render(); };
+    toast(v === 1 ? 'El escenario volvió a su tamaño original.' : `Escenario al ${Math.round(v * 100)} %.`, 5000, { label: 'Deshacer', fn: back });
   }
   /* quitar el escenario del proyecto: los planos que lo usan vuelven al escenario que dice el guion */
   function del3d() {
@@ -2214,20 +2265,23 @@ function openShotEditor(id, isNew, from2d, waited) {
     const users = Object.values(P.shots).filter(o => o.s3 && o.s3.set === 'modelo' && o.s3.set3d === d3.id);
     // también los planos sin cambios de la locación, que lo traen solos
     const n = new Set([id, ...users.map(o => o.id), ...Object.values(P.shots).filter(o => !o.s3 && set3dForLoc((sceneOfKey(o.sc) || {}).loc) === d3.id).map(o => o.id)]).size;
-    confirmBox('Quitar el escenario 3D', `«${esc(d3.n)}» se quita del proyecto${n > 1 ? ` y los ${n} planos que lo usan vuelven al escenario del guion` : ''}. No se puede deshacer.`, 'Quitar', () => {
+    const built = bsIs(d3);   // lote W · un escenario construido son solo datos: quitarlo se puede deshacer
+    confirmBox(built ? 'Quitar el escenario' : 'Quitar el escenario 3D', `«${esc(d3.n)}» se quita del proyecto${n > 1 ? ` y los ${n} planos que lo usan vuelven al escenario del guion` : ''}.${built ? '' : ' No se puede deshacer.'}`, 'Quitar', () => {
+      if (built) histNote(`Quitar el escenario «${d3.n}»`, null, 'board');
       snapshot(); E.custom = true;
       const back = s3x => { const os = Object.values(P.shots).find(o => o.s3 === s3x), sc0 = os ? sceneOfKey(os.sc) : s; s3x.set = envFromScene(sc0).set || 'ext'; delete s3x.set3d; };
       for (const o of users) if (o.s3 !== E.s3) back(o.s3);
       back(E.s3);
       delete P.sets3d[d3.id];
       for (const [l, v] of Object.entries(P.locSet3d || {})) if (v === d3.id) delete P.locSet3d[l];
-      for (const k of [m3Key('s', d3.id), set3dPicKey(d3.id)]) { delete FRAMES[k]; IMGS.delete(k); Store.saveFrame(P.id, k, null).catch(() => { }); }
+      if (!bsIs(d3)) for (const k of [m3Key('s', d3.id), set3dPicKey(d3.id)]) { delete FRAMES[k]; IMGS.delete(k); Store.saveFrame(P.id, k, null).catch(() => { }); }
+      for (const o of users) bsLights(o.s3, null); bsLights(E.s3, null);   // lote W · las luces de un escenario construido
       const e = M3.tpl.get(m3Key('s', d3.id)); M3.tpl.delete(m3Key('s', d3.id));
       if (R3.sets.modelo) { R3.sets.modelo.userData.key = ''; if (R3.sets.modelo.userData.hold) { R3.sets.modelo.remove(R3.sets.modelo.userData.hold); R3.sets.modelo.userData.hold = null; } }
       if (e && e.t) m3Dispose(e.t);
       if (typeof THUMB3 !== 'undefined') THUMB3.clear();
       changed('data'); commit(); stCache = null; redraw(); plan.fit(); panel(); paintTop();
-      toast(`Escenario «${d3.n}» quitado del proyecto.`);
+      if (built) toastUndo(`Escenario «${d3.n}» quitado del proyecto.`); else toast(`Escenario «${d3.n}» quitado del proyecto.`);
     });
   }
   /* congela la orientación actual en cada clave y suelta el seguimiento */
@@ -2349,8 +2403,9 @@ function openShotEditor(id, isNew, from2d, waited) {
     }
     if (b.dataset.c === 'importplan') { importPlan(); return; }
     if (b.dataset.c === 'import3d') { import3d(); return; }
-    if (b.dataset.c === 'edit3d') { const d3 = set3dOf(E.s3); if (d3) import3d(d3.id); return; }
+    if (b.dataset.c === 'edit3d') { const d3 = set3dOf(E.s3); if (d3) { if (bsIs(d3)) build3d(d3.id); else import3d(d3.id); } return; }
     if (b.dataset.c === 'del3d') { del3d(); return; }
+    if (b.dataset.c === 'escreset') { escSet(1, true); return; }   // lote W · «Tamaño original»
     if (b.dataset.c === 'carpaint') { snapshot(); E.custom = true; carSet(E.s3, 'c', b.dataset.v); commit(); panel(); redraw(); return; }
     if (b.dataset.c === 'caminside') { snapshot(); E.custom = true; const n = s3CamInside(E.s3); commit(); redraw(); toast(n ? 'Cámara movida delante del muro; el lente se ajustó para mantener el encuadre.' : 'Ningún muro tapa a la figura.'); return; }
     if (b.dataset.c === 'free') { snapshot(); E.custom = true; freeCam(); commit(); redraw(); toast('Cámara libre: ya puedes hacer travellings sin que gire.'); }
@@ -2514,9 +2569,10 @@ function openShotEditor(id, isNew, from2d, waited) {
   function setCur() { return E.s3.set === 'int' && ROOM_KINDS[roomOf(E.s3).kind] ? 'int:' + roomOf(E.s3).kind : E.s3.set === 'modelo' ? 'modelo:' + (E.s3.set3d || '') : E.s3.set === 'auto' && carOf(E.s3).m !== 'sedan' ? 'auto:' + carOf(E.s3).m : E.s3.set; }
   /* los escenarios de la lista: los de siempre, los escenarios 3D importados (después del plano) y la opción de importar uno */
   function setOptions(menu) {
-    const L = [...S3_SETS], i = L.findIndex(([k]) => k === 'plano') + 1, M = set3dList().map(d => ['modelo:' + d.id, 'Escenario 3D: ' + d.n]);
+    const L = [...S3_SETS], i = L.findIndex(([k]) => k === 'plano') + 1, M = set3dList().map(d => ['modelo:' + d.id, (bsIs(d) ? 'Escenario construido: ' : 'Escenario 3D: ') + d.n]);
     if (!menu) M.push(['modelo:+', 'Importar escenario 3D…']);
     L.splice(i, 0, ...M);
+    if (!menu && !UI.readOnly) L.push(['modelo:+c', 'Construir uno nuevo…']);   // lote W · el constructor de escenarios
     return L;
   }
   function pickSet(k, fromPanel) {
@@ -2525,6 +2581,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     snapshot(); E.custom = true;
     const hadRoom = E.s3.objs.some(o => o.room) || roomOf(E.s3).kind, wasCar = E.s3.set === 'auto';
     E.s3.set = set; delete E.s3.set3d;
+    bsLights(E.s3, null);   // lote W · las luces del escenario construido se van con él
     // el ambiente trae sus muebles; al cambiar de ambiente o salir de la habitación, los de antes se van
     if (kind && set === 'int') { roomFurnish(E.s3, kind); toast(kind === 'ascensor' ? 'Ascensor: las puertas, la botonera y los pasamanos son parte de la cabina. Las figuras quedan adentro.' : `${ROOM_KINDS[kind].name}: los muebles quedan como objetos, se mueven o se quitan como cualquier otro.`); }
     else if (hadRoom) roomFurnish(E.s3, '');
