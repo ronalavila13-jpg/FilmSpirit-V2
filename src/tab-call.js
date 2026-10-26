@@ -319,8 +319,9 @@ const imgOk = u => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif|sv
    proyecto, la jornada, la fecha y el llamado general en grande; el clima, el punto de encuentro y la locación con su
    mapa. Luego la nota del 1.er asistente con la utilería especial, el cronograma en lista, el avance de la jornada
    siguiente y una sola tabla de personas (el reparto y el equipo por área). Al pie, el centro de salud y los canales de
-   radio. Lo que la referencia no tiene (por plano, horarios del reparto, punto de encuentro con fotos, movilidad,
-   proveedores) va después, con el mismo estilo (en el PDF, en la página siguiente). */
+   radio. (lote W) Los datos de la hoja anterior van dentro de esta estructura, sin repetir: los planos debajo de su
+   escena, los horarios del reparto en la tabla de personas, el punto de encuentro entero en la cabecera, la producción y
+   el cliente con el equipo clave, y la movilidad y los proveedores después de las personas. */
 const CL_ICO = {
   wx: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.8v1.4M2.8 8.5h1.4M4.5 4.5l1 1M12.5 4.5l-1 1"/><path d="M9.5 19.5h8.6a3.2 3.2 0 0 0 .2-6.4 4.4 4.4 0 0 0-8.4 1 2.7 2.7 0 0 0-.4 5.4z"/></svg>',
   sun: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 16.5a6.5 6.5 0 0 1 13 0M3 16.5h18M12 4.5v3M5.9 8.9l1.6 1.6M18.1 8.9l-1.6 1.6M8 20h8"/></svg>',

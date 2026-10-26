@@ -1091,12 +1091,12 @@ function pdfWatermark(doc) {
   }
 }
 /* ---------- hoja de llamado (lote U: la estructura de la referencia) ----------
-   Página 1, que se lee de un vistazo: arriba la marca y la versión; tres columnas (la productora y su equipo clave con
-   teléfono · el proyecto, la jornada, la fecha y el llamado general en grande · el clima, el punto de encuentro y la
-   locación con su mapa); la nota del 1.er asistente y la utilería especial al centro; el cronograma en lista; el avance
-   de la jornada siguiente; una sola tabla de personas. Al pie de cada página: el centro de salud, los canales de radio y
-   «1 de N». Lo que la referencia no tiene (por plano, horarios del reparto, punto de encuentro con fotos, movilidad,
-   proveedores) va en la página siguiente, con el mismo estilo */
+   Arriba la versión; tres columnas (la productora y su equipo clave con teléfono, la producción y el cliente · el
+   proyecto, la jornada, la fecha y el llamado general en grande · el clima, el punto de encuentro con su referencia,
+   enlaces y fotos, y la locación con su mapa); la nota del 1.er asistente y la utilería especial al centro; el
+   cronograma por escena con sus planos debajo; el avance de la jornada siguiente; una sola tabla de personas con los
+   horarios del reparto; la movilidad y los proveedores. Al pie de cada página: el centro de salud, los canales de radio
+   y «1 de N». (lote W) Ya no hay una segunda parte con «lo que la referencia no tiene»: esos datos van dentro */
 let PDF_CALL_DONE = null;   // las jornadas y versiones del último PDF de llamado (se guardan si el archivo salió)
 const CL_FOOT = 70;          // lo que ocupa el pie (centro de salud, radio y número de página)
 const CL_CEL = [221, 239, 252];   // la banda celeste de los traslados
