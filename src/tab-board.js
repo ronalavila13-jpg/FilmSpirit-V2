@@ -235,12 +235,14 @@ RENDER.board = function () {
       <button class="btn ghost m-more" data-act="fichas" title="Cuerpo, estatura, tallas y fotos de cada personaje">Personajes</button>
       ${toolsHTML()}
     </div>
-    <div class="scroller pad" data-keep="sb" style="--ar:${ea(ar)}">${boardHeadHTML(scenes, total)}${UI.sbView === 'panels' ? boardPanelsHTML(scenes) : shotTableHTML(scenes)}</div>
+    <div class="scroller pad" data-keep="sb" style="--ar:${ea(ar)}">${boardHeadHTML(scenes, total)}${UI.sbView === 'panels' ? boardPanelsHTML(scenes) : shotTableHTML(scenes)}${UI.sbView === 'panels' && !UI.readOnly ? '<div class="sb-selbar" id="sbSelBar" role="status" hidden></div>' : ''}</div>
   </section></div>`;
   bindView();
   hydrateThumbs();
   if (UI.sbView === 'panels' && !UI.readOnly) {
     bindBoardDrag();
+    bindBoardSel();
+    sbSelPaint();
     if (Object.keys(P.shots).length > 1) setTimeout(() => { if (UI.tab === 'board' && !$('#modal') && !document.body.classList.contains('home')) coach('sb-drag', 'Arrastra una viñeta para cambiar su orden en la escena. Con ⋯ la duplicas, la mueves o la eliminas.', $('.pcell')); }, 1200);
   }
 };
@@ -429,7 +431,7 @@ function boardPanelsHTML(scenes) {
     if (!shots.length) return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · sin planos</span></header>
       ${hdEmpty({ icon: 'camera', title: 'Sin planos todavía', text: UI.readOnly ? '' : 'Sugiere los planos a partir del guion o agrega el primero.', btn: UI.readOnly ? '' : `<span class="sb-nb">${hdBtn('pri', 'Sugerir planos', { attrs: `data-act="suggest" data-i="${ea(s.idx)}"` })}${hdBtn('sec', 'Nuevo plano', { icon: 'plus', attrs: `data-act="shot-scene" data-i="${ea(s.idx)}"` })}${hdBtn('sec', 'Desde imágenes', { icon: 'photo', attrs: `data-act="shot-imgs" data-i="${ea(s.idx)}" title="Un plano por imagen (storyboard hecho en otro programa)"` })}</span>` })}</section>`;
     return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="sb-hr"><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · ${shots.length} ${shots.length === 1 ? 'plano' : 'planos'}</span>${sbPlantaBtn(s, shots)}</span></header>
-      <div class="sb-grid" data-sc="${esc(s.key)}">${shots.map(sh => `<div class="pcell" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"><button class="panel${ea(sh.done ? ' done' : '')}${ea(shotB(sh) ? ' has-b' : '')}" data-act="shot" data-id="${ea(sh.id)}">
+      <div class="sb-grid" data-sc="${esc(s.key)}">${shots.map(sh => `<div class="pcell${ea(sbSel().has(sh.id) ? ' sel' : '')}" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"><button class="panel${ea(sh.done ? ' done' : '')}${ea(shotB(sh) ? ' has-b' : '')}" data-act="shot" data-id="${ea(sh.id)}">
         ${sbFrames(sh)}
         <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${isMaster(sh) ? '<span class="badge mst" title="Máster de la escena: los demás planos toman de aquí la ubicación de los personajes y el escenario">Máster</span>' : ''}${d2On(sh) ? `<span class="badge s2b" title="${ea(shot3D(sh) ? 'Con dibujo 2D sobre la escena 3D' : 'Dibujado a mano en el espacio 2D')}">2D</span>` : ''}<span class="count">${!shot3D(sh) ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (d2On(sh) && sh.d2.frames.length > 1 ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
         ${sh.desc ? `<span class="pd">${esc(sh.desc)}</span>` : ''}<span class="px">${esc(shotTextExcerpt(sh, 140))}</span></span></button>${sbBlankBtn(sh)}${UI.readOnly ? '' : `<button class="sbmore" data-act="sb-more" data-id="${ea(sh.id)}" aria-haspopup="menu" aria-label="Acciones del plano ${esc(D.code[sh.id])}" title="Duplicar, mover o eliminar · arrastra la viñeta para cambiarla de lugar">${ICO.more}</button>`}</div>`).join('')}
@@ -486,25 +488,152 @@ Object.assign(ACT, {
   'sh-move': b => moveShot(b.dataset.id, +b.dataset.d),
   'sb-planta': b => plantaGeneral(b.dataset.sc),
   'shot-imgs': b => sbImgShots(D.sc.scenes[+b.dataset.i]),
-  // menú ⋯ de una viñeta
-  'sb-more': b => {
-    const sh = P.shots[b.dataset.id]; if (!sh) return;
-    const list = D.shotsBy[sh.sc] || [], i = list.indexOf(sh);
-    popover(b, `<div class="menu"><button data-m="open">Abrir</button><button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
-      const x = e.target.closest('[data-m]'); if (!x) return; closePop();
-      const m = x.dataset.m;
-      if (m === 'open') openShotEditor(sh.id);
-      if (m === 'prev' || m === 'next') { histNote(`Mover el plano ${D.code[sh.id] || ''}`.trim()); moveShot(sh.id, m === 'prev' ? -1 : 1); toastUndo(`Plano movido: ahora es el ${D.code[sh.id]}.`); }
-      if (m === 'done') { histNote(sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'); if (sh.done) delete sh.done; else sh.done = true; changed('data'); render(); }
-      if (m === 'del') deleteShot(sh.id);
-      if (m === 'dup') duplicateShot(sh.id);
-      if (m === 'img') sbPickImg(sh);
-      if (m === 'noimg') sbClearImg(sh);
-      if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
-      if (m === 'master') sbMaster(sh);
-    }));
-  },
+  // menú ⋯ de una viñeta (también con clic derecho sobre ella)
+  'sb-more': b => sbMoreMenu(b, P.shots[b.dataset.id]),
+  'sb-sel-clear': () => sbSelClear(),
 });
+function sbMoreMenu(anchor, sh) {
+  if (!sh || UI.readOnly) return;
+  const list = D.shotsBy[sh.sc] || [], i = list.indexOf(sh), picked = sbSel().has(sh.id);
+  // con otras viñetas elegidas, lo primero es darles los atributos de esta
+  const to = sbSelList().filter(x => x.id !== sh.id);
+  const clone = to.length ? `<button data-m="clone" class="sb-cl-m" title="Elige qué pasa del ${ea(D.code[sh.id] || '')} a ${ea(sbCodes(to))}: tamaño, ángulo, lente, la cámara 3D…">${esc(to.length <= 3 ? `Clonar sus atributos en ${sbCodes(to)}…` : `Clonar sus atributos en los ${to.length} elegidos…`)}</button><hr>` : '';
+  const pick = `<button data-m="pick" title="${ea(`También con ${MOD_KEY === 'Meta' ? '⌘' : 'Ctrl'}+clic en la viñeta. Luego, en el plano que quieres copiar: «Clonar sus atributos…»`)}">${picked ? 'Quitar de los elegidos' : 'Elegir para clonar'}</button>`;
+  popover(anchor, `<div class="menu">${clone}<button data-m="open">Abrir</button>${pick}<button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
+    const x = e.target.closest('[data-m]'); if (!x) return; closePop();
+    const m = x.dataset.m;
+    if (m === 'clone') sbCloneDialog(sh, to);
+    if (m === 'pick') sbSelToggle(sh.id);
+    if (m === 'open') openShotEditor(sh.id);
+    if (m === 'prev' || m === 'next') { histNote(`Mover el plano ${D.code[sh.id] || ''}`.trim()); moveShot(sh.id, m === 'prev' ? -1 : 1); toastUndo(`Plano movido: ahora es el ${D.code[sh.id]}.`); }
+    if (m === 'done') { histNote(sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'); if (sh.done) delete sh.done; else sh.done = true; changed('data'); render(); }
+    if (m === 'del') deleteShot(sh.id);
+    if (m === 'dup') duplicateShot(sh.id);
+    if (m === 'img') sbPickImg(sh);
+    if (m === 'noimg') sbClearImg(sh);
+    if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
+    if (m === 'master') sbMaster(sh);
+  }));
+}
+
+/* ---------- elegir viñetas y clonar en ellas los atributos de otro plano (lote V) ----------
+   Ctrl+clic (⌘ en Mac) o «⋯ › Elegir para clonar» elige una o varias viñetas, de cualquier escena; una barra abajo
+   dice cuántas. Luego, clic derecho (o «⋯») en el plano que se quiere copiar › «Clonar sus atributos…»: una ventana
+   con casillas elige qué pasa (shotCloneFrom, en s3d-model.js). Se deshace con un paso. Esc o un clic en un espacio
+   vacío sueltan la selección */
+const SBSEL = { pid: null, ids: new Set() };
+function sbSel() {
+  if (SBSEL.pid !== (P && P.id)) { SBSEL.pid = P && P.id; SBSEL.ids = new Set(); }
+  if (P) for (const id of [...SBSEL.ids]) if (!P.shots[id]) SBSEL.ids.delete(id);   // planos que ya no están
+  return SBSEL.ids;
+}
+/* los elegidos en el orden del storyboard (escena y plano) */
+const sbSelList = () => { const S = sbSel(); return S.size ? D.sc.scenes.flatMap(s => (D.shotsBy[s.key] || []).filter(sh => S.has(sh.id))) : []; };
+/* «1.4», «1.4 y 1.5», «1.4, 1.5 y 2.1»; con muchos, «1.4, 1.5, 2.1 y 3 más» */
+function sbCodes(list) {
+  const c = list.map(sh => D.code[sh.id] || '?');
+  if (c.length > 4) return `${c.slice(0, 3).join(', ')} y ${c.length - 3} más`;
+  return c.length < 2 ? c.join('') : `${c.slice(0, -1).join(', ')} y ${c[c.length - 1]}`;
+}
+function sbSelToggle(id) {
+  if (UI.readOnly || !P.shots[id]) return;
+  const S = sbSel();
+  if (S.has(id)) S.delete(id); else S.add(id);
+  sbSelPaint();
+}
+function sbSelClear() { const S = sbSel(); if (!S.size) return; S.clear(); sbSelPaint(); }
+function sbSelPaint() {
+  const S = sbSel();
+  $$('#view .pcell[data-sid]').forEach(c => c.classList.toggle('sel', S.has(c.dataset.sid)));
+  const g = $('#view .scroller'); if (g) g.classList.toggle('sb-picking', S.size > 0);
+  const bar = $('#sbSelBar'); if (!bar) return;
+  const list = sbSelList();
+  bar.hidden = !list.length;
+  if (!list.length) { bar.innerHTML = ''; return; }
+  const how = TOUCHY ? 'Toca «⋯» en el plano que quieres copiar' : 'Clic derecho en el plano que quieres copiar';
+  bar.innerHTML = `<span class="sb-sel-n"><b>${esc(list.length === 1 ? '1 plano elegido' : `${list.length} planos elegidos`)}</b> <span class="tnum">${esc(sbCodes(list))}</span></span><span class="hint">${esc(how)} › Clonar sus atributos</span><button class="btn ghost sm" data-act="sb-sel-clear" title="Quitar la selección (Esc)">Quitar</button>`;
+}
+function bindBoardSel() {
+  const v = $('#view .scroller'); if (!v) return;
+  // Ctrl+clic (⌘ en Mac) o Mayús+clic en una viñeta: la elige o la suelta, sin abrir su editor
+  v.addEventListener('click', e => {
+    if (!(e.ctrlKey || e.metaKey || e.shiftKey) || e.altKey) return;
+    const cell = e.target.closest('.pcell'); if (!cell || e.target.closest('.sbmore, .sb-blank')) return;
+    e.preventDefault(); e.stopPropagation();
+    sbSelToggle(cell.dataset.sid);
+  }, true);
+  // Mayús+clic no selecciona el texto de la viñeta
+  v.addEventListener('mousedown', e => { if (e.shiftKey && e.target.closest('.pcell')) e.preventDefault(); });
+  // clic derecho en una viñeta: su menú (el mismo de «⋯»), con «Clonar sus atributos…» si hay otras elegidas
+  v.addEventListener('contextmenu', e => {
+    const cell = e.target.closest('.pcell'); const sh = cell && P.shots[cell.dataset.sid]; if (!sh) return;
+    e.preventDefault();
+    sbMoreMenu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, sh);
+  });
+}
+deselectOn('board', sbSelClear, '.pcell, #sbSelBar');
+// Esc suelta la selección solo si no hay un menú o una ventana que cerrar primero (se mira antes de que Esc los cierre)
+addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && UI.tab === 'board' && !$('#modal') && !$('#pop') && !$('#ask') && P && sbSel().size) sbSelClear(); }, true);
+
+/* la ventana: qué pasa del plano de origen a los elegidos. Todo marcado la primera vez; luego, lo de la última vez */
+function sbCloneDialog(src, targets) {
+  if (UI.readOnly || !src || !targets.length) return;
+  const code = D.code[src.id] || '', is3d = shotHas3D(src), lens = shotLens(src);
+  const other = targets.filter(t => t.sc !== src.sc), masters = targets.filter(isMaster);
+  const snd = (SND_OPTS.find(([k]) => k === (src.snd || '')) || ['', '—'])[1];
+  const rows = [
+    ['Datos del plano', [
+      ['size', 'Tamaño', src.size || '—', SIZE_NAME[src.size]],
+      ['angle', 'Ángulo', src.angle || 'Normal'],
+      ['move', 'Movimiento', src.move || 'Fijo'],
+      ['support', 'Soporte', src.support || '—'],
+      lens > 0 ? ['lens', 'Lente', `${lens} mm`] : null,
+      ['snd', 'Sonido', snd],
+      ['dur', 'Duración', `${String(shotDur(src)).replace('.', ',')} s`],
+    ]],
+    is3d ? ['Espacio 3D', [
+      ['cam', 'Cámara 3D', 'Posición, altura, giro y recorrido'],
+      ['stage', 'Puesta en escena 3D', other.length ? `Decorado, figuras, objetos y luces de la escena ${src.sc}` : 'Decorado, figuras, objetos y luces'],
+    ]] : null,
+  ].filter(Boolean);
+  const last = ls.get('sbClone', null) || {};
+  const on = f => last[f] !== false;
+  const m = modal({
+    title: `Clonar los atributos del plano ${code}`,
+    body: `<p class="sb-cl-to"><span>Planos que cambian:</span> <b class="tnum">${esc(sbCodes(targets))}</b>${other.length ? ` <span class="hint">· <span>${other.length === targets.length ? (targets.length === 1 ? 'de otra escena' : 'de otras escenas') : `${other.length} de otra escena`}</span></span>` : ''}</p>
+      ${rows.map(([h, list]) => `<fieldset class="sb-cl-g"><legend>${esc(h)}</legend>${list.filter(Boolean).map(([f, n, v, v2]) => `<label class="sb-cl-r"><input type="checkbox" data-f="${ea(f)}" ${on(f) ? 'checked' : ''}><span class="sb-cl-n">${esc(n)}</span><span class="sb-cl-v"><span>${esc(v)}</span>${v2 ? ` · <span>${esc(v2)}</span>` : ''}</span></label>`).join('')}</fieldset>`).join('')}
+      ${is3d && masters.length ? `<p class="hint sb-cl-ms">${esc(masters.length === 1 ? `El ${D.code[masters[0].id] || ''} es el máster de su escena: con la puesta en escena, los planos que lo siguen también la toman.` : `${sbCodes(masters)} son másters de su escena: con la puesta en escena, los planos que los siguen también la toman.`)}</p>` : ''}
+      <p class="hint" style="margin:0">${is3d ? '' : `El ${esc(code)} está dibujado a mano: su dibujo no se clona (para eso, «⋯ › Duplicar»). `}La descripción, el diálogo, el tramo del guion, las imágenes subidas y los dibujos de cada plano no cambian. Se puede deshacer.</p>`,
+    foot: `<button class="btn" data-close>Cancelar</button><button class="btn primary" id="sbClOk">${esc(targets.length === 1 ? `Clonar en el ${D.code[targets[0].id] || ''}` : `Clonar en ${targets.length} planos`)}</button>`,
+  });
+  const picks = () => Object.fromEntries($$('input[data-f]', m).map(x => [x.dataset.f, x.checked]));
+  const ok = $('#sbClOk', m);
+  const sync = () => { ok.disabled = !Object.values(picks()).some(Boolean); };
+  m.addEventListener('change', sync); sync();
+  ok.onclick = () => {
+    const pick = picks();
+    if (!Object.values(pick).some(Boolean)) return;
+    ls.set('sbClone', { ...last, ...pick });
+    closeModal();
+    sbCloneApply(src, targets, pick);
+  };
+}
+function sbCloneApply(src, targets, pick) {
+  const live = targets.filter(t => P.shots[t.id] && t.id !== src.id);
+  if (!live.length || !P.shots[src.id]) return;
+  const code = D.code[src.id] || '', codes = sbCodes(live);
+  histNote(`Clonar los atributos del plano ${code}`.trim(), null, 'board');
+  const show3d = [];
+  for (const sh of live) { const r = shotCloneFrom(sh, src, pick); if (r.show3d) show3d.push(sh); }
+  sbSel().clear();
+  changed('data'); derive(); render();
+  // si lo que cambió no se ve en la viñeta (una imagen subida la tapa), se dice
+  const covered = (pick.cam || pick.stage) && shotHas3D(src) ? live.filter(sh => frameHas(sh.id) && !sh.refBack) : [];
+  let msg = `Atributos del ${code} clonados en ${codes}.`;
+  if (show3d.length) msg += ` En ${sbCodes(show3d)} la escena 3D queda debajo del dibujo (capa «Viñeta 3D»).`;
+  if (covered.length) msg += ` En ${sbCodes(covered)} la imagen subida tapa la escena 3D.`;
+  toastUndo(msg, show3d.length || covered.length ? 9000 : 6500);
+}
 /* usar el plano como máster de su escena (o dejar de usarlo). Su puesta en escena queda como la de la escena: si no
    tenía una propia, se guarda la que se ve (la que tomaba del máster anterior), así nada cambia de lugar */
 function sbMaster(sh) {
@@ -568,6 +697,7 @@ HELP.board = [
   ['Fotos de fondo y para calcar', 'En 2D, «Capas › Imagen…» (o arrastrar o pegar una imagen) la pone en una capa propia al 50 %, detrás de las figuras: la escena 3D se ve encima, sin su entorno. Desmarca «Detrás de las figuras» para ponerla delante, bájale la opacidad y dibuja encima.'],
   ['Máster', 'El máster de cada escena (el que sugiere FilmSpirit o el que eliges con «⋯ › Usar como máster») decide dónde está cada personaje, el escenario y la hora. Los demás planos de la escena lo siguen y solo cambian su cámara, del mismo lado de la línea de acción; en un diálogo, por encima del hombro del otro. Si ajustas uno a mano, ese queda con lo suyo.'],
   ['Sugerir planos', 'En una escena sin planos, «Sugerir planos» propone una cobertura básica a partir del guion.'],
+  ['Clonar atributos', 'Ctrl+clic (⌘ en Mac) en una o varias viñetas, de cualquier escena, para elegirlas. Luego, clic derecho (o «⋯») en el plano que quieres copiar › «Clonar sus atributos…» y marca qué pasa: tamaño, ángulo, movimiento, soporte, lente, sonido, duración, la cámara 3D o la puesta en escena 3D. La descripción y el diálogo de cada plano no cambian. Se puede deshacer.'],
   ['Doblar el cuerpo', 'En la viñeta 3D, toca una figura para elegirla y tócala otra vez sobre una parte del cuerpo: se tiñe de rojo tenue y aparece su aro. Arrástrala para doblarla: el codo y la rodilla siguen el aro; la cabeza gira o se inclina; el torso se dobla hacia adelante o a un lado. La mano y el pie llevan el brazo o la pierna entera. ↺ vuelve esa parte a la postura base; Esc o ✕ la suelta. También con las barras de «Brazos, piernas y cabeza».'],
   ['Personajes', 'El cuerpo, la estatura, las tallas y las fotos de cada personaje se definen una vez en «Personajes» y valen para todos los planos.'],
   ['Formato de cuadro', 'Se cambia en la pestaña Proyecto.'],
