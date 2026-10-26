@@ -66,7 +66,7 @@ function colorName(hex) {
   if (name === 'naranja' && l > .75) return 'beige';
   return name + tone;
 }
-/* apariencia: automática (sigue al sistema), clara u oscura; se elige en ⋯ de las pestañas */
+/* apariencia: automática (sigue al sistema), clara u oscura; se elige en Personalización (el ⋯ de las pestañas) */
 const themeDark = t => t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 function applyTheme(t) {
   const r = document.documentElement;

@@ -1527,5 +1527,12 @@
 "Tocar la viñeta para enfocar": "Tap the panel to focus",
 "Toca donde quieres enfocar": "Tap where you want to focus",
 "Foco a {0}": "Focus at {0}",
-"A quién se enfoca (a sus ojos) o a qué distancia": "Who is in focus (their eyes) or at what distance"
+"A quién se enfoca (a sus ojos) o a qué distancia": "Who is in focus (their eyes) or at what distance",
+"// lote W · B": "Personalización (antes Apariencia) en el panel lateral, con las pestañas visibles",
+"Personalización": "Personalization",
+"Personalización: modo, pestañas visibles, colores y letra": "Personalization: mode, visible tabs, colors and font",
+"Modo, pestañas, colores y letra": "Mode, tabs, colors and font",
+"El guion siempre se ve": "The script is always visible",
+"Ocultar una pestaña no borra nada: vuelve a marcarla para verla.": "Hiding a tab doesn't delete anything: check it again to see it.",
+"En «⋯» de las pestañas (en el teléfono, en el menú de arriba › Personalización). En «Tu pantalla», solo para ti: el modo claro u oscuro, las pestañas visibles, el color de las etapas, la letra, las barras y las líneas. En «Colores del proyecto», para todo el equipo y los PDF: la paleta (Estándar, Original, Sobria, Alto contraste, Escala de grises), cada color y tus paletas guardadas para usarlas en otro proyecto. La leyenda también lleva ahí.": "In the tabs' “⋯” (on a phone, in the top menu › Personalization). In “Your screen”, just for you: light or dark mode, the visible tabs, the stage colors, the font, the bars and the lines. In “Project Colors”, for the whole team and the PDFs: the palette (Standard, Original, Muted, High contrast, Grayscale), each color and your saved palettes to use in another project. The legend also takes you there."
 }

@@ -347,7 +347,7 @@ function phoneMenu(anchor) {
   if (st && $('.bk', st)) it.push(['bk', I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), esc($('.bk', st).textContent.trim()), 'Una copia en tu equipo']);
   if (typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['proj', I('<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/>'), esc(P.meta.title || 'Proyecto'), 'Datos del proyecto, logos y equipo']);
   it.push(['open', I('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3 19z"/>'), 'Proyectos', 'Abrir, compartir y archivar']);
-  it.push(['view', I('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'), 'Vista', 'Apariencia y pestañas visibles']);   // en el teléfono, el «⋯» de las pestañas no cabe en la barra
+  it.push(['view', I('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'), 'Personalización', 'Modo, pestañas, colores y letra']);   // en el teléfono, el «⋯» de las pestañas no cabe en la barra
   it.push(['help', I('<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>'), 'Ayuda y soporte', '']);
   popover(anchor, `<div class="menu help-m pm-menu">${it.map(([k, i, n, h]) => k
     ? `<button data-pm="${k}">${i}<b>${n}</b>${h ? `<small>${h}</small>` : ''}</button>`
@@ -365,7 +365,7 @@ function phoneMenu(anchor) {
           else if (k === 'proj') setTab('project');
           else if (k === 'open') openMenu(a);
           else if (k === 'help') helpMenu(a);
-          else if (k === 'view') tabsMenu(a);
+          else if (k === 'view') lookPanel('me');   // Personalización › Tu pantalla (leyenda.js)
           else if (k === 'lang') langSet(EN ? 'es' : 'en');
         }, 0);
       });
@@ -434,30 +434,23 @@ function applyTabPrefs() {
     if (!b.hidden) g = b.dataset.g;
   });
 }
-function tabsMenu(anchor) {
-  const can = t => typeof canSeeTab !== 'function' || canSeeTab(t);
-  const paint = () => {
-    const h = tabsHidden();
-    const th = ls.get('theme', 'auto');
-    return `<h5>Modo</h5><div class="seg" role="group" aria-label="Modo">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, n]) => `<button data-theme-set="${k}" aria-pressed="${ea(th === k)}" title="${ea(k === 'auto' ? 'Sigue el del sistema' : '')}">${n}</button>`).join('')}</div>
-      <button type="button" class="btn sm lk-open" data-look-open title="Tu pantalla (letra, barras, líneas) y los colores del proyecto (paletas)">${typeof ICO !== 'undefined' && ICO.palette ? ICO.palette : ''}Apariencia…</button>
-      <h5>Pestañas visibles</h5><div class="tabs-pick">${$$('#tabs .stg').map(w => { const ts = $$('.tab', w).map(b => b.dataset.tab).filter(can); return ts.length ? `<div class="tp-g"><span class="tp-n">${esc(($('.stg-n', w) || {}).textContent || '')}</span>${ts.map(t => `<label class="opt"><input type="checkbox" data-tabv="${ea(t)}" ${!h.has(t) ? 'checked' : ''} ${t === 'script' ? 'disabled' : ''}><span>${esc(TAB_NAMES[t])}</span></label>`).join('')}</div>` : ''; }).join('')}</div>
-      <p class="hint" style="margin:0">Solo cambia lo que ves en esta computadora. No borra nada: vuelve a marcarla para verla.</p>`;
-  };
-  const p = popover(anchor, paint(), p => p.addEventListener('click', e => {
-    if (e.target.closest('[data-look-open]')) { closePop(); lookPanel('me'); return; }   // leyenda.js: «Tu pantalla»
-    const b = e.target.closest('[data-theme-set]'); if (!b) return;
-    ls.set('theme', b.dataset.themeSet); applyLook();
-    $$('[data-theme-set]', p).forEach(x => x.setAttribute('aria-pressed', x === b));
-    render();      // lo dibujado en lienzos toma los colores nuevos
-  }));
-  p.addEventListener('change', e => {
-    const c = e.target.closest('[data-tabv]'); if (!c) return;
-    const h = tabsHidden(); c.checked ? h.delete(c.dataset.tabv) : h.add(c.dataset.tabv);
-    ls.set('tabsHidden', [...h]);
-    if (h.has(UI.tab)) setTab('script'); else sharePaintTabs();
-  });
-  p.classList.add('pop-tabs'); repos(p, anchor);
+/* (lote W) «Pestañas visibles» va en el panel «Personalización › Tu pantalla» (leyenda.js), que se abre con el botón de
+   la barra de pestañas: antes era un menú chico con el modo y el botón «Apariencia…». Por etapa, en el orden de la
+   franja; el guion siempre se ve */
+function tabsPickHTML() {
+  const can = t => typeof canSeeTab !== 'function' || canSeeTab(t), h = tabsHidden();
+  return `<div class="tabs-pick">${$$('#tabs .stg').map(w => {
+    const ts = $$('.tab', w).map(b => b.dataset.tab).filter(can), n = ($('.stg-n', w) || {}).textContent || '';
+    return ts.length ? `<div class="tp-g" role="group" aria-label="${ea(n)}"><span class="tp-n">${esc(n)}</span>${ts.map(t => `<label class="opt"${t === 'script' ? ' title="El guion siempre se ve"' : ''}><input type="checkbox" data-tabv="${ea(t)}" ${!h.has(t) ? 'checked' : ''} ${t === 'script' ? 'disabled' : ''}><span>${esc(TAB_NAMES[t])}</span></label>`).join('')}</div>` : '';
+  }).join('')}</div>`;
+}
+/* mostrar u ocultar una pestaña (solo en esta pantalla); si se oculta la abierta, se pasa al guion */
+function tabsPickSet(t, on) {
+  if (t === 'script') return;
+  const h = tabsHidden(); on ? h.delete(t) : h.add(t);
+  ls.set('tabsHidden', [...h]);
+  if (typeof P === 'undefined' || !P) return;
+  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab('script'); else { sharePaintTabs(); tabStripPaint(); }   // también la franja de arriba, sin esperar a otro repintado
 }
 
 /* ---------- ayuda y soporte (el ícono junto a Compartir) ----------
