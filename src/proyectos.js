@@ -100,6 +100,7 @@ function normalizeProject(Px) {
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
   }
   sanitizeProject(Px);
+  if (typeof bsNormalize === 'function') bsNormalize(Px);   // lote W · escenarios construidos y escala del escenario
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas
   buildNormalize(Px);
   scoutNormalize(Px);

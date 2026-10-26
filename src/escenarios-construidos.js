@@ -47,13 +47,16 @@ const ESC_LOC = new WeakMap();
 const escLocSet = (s3, loc) => { if (s3 && typeof s3 === 'object') ESC_LOC.set(s3, loc || ''); return s3; };
 function escLocOf(s3) {
   if (!s3 || typeof P === 'undefined' || !P) return '';
-  if (ESC_LOC.has(s3)) return ESC_LOC.get(s3);
+  const c = ESC_LOC.get(s3), rev = typeof S3REV !== 'undefined' ? S3REV : 0;
+  if (c != null && (typeof c === 'string' || c.rev === rev)) return typeof c === 'string' ? c : '';
   if (typeof EDT !== 'undefined' && EDT && EDT.s3 === s3 && EDT.s) return EDT.s.loc || '';
+  // la de un plano guardado, la de su escena armada sola o la vista por su cámara B
   for (const sh of Object.values(P.shots || {})) {
-    if (!sh || !(sh.s3 === s3 || (typeof S3D_C !== 'undefined' && (S3D_C.get(sh) || {}).s3 === s3))) continue;
+    if (!sh || !(sh.s3 === s3 || (typeof S3D_C !== 'undefined' && (S3D_C.get(sh) || {}).s3 === s3) || (typeof SHB !== 'undefined' && ((SHB.get(sh) || {}).v || {}).s3 === s3))) continue;
     const s = typeof sceneOfKey === 'function' ? sceneOfKey(sh.sc) : null, l = s ? s.loc || '' : '';
     ESC_LOC.set(s3, l); return l;
   }
+  ESC_LOC.set(s3, { rev });   // no es de un plano (todavía): se vuelve a buscar con el próximo cambio
   return '';
 }
 const envEscKey = (loc, set) => String(loc || '') + '|' + set;
@@ -147,7 +150,9 @@ function bsBounds(d) {
   for (const p of d.floor || []) add(p[0], p[1]);
   for (const it of d.items || []) { const f = bsItemFp(it); add(it.x, it.z, Math.max(f.w, f.d) / 2); if (it.k === 'vol') h = Math.max(h, +it.hh || 1); }
   if (!isFinite(x0)) return { b: [-3, -3, 3, 3], h: d.wh || BS_WH };
-  return { b: [x0, z0, x1, z1].map(bsR), h: bsR(h || d.wh || BS_WH) };
+  // hacia afuera (que no corte el borde de un muro)
+  const out = (v, s) => (s < 0 ? Math.floor : Math.ceil)(Math.round(v * 1e6) / 1e4) / 100;
+  return { b: [out(x0, -1), out(z0, -1), out(x1, 1), out(z1, 1)], h: bsR(h || d.wh || BS_WH) };
 }
 /* el contorno del piso: el dibujado o, si no hay, la caja de los muros */
 function bsFloorPts(d) {
@@ -365,4 +370,22 @@ function bsDrawPlan(ctx, d, toS, V, o = {}) {
   ctx.restore();
 }
 
-if (typeof module !== 'undefined') module.exports = { bsOps, bsWallBoxes, bsNearWall, bsOpenAdd, bsBounds, bsClean, bsCount, bsFloorPts, bsNew, escClamp, escOf, envEscOf, sceneEsc, BS_MAX };
+/* al abrir el proyecto y lo que llega del equipo: los escenarios construidos con sus piezas en orden, la escala de cada
+   escenario y la de los hechos por código */
+function bsNormalize(Px) {
+  if (!Px || typeof Px !== 'object') return Px;
+  if (Px.sets3d && typeof Px.sets3d === 'object') for (const [id, d] of Object.entries(Px.sets3d)) {
+    if (!d || typeof d !== 'object') { delete Px.sets3d[id]; continue; }
+    if (d.kind === 'c') { bsClean(d); d.id = id; }
+    else if (d.esc != null) { d.esc = escClamp(d.esc); if (d.esc === 1) delete d.esc; }
+  }
+  if (Px.plans && typeof Px.plans === 'object') for (const pl of Object.values(Px.plans)) if (pl && typeof pl === 'object' && pl.esc != null) { pl.esc = escClamp(pl.esc); if (pl.esc === 1) delete pl.esc; }
+  if (Px.envEsc != null) {
+    const o = {};
+    if (typeof Px.envEsc === 'object' && !Array.isArray(Px.envEsc)) for (const [k, v] of Object.entries(Px.envEsc)) { const m = /\|(\w+)$/.exec(k); if (m && ENV_ESC_SETS.includes(m[1]) && k.length <= 160 && escClamp(v) !== 1) o[k] = escClamp(v); }
+    if (Object.keys(o).length) Px.envEsc = o; else delete Px.envEsc;
+  }
+  return Px;
+}
+
+if (typeof module !== 'undefined') module.exports = { bsNormalize, bsOps, bsWallBoxes, bsNearWall, bsOpenAdd, bsBounds, bsClean, bsCount, bsFloorPts, bsNew, escClamp, escOf, envEscOf, sceneEsc, BS_MAX };

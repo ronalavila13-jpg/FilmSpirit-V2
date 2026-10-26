@@ -62,6 +62,7 @@ function secGet(Px, s) {
       looks: Object.fromEntries(Object.entries(Px.elements).filter(([, e]) => e.look).map(([k, e]) => [k, e.look])),
       faces: Px.faces || {},
       ...(Px.scEls && Object.keys(Px.scEls).length ? { scEls: Px.scEls } : {}),   // luces, objetos y animales de cada escena
+      ...(Px.envEsc && Object.keys(Px.envEsc).length ? { envEsc: Px.envEsc } : {}),   // lote W · la escala de la calle y los paisajes de cada locación
       ...(Px.meta.hair ? { hair: Px.meta.hair } : {}),   // cómo se dibuja el pelo de las figuras (Ajustes del storyboard)
       ...(Px.meta.sensor ? { sensor: Px.meta.sensor } : {}),   // el sensor de la cámara del proyecto (Ajustes del storyboard)
     };
@@ -112,6 +113,7 @@ function secPut(Px, s, d) {
       }
       Px.plans = d.plans || {}; Px.locPlans = d.locPlans || {}; Px.sets3d = d.sets3d || {}; Px.locSet3d = d.locSet3d || {};
       if (d.scEls && typeof d.scEls === 'object') Px.scEls = d.scEls; else delete Px.scEls;
+      if (d.envEsc && typeof d.envEsc === 'object') Px.envEsc = d.envEsc; else delete Px.envEsc;   // lote W
       Px.faces = d.faces || {}; if (typeof faceChanged === 'function') for (const id of Object.keys(Px.faces)) faceChanged(id);
       Px.meta.aspect = d.aspect || '16:9';
       if (d.hair) Px.meta.hair = d.hair; else delete Px.meta.hair;
