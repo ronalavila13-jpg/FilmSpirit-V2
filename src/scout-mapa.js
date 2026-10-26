@@ -244,3 +244,83 @@ function smFitAll(anim = true) {
   const card = !!$('.sm-card') && !PHONE();
   map.fitBounds(window.L.latLngBounds(pts), { paddingTopLeft: [56, PHONE() ? 64 : 48], paddingBottomRight: [card ? 340 : 48, PHONE() && $('.sm-card') ? 240 : 72], maxZoom: 16, animate: anim });
 }
+
+/* ---------- elegir, ubicar, mover ---------- */
+/* repinta solo lo que cambia al elegir (la tarjeta, la lista, los pines): el mapa no se toca */
+function smPaint() {
+  const wrap = $('#smWrap'); if (!wrap) return;
+  $$('.sm-row').forEach(r => { const on = r.dataset.id === SM.sel; r.classList.toggle('on', on); if (on) r.setAttribute('aria-current', 'true'); else r.removeAttribute('aria-current'); });
+  const old = $('.sm-card', wrap), html = smCardHTML();
+  if (old) old.remove();
+  if (html) wrap.insertAdjacentHTML('beforeend', html);
+  const pl = $('.sm-placing', wrap); if (pl) pl.remove();
+  if (SM.placing) wrap.insertAdjacentHTML('beforeend', smPlacingHTML());
+  wrap.classList.toggle('placing', !!SM.placing);
+  smSheet();
+  smSync(smGroups());
+}
+/* en el teléfono la tarjeta sube desde abajo: la atribución del mapa sube con ella (siempre a la vista) */
+function smSheet() { const w = $('#smWrap'), c = w && $('.sm-card', w); if (w) w.style.setProperty('--sm-sheet', c && PHONE() ? c.offsetHeight + 'px' : '0px'); }
+function smSelect(id, pan) {
+  SM.sel = id;
+  closeDrawers();
+  smPaint();
+  const m = id && SM.mk.get(id);
+  if (m && pan && SM.map) {
+    const z = Math.max(SM.map.getZoom(), 15), pt = SM.map.project(m.getLatLng(), z);
+    // el pin a la vista, sin quedar debajo de la tarjeta
+    const off = PHONE() ? [0, (($('.sm-card') || {}).offsetHeight || 0) / 2] : [($('.sm-card') ? 170 : 0), 0];
+    SM.map.setView(SM.map.unproject(pt.add(off), z), z, { animate: true });
+  }
+}
+function smPlaceAt(id, lat, lng) {
+  const x = scCand(id); if (!x || !smEditable()) return;
+  histNote('Ubicar una candidata en el mapa', null, 'scout');
+  if (!candGeoHand(x.c, lat, lng)) return;
+  SM.placing = null; SM.sel = id;
+  changed('data'); render();
+  toastUndo(`«${smName(x.b, x.c)}» quedó en el mapa. Arrastra su pin para corregirlo.`);
+}
+function smMoveTo(id, lat, lng) {
+  const x = scCand(id); if (!x || !smEditable()) return;
+  histNote('Mover el pin de una candidata', null, 'scout');
+  candGeoHand(x.c, lat, lng);
+  changed('data');
+  setTimeout(render, 0);
+  toastUndo('Pin movido.');
+}
+/* enlaces cortos (maps.app.goo.gl): solo en la web con cuentas, el servidor sigue el enlace y devuelve el largo */
+function smResolveShort(groups) {
+  if (TARGET !== 'server' || typeof apiFetch !== 'function') return;
+  for (const g of groups) for (const c of g.cands) {
+    const u = String(c.map || '').trim();
+    if (!mapIsShort(u) || MAP_RES.has(u) || SM.ask.has(u) || candGeo(c)) continue;
+    SM.ask.add(u);
+    apiFetch('POST', '/api/maps/resolve', { url: u }).then(r => {
+      const p = r && r.json && r.json.url ? mapLatLng(r.json.url) : null;
+      MAP_RES.set(u, p);
+      // queda guardado en la candidata, sin ser un paso de deshacer (no lo hizo la persona)
+      const x = scCand(c.id);
+      if (p && x && smEditable() && x.c.map.trim() === u) { histCapture(); if (candGeoStore(x.c)) { changed('data'); histQuiet('scout'); } }
+      if (UI.tab === 'scout') lateRender();
+    }).catch(e => { if (e && e.status && e.status !== 429) MAP_RES.set(u, null); else SM.ask.delete(u); if (UI.tab === 'scout') lateRender(); });
+  }
+}
+Object.assign(ACT, {
+  'sc-view': b => { UI.scView = b.dataset.v === 'map' ? 'map' : 'place'; ls.set('scView', UI.scView); if (UI.scView !== 'map') SM.placing = null; closeDrawers(); render(); },
+  'sm-sel': b => { const x = scCand(b.dataset.id); if (!x) return; if (SM.placing && SM.placing !== b.dataset.id && !candGeo(x.c)) { SM.placing = b.dataset.id; } smSelect(b.dataset.id, true); },
+  'sm-close': () => { SM.sel = null; smPaint(); },
+  'sm-open': b => { const x = scCand(b.dataset.id); if (!x) return; UI.scView = 'place'; ls.set('scView', 'place'); UI.scPlace = x.b; SM.placing = null; render();
+    requestAnimationFrame(() => { const el = $(`.cand[data-c="${CSS.escape(x.c.id)}"]`); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('sm-flash'); setTimeout(() => el.classList.remove('sm-flash'), 1600); } }); },
+  'sm-zoom': b => { if (SM.map) { if (+b.dataset.v > 0) SM.map.zoomIn(); else SM.map.zoomOut(); } },
+  'sm-all': () => smFitAll(true),
+  'sm-place': b => {
+    const x = scCand(b.dataset.id); if (!x || !smEditable()) return;
+    if (!SM.map) { toast('El mapa todavía no carga.'); return; }
+    SM.placing = x.c.id; SM.sel = x.c.id; closeDrawers(); smPaint();
+  },
+  'sm-cancel': () => { SM.placing = null; smPaint(); },
+  'sm-retry': () => { SM.failed = false; SM.el = null; render(); },
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && SM.placing && UI.tab === 'scout' && !$('#pop') && !$('#modal')) { e.preventDefault(); SM.placing = null; smPaint(); } }, true);
+addEventListener('resize', () => { if (SM.map && UI.tab === 'scout' && UI.scView === 'map') smSheet(); });
