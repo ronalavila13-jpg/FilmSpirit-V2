@@ -122,7 +122,7 @@ function set3dDrawPlan(ctx, s3, toS, redraw) {
   const d = set3dOf(s3); if (!d || !d.b) return;
   // lote W · el construido se dibuja con sus piezas; los dos, a la escala del escenario
   const k = set3dEsc(d);
-  if (typeof bsIs === 'function' && bsIs(d)) { const o0 = toS(0, 0); bsDrawPlan(ctx, d, toS, { sc: toS(1, 0)[0] - o0[0] }, { esc: k }); return; }
+  if (typeof bsIs === 'function' && bsIs(d)) { const o0 = toS(0, 0); bsDrawPlan(ctx, d, toS, { sc: toS(1, 0)[0] - o0[0] }, { esc: k, lights: false }); return; }
   const [a, b] = toS(d.b[0] * k, d.b[1] * k), [c, e] = toS(d.b[2] * k, d.b[3] * k);
   const im = set3dPic(d, redraw);
   if (im) { ctx.save(); ctx.globalAlpha = .72; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, a, b, c - a, e - b); ctx.restore(); }

@@ -323,6 +323,7 @@ function bsDrawPlan(ctx, d, toS, V, o = {}) {
   // muebles y volúmenes, debajo de los muros
   const lab = [];
   (d.items || []).forEach((it, i) => {
+    if (o.lights === false && /^luz:/.test(it.k)) return;   // en la planta del plano, sus luces son las del plano
     const f = bsItemFp(it), [sx, sy] = S(it.x, it.z), on = o.sel && o.sel.it === i;
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(it.r || 0));
     if (/^luz:/.test(it.k)) {
