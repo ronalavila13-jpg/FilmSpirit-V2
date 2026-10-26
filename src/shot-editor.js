@@ -2104,7 +2104,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (!done) return;
     const v0 = E.esc0; delete E.esc0;
     plan.fit(); panel();
-    if (v0 === v) return;
+    if (v0 === v) { HIST.label = ''; return; }   // volvió a donde estaba: no es un paso
     changed('data');
     const back = () => { T.put(v0); changed('data'); if (EDT === E) { stCache = null; redraw(); plan.fit(); panel(); } else render(); };
     toast(v === 1 ? 'El escenario volvió a su tamaño original.' : `Escenario al ${Math.round(v * 100)} %.`, 5000, { label: 'Deshacer', fn: back });

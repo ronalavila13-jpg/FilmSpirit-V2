@@ -437,6 +437,7 @@ function openSet3dImporter(opts, done) {
       tris: S.t.H.tris, kb: S.pk ? S.pk.kb : (ed && ed.kb) || 0, cut: (S.pk ? S.pk.cut : ed && ed.cut) || undefined, from: (S.pk ? S.pk.cut && Math.round(S.pk.from) : ed && ed.from) || undefined,
     };
     for (const f in d) if (d[f] === undefined) delete d[f];
+    if (ed && ed.esc) d.esc = ed.esc;   // lote W · ajustar no cambia la escala del escenario
     const ok = $o('#e3Ok'); ok.disabled = true; S.busy = 'Guardando…'; paint();
     try {
       // lote W · la versión liviana reemplaza al modelo guardado: el de antes vuelve con «Deshacer»
@@ -483,7 +484,7 @@ function openSet3dImporter(opts, done) {
     S.busy = ''; paint();
     if (!r || r.big || !r.walls.length) { toast(r && r.big ? 'El modelo es muy grande para replicarlo: sirve para interiores.' : 'No se encontraron muros rectos a 1,5 m del piso. Revisa el piso, el giro y las medidas.', 6000); return; }
     const name = (($o('#e3Name').value || '').trim() || S.name || 'Escenario').slice(0, 68);
-    const data = { ...bsNew(name + ' (editable)', opts.loc), walls: r.walls, floor: r.floor, items: r.items, wh: r.wh, int: S.int };
+    const data = { ...bsNew(name + ' (editable)', opts.loc), walls: r.walls, floor: r.floor, items: r.items, wh: r.wh, int: S.int, ...(ed && ed.esc ? { esc: ed.esc } : {}) };
     const kb = S.pk ? S.pk.kb : (ed && ed.kb) || 0;
     const build = (keepId, drop) => openSetBuilder({ from: data, loc: opts.loc, name: data.n }, (rid, all) => { if (done) done(rid, all); if (drop) rpDropOriginal(drop, rid); });
     askBox({

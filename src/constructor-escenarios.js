@@ -439,7 +439,7 @@ function openSetBuilder(opts = {}, done) {
     const id = ed0 ? ed0.id : uid('ec');
     histNote(ed0 ? `Editar el escenario «${name}»` : `Escenario «${name}»`, null, UI.tab);
     const d = bsClean({ ...JSON.parse(JSON.stringify(B.d)), id, n: name, loc: loc || '', v: view && ed0 ? ed0.v : Date.now() });
-    if (ed0 && ed0.esc) d.esc = ed0.esc;
+    if (ed0 && ed0.esc) d.esc = ed0.esc; else if (!ed0 && opts.from && opts.from.esc) d.esc = escClamp(opts.from.esc);   // la réplica, a la escala del original
     P.sets3d = P.sets3d || {}; P.sets3d[id] = d;
     P.locSet3d = P.locSet3d || {};
     if (loc && all) P.locSet3d[loc] = id;
