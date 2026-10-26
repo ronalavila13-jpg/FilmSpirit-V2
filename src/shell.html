@@ -2252,6 +2252,9 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .e3-info > span{display:grid;flex:1;min-width:0}
 .e3-info b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e3-info small{color:var(--muted);font-size:var(--fs-2)}
+/* «¿El piso quedó en el techo?»: en el importador y en el panel Escena (los colores de aviso ya cambian en modo oscuro) */
+.e3-warn{margin:0;padding:6px 10px;border-radius:var(--r-sm);background:var(--warn-soft);color:var(--warn-text);font-weight:600}
+.e3-warn[hidden]{display:none}
 @media (max-width:860px){ .fpi{grid-template-columns:minmax(0,1fr)} }
 /* ---------- fotos del personaje ---------- */
 .phx{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px}
