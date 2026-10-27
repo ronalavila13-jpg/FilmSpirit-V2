@@ -903,10 +903,10 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow.empty{grid-template-columns:minmax(0,1fr);background:var(--surface)}
 .prow.empty .c-empty{font-size:var(--fs-3);color:var(--muted)}
 /* (lote Y) una columna angosta no se mete en la de al lado: en la computadora cada celda recorta lo suyo. Con el ancho
-   propio de la columna (sus celdas y su título llevan data-cw, lote AC) los textos de una línea (.tx) se cortan con «…», la locación del guion, el reparto y
-   la locación de rodaje quedan en dos líneas como mucho y las columnas chicas ganan lugar con menos margen (con el ancho
-   automático se ven como siempre). El texto entero se lee al pasar el mouse (title). Con la Locación angosta (.set-nt)
-   la miniatura deja su lugar; con la de rodaje angosta (.loc-np), el pin */
+   propio de la columna (sus celdas y su título llevan data-cw, lote AC) los textos de una línea (.tx) se cortan con «…»,
+   la locación del guion, el reparto y la locación de rodaje quedan en dos líneas como mucho y las columnas chicas ganan
+   lugar con menos margen (con el ancho automático se ven como siempre). El texto entero se lee al pasar el mouse
+   (title). Con la Locación angosta (.set-nt) la miniatura deja su lugar; con la de rodaje angosta (.loc-np), el pin */
 .prow .tx{white-space:nowrap}
 @media (min-width:761px){
   /* (lote AB) las notas clavadas en la fila (.nb) no se cortan: su contador de respuestas va afuera de su globo */
