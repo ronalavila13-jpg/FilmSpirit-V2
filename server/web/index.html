@@ -24,6 +24,8 @@ __HREFLANG__
   <div class="wrap top-in">
     <a href="/" class="top-logo" aria-label="FilmSpirit">__LOGO__</a>
     <nav class="top-nav" aria-label="{{t.nav_label}}">
+      <!-- (lote AF) el proyecto de ejemplo, también desde la barra de arriba -->
+      <a class="top-link wide-only" href="/app/?ejemplo=1" data-sample>{{t.nav_example}}</a>
       <a class="top-link wide-only" href="#planes">{{t.nav_plans}}</a>
       <a class="top-link wide-only" href="/entrar" data-login data-guest>{{t.log_in}}</a>
       <a class="btn cream top-btn" href="/entrar" data-login data-open="{{t.open_app}}" data-short="{{t.sign_in}}"><span class="wide-only">{{t.free_cta}}</span><span class="narrow-only">{{t.sign_in}}</span></a>
@@ -37,8 +39,6 @@ __HREFLANG__
     <div class="hero-in">
       <h1 id="heroH" class="rc">{{t.hero_h1}}</h1>
       <p class="hero-lead">{{t.h_lead}}</p>
-      <!-- (lote AD) el proyecto de ejemplo, también sin cuenta: la app lo abre con ?ejemplo=1 (con sesión, igual) -->
-      <p class="hero-ex"><a class="btn cream pill" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a><span>{{t.ex_note}}</span></p>
       <p class="note" id="refNote" hidden data-tpl="{{t.ref_note}}"></p>
       <p class="note" id="goneNote" hidden>{{t.acct_gone}}</p>
       <p class="sr-only" id="sheetHelp">{{t.ed_sr}}</p>
@@ -62,6 +62,13 @@ __HREFLANG__
         </div>
       </div>
       <p class="hero-hint">{{t.ed_hint}}</p>
+      <!-- (lote AD) el proyecto de ejemplo, también sin cuenta: la app lo abre con ?ejemplo=1 (con sesión, igual).
+           (lote AF) En su propia franja, debajo de la hoja: entre el texto y la hoja confundía -->
+      <div class="hero-ex" role="group" aria-labelledby="exQ">
+        <p class="hero-ex-q" id="exQ">{{t.ex_q}}</p>
+        <a class="btn cream big pill" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a>
+        <span>{{t.ex_note}}</span>
+      </div>
     </div>
   </section>
 
@@ -188,7 +195,10 @@ __HREFLANG__
 <div class="night">
   <section class="wrap last" aria-labelledby="t-last">
     <h2 id="t-last" class="rc">{{t.last_h2}}</h2>
-    <a class="btn cream big" href="#inicio" data-write>{{t.last_cta}}</a>
+    <div class="last-ctas">
+      <a class="btn cream big" href="#inicio" data-write>{{t.last_cta}}</a>
+      <a class="btn line big" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a>
+    </div>
   </section>
   <footer class="wrap foot">
     <div class="foot-a">

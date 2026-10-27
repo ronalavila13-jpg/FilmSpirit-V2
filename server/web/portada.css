@@ -72,9 +72,11 @@ h1.rc{text-transform:lowercase}
 .hero-lead{margin:0;max-width:34em;font-size:clamp(17px,1.4vw,20px);line-height:1.5}
 .note{margin:0;max-width:44em;font-size:15px;line-height:1.5;background:rgba(33,33,33,.2);border-radius:6px;padding:10px 14px}
 .hero-hint{margin:4px 0 0;font-size:15px;line-height:1.5}
-/* (lote AD) explorar el proyecto de ejemplo, sin cuenta */
-.hero-ex{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0}
-.hero-ex span{font-size:15px;line-height:1.4;opacity:.92}
+/* (lote AD) explorar el proyecto de ejemplo, sin cuenta. (lote AF) En su propia franja, debajo de la hoja y su ayuda */
+.hero-ex{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:clamp(20px,3vw,36px);padding-top:clamp(24px,3vw,32px);border-top:1px solid rgba(255,254,246,.35)}
+.hero-ex-q{flex:1 1 100%;margin:0;font-size:clamp(20px,1.8vw,24px);font-weight:600;line-height:1.3}
+.hero-ex span{flex:1 1 220px;font-size:15px;line-height:1.4;opacity:.92}
+@media (max-width:520px){ .hero-ex .btn,.last-ctas .btn{flex:1 1 100%;padding-inline:18px;font-size:16px;text-align:center} }
 
 .sheet{position:relative;margin-top:clamp(20px,3vw,36px);min-height:560px;padding:clamp(36px,6vw,72px) clamp(18px,7vw,96px) 150px;background:var(--cream);color:var(--ink);border-radius:4px;box-shadow:0 28px 60px rgba(64,4,10,.42),0 2px 6px rgba(64,4,10,.22);font-family:var(--font-script);font-size:17px;line-height:1.45}
 .sheet-n{position:absolute;top:22px;right:28px;font-size:15px;color:var(--muted)}
@@ -172,6 +174,9 @@ textarea.ln::placeholder{color:var(--ph);opacity:1}
 .night{background:var(--night);color:var(--cream)}
 .last{padding-block:clamp(80px,10vw,128px) clamp(64px,8vw,96px);display:flex;flex-direction:column;align-items:flex-start;gap:32px}
 .last h2{max-width:900px;font-size:clamp(40px,4.6vw,64px);line-height:.95;color:var(--cream)}
+/* (lote AF) al cierre, el ejemplo como segunda opción, con borde */
+.last-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
+.btn.line,.btn.line:hover{background:transparent;color:var(--cream);box-shadow:inset 0 0 0 2px var(--cream)}
 .foot{padding-bottom:40px}
 .foot-a{border-top:1px solid var(--night-rule);padding-top:36px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px 32px}
 .foot-logo{line-height:0}

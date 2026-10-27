@@ -46,7 +46,7 @@ function openSample() {
 /* el ejemplo va primero en Inicio y en Proyectos, destacado: en la web con cuentas, el plan gratis y quien entra sin
    cuenta. En los planes de pago queda el botón «Ejemplo» de siempre */
 const sampleFirst = () => Store.kind === 'api' && !!(APITEAM.anon || !APITEAM.me || APITEAM.me.plan === 'free');
-const SAMPLE_INVITE = 'Recorre todas las pestañas y juega con un proyecto completo: guion, desglose, storyboard, plan de rodaje y hoja de llamado';
+const SAMPLE_INVITE = 'Explora todas las funciones del programa';   // (lote AF) el texto que pidió Ronald
 const sampleName = () => SAMPLE_TX[EN ? 'en' : 'es'].title;
 // ¿hay cambios en el ejemplo que se perderían al cerrar la página?
 const sampleTouched = () => !!(SAMPLE_MEM.P && SAMPLE_MEM.P._touched && SAMPLE_MEM.P._sample && !SAMPLE_MEM.P._saved);
