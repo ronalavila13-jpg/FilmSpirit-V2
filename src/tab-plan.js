@@ -81,24 +81,57 @@ const PL_TIP = { 'Tiempo': 'Tiempo estimado de rodaje de cada escena: escríbelo
 const PL_SORT = { c: null, dir: 1, pid: null };
 function plHeadHTML() {
   const ed = planEditable(), so = PL_SORT.pid === (P && P.id) && PL_SORT.c && planSortedBy(PL_SORT.c, PL_SORT.dir) ? PL_SORT : null;
-  return `<div class="pl-head">${PL_COLS.map(([k, h, c, srt]) => {
-    const tip = PL_TIP[h] ? ` title="${ea(PL_TIP[h])}"` : '';
+  const cw = plColW(P.schedule), keys = plColKeys(planCols());
+  // (lote Y) con su ancho propio el título puede cortarse con «…»: entero al pasar el mouse
+  const cells = PL_COLS.map(([k, h, c, srt]) => {
+    const tip = PL_TIP[h] ? ` title="${ea(PL_TIP[h])}"` : cw[k] && h ? ` title="${ea(h)}"` : '';
     if (!srt || !ed) return `<span class="${ea(c)}"${tip}>${h}</span>`;
     const on = so && so.c === k, nx = on ? -so.dir : 1;
     return `<button type="button" class="${ea(c)} srt${on ? ' on' : ''}" data-act="pl-sort" data-c="${k}" aria-label="${ea(`Ordenar por ${h} (${nx > 0 ? 'ascendente' : 'descendente'}) dentro de cada jornada`)}" title="${ea(`Ordenar por ${h} dentro de cada jornada${PL_TIP[h] ? '. ' + PL_TIP[h] : ''}`)}"><span>${h}</span><i class="ar" aria-hidden="true">${on ? (so.dir > 0 ? '↑' : '↓') : '↕'}</i></button>`;
-  }).join('')}</div>`;
+  }).join('');
+  /* (lote Y) el asa para cambiar el ancho: en el borde derecho de cada título, fuera del botón que ordena (va aparte,
+     ubicada sobre su columna de la grilla); solo quien puede editar el plan, y el CSS la deja solo para el ratón */
+  const rz = ed ? keys.map((k, j) => `<i class="pl-rz${j === keys.length - 1 ? ' end' : ''}" data-c="${k}" style="grid-column:${j + 1}/${j + 2}" title="Arrastra para cambiar el ancho · doble clic: ancho automático" aria-hidden="true"></i>`).join('') : '';
+  return `<div class="pl-head">${cells}${rz}</div>`;
 }
 /* columnas opcionales de la pantalla (cada persona elige las suyas; el PDF y el Excel siempre las llevan).
    (lote U) La figuración viene apagada */
 const planCols = () => ({ fig: ls.get('plFig', false), tech: ls.get('plTech', true), obs: ls.get('plObs', true), thumb: ls.get('plThumb', true) });
-function planColsCSS() {
-  const c = planCols();
+/* (lote Y) el ancho de cada columna se cambia arrastrando su título y se guarda en el proyecto (P.schedule.colW, en px
+   por clave de PL_COLS): todo el equipo ve los mismos anchos. Las que no tienen el suyo siguen con su ancho automático.
+   El PDF y el Excel no cambian. Mínimo de cada columna (las chicas, 32 px) y máximo para todas */
+const PL_CW_MIN = { set: 80, loc: 80, tech: 60, obs: 60, cast: 40, t: 44, ie: 36 }, PL_CW_MAX = 800;
+const plCwClamp = (k, v) => Math.round(Math.min(PL_CW_MAX, Math.max(PL_CW_MIN[k] || 32, +v || 0)));
+// con la columna más angosta que esto, la miniatura del storyboard (Locación) y el ícono del pin (Locación de rodaje)
+// dejan el lugar a su texto: la clase del tablero que lo hace
+const PL_NARROW = { set: [200, 'set-nt'], loc: [120, 'loc-np'] };
+/* las columnas de la pantalla, en orden (sin el menú ⋮ de las pantallas táctiles) */
+const plColKeys = c => PL_COLS.map(x => x[0]).filter(k => k !== 'more' && (k !== 'fig' || c.fig) && (k !== 'tech' || c.tech) && (k !== 'obs' || c.obs));
+/* los anchos guardados que sirven: de columnas que existen, en número y dentro del mínimo y el máximo */
+function plColW(S) {
+  const o = {}, w = S && S.colW;
+  if (w && typeof w === 'object' && !Array.isArray(w)) for (const [k, v] of Object.entries(w)) if (k !== 'more' && PL_COLS.some(x => x[0] === k) && Number.isFinite(+v) && +v > 0) o[k] = plCwClamp(k, v);
+  return o;
+}
+/* la plantilla de la grilla: c, las columnas en pantalla; used, si hay notas escritas ({ tech, obs }); cw, los anchos
+   guardados. Cada columna lleva su ancho guardado (en px) o el automático; min suma lo menos que ocupa la tabla (más
+   que eso, se desplaza a lo ancho) */
+function plGrid(c, used, cw) {
   // las notas vacías en todo el plan ceden su ancho a la escena (siguen ahí para escribir)
-  const used = f => P.schedule.items.some(it => (it[f] || '').trim()), w = f => used(f) ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)';
+  const note = f => [used[f] ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)', 130], th = c.thumb ? 280 : 220;
+  const auto = { esc: ['52px', 52], ie: ['42px', 42], set: [`minmax(${th}px,1.7fr)`, th], dn: ['78px', 78], cast: ['112px', 112], fig: ['46px', 46], loc: ['minmax(150px,1fr)', 150], pgs: ['58px', 58], pg: ['40px', 40], t: ['68px', 68], tech: note('tech'), obs: note('obs') };
+  const keys = plColKeys(c);
+  return { keys, cols: keys.map(k => cw[k] ? cw[k] + 'px' : auto[k][0]), min: keys.reduce((a, k) => a + (cw[k] || auto[k][1]), 0) };
+}
+const plNotesUsed = () => ({ tech: P.schedule.items.some(it => (it.tech || '').trim()), obs: P.schedule.items.some(it => (it.obs || '').trim()) });
+/* las clases del tablero por los anchos guardados: .w-<clave> (la columna corta su texto con «…») y las de PL_NARROW */
+const plNarrow = (cw, keys) => Object.entries(PL_NARROW).map(([k, [n, cl]]) => [cl, keys.includes(k) && !!cw[k] && cw[k] < n]);
+const plCwCls = (cw, keys) => keys.filter(k => cw[k]).map(k => ' w-' + k).join('') + plNarrow(cw, keys).filter(x => x[1]).map(x => ' ' + x[0]).join('');
+function planColsCSS() {
+  const c = planCols(), cw = plColW(P.schedule);
   // (lote W) sin la columna del menú ⋮: la suma el CSS solo en las pantallas táctiles (--pl-more)
-  const cols = ['52px', '42px', `minmax(${c.thumb ? 280 : 220}px,1.7fr)`, '78px', '112px', c.fig && '46px', 'minmax(150px,1fr)', '58px', '40px', '68px', c.tech && w('tech'), c.obs && w('obs')].filter(Boolean);
-  const min = 52 + 42 + (c.thumb ? 280 : 220) + 78 + 112 + (c.fig ? 46 : 0) + 150 + 58 + 40 + 68 + (c.tech ? 130 : 0) + (c.obs ? 130 : 0);
-  return { cls: (c.fig ? '' : ' no-fig') + (c.tech ? '' : ' no-tech') + (c.obs ? '' : ' no-obs'), style: `--pl-cols:${cols.join(' ')};--pl-min:${min}px` };
+  const G = plGrid(c, plNotesUsed(), cw);
+  return { cls: (c.fig ? '' : ' no-fig') + (c.tech ? '' : ' no-tech') + (c.obs ? '' : ' no-obs') + plCwCls(cw, G.keys), style: `--pl-cols:${G.cols.join(' ')};--pl-min:${G.min}px` };
 }
 /* (lote U) los íconos de la fila: agregar reparto y el menú ⋮ (lote W: sin el asa ni la hoja de desglose) */
 const PL_ICO = {
@@ -204,14 +237,17 @@ function planRowHTML(i, ed) {
   }
   const hc = hlc(it), sk = stripKey(s), col = hc || lgCol('plan', sk);   // resaltada con un color de la leyenda; si no, su tira
   const syn = synopsisOf(s), dn = DN_LAB[stripDN(s)], th = planThumbShot(it);
+  /* (lote Y) en una columna con su ancho propio el texto se corta con «…» (.tx, en una línea): entero al pasar el mouse */
+  const cw = plColW(P.schedule), cut = (k, t) => cw[k] && t ? ` title="${ea(t)}"` : '';
+  const ct = castText(s), lv = it.loc || set, lt = it.loc ? '' : set ? 'Locación del decorado «' + titleCase(s.locBase) + '»' : '';
   return `<div class="prow sc${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${ea(lgDark(col))}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}" data-strip="${ea(hc ? 'hl' : sk)}" style="--rc:${ea(col)};--rb:${ea(barOf(col))}">
-    <span class="c-esc tnum">${esc(rowCode(it))}</span><span class="c-ie">${esc(ieLab(s))}</span>
+    <span class="c-esc tnum"${cut('esc', rowCode(it))}><span class="tx">${esc(rowCode(it))}</span></span><span class="c-ie"${cut('ie', ieLab(s))}><span class="tx">${esc(ieLab(s))}</span></span>
     <span class="c-set${th ? ' th' : ''}" title="${ea(s.heading + (syn ? ' · ' + syn : ''))}">${planThumbHTML(it)}<b>${esc(setOf(s))}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b><small><span class="m-only${syn ? ' sep' : ''}">${esc(ieLab(s))} · ${esc(dn)}</span>${esc(syn)}</small></span>
-    <span class="c-dn">${esc(dn)}</span>
-    <span class="c-cast">${castNums(s, ed)}</span>
+    <span class="c-dn"${cut('dn', dn)}><span class="tx">${esc(dn)}</span></span>
+    <span class="c-cast"${cut('cast', ct === '—' ? '' : ct)}>${castNums(s, ed)}</span>
     <span class="c-fig"><input type="number" min="0" step="1" value="${ea(it.fig ?? '')}" data-bind="pl-f" data-f="fig" data-i="${i}" aria-label="Figurantes" ${dis}></span>
-    <span class="c-loc${it.loc || set ? '' : ' none'}">${ICO.pin}${wrapIn(`<input type="text" list="plLocs" value="${esc(it.loc || set)}" placeholder="${ed ? 'Asignar locación…' : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${it.loc ? '' : set ? 'Locación del decorado «' + esc(titleCase(s.locBase)) + '»' : ''}" ${dis}>`, it.loc || set, ed ? 'Asignar locación…' : '')}</span>
-    ${eCell}<span class="c-n c-pg tnum">${D.metrics.page[s.idx]}</span>${time}${notes}${more('Opciones de la escena ' + rowCode(it))}</div>`;
+    <span class="c-loc${lv ? '' : ' none'}">${ICO.pin}${wrapIn(`<input type="text" list="plLocs" value="${esc(lv)}" placeholder="${ed ? 'Asignar locación…' : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${ea(cw.loc && lv ? lv + (lt ? ' · ' + lt : '') : lt)}" ${dis}>`, lv, ed ? 'Asignar locación…' : '')}</span>
+    ${eCell}<span class="c-n c-pg tnum"${cut('pg', String(D.metrics.page[s.idx]))}><span class="tx">${D.metrics.page[s.idx]}</span></span>${time}${notes}${more('Opciones de la escena ' + rowCode(it))}</div>`;
 }
 function planBreakHTML(d, n, dates, ed) {
   const b = d.brk, inf = dayInfo(d.keys, d.rows), done = dayDone(d);
@@ -377,6 +413,14 @@ function bindBoard() {
   // con el ratón: presionar y mover una escena (o la barra de inicio de jornada) la arrastra al instante;
   // desde un espacio vacío se dibuja un recuadro para elegir varias. En el teléfono: mantener el dedo.
   let touchAt = 0;
+  // (lote Y) el asa de un título: arrastrarla cambia el ancho de su columna; doble clic, vuelve al automático. Va antes
+  // que lo demás: no arrastra filas, no ordena ni empieza un recuadro de selección
+  board.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.pl-rz'); if (!h) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if (e.button === 0 && e.pointerType !== 'touch' && planEditable()) startColResize(e, h);
+  });
+  board.addEventListener('dblclick', e => { const h = e.target.closest('.pl-rz'); if (h && planEditable() && plColW(P.schedule)[h.dataset.c]) planColSet(h.dataset.c, null); });
   board.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') touchAt = Date.now();
     if (e.button !== 0 || e.target.closest('.pdots')) return;
@@ -405,7 +449,7 @@ function bindBoard() {
     scroller.dataset.sweep = '1';
     scroller.addEventListener('pointerdown', e => {
       if (e.button !== 0 || e.pointerType === 'touch' || !planEditable()) return;
-      if (e.target.closest('.prow, .pstart, .pl-selbar, .hd, .card, .tip, input,textarea,select,button,a,label,summary')) return;
+      if (e.target.closest('.prow, .pstart, .pl-selbar, .pl-rz, .hd, .card, .tip, input,textarea,select,button,a,label,summary')) return;
       pressGesture(e, { onSweep: () => planSweep(e, e.shiftKey || e.ctrlKey || e.metaKey) });
     });
   }
@@ -437,7 +481,7 @@ function bindBoard() {
     e.preventDefault();
     stripMenu(ptAnchor(e), +row.dataset.i);
   });
-  deselectOn('plan', () => { if (plSel().size) { plSel().clear(); paintSel(); } }, '.prow[data-key], .pstart, #plSelBar');
+  deselectOn('plan', () => { if (plSel().size) { plSel().clear(); paintSel(); } }, '.prow[data-key], .pstart, #plSelBar, .pl-rz');
   if (!bindBoard.keys) {
     bindBoard.keys = true;
     addEventListener('keydown', e => { if (e.key === 'Escape' && UI.tab === 'plan' && plSel().size && !$('#modal') && !$('#pop')) { plSel().clear(); paintSel(); } });
@@ -460,6 +504,62 @@ function planSweep(start, additive) {
     },
   });
 }
+/* ---------- (lote Y) el ancho de las columnas ----------
+   Se arrastra el asa del borde derecho de un título: la columna cambia de ancho junto con el ratón (la grilla se
+   actualiza en --pl-cols, sin volver a pintar el plan) y al soltar queda guardada en el proyecto, en un solo paso del
+   historial. Esc cancela. Una línea a lo alto del plan marca el borde mientras se arrastra. */
+function startColResize(e, h) {
+  const board = $('#board'), head = h.parentElement, k = h.dataset.c;
+  const c = planCols(), used = plNotesUsed(), cw0 = plColW(P.schedule), keys = plColKeys(c), j = keys.indexOf(k);
+  if (!board || j < 0) return;
+  // el ancho de ahora, el que se ve (el automático o el guardado)
+  const tracks = () => getComputedStyle(head).gridTemplateColumns.split(' ').map(parseFloat);
+  const w0 = Math.round(tracks()[j]) || cw0[k] || 100, x0 = e.clientX;
+  let w = w0, moved = false, raf = 0;
+  const line = document.createElement('div');
+  line.className = 'pl-rzline';
+  h.classList.add('on'); document.documentElement.classList.add('pl-rzing');
+  try { h.setPointerCapture(e.pointerId); } catch (er) { }
+  const paint = () => {
+    raf = 0;
+    const cw = { ...cw0, [k]: w }, G = plGrid(c, used, cw);
+    board.style.setProperty('--pl-cols', G.cols.join(' '));
+    board.style.setProperty('--pl-min', G.min + 'px');
+    board.classList.add('w-' + k);
+    for (const [cl, on] of plNarrow(cw, keys)) board.classList.toggle(cl, on);
+    // la línea, en el borde derecho de la columna (lo que suman sus columnas desde la izquierda)
+    const t = tracks(), x = head.getBoundingClientRect().left + t.slice(0, j + 1).reduce((a, b) => a + b, 0);
+    line.style.left = (x - board.getBoundingClientRect().left) + 'px';
+    if (!line.isConnected) board.appendChild(line);
+  };
+  const move = ev => {
+    if (!moved && Math.abs(ev.clientX - x0) < 3) return;   // un clic (o el de un doble clic) no cambia nada
+    moved = true;
+    const nw = plCwClamp(k, w0 + ev.clientX - x0);
+    if (nw !== w || !line.isConnected) { w = nw; if (!raf) raf = requestAnimationFrame(paint); }
+  };
+  const end = ev => {
+    cancelAnimationFrame(raf);
+    removeEventListener('pointermove', move, true); removeEventListener('pointerup', end, true); removeEventListener('pointercancel', end, true);
+    removeEventListener('keydown', onEsc, true);
+    line.remove(); h.classList.remove('on'); document.documentElement.classList.remove('pl-rzing');
+    const ok = ev && ev.type === 'pointerup' && moved && w !== (cw0[k] || w0);
+    if (ok && planEditable()) planColSet(k, w);
+    else if (moved) render();   // vuelve a como estaba
+  };
+  const onEsc = ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); end({ type: 'cancel' }); } };
+  addEventListener('pointermove', move, true); addEventListener('pointerup', end, true); addEventListener('pointercancel', end, true);
+  addEventListener('keydown', onEsc, true);
+}
+/* guarda el ancho de una columna (null: vuelve al automático) como un paso del historial */
+function planColSet(k, w) {
+  const col = PL_COLS.find(x => x[0] === k && k !== 'more'); if (!col || !planEditable()) return;
+  const cw = plColW(P.schedule);
+  if (w == null) { if (!(k in cw)) return; delete cw[k]; } else cw[k] = plCwClamp(k, w);
+  histNote(`Ancho de la columna ${col[1]}`);
+  if (Object.keys(cw).length) P.schedule.colW = cw; else delete P.schedule.colW;
+  changed('data'); render();
+}
 function startDrag(e, row) {
   const board = $('#board'), scroller = board.closest('.scroller');
   const items = P.schedule.items, it = items[+row.dataset.i];
@@ -472,7 +572,11 @@ function startDrag(e, row) {
   ghost.classList.add('ghost');
   Object.assign(ghost.style, { width: rect.width + 'px', left: rect.left + 'px', top: rect.top + 'px', gridTemplateColumns: getComputedStyle(row).gridTemplateColumns, height: rect.height + 'px' });
   if (multi) { const b = document.createElement('span'); b.className = 'gcount'; b.textContent = keys.size + ' filas'; ghost.appendChild(b); }
-  document.body.appendChild(ghost);
+  // (lote Y) la copia va dentro de una caja sin caja (display:contents) con las clases del tablero: con los anchos
+  // propios de las columnas corta sus textos igual que la fila
+  const gwrap = document.createElement('div');
+  gwrap.className = board.className; gwrap.style.display = 'contents';
+  gwrap.appendChild(ghost); document.body.appendChild(gwrap);
   // las demás filas que viajan se pliegan: el hueco las representa a todas
   const others = $$('.prow[data-key]', board).filter(r => r !== row && keys.has(r.dataset.key));
   const H = rect.height + others.reduce((a, r) => a + r.getBoundingClientRect().height, 0);
@@ -507,7 +611,7 @@ function startDrag(e, row) {
     cancelAnimationFrame(raf);
     removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
     removeEventListener('keydown', esc, true);
-    ghost.remove(); document.body.classList.remove('lifting');
+    gwrap.remove(); document.body.classList.remove('lifting');
     flipClear($$('.prow', board));
     const cancel = ev && ev.type !== 'pointerup';
     if (cancel || !moved) { render(); return; }
@@ -1008,6 +1112,13 @@ Object.assign(ACT, {
   'pl-locs': () => locsDialog(),
   'pl-col': b => { const k = { fig: 'plFig', tech: 'plTech', obs: 'plObs', thumb: 'plThumb' }[b.dataset.c]; ls.set(k, !planCols()[b.dataset.c]); render(); },
   'pl-cast': b => { P.schedule.castMode = b.dataset.v; if (planEditable()) changed('data'); render(); },
+  // (lote Y) todas las columnas a su ancho automático (para todo el equipo; se puede deshacer)
+  'pl-colw0': () => {
+    if (!planEditable() || !P.schedule.colW) return;
+    histNote('Restaurar el ancho de las columnas');
+    delete P.schedule.colW; changed('data'); render();
+    toastUndo('Las columnas volvieron a su ancho automático.');
+  },
 });
 Object.assign(BIND, {
   'pl-off': el => { const set = new Set(P.schedule.off || []); el.checked ? set.add(+el.value) : set.delete(+el.value); if (set.size >= 7) { toast('Deja al menos un día de rodaje.'); el.checked = false; return; } P.schedule.off = [...set]; changed('data'); render(); },
@@ -1184,7 +1295,8 @@ SETTINGS.plan = () => {
   const S = P.schedule, ed = planEditable(), off = new Set(S.off || []);
   return `<div class="fld"><span>Días sin rodaje</span><div class="daytoggle">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label title="${ea(['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d])}"><input type="checkbox" aria-label="${ea(['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][d])}" data-bind="pl-off" value="${ea(d)}" ${off.has(d) ? 'checked' : ''} ${ed ? '' : 'disabled'}>${WEEKDAYS[d]}</label>`).join('')}</div></div>
     <div class="fld"><span>Reparto</span><div class="seg" role="group" aria-label="Reparto"><button data-act="pl-cast" data-v="num" aria-pressed="${ea(S.castMode !== 'name')}">Por número</button><button data-act="pl-cast" data-v="name" aria-pressed="${ea(S.castMode === 'name')}">Por nombre</button></div></div>
-    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración (Fig.)'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen (también la figuración).</span></div>
+    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración (Fig.)'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen (también la figuración).</span>
+      ${ed ? `<span class="hint pl-rzhint">Arrastra el borde derecho del título de una columna para cambiar su ancho (doble clic: ancho automático). Se guarda en el proyecto, para todo el equipo.</span>${Object.keys(plColW(S)).length ? '<button class="btn sm" data-act="pl-colw0" style="justify-self:start">Restaurar el ancho de las columnas</button>' : ''}` : ''}</div>
     <div class="fld"><span>Horas estimadas</span><label class="inl"><input type="number" min="5" max="240" step="5" value="${ea(minPerPage())}" data-bind="pl-mpp" aria-label="Minutos por página" ${ed ? '' : 'disabled'}><span>minutos por página de guion</span></label><span class="hint">Cada escena muestra su hora de inicio y su duración estimada desde el llamado. Una hora escrita a mano manda.</span></div>
     <div class="fld"><span>Sugerir jornadas</span><label class="inl"><input type="number" min="0.5" max="20" step="0.5" value="${ea(num(S.pagesPerDay) || 4.5)}" data-bind="pl-ppd" aria-label="Páginas por jornada" ${ed ? '' : 'disabled'}><span>páginas por jornada</span></label><span class="hint">≈ ${esc(fmtDur(Math.round((num(S.pagesPerDay) || 4.5) * minPerPage())))} de rodaje por jornada, con los minutos por página de arriba.</span></div>
 `;
@@ -1193,6 +1305,7 @@ SETTINGS.plan = () => {
 TOOLS_EXTRA.plan = () => planEditable() ? [[ICO.pin, 'Locaciones de rodaje…', () => locsDialog()], [ICO.plus, 'Etapa de rodaje…', () => stagesDialog(true)], ...(isSeries(P) ? [[ICO.plus, 'Bloque de episodios…', () => planBlockDialog()]] : [])] : [];
 HELP.plan = [
   ['Stripboard', 'Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo y las notas. Clic derecho en una escena (en una pantalla táctil, su ⋮) abre sus opciones y su hoja de desglose; en la barra de cierre, las opciones del cierre.'],
+  ['Ancho de las columnas', 'En la computadora, arrastra el borde derecho del título de una columna para hacerla más angosta o más ancha; doble clic en ese borde la devuelve a su ancho automático. El texto que no cabe se corta con «…» y se lee entero al pasar el mouse. El ancho se guarda en el proyecto: todo el equipo lo ve igual. «Restaurar el ancho de las columnas», en Ajustes › Columnas en pantalla, las devuelve todas. El PDF y el Excel no cambian.'],
   ['Ordenar', 'Toca el título de una columna (Esc., I/E, Locación, D/N, Locación de rodaje o Págs.) para ordenar las escenas dentro de cada jornada y en «Sin programar»; otra vez, al revés. Ninguna escena cambia de jornada y los eventos se quedan en su lugar. Se deshace con Deshacer.'],
   ['Mover escenas', 'Presiona cualquier parte de una escena (fuera de los campos) y arrástrala: las demás le hacen espacio y los cambios se aplican al soltar. En el teléfono, mantén el dedo un instante antes de arrastrar. También: clic derecho › Mover a. Esc cancela.'],
   ['Elegir varias', 'Clic en una escena la elige y otro clic la suelta; Ctrl o ⌘ suma o quita, Mayús elige un tramo. Arrastra desde un espacio vacío para elegir varias con un recuadro, y luego arrastra una para moverlas juntas. Un clic en un espacio vacío (o Esc) quita la selección.'],

@@ -1684,5 +1684,13 @@
 "{0} imágenes que esperaban en este equipo no se pudieron subir{1}": "{0} images waiting on this device couldn't be uploaded{1}",
 "// lote Y · hoja de llamado": "clima con su unidad y estilo Apple en pantalla y PDF",
 "Soleado, nublado, lluvia, viento… o la temperatura": "Sunny, cloudy, rain, wind… or the temperature",
-"Total:": "Total:"
+"Total:": "Total:",
+"// lote Y · columnas": "el ancho de cada columna del stripboard se cambia arrastrando su título y se guarda en el proyecto (26-oct-2026)",
+"Arrastra para cambiar el ancho · doble clic: ancho automático": "Drag to change the width · double-click: automatic width",
+"Ancho de la columna {0}": "{0} column width",
+"Restaurar el ancho de las columnas": "Reset column widths",
+"Las columnas volvieron a su ancho automático.": "The columns are back to their automatic width.",
+"Arrastra el borde derecho del título de una columna para cambiar su ancho (doble clic: ancho automático). Se guarda en el proyecto, para todo el equipo.": "Drag the right edge of a column heading to change its width (double-click: automatic width). It's saved in the project, for the whole team.",
+"Ancho de las columnas": "Column widths",
+"En la computadora, arrastra el borde derecho del título de una columna para hacerla más angosta o más ancha; doble clic en ese borde la devuelve a su ancho automático. El texto que no cabe se corta con «…» y se lee entero al pasar el mouse. El ancho se guarda en el proyecto: todo el equipo lo ve igual. «Restaurar el ancho de las columnas», en Ajustes › Columnas en pantalla, las devuelve todas. El PDF y el Excel no cambian.": "On a computer, drag the right edge of a column heading to make the column narrower or wider; double-click that edge to return it to its automatic width. Text that doesn't fit is cut off with “…” and shows in full when you hover over it. The width is saved in the project: the whole team sees it the same way. “Reset column widths”, in Settings › On-screen columns, resets them all. The PDF and the Excel file don't change."
 }
