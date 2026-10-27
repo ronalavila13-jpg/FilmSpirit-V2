@@ -2282,7 +2282,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     const o = sobreOf(E.s3), ro = UI.readOnly, lk = set3dLock();
     if (o) {
       const F = sobreFoot(o);
-      return `<div class="e3-info so-info"><span><b>${esc(o.d.n)}</b><small>${esc(`Sobre el entorno · ${set3dM(2 * F.hw)} × ${set3dM(2 * F.hd)} m · en toda la locación`)}</small></span>${ro ? '' : `<button class="btn sm ghost" data-c="sobreput">Ubicar…${lk}</button><button class="btn sm ghost" data-c="sobredel" title="Quitar el modelo de este entorno (el escenario 3D sigue en el proyecto)">Quitar</button>`}</div>`;
+      return `<div class="e3-info so-info" title="${ea('Lo ven todos los planos de esta locación que usan un entorno')}"><span><b>${esc(o.d.n)}</b><small>${esc(`Sobre el entorno · ${set3dM(2 * F.hw)} × ${set3dM(2 * F.hd)} m`)}</small></span>${ro ? '' : `<button class="btn sm ghost" data-c="sobreput">Ubicar…${lk}</button><button class="btn sm ghost" data-c="sobredel" title="Quitar el modelo de este entorno (el escenario 3D sigue en el proyecto)">Quitar</button>`}</div>`;
     }
     return ro ? '' : `<button class="btn sm so-add" data-c="sobreadd" aria-haspopup="menu" title="Una casa, un muelle o cualquier escenario 3D importado, encima de este entorno">Agregar modelo importado…${lk}</button>`;
   }
