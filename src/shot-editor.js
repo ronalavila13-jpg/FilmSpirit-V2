@@ -1948,8 +1948,9 @@ function openShotEditor(id, isNew, from2d, waited) {
     return `<label class="fld"><span>Escenario</span><select data-c="set">${setOptions().map(([k, n]) => `<option value="${ea(k)}" ${k === setCur() ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
       ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>` : ''}
       ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM((d3.b[2] - d3.b[0]) * escOf(d3))} × ${set3dM((d3.b[3] - d3.b[1]) * escOf(d3))} m · ${d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
-        <button class="btn sm ghost" data-c="edit3d">Ajustar…</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
+        <button class="btn sm ghost" data-c="edit3d">Ajustar…${set3dLock()}</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
         ${set3dRoofy(d3) ? '<p class="hint e3-warn">¿El piso quedó en el techo? Muévelo en Piso (Ajustar…).</p>' : ''}` : ''}
+      ${sobreRow()}
       ${E.s3.set === 'vacio' ? '' : `<div class="grid2"><label class="fld"><span>Atmósfera</span><select data-c="atm">${S3_ATM.map(([k, n]) => `<option value="${k}" ${k === atmOf(E.s3) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="opt" style="padding:6px 10px;align-self:end"><input type="checkbox" data-c="rain" ${A.rain || E.s3.rain ? 'checked' : ''} ${A.rain ? 'disabled' : ''}><span><b>Lluvia</b></span></label></div>
       ${A.sun && extEnv ? rangeRow(A.sun.moon ? 'Dirección de la luna' : 'Dirección del sol', 'sunAz', Math.round(deg180(E.s3.sunAz ?? A.sun.az)), -180, 180, 1, '°') : ''}`}
@@ -1960,7 +1961,7 @@ function openShotEditor(id, isNew, from2d, waited) {
         <button class="btn sm" data-c="caminside">Meter la cámara dentro del plano</button>` : ''}
       ${escRow()}
       <button class="btn sm" data-c="importplan">Importar plano de planta…</button>
-      <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb, .kmz (SketchUp), .dae, .obj, .gltf o .fbx">Importar escenario 3D…</button>
+      <button class="btn sm" data-c="import3d" title="Un modelo 3D de la locación: .glb, .kmz (SketchUp), .dae, .obj, .gltf o .fbx">Importar escenario 3D…${set3dLock()}</button>
       ${E.s3.set === 'int' ? `<div class="grid3"><label class="fld"><span>Ancho (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rw" value="${ea(R.w)}"></label><label class="fld"><span>Fondo (m)</span><input type="number" min="1" max="40" step="0.1" data-c="rd" value="${ea(R.d)}"></label><label class="fld"><span>Alto (m)</span><input type="number" min="2" max="12" step="0.1" data-c="rh" value="${ea(R.h)}"></label></div>` : ''}`;
   }
   function panel() {
@@ -2196,6 +2197,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   }
   /* un escenario 3D de la locación (escenarios-3d.js): nuevo, o ajustar el que se usa (edit: su id) */
   function import3d(edit) {
+    if (!set3dStudio()) { set3dAsk(); return; }   // (lote AD) importar y ajustar escenarios 3D es de Studio
     openSet3dImporter({ loc: s.loc, name: titleCase(s.loc), int: s.ie !== 'EXT', edit }, (sid, applyLoc) => {
       snapshot(); E.custom = true;
       useSet3d(E.s3, sid);
@@ -2261,6 +2263,7 @@ function openShotEditor(id, isNew, from2d, waited) {
       back(E.s3);
       delete P.sets3d[d3.id];
       for (const [l, v] of Object.entries(P.locSet3d || {})) if (v === d3.id) delete P.locSet3d[l];
+      sobreDrop(d3.id); if (R3.sobre) R3.sobre.userData.key = '';   // (lote AD) tampoco queda sobre un entorno
       for (const k of [m3Key('s', d3.id), set3dPicKey(d3.id)]) { delete FRAMES[k]; IMGS.delete(k); Store.saveFrame(P.id, k, null).catch(() => { }); }
       const e = M3.tpl.get(m3Key('s', d3.id)); M3.tpl.delete(m3Key('s', d3.id));
       if (R3.sets.modelo) { R3.sets.modelo.userData.key = ''; if (R3.sets.modelo.userData.hold) { R3.sets.modelo.remove(R3.sets.modelo.userData.hold); R3.sets.modelo.userData.hold = null; } }
@@ -2268,6 +2271,43 @@ function openShotEditor(id, isNew, from2d, waited) {
       if (typeof THUMB3 !== 'undefined') THUMB3.clear();
       changed('data'); commit(); stCache = null; redraw(); plan.fit(); panel(); paintTop();
       toast(`Escenario «${d3.n}» quitado del proyecto.`);
+    });
+  }
+  /* ---------- (lote AD) un escenario importado sobre el entorno (escenarios-sobre.js) ----------
+     Debajo de la lista de escenarios, si es un entorno (playa, bosque, calle…): «Agregar modelo importado…» o, si ya hay
+     uno, su nombre con «Ubicar…» y «Quitar». Es de la locación (P.sobre3d), como la escala: un paso del proyecto, con
+     «Deshacer» en el aviso. Agregarlo y ubicarlo es de Studio; lo ya puesto se ve igual y se puede quitar */
+  function sobreRow() {
+    if (!sobreCan(E.s3)) return '';
+    const o = sobreOf(E.s3), ro = UI.readOnly, lk = set3dLock();
+    if (o) {
+      const F = sobreFoot(o);
+      return `<div class="e3-info so-info"><span><b>${esc(o.d.n)}</b><small>${esc(`Sobre el entorno · ${set3dM(2 * F.hw)} × ${set3dM(2 * F.hd)} m · en toda la locación`)}</small></span>${ro ? '' : `<button class="btn sm ghost" data-c="sobreput">Ubicar…${lk}</button><button class="btn sm ghost" data-c="sobredel" title="Quitar el modelo de este entorno (el escenario 3D sigue en el proyecto)">Quitar</button>`}</div>`;
+    }
+    return ro ? '' : `<button class="btn sm so-add" data-c="sobreadd" aria-haspopup="menu" title="Una casa, un muelle o cualquier escenario 3D importado, encima de este entorno">Agregar modelo importado…${lk}</button>`;
+  }
+  function sobrePut(v) {
+    const loc = s.loc || '', old = P.sobre3d && P.sobre3d[loc] ? { ...P.sobre3d[loc] } : null, where = titleCase(loc) || 'esta locación';
+    const n = ((v ? P.sets3d[v.id] : old && P.sets3d[old.id]) || {}).n || '';
+    histNote(v ? `Modelo «${n}» sobre el entorno` : `Quitar el modelo «${n}» del entorno`, null, 'board');
+    sobreSet(loc, v); changed('data');
+    stCache = null; redraw(); plan.draw(); panel();
+    const back = () => { sobreSet(loc, old); changed('data'); if (EDT === E) { stCache = null; redraw(); plan.draw(); panel(); } else render(); };
+    toast(!v ? `«${n}» ya no está sobre el entorno.` : old && old.id === v.id ? `«${n}» en su nuevo lugar: así lo ven los planos de ${where}.` : `«${n}» sobre el entorno: lo ven todos los planos de ${where}.`, 5000, { label: 'Deshacer', fn: back });
+  }
+  function sobrePlace(id) {
+    if (!set3dStudio()) { set3dAsk(); return; }
+    const cur = sobreOf(E.s3), mid = id || (cur && cur.d.id); if (!mid) return;
+    const same = cur && cur.d.id === mid;
+    openSobrePlacer({ loc: s.loc || '', id: mid, ...(same ? { x: cur.x, z: cur.z, r: cur.r } : {}), s3: E.s3, st: ed.state() }, pos => sobrePut({ id: mid, ...pos }));
+  }
+  function sobreAdd(btn) {
+    if (!set3dStudio()) { set3dAsk(); return; }
+    const imp = () => openSet3dImporter({ loc: s.loc, name: titleCase(s.loc), int: false, sobre: true }, sid => sobrePlace(sid));
+    const L = set3dList();
+    if (!L.length) { imp(); return; }
+    popover(btn, `<div class="menu" role="menu">${L.map(d => `<button role="menuitem" data-sm="${ea(d.id)}">${esc(d.n)}</button>`).join('')}<button role="menuitem" data-sm="+">Importar uno nuevo…</button></div>`, p => {
+      p.addEventListener('click', e => { const b = e.target.closest('[data-sm]'); if (!b) return; closePop(); if (b.dataset.sm === '+') imp(); else sobrePlace(b.dataset.sm); });
     });
   }
   /* congela la orientación actual en cada clave y suelta el seguimiento */
@@ -2389,6 +2429,10 @@ function openShotEditor(id, isNew, from2d, waited) {
     }
     if (b.dataset.c === 'importplan') { importPlan(); return; }
     if (b.dataset.c === 'import3d') { import3d(); return; }
+    // (lote AD) un escenario importado sobre el entorno
+    if (b.dataset.c === 'sobreadd') { sobreAdd(b); return; }
+    if (b.dataset.c === 'sobreput') { sobrePlace(); return; }
+    if (b.dataset.c === 'sobredel') { sobrePut(null); return; }
     if (b.dataset.c === 'edit3d') { const d3 = set3dOf(E.s3); if (d3) import3d(d3.id); return; }
     if (b.dataset.c === 'del3d') { del3d(); return; }
     if (b.dataset.c === 'escreset') { escSet(1, true); return; }   // lote W · «Tamaño original»
@@ -2556,7 +2600,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   /* los escenarios de la lista: los de siempre, los escenarios 3D importados (después del plano) y la opción de importar uno */
   function setOptions(menu) {
     const L = [...S3_SETS], i = L.findIndex(([k]) => k === 'plano') + 1, M = set3dList().map(d => ['modelo:' + d.id, 'Escenario 3D: ' + d.n]);
-    if (!menu) M.push(['modelo:+', 'Importar escenario 3D…']);
+    if (!menu) M.push(['modelo:+', 'Importar escenario 3D…' + (set3dStudio() ? '' : ' · Studio')]);   // (lote AD) de Studio
     L.splice(i, 0, ...M);
     return L;
   }

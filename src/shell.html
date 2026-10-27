@@ -2392,6 +2392,21 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .e3-w[hidden]{display:none}
 .e3-w .btn{justify-self:start}
 @media (max-width:860px){ .fpi{grid-template-columns:minmax(0,1fr)} }
+/* lote AD · escenarios: un escenario importado sobre el entorno (Escena › Escenario) y la ventana para ubicarlo */
+.so-add{justify-self:start}
+.so-info .btn{flex:none}
+.so{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
+.so-l{display:grid;gap:8px;align-content:start;min-width:0}
+.so-r{display:grid;gap:12px;align-content:start}
+.so-r .so-c{justify-self:start}
+.so-cv{position:relative;height:min(62vh,560px);min-height:300px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:#F7F6F2;touch-action:none}
+.so-cv > canvas{position:absolute;inset:0;width:100%;height:100%;outline:none;touch-action:none;cursor:grab}
+.so-cv > canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.so-zoom{position:absolute;right:8px;bottom:8px;display:flex;gap:2px;padding:3px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--panel) 72%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.so-zoom .icbtn{font:600 16px/1 var(--font-ui)}
+.so-zoom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.so-hint{margin:0}
+@media (max-width:860px){ .so{grid-template-columns:minmax(0,1fr)} .so-cv{height:50vh;min-height:260px} }
 /* ---------- fotos del personaje ---------- */
 .phx{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px}
 .ph-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}

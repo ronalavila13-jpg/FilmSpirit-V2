@@ -511,6 +511,7 @@ function r3Sync(s3, st, opts) {
   for (const k in R3.sets) R3.sets[k].visible = k === vis;
   // lote W · la calle, los jardines y los paisajes a la escala de su locación (escenarios-escala.js)
   if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(vis) && R3.sets[vis]) R3.sets[vis].scale.setScalar(envEscOf(s3));
+  if (typeof sobreSync === 'function') sobreSync(s3, vis);   // (lote AD) un escenario importado sobre el entorno (escenarios-sobre.js)
   if (R3.room) R3.room.visible = s3.set === 'int';
   syncPlan(s3);
   const T = THREE;
@@ -893,6 +894,7 @@ const figSig = sh => {
   const s3 = s3Of(sh); let k = '';
   for (const o of s3.objs) if (o.kind === 'actor') { const lk = lookOf(o); k += FIG3D.tpl[fig3dBody(lk.body)] ? 1 : 0; if (lk.model && lk.key) k += m3Ready(m3Key('c', lk.key)) ? 1 : 0; }
   if (s3.set === 'modelo' && typeof set3dKey === 'function') k += m3Ready(set3dKey(s3)) ? 1 : 0;
+  const ks = typeof sobreKey === 'function' && sobreKey(s3); if (ks) k += m3Ready(ks) ? 1 : 0;   // (lote AD) el que está sobre el entorno
   return k;
 };
 /* atmósfera que propone el guion (día, noche…): cambia la viñeta aunque el plano no cambie */
@@ -957,6 +959,7 @@ function thumbFigsReady(sh) {
   const s3x = s3Of(sh);
   for (const o of s3x.objs) if (o.kind === 'actor') { const lk = lookOf(o); if (lk.model && lk.key) m3w(m3Key('c', lk.key)); }
   if (s3x.set === 'modelo' && typeof set3dKey === 'function') m3w(set3dKey(s3x));
+  if (typeof sobreKey === 'function') m3w(sobreKey(s3x));   // (lote AD) el escenario importado sobre el entorno
   // las hebras del pelo (se preparan en los ratos libres): así la viñeta no traba la pantalla al dibujarlas
   if (peloInShot(sh)) { const w = peloTexReady(); if (w) pend.push(w); }
   return pend.length ? Promise.all(pend).catch(() => { }) : null;
