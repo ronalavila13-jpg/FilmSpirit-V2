@@ -170,7 +170,8 @@ async function sampleExplore() {
   const tab = UI.tab;
   closeModal(); closePop();
   if (P && dirty.size && !saving) await flushSave();
-  setProject(buildSample());
+  // openSample (lote AD · acceso, proyectos.js) reutiliza el ejemplo en memoria si ya existe; sin ella, uno nuevo
+  await (typeof openSample === 'function' ? openSample() : setProject(buildSample()));
   if (tab && tab !== UI.tab && RENDER[tab] && (typeof canSeeTab !== 'function' || canSeeTab(tab))) setTab(tab);
   toast('Este es el proyecto de ejemplo, con todas sus pestañas. Explóralo: lo que cambies aquí no se guarda.', 6000);
 }
