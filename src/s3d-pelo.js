@@ -677,8 +677,8 @@ function peloBun(H, B, c, out, r = .036, n = 8) {
   const u = peloNorm(peloCross(out, Math.abs(out[1]) > .9 ? [1, 0, 0] : [0, 1, 0])), w = peloCross(out, u);
   for (let k = 0; k < n; k++) {
     const ph = k / n * Math.PI * 2;
-    const pt = (t, rr) => peloAdd(peloAdd(peloAdd(c, u, Math.cos(ph + t) * rr), w, Math.sin(ph + t) * rr), out, r * .39 * Math.sin(t * 1.2));
-    B.lock([pt(0, r * .45), pt(1.1, r), pt(2.3, r * .98), pt(3.4, r * .6)], r * 1.05, r * .44, { belly: .5, tip: .55, free: 1, noEnv: 1 });
+    const sk = r / .036, pt = (t, rr) => peloAdd(peloAdd(peloAdd(c, u, Math.cos(ph + t) * rr), w, Math.sin(ph + t) * rr), out, .014 * sk * Math.sin(t * 1.2));   // (con r = .036, el moño de siempre)
+    B.lock([pt(0, r * .45), pt(1.1, r), pt(2.3, r * .98), pt(3.4, r * .6)], .038 * sk, .016 * sk, { belly: .5, tip: .55, free: 1, noEnv: 1 });
   }
 }
 /* trenza: a lo largo de la línea `path` (de la raíz a la punta), mechones cortos que se cruzan de un lado al otro;
