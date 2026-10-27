@@ -106,12 +106,13 @@ const exportAll = run(`(async () => { const r = {}; UI.supDay = 0;
     assert.ok(out.call && !out.call.err, 'no se exportó');
     assert.ok(out.call.pages <= 2, `${out.call.pages} páginas`);
   });
-  // (lote W) la cabecera es la del lote U: la jornada («JORNADA 1 DE 2») y la fecha al centro, con el llamado general
-  // en grande debajo de su etiqueta chica (las etiquetas van en versalitas a propósito); ya no hay «Día de rodaje»
+  // (lote W) la cabecera es la del lote U: la jornada («Jornada 1 de 2») y la fecha al centro, con el llamado general
+  // en grande debajo de su etiqueta chica; ya no hay «Día de rodaje». (lote Y) Las etiquetas van en minúsculas, como en
+  // la pantalla (antes, en MAYÚSCULAS espaciadas)
   test('hoja de llamado: lo que falta para el equipo dice «Por confirmar» y la jornada, la fecha y el llamado van arriba', () => {
     const t = out.call.seen.map(x => x.t), txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t);
     assert.ok(t.includes('Por confirmar'), 'sin «Por confirmar»');
-    const j = txt.findIndex(x => /^JORNADA \d+ DE \d+/.test(x)), l = txt.indexOf('LLAMADO GENERAL'), c = txt.indexOf('Cronograma');
+    const j = txt.findIndex(x => /^Jornada \d+ de \d+/.test(x)), l = txt.indexOf('Llamado general'), c = txt.indexOf('Cronograma');
     assert.ok(j >= 0 && l > j && c > l, 'sin la cabecera (jornada, llamado general) antes del cronograma');
     assert.ok(/^\d{2}:\d{2}$/.test(txt[l + 1] || ''), 'el llamado general no va debajo de su etiqueta');
   });

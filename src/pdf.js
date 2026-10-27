@@ -1142,13 +1142,19 @@ function pdfCallHead(doc, X, V) {
   const plogo = brandOn('project') && brandLogo('projLogo') ? P.meta.projLogo : '';
   const lh = plogo ? pdfImgC(doc, plogo, xc, yc, 190, 42) : 0;
   if (lh) yc += lh + 8;
-  else { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h1); doc.setTextColor(...INK); const t = doc.splitTextToSize(pdfSafe(P.meta.title), wc + 16).slice(0, 2); raw.text(t, xc, yc + CLF.h1 * .82, { align: 'center' }); yc += t.length * CLF.h1 * 1.15 + 3; }
+  else {
+    // el nombre del proyecto en grande; si no entra entre las dos líneas, más chico (hasta el de la fecha) y en dos líneas
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK);
+    const ttl = pdfSafe(P.meta.title); doc.setFontSize(CLF.h1);
+    const fs = Math.max(CLF.h2, Math.min(CLF.h1, CLF.h1 * (wc - 4) / Math.max(1, raw.getTextWidth(ttl)))); doc.setFontSize(fs);
+    const t = doc.splitTextToSize(ttl, wc - 4).slice(0, 2); raw.text(t, xc, yc + fs * .82, { align: 'center' }); yc += t.length * fs * 1.15 + 3;
+  }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2);
   doc.text(trDone(pdfSafe(trDone(tr(`Jornada ${X.n + 1} de ${X.total}${X.eps ? ' · ' + X.eps : ''}`)))), xc, yc + 8, { align: 'center' });
   const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })).replace(',', '') : 'Sin fecha';
   doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h2); doc.setTextColor(...INK); doc.text(pdfSafe(date), xc, yc + 25, { align: 'center' });
-  lab('Llamado general', xc, yc + 45, 'center');
-  const yh = yc + 46 + CLF.hero * .76;
+  lab('Llamado general', xc, yc + 46, 'center');
+  const yh = yc + 51 + CLF.hero * .74;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.hero); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), xc, yh, { align: 'center' });
   // (lote W) el catering va tal cual lo escribieron (antes, en inglés, «Catering: …» se traducía entero y salía repetido)
   const subl = [X.motor && trDone(tr(`Listos motor ${X.motor}`)), X.lunch && trDone(tr(`Almuerzo ${X.lunch}`)), X.dd.craft && trDone(tr('Catering') + ': ' + X.dd.craft.trim())].filter(Boolean);
@@ -1179,7 +1185,7 @@ function pdfCallHead(doc, X, V) {
   };
   // (lote Y) el clima como en la pantalla: lo que se escribió en «Clima» (con «°» si es un número) y, debajo, en gris, la
   // máxima, la mínima y la humedad con su unidad pegada al número
-  const Dd = X.dd, wx = wxLine(Dd), wx0 = wxShow('wx', Dd.wx);
+  const Dd = X.dd, wx = wxLine(Dd, '     '), wx0 = wxShow('wx', Dd.wx);
   if (wx.length) row('wx', [wx0 ? { t: wx0, raw: true } : null, wx.slice(wx0 ? 1 : 0).length ? { t: wx.slice(wx0 ? 1 : 0).join('     '), fs: CLF.ft, col: K.c2, raw: true } : null].filter(Boolean));
   if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('     '), fs: CLF.ft, col: K.c2, raw: true }]);
   // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos
@@ -1313,7 +1319,7 @@ function pdfCall(opts = {}) {
       ...(two ? [[{ content: 'Plano', styles: h2 }, { content: 'Descripción y acción', colSpan: 2, styles: h2 }, { content: 'Lente · Sonido', styles: h2 }, { content: 'Personajes', styles: { ...h2, halign: 'right' } }]] : [])];
     y = pdfBlocks(doc, y, { ...TB, margin: MG, head, rowPageBreak: 'avoid', ...hooks,
       didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 6, d.cell.y + 4, TW, TH); } catch (e) { PDF_MISS++; } } },
-      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 58, halign: 'right' } } }, blocks) + GAP + 6;
+      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: 66 }, 4: { cellWidth: 56, halign: 'right' } } }, blocks) + GAP + 6;
     // 3. el avance: solo la jornada siguiente (o «Fin de rodaje»)
     const A = X.adv;
     if (A) {

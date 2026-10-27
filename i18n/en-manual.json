@@ -1681,5 +1681,8 @@
 "No se pudo cargar el lector de modelos 3D. Revisa tu conexión.": "Couldn't load the 3D model reader. Check your connection.",
 "No se pudo cargar el lector de modelos 3D. Recarga la página.": "Couldn't load the 3D model reader. Reload the page.",
 "Una imagen que esperaba en este equipo no se pudo subir{0}": "An image waiting on this device couldn't be uploaded{0}",
-"{0} imágenes que esperaban en este equipo no se pudieron subir{1}": "{0} images waiting on this device couldn't be uploaded{1}"
+"{0} imágenes que esperaban en este equipo no se pudieron subir{1}": "{0} images waiting on this device couldn't be uploaded{1}",
+"// lote Y · hoja de llamado": "clima con su unidad y estilo Apple en pantalla y PDF",
+"Soleado, nublado, lluvia, viento… o la temperatura": "Sunny, cloudy, rain, wind… or the temperature",
+"Total:": "Total:"
 }
