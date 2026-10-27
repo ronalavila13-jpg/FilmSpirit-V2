@@ -112,5 +112,28 @@ test('la foto de continuidad del celular abre la cámara', () => {
   assert.ok(/capture="environment" data-bind="sup-ph" data-k=/.test(leer(T)));
 });
 
+test('la hoja para imprimir: las columnas de la muestra (px × 0,75 en pt), 7 planos por hoja y el parte al final', () => {
+  const S = 'sup-partes.js';
+  vm.runInContext(pieza(S, 'const HS_COLW') + pieza(S, 'const hsCols'), c);
+  assert.deepStrictEqual(J(c.HS_COLW), [44, 98, 48, 42, 46, 46].map(x => x * .75));
+  assert.deepStrictEqual(J(c.hsCols(30)), [30, 63, 136.5, 172.5, 204, 238.5, 273]);
+  const src = leer(S);
+  assert.ok(/const HS_M = 30, HS_TAKE = 20\.25, HS_STRIP = 15, HS_PER = 7/.test(src), 'márgenes de 40 px, filas de 27 px, 7 planos');
+  assert.ok(/for \(let i = 0; i < 3; i\+\+\) y = hsTakeRow/.test(src), '3 filas de tomas por plano');
+  assert.ok(/\{ mos: supMos\(sh\.id\) \}/.test(src), 'MOS impreso en la franja del plano');
+  assert.ok(/if \(blank \|\| X\.day\) \{ doc\.addPage\('a4', 'portrait'\); const p0 = doc\.getNumberOfPages\(\); hsParte\(doc, X, !blank\)/.test(src), 'la última hoja: el parte diario');
+  assert.ok(/\[\['bn', 'B'\], \['ok', 'OK'\], \['ng', 'NG'\]\]/.test(src), '○ B ○ OK ○ NG en Estado');
+});
+test('Exportar: la hoja para imprimir, la llena, el parte diario y los reportes (pdfSup elige)', () => {
+  assert.ok(/pdfItem\('Hoja para imprimir \(PDF\)', 'sup', '[^']+', \{ blank: true \}\)/.test(leer(T)));
+  assert.ok(/function pdfSup\(opts = \{\}\) \{ return pdfSupSheet\(!!\(opts && opts\.blank\)\); \}/.test(leer('pdf.js')));
+  for (const k of ["'parte'", "'camrep'", "'sndrep'"]) assert.ok(leer(T).includes(k), k);
+});
+test('el inglés de lo nuevo está en su bloque de en-manual.json', () => {
+  const M = JSON.parse(leer('i18n/en-manual.json'));
+  assert.ok(M['// lote AD · script']);
+  for (const k of ['Carga rápida', 'Hoja para imprimir (PDF)', 'Tiempo en pantalla', 'Plano MOS', 'Página {0} de {1}', 'Foto de continuidad', 'Nota de la toma', 'Siguiente plano']) assert.ok(M[k], k);
+});
+
 console.log(fail ? `\n${fail} prueba(s) fallaron` : '\nTodo bien');
 process.exit(fail ? 1 : 0);
