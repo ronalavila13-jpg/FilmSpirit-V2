@@ -33,7 +33,8 @@ const isMos = v => /^\s*mos\s*$/i.test(String(v || ''));
 /* el sonido de una toma: MOS si su plano es MOS (lo hereda); si no, el suyo */
 const takeSnd = (id, t) => supMos(id) ? 'MOS' : t.s || '';
 const spKey = pid => 'sp~' + pid;
-const SUP_CONT = [['ward', 'Vestuario'], ['props', 'Utilería'], ['mk', 'Maquillaje y peinado'], ['pos', 'Posiciones'], ['txt', 'Cambios de texto'], ['notes', 'Notas']];
+// (en inglés, «Utilería» es el cargo en el glosario: aquí son los objetos)
+const SUP_CONT = [['ward', 'Vestuario'], ['props', EN ? trDone('Props') : 'Utilería'], ['mk', 'Maquillaje y peinado'], ['pos', 'Posiciones'], ['txt', 'Cambios de texto'], ['notes', 'Notas']];
 /* lo guardado, limpio (proyectos.js · sanitizeProject): la forma de lo nuevo del lote AD */
 function supClean(Su) {
   if (!Su || typeof Su !== 'object') return;
@@ -205,7 +206,7 @@ function supTopHTML(X) {
     </div>${supChipsHTML(X)}</header>`;
 }
 function supChipsHTML(X) {
-  const chip = (lab, v, f) => X.ed ? `<button type="button" class="hs-chip${v ? '' : ' empty'}" data-act="sup-rolls" data-k="${f}" aria-haspopup="dialog" title="${f === 'roll' ? 'La tarjeta en cámara' : 'El rollo de sonido'}: cámbialo cuando cambie y las tomas nuevas lo anotan solas">${v ? `<span>${lab}</span> <b>${esc(v)}</b>` : `<span>+ ${lab}</span>`}</button>`
+  const chip = (lab, v, f) => X.ed ? `<button type="button" class="hs-chip${v ? '' : ' empty'}" data-act="sup-rolls" data-k="${f}" aria-haspopup="dialog" title="Cambia la tarjeta o el rollo cuando cambien: las tomas nuevas los anotan solos">${v ? `<span>${lab}</span> <b>${esc(v)}</b>` : `<span>+ ${lab}</span>`}</button>`
     : v ? `<span class="hs-chip"><span>${lab}</span> <b>${esc(v)}</b></span>` : '';
   return `<div class="hs-chips">${chip('Cámara', P.sup.roll, 'roll')}${chip('Sonido', P.sup.sroll, 'sroll')}</div>`;
 }
@@ -222,12 +223,13 @@ function supProgHTML(X, S) {
   let hours = '';
   if (dm) {
     const [f0, l0] = supFirstLast(shots), callPlan = !dm.call && P.schedule.call ? P.schedule.call : '';
-    const tm = (f, lab, ph) => ed ? `<input type="text" inputmode="numeric" class="tm hs-hv" maxlength="8" value="${esc(dm[f] || '')}" placeholder="${esc(ph || 'Hora')}" data-bind="sup-dayf" data-f="${f}" data-id="${ea(dayKey)}" aria-label="${ea(lab)}">`
-      : `<b class="hs-hv${dm[f] ? '' : ' ph'}">${esc(dm[f] || ph || '—')}</b>`;
+    // auto: lo que vale si no se escribe nada (el llamado del plan, la primera y la última toma anotadas); ph: qué va ahí
+    const tm = (f, lab, auto, ph = 'Hora') => ed ? `<input type="text" inputmode="numeric" class="tm hs-hv" maxlength="8" value="${esc(dm[f] || '')}" placeholder="${esc(auto || ph)}" data-bind="sup-dayf" data-f="${f}" data-id="${ea(dayKey)}" aria-label="${ea(lab)}">`
+      : `<b class="hs-hv${dm[f] ? '' : ' ph'}">${esc(dm[f] || auto || '—')}</b>`;
     const L = supLen(dm.call || P.schedule.call, dm.wrap);
     const h = (lab, val, cls = '', sub = '') => `<div class="hs-hc${cls}"><span class="hs-hl">${lab}${sub}</span>${val}</div>`;
     hours = `<div class="hs-hours">${h('Llamado', tm('call', 'Llamado', callPlan), callPlan ? ' plan' : '', callPlan ? ' <small>del plan</small>' : '')}${h('Primera toma', tm('first', 'Primera toma', f0))}
-      ${h('Almuerzo', `<span class="hs-lu">${tm('lu0', 'Almuerzo: desde', 'Inicio')}<span aria-hidden="true">–</span>${tm('lu1', 'Almuerzo: hasta', 'Fin')}</span>`)}${h('Última toma', tm('last', 'Última toma', l0))}
+      ${h('Almuerzo', `<span class="hs-lu">${tm('lu0', 'Almuerzo: desde', '', 'Inicio')}<span aria-hidden="true">–</span>${tm('lu1', 'Almuerzo: hasta', '', 'Fin')}</span>`)}${h('Última toma', tm('last', 'Última toma', l0))}
       ${h('Fin de jornada', tm('wrap', 'Fin de jornada'), '', L ? ` <small class="tnum">${esc(L)} h</small>` : '')}
       ${h('Horas extra', ed ? `<input type="text" class="hs-hv" value="${esc(dm.extra || '')}" placeholder="Agregar" data-bind="sup-dayf" data-f="extra" data-id="${ea(dayKey)}" aria-label="Horas extra" title="Para el parte diario">` : `<b class="hs-hv${dm.extra ? '' : ' ph'}">${esc(dm.extra || '—')}</b>`)}</div>`;
   }
@@ -316,11 +318,12 @@ function supWildRows(X, s) {
 function supContHTML(X, s) {
   const k = s.key, m = P.sup.sc[k] || {}, ed = X.ed;
   const fld = (f, lab, ph = 'Agregar') => `<span class="hs-kl">${lab}</span>${ed ? `<textarea class="hs-in hs-grow" rows="1" data-bind="sup-sc" data-f="${f}" data-k="${ea(k)}" placeholder="${ea(ph)}" aria-label="${ea(lab)}">${esc(m[f] || '')}</textarea>` : `<span class="hs-kv${m[f] ? '' : ' ph'}">${esc(m[f] || '—')}</span>`}`;
-  const tfld = (f, lab, ph, tm) => `<span class="hs-kl">${lab}</span>${ed ? `<input type="text" class="hs-in${tm ? ' tm' : ''}" ${tm ? 'inputmode="numeric" maxlength="8"' : ''} value="${esc(m[f] || '')}" placeholder="${ea(ph)}" data-bind="sup-sc" data-f="${f}" data-k="${ea(k)}" aria-label="${ea(lab)}">` : `<span class="hs-kv${m[f] ? '' : ' ph'}">${esc(m[f] || ph || '—')}</span>`}`;
+  // auto: lo que vale si no se escribe nada (el previsto, por las páginas); ph: qué va ahí
+  const tfld = (f, lab, auto, ph, tm) => `<span class="hs-kl">${lab}</span>${ed ? `<input type="text" class="hs-in${tm ? ' tm' : ''}" ${tm ? 'inputmode="numeric" maxlength="8"' : ''} value="${esc(m[f] || '')}" placeholder="${ea(auto || ph)}" data-bind="sup-sc" data-f="${f}" data-k="${ea(k)}" aria-label="${ea(lab)}">` : `<span class="hs-kv${m[f] ? '' : ' ph'}">${esc(m[f] || auto || '—')}</span>`}`;
   return `<div class="hs-cont">
     <div class="hs-cb"><h4>Continuidad</h4><div class="hs-kvs">${SUP_CONT.map(([f, lab]) => fld(f, lab)).join('')}
       <span class="hs-kl">Fotos</span>${supPhotosHTML((m.ph || []), ed, { k }, 'Continuidad de la escena ' + k)}</div></div>
-    <div class="hs-cb hs-tb"><h4>Tiempo en pantalla</h4><div class="hs-kvs">${tfld('plan', 'Previsto', supFmt(supPlanSecs(k)))}${tfld('screen', 'Rodado', '0:00')}${tfld('start', 'Inicio', '--:--', 1)}${tfld('end', 'Fin', '--:--', 1)}</div></div></div>`;
+    <div class="hs-cb hs-tb"><h4>Tiempo en pantalla</h4><div class="hs-kvs">${tfld('plan', 'Previsto', supFmt(supPlanSecs(k)))}${tfld('screen', 'Rodado', '', '0:00')}${tfld('start', 'Inicio', '', 'Hora', 1)}${tfld('end', 'Fin', '', 'Hora', 1)}</div></div></div>`;
 }
 /* fotos (continuidad de una escena o de la hoja de papel de la jornada): miniaturas, abrir en grande, quitar y agregar.
    where: { k } escena o { day } jornada. cap: la cámara del celular (capture) */
@@ -373,7 +376,7 @@ function supDaySideHTML(X) {
   const { dm, dayKey, ed } = X;
   if (!dm) return '';
   const inc = supIncs(dm.inc);
-  const incHTML = inc.length ? `<div class="hs-incs">${inc.map((x, i) => ed ? `<div class="hs-inc"><input type="text" inputmode="numeric" class="tm hs-inct" maxlength="8" value="${esc(x.t)}" placeholder="--:--" data-bind="sup-inc" data-f="t" data-n="${i}" data-id="${ea(dayKey)}" aria-label="Hora de la incidencia"><textarea class="hs-incx hs-grow" rows="1" data-bind="sup-inc" data-f="x" data-n="${i}" data-id="${ea(dayKey)}" placeholder="Demora y su causa, accidente, falla de equipo…" aria-label="Incidencia">${esc(x.x)}</textarea></div>`
+  const incHTML = inc.length ? `<div class="hs-incs">${inc.map((x, i) => ed ? `<div class="hs-inc"><input type="text" inputmode="numeric" class="tm hs-inct" maxlength="8" value="${esc(x.t)}" placeholder="Hora" data-bind="sup-inc" data-f="t" data-n="${i}" data-id="${ea(dayKey)}" aria-label="Hora de la incidencia"><textarea class="hs-incx hs-grow" rows="1" data-bind="sup-inc" data-f="x" data-n="${i}" data-id="${ea(dayKey)}" placeholder="Demora y su causa, accidente, falla de equipo…" aria-label="Incidencia">${esc(x.x)}</textarea></div>`
     : `<div class="hs-inc"><span class="hs-inct tnum">${esc(x.t)}</span><span>${esc(x.x)}</span></div>`).join('')}</div>` : '<p class="hs-hint">Demoras y su causa, accidentes, fallas de equipo.</p>';
   const notes = ed ? `<textarea class="hs-notes hs-grow" rows="2" data-bind="sup-dayf" data-f="notes" data-id="${ea(dayKey)}" placeholder="Cambios de plan, material grabado, pendientes para mañana" aria-label="Notas de la jornada">${esc(dm.notes || '')}</textarea>`
     : dm.notes ? `<p class="hs-ntx">${esc(dm.notes)}</p>` : '<p class="hs-hint">Cambios de plan, material grabado, pendientes para mañana.</p>';
@@ -391,8 +394,9 @@ function supPhoneHTML(X) {
   const S = supStats(X), { cur, shots, keys, dm, n, ed } = X;
   const [f0] = supFirstLast(shots), call = dm ? dm.call || P.schedule.call || '' : '', first = dm ? dm.first || f0 : '';
   const pct = shots.length ? (S.done / shots.length * 100).toFixed(1) : 0;
-  const head = `<header class="hs-card hs-mh"><div class="hs-mhr"><div><div class="hs-kick">Hoja de script</div><div class="hs-mtt">${n >= 0 ? `<span>Jornada ${n + 1}</span>${X.dates[n] ? ` · <span>${esc(fmtDate(X.dates[n]))}</span>` : ''}` : `<span>${esc(supDayTitle(X))}</span>`}</div></div>
-      <div class="hs-mst"><div><b class="tnum">${S.done}</b> <span class="tnum">de ${shots.length}</span> <span>planos</span> · <span class="tnum">${S.scDone.length} de ${keys.length}</span> <span>esc.</span></div>${call || first ? `<div>${call ? `<span>Llamado</span> <span class="tnum">${esc(call)}</span>` : ''}${call && first ? ' · ' : ''}${first ? `<span>1.ª toma</span> <span class="tnum">${esc(first)}</span>` : ''}</div>` : ''}</div></div>
+  const head = `<header class="hs-card hs-mh"><div class="hs-mhr"><div><div class="hs-kick">Hoja de script</div><div class="hs-mtt">${n >= 0 ? `<span>Jornada ${n + 1}</span>${X.dates[n] ? ` · <span>${esc(X.dates[n].toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/[,.]/g, ''))}</span>` : ''}` : `<span>${esc(supDayTitle(X))}</span>`}</div></div>
+      <div class="hs-mst"><div><b class="tnum">${S.done}</b> <span class="tnum">de ${shots.length}</span> <span>planos</span></div><div><span class="tnum">${S.scDone.length} de ${keys.length}</span> <span>esc.</span></div></div></div>
+    ${call || first ? `<div class="hs-mtimes">${call ? `<span>Llamado</span> <span class="tnum">${esc(call)}</span>` : ''}${call && first ? ' · ' : ''}${first ? `<span>1.ª toma</span> <span class="tnum">${esc(first)}</span>` : ''}</div>` : ''}
     <div class="hs-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${ea(shots.length)}" aria-valuenow="${ea(S.done)}" aria-label="Planos rodados"><i style="width:${ea(pct)}%"></i></div></header>`;
   let main = '';
   if (cur) {
@@ -428,7 +432,7 @@ function supMAllHTML(X) {
     const shots = D.shotsBy[k] || [];
     return `<div class="hs-mall"><div class="hs-msch">${supNo(s, 'sm')}<span>${esc(s.heading)}</span>${sceneDone(k) ? '<span class="hs-okt">✓</span>' : ''}</div>
       ${shots.map(sh => { const takes = supTakes(sh.id), good = takes.filter(t => t.st === 'bn').map(t => t.n);
-        return `<div class="hs-mshot${sh === cur ? ' cur' : ''}${sh.done ? ' done' : ''}"><${ed && sh !== cur ? `button type="button" data-act="sup-cam" data-id="${ea(sh.id)}"` : 'div'} class="hs-msh"><b>${esc(D.code[sh.id])}</b><span>${esc(supTech(sh))}</span><small class="tnum">${takes.length}</small> <small>${takes.length === 1 ? 'toma' : 'tomas'}</small>${good.length ? ` <small class="hs-okt">B ${esc(good.join(', '))}</small>` : ''}${sh === cur ? ' <small class="hs-live">● En cámara</small>' : sh.done ? ' <small class="hs-okt">✓</small>' : ''}</${ed && sh !== cur ? 'button' : 'div'}></div>`;
+        return `<div class="hs-mshot${sh === cur ? ' cur' : ''}${sh.done ? ' done' : ''}"><${ed && sh !== cur ? `button type="button" data-act="sup-cam" data-id="${ea(sh.id)}"` : 'div'} class="hs-msh"><b>${esc(D.code[sh.id])}</b><span>${esc(supTech(sh))}</span><small><span class="tnum">${takes.length}</span> <span>${takes.length === 1 ? 'toma' : 'tomas'}</span></small>${good.length ? ` <small class="hs-okt">B ${esc(good.join(', '))}</small>` : ''}${sh === cur ? ' <small class="hs-live">● En cámara</small>' : sh.done ? ' <small class="hs-okt">✓</small>' : ''}</${ed && sh !== cur ? 'button' : 'div'}></div>`;
       }).join('') || '<p class="hs-hint">Sin planos.</p>'}</div>`;
   }).join('') || '<p class="hs-hint">No hay escenas en esta jornada.</p>';
 }
