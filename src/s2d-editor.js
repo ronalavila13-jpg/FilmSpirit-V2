@@ -1179,8 +1179,8 @@ async function openShot2D(id, isNew) {
     if (c3) { const g = c3.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c3.width, c3.height); const bg = bgOf(F, plateOf(F)); if (bg) g.drawImage(bg, 0, 0, c3.width, c3.height); }
   }
   const setLive = (el, txt) => { const o = el.parentElement.querySelector('output'); if (o) o.textContent = txt; el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%'); };
-  let objBefore = null, docBefore = null;
-  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); } });
+  let objBefore = null, docBefore = null, docVer = -1;
+  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); docVer = E.ver; } });
   $o('#s2In').addEventListener('input', e => {
     const el = e.target, k = el.dataset.k; if (!k) return;
     const v = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
@@ -1194,6 +1194,10 @@ async function openShot2D(id, isNew) {
       if (o && E.text === o) placeText();
       req(); return;
     }
+    // (lote AB) con el teclado (flechas) no hay pointerdown: el estado de antes se toma al primer cambio, así el cambio
+    // queda para deshacer y la viñeta se vuelve a armar al guardar
+    // (si quedó uno de antes de otro cambio, se toma de nuevo: E.ver cuenta los pasos)
+    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k) && (!docBefore || docVer !== E.ver)) { docBefore = snap(); docVer = E.ver; }
     if (k === 'ly-zoom') { const L = actL(); if (L.lock) { lockedMsg(L); el.value = Math.round(d2ZoomOf(L) * 100); return; } L.zoom = v / 100; const z = d2ZoomOf(L); L.zx = d2PanOf(z, L.zx); L.zy = d2PanOf(z, L.zy); if (z === 1) { delete L.zoom; delete L.zx; delete L.zy; } setLive(el, Math.round(v) + ' %'); ONION.clear(); req(); return; }
     if (k === 'ly-op') { actL().op = v; setLive(el, Math.round(v * 100) + ' %'); const t = ov.querySelector('.s2-ly.on .s2-lop'); if (t) t.textContent = Math.round(v * 100) + '%'; ONION.clear(); req(); return; }
     if (k === 'base-op') { d.baseOp = v; setLive(el, Math.round(v * 100) + ' %'); req(); return; }
@@ -1213,8 +1217,8 @@ async function openShot2D(id, isNew) {
       if (o && E.text === o) placeText();
       insp(); req(); return;
     }
-    if (k === 'ly-zoom') { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); return; }
-    if (k === 'ly-op' || k === 'base-op' || k === 'g-sp') { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); return; }
+    // (lote AB) el panel se vuelve a armar: el deslizador recupera el foco, así las flechas del teclado siguen
+    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k)) { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); if (document.activeElement === document.body) { const i = $o(`#s2In input[data-k="${k}"]`); if (i) i.focus(); } return; }
     if (k === 'ly-sh') { toggleShared(actL(), v); return; }
     // una imagen detrás de las figuras (de fondo) o encima de la escena 3D
     if (k === 'ly-back') { structural(() => { const L = actL(); if (v && L.kind === 'image') L.back = true; else delete L.back; }); ensureBG(); return; }

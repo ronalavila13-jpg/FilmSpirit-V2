@@ -1117,6 +1117,8 @@ const clTones = () => ({ c2: mixc(INK, PDF_WHITE, .66), c3: mixc(INK, PDF_WHITE,
 /* la cabecera en tres columnas; devuelve dónde sigue */
 function pdfCallHead(doc, X, V) {
   const W = doc.internal.pageSize.getWidth(), M = 36, TBC = 'Por confirmar', K = clTones(), raw = doc._raw || doc;
+  // (lote AB) el ancho de un texto tal cual (en inglés, getTextWidth lo traduciría otra vez: «Craft Services / Craft Services…»)
+  const rw = t => doc._rawW ? doc._rawW(t) : raw.getTextWidth(t);
   const lab = (t, x, y, al) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c3); doc.text(trDone(pdfSafe(trDone(tr(t)))), x, y, al ? { align: al } : undefined); };
   // arriba, a la derecha, la versión de la hoja (lote W: sin «Hecha con FilmSpirit» a la izquierda), sobre una línea fina
   doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c2);
@@ -1134,7 +1136,7 @@ function pdfCallHead(doc, X, V) {
     doc.setFont('helvetica', k.name ? 'bold' : 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(k.name ? INK : K.c2));
     k.name ? raw.text(pdfSafe(k.name), M, yl + 15) : doc.text(TBC, M, yl + 15);
     // el teléfono, debajo del nombre (se toca para llamar)
-    if (k.phone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); const t = pdfSafe(k.phone); raw.text(t, M, yl + 25); doc.link(M, yl + 18, raw.getTextWidth(t), 9, { url: 'tel:' + String(k.phone).replace(/[^\d+]/g, '') }); yl += 10; }
+    if (k.phone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); const t = pdfSafe(k.phone); raw.text(t, M, yl + 25); doc.link(M, yl + 18, rw(t), 9, { url: 'tel:' + String(k.phone).replace(/[^\d+]/g, '') }); yl += 10; }
     yl += 26;
   }
   // centro: el proyecto (su logo o su nombre), la jornada, la fecha y el llamado general, la cifra más grande de la hoja
@@ -1146,7 +1148,7 @@ function pdfCallHead(doc, X, V) {
     // el nombre del proyecto en grande; si no entra entre las dos líneas, más chico (hasta el de la fecha) y en dos líneas
     doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK);
     const ttl = pdfSafe(P.meta.title); doc.setFontSize(CLF.h1);
-    const fs = Math.max(CLF.h2, Math.min(CLF.h1, CLF.h1 * (wc - 4) / Math.max(1, raw.getTextWidth(ttl)))); doc.setFontSize(fs);
+    const fs = Math.max(CLF.h2, Math.min(CLF.h1, CLF.h1 * (wc - 4) / Math.max(1, rw(ttl)))); doc.setFontSize(fs);
     const t = doc.splitTextToSize(ttl, wc - 4).slice(0, 2); raw.text(t, xc, yc + fs * .82, { align: 'center' }); yc += t.length * fs * 1.15 + 3;
   }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2);
@@ -1159,12 +1161,16 @@ function pdfCallHead(doc, X, V) {
   // (lote W) el catering va tal cual lo escribieron (antes, en inglés, «Catering: …» se traducía entero y salía repetido)
   // (lote Y) como en la pantalla: cada etiqueta en gris y su hora (o lo escrito) en negrita, centrados en una línea
   const subl = [['Listos motor', X.motor], ['Almuerzo', X.lunch], ['Catering', (X.dd.craft || '').trim()]].filter(([, v]) => v)
-    .map(([l, v]) => { const L = trDone(pdfSafe(trDone(tr(l)))) + ' ', V = pdfSafe(v); doc.setFontSize(CLF.ft); doc.setFont('helvetica', 'normal'); const wl = raw.getTextWidth(L); doc.setFont('helvetica', 'bold'); return { L, V, wl, w: wl + raw.getTextWidth(V) }; });
-  if (subl.length) {
-    let xx = xc - (subl.reduce((a, q) => a + q.w, 0) + 14 * (subl.length - 1)) / 2;
-    for (const q of subl) { doc.setFont('helvetica', 'normal'); doc.setTextColor(...K.c2); raw.text(q.L, xx, yh + 16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); raw.text(q.V, xx + q.wl, yh + 16); xx += q.w + 14; }
-  }
-  yc = yh + (subl.length ? 24 : 10);
+    .map(([l, v]) => { const L = trDone(pdfSafe(trDone(tr(l)))) + ' ', V = pdfSafe(v); doc.setFontSize(CLF.ft); doc.setFont('helvetica', 'normal'); const wl = rw(L); doc.setFont('helvetica', 'bold'); return { L, V, wl, w: wl + rw(V) }; });
+  // (lote AB) en tantas líneas como haga falta para no pasar las líneas de la columna (en inglés las etiquetas son más
+  // largas), cada una centrada
+  const lines = [];
+  for (const q of subl) { const ln = lines[lines.length - 1]; if (ln && ln.w + 14 + q.w <= wc + 16) { ln.q.push(q); ln.w += 14 + q.w; } else lines.push({ q: [q], w: q.w }); }
+  lines.forEach((ln, j) => {
+    let xx = xc - ln.w / 2;
+    for (const q of ln.q) { doc.setFont('helvetica', 'normal'); doc.setTextColor(...K.c2); raw.text(q.L, xx, yh + 16 + j * 11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); raw.text(q.V, xx + q.wl, yh + 16 + j * 11); xx += q.w + 14; }
+  });
+  yc = yh + (lines.length ? 24 + (lines.length - 1) * 11 : 10);
   // derecha: el clima, el punto de encuentro (o estacionamiento) y la locación con su mapa, cada uno con su ícono
   let yr = y0 - 5;
   const row = (ico, parts, url) => {
@@ -1179,7 +1185,7 @@ function pdfCallHead(doc, X, V) {
         let xx = x3 + 16;
         p.pairs.forEach(([l, v]) => {
           const L = trDone(pdfSafe(trDone(tr(l)))) + ' ', V = pdfSafe(v);
-          doc.setFont('helvetica', 'normal'); const wl = raw.getTextWidth(L); doc.setFont('helvetica', 'bold'); const wv = raw.getTextWidth(V);
+          doc.setFont('helvetica', 'normal'); const wl = rw(L); doc.setFont('helvetica', 'bold'); const wv = rw(V);
           if (xx > x3 + 16 && xx + wl + wv > x3 + w3) { xx = x3 + 16; yy += fs * 1.34; }
           doc.setFont('helvetica', 'normal'); doc.setTextColor(...K.c2); raw.text(L, xx, yy);
           doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); raw.text(V, xx + wl, yy);
@@ -1191,7 +1197,7 @@ function pdfCallHead(doc, X, V) {
       const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 16).slice(0, p.max || 3); raw.text(t, x3 + 16, yy); yy += t.length * fs * 1.34;
       // los enlaces del punto de encuentro, por su nombre («Google Maps · Waze»), cada uno se toca
       if (p.links) { let xx = x3 + 16; doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.acc);
-        p.links.forEach((u, i) => { const t2 = (i ? '   ' : '') + linkName(u), w = raw.getTextWidth(t2); if (xx + w > x3 + w3 && i) { xx = x3 + 16; yy += 9; } raw.text(t2, xx, yy - 2); doc.link(xx, yy - 9, w, 9, { url: u }); xx += w; }); yy += 8; }
+        p.links.forEach((u, i) => { const t2 = (i ? '   ' : '') + linkName(u), w = rw(t2); if (xx + w > x3 + w3 && i) { xx = x3 + 16; yy += 9; } raw.text(t2, xx, yy - 2); doc.link(xx, yy - 9, w, 9, { url: u }); xx += w; }); yy += 8; }
       // y sus fotos, chicas, una al lado de la otra (hasta dos), con las esquinas apenas redondeadas
       if (p.ph && p.ph.length) { const pw = (w3 - 16 - 4) / 2, phH = pw * .75;
         p.ph.slice(0, 2).forEach((q, i) => { const k = Math.min(pw / (q.w || 4), phH / (q.h || 3)), iw = (q.w || 4) * k, ih = (q.h || 3) * k, xx = x3 + 16 + i * (pw + 4);

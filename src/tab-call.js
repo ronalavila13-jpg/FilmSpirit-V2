@@ -103,11 +103,25 @@ function callMissing(n) {
   if (!C.crew.some(c => (c.name || '').trim() && !(dd.out || {})[c.id])) out.push({ k: 'crew', txt: 'el equipo', sel: '.cl-crew', hint: 'Nadie del equipo tiene nombre todavía.' });
   return out;
 }
-/* versiones: cada jornada guarda la última hoja que salió (dd.exp = { v, t, sig }). La firma resume lo que se imprime
+/* versiones: cada jornada guarda la última hoja que salió (dd.exp = { v, t, sig, sv }). La firma resume lo que se imprime
    (los mismos datos del Excel): si después cambia el plan, el equipo o la jornada, la hoja enviada quedó vieja */
-function callSig(n, cd) {
+/* (lote AB) la sinopsis tal como la tomaba la huella antes: hasta el lote W, cortada a 110 sin juntar espacios ('w');
+   en los lotes X a AA, cortada a 110 con los espacios juntos ('x'). Una hoja exportada entonces (sin exp.sv) sigue
+   contando como la misma si nada cambió, sin un aviso de «quedó vieja» de más */
+function synOld(s, mode) {
+  if (mode === 'x') return synopsisOf(s);
+  const m = P.scenes[s.key]; if (m && m.synopsis) return m.synopsis;
+  for (let i = s.p0 + 1; i < s.p1; i++) if ((P.paras[i].t === 'a' || P.paras[i].t === 'v') && P.paras[i].x.trim()) {
+    const t = P.paras[i].x.trim();
+    return t.length > 110 ? t.slice(0, 107).replace(/\s+\S*$/, '') + '…' : t;
+  }
+  return '';
+}
+const CALL_SV = 2;   // la versión de la huella: con la sinopsis que sale impresa (CALL_SYN)
+function callSig(n, cd, mode) {
   // lo que sale impreso, con los datos crudos (no el texto ya formateado: el mismo en español y en inglés) y sin
-  // calcular los lentes de la planta 3D (caro); cd: callDays() ya calculado
+  // calcular los lentes de la planta 3D (caro); cd: callDays() ya calculado. (lote AB) La sinopsis entra como sale
+  // impresa (CALL_SYN); mode 'w' o 'x': la huella de antes (synOld), para las hojas exportadas sin exp.sv
   const { days, dates } = cd || callDays(), d = days[n]; if (!d) return '';
   const C = CALL(), dd = peekDay(d.id), M = P.meta, next = days[n + 1];
   const T = planDayTimes(d, dd.at, dd.dur);
@@ -116,22 +130,29 @@ function callSig(n, cd) {
     const it = P.schedule.items[i], x = T.get(i) || {};
     if (it.e) return ['e', it.name, it.det, it.t, x.start, x.dur, it.hl];
     const s2 = sceneOfKey(it.k); if (!s2) return ['?', it.k];
-    return [it.k, it.sp, s2.heading, synopsisOf(s2), it.t, x.start, x.dur, it.fig, planLoc(it, s2), it.hl, partEighths(it), [...D.sem[s2.idx]].map(el).sort(),
+    return [it.k, it.sp, s2.heading, mode ? synOld(s2, mode) : synopsisOf(s2, CALL_SYN), it.t, x.start, x.dur, it.fig, planLoc(it, s2), it.hl, partEighths(it), [...D.sem[s2.idx]].map(el).sort(),
       (D.shotsBy[it.k] || []).map(sh => [D.code[sh.id], sh.size, sh.desc, sh.lens, sh.snd, sh.chars, sh.support, sh.angle, sh.move])];
   });
   const day = x => x ? x.getFullYear() + '-' + (x.getMonth() + 1) + '-' + x.getDate() : '';
   return hash53(JSON.stringify([M.title, M.company, M.directors, M.producers, (M.projLogo || '').length, (M.logo || '').length, day(dates[n]), rows, d.brk && d.brk.t,
     Object.entries(dd).filter(([k]) => k !== 'exp'), callDefaults(d), C.hospital, C.client, C.crew, C.vendors, C.shotTimes, C.radio, P.schedule.locs, P.schedule.legend, D.castNum,
     callCast(d).map(({ el: e, sc }) => [e.id, e.name, sc, callTalent(e.id)]),
-    next ? [next.keys, day(dates[n + 1]), peekDay(next.id).crewCall, callDefaults(next).crewCall, callLocs(next), (A => A && [A.rows.map(r => [r.code, r.set, r.syn, r.dn, r.cast, r.e8]), A.cast])(callAdvance(n, { days, dates }))] : null])).toString(36);
+    next ? [next.keys, day(dates[n + 1]), peekDay(next.id).crewCall, callDefaults(next).crewCall, callLocs(next), (A => A && [A.rows.map(r => [r.code, r.set, mode === 'w' ? synOld(r.s, 'w') : r.syn, r.dn, r.cast, r.e8]), A.cast])(callAdvance(n, { days, dates }))] : null])).toString(36);
 }
 /* la versión con que sale ahora: la misma si nada cambió; si cambió, la siguiente. Si quien exporta no puede editar la
    hoja (o saca solo algunas páginas), su archivo no queda registrado: lleva la última versión si es la misma hoja, o
    ninguna (para que no circulen dos «v2» distintas) */
+/* ¿la hoja que salió (exp) es la de ahora? Con la huella de ahora o, si salió antes del lote AB (sin sv), con la de
+   entonces */
+function callSame(e, n, cd, sig) {
+  if (!e || !e.sig) return false;
+  if (e.sig === (sig || callSig(n, cd))) return true;
+  return !e.sv && (e.sig === callSig(n, cd, 'x') || e.sig === callSig(n, cd, 'w'));
+}
 function callVer(n, cd, record = true) {
   const { days } = cd || callDays(), d = days[n]; if (!d) return null;
   const e = peekDay(d.id).exp, sig = callSig(n, cd);
-  if (e && e.sig === sig) return { v: e.v, t: e.t, sig, same: true };
+  if (callSame(e, n, cd, sig)) return { v: e.v, t: e.t, sig: e.sig, sv: e.sv, same: true };
   if (!record || !callEditable()) return null;
   return { v: ((e && e.v) || 0) + 1, t: Date.now(), sig, same: false };
 }
@@ -142,7 +163,7 @@ function callExported(list, vers) {
   if (!callEditable()) return;
   histCapture();   // lo que estaba por anotarse en el historial va antes, por su lado
   const { days } = callDays(); let ch = false;
-  list.forEach(n => { const d = days[n], V = vers && vers[n]; if (!d || !V || V.same) return; dayData(d.id).exp = { v: V.v, t: V.t, sig: V.sig }; ch = true; });
+  list.forEach(n => { const d = days[n], V = vers && vers[n]; if (!d || !V || V.same) return; dayData(d.id).exp = { v: V.v, t: V.t, sig: V.sig, sv: CALL_SV }; ch = true; });
   if (ch) { changed('data'); histQuiet('call'); if (UI.tab === 'call') render(); }
 }
 /* si un cambio hecho en otra pestaña (el plan, el equipo, el desglose…) deja vieja una hoja que ya salió, se avisa una
@@ -156,7 +177,7 @@ function callStaleSoon() {
     if (!P || UI.tab === 'call' || (typeof canSeeTab === 'function' && !canSeeTab('call'))) return;
     if ($('.toast') && tries < 12) { CALL_STALE_T = setTimeout(() => check(tries + 1), 1000); return; }
     const cd = callDays(), { days } = cd;
-    const st = days.map((d, i) => ({ d, i, e: peekDay(d.id).exp })).filter(x => x.e && x.e.sig && !CALL_STALE_SEEN.has(x.d.id + ':' + x.e.v) && x.e.sig !== callSig(x.i, cd));
+    const st = days.map((d, i) => ({ d, i, e: peekDay(d.id).exp })).filter(x => x.e && x.e.sig && !CALL_STALE_SEEN.has(x.d.id + ':' + x.e.v) && !callSame(x.e, x.i, cd));
     if (!st.length) return;
     st.forEach(x => CALL_STALE_SEEN.add(x.d.id + ':' + x.e.v));
     toast(st.length === 1 ? `Con este cambio, la hoja de llamado de la jornada ${st[0].i + 1} que exportaste (v${st[0].e.v}) quedó vieja.` : `Con este cambio, ${st.length} hojas de llamado que exportaste quedaron viejas.`,
@@ -168,7 +189,7 @@ function callStaleSoon() {
 function callState(n) {
   const { days } = callDays(), d = days[n]; if (!d) return null;
   const e = peekDay(d.id).exp, miss = callMissing(n);
-  const stale = !!(e && e.sig && e.sig !== callSig(n));
+  const stale = !!(e && e.sig && !callSame(e, n));
   return { miss, e, stale };
 }
 /* ---------- datos de cada jornada que agregó la 1.2 ----------

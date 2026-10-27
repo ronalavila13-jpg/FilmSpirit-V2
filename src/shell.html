@@ -910,7 +910,8 @@ html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!impor
    la miniatura deja su lugar; con la de rodaje angosta (.loc-np), el pin */
 .prow .tx{white-space:nowrap}
 @media (min-width:761px){
-  .pl .prow:not(.brk)>*{overflow:hidden}
+  /* (lote AB) las notas clavadas en la fila (.nb) no se cortan: su contador de respuestas va afuera de su globo */
+  .pl .prow:not(.brk)>:not(.nb){overflow:hidden}
   .pl.w-esc .c-esc>.tx,.pl.w-ie .c-ie>.tx,.pl.w-dn .c-dn>.tx,.pl.w-pg .c-pg>.tx{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .prow .c-n{justify-content:safe flex-end}
   .prow .c-t input{text-overflow:ellipsis}
