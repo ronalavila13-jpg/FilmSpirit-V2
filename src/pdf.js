@@ -963,62 +963,8 @@ function pdfBudget() {
   return { doc, name: fileSafe(P.meta.title) + '_presupuesto.pdf' };
 }
 
-/* ---------- hoja de script ---------- */
-function pdfSup() {
-  const doc = newDoc();
-  const { days } = scheduleDays(P, D.sc);
-  const dates = shootDates(P, days.length);
-  const keys = pdfKeys(supScenes());
-  let label = UI.supDay === -1 ? 'Todas las escenas' : UI.supDay === -2 ? 'Sin programar' : `Jornada ${UI.supDay + 1}${dates[UI.supDay] ? ' · ' + fmtDate(dates[UI.supDay]) : ''}`;
-  let y = docHeader(doc, 'Hoja de script', label);
-  y = pdfLegend(doc, y - 4, lgDocItems('sup', pdfPlanUsed(keys.map(k => ({ k }))))) + 6;
-  const dayKey = UI.supDay >= 0 && days[UI.supDay] ? days[UI.supDay].id : null;
-  const dm = dayKey ? (P.sup.day[dayKey] || {}) : null;
-  const shots = keys.flatMap(k => D.shotsBy[k] || []);
-  const done = shots.filter(s => s.done).length;
-  // (lote K) el resumen de la jornada como datos (la etiqueta en gris y el valor), solo con lo que hay
-  const rolls = supRolls(shots);
-  const kv = [['Planos rodados', `${done} de ${shots.length}`], P.sup.supervisor && ['Script', P.sup.supervisor], rolls.length && ['Rollos / tarjetas', rolls.join(', ')],
-    dm && dm.call && ['Llamado', dm.call], dm && dm.first && ['Primera toma', dm.first], dm && dm.wrap && ['Fin', dm.wrap]].filter(Boolean);
-  const kvRows = []; for (let i = 0; i < kv.length; i += 3) kvRows.push(kv.slice(i, i + 3).flatMap(([k, v]) => [{ content: pdfSafe(k), styles: { textColor: MUTED, fontSize: PF.small, cellPadding: { ...PAD, left: 0 } } }, { content: pdfSafe(v), styles: { fontStyle: 'bold' } }]));
-  doc.autoTable({ ...TBL, startY: y, body: kvRows, styles: { ...TBL.styles, lineWidth: 0 }, columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 100 }, 2: { cellWidth: 80 }, 3: { cellWidth: 100 }, 4: { cellWidth: 80 } } });
-  y = doc.lastAutoTable.finalY + 4;
-  if (dm && dm.notes) { doc.autoTable({ ...TBL, startY: y, body: [[pdfRich([{ t: 'Notas de la jornada', st: 'bold', fs: PF.small, tr: 1 }, { t: dm.notes }], { lineWidth: 0, cellPadding: { ...PAD, left: 0 } })]] }); y = doc.lastAutoTable.finalY + 4; }
-  const blocks = [];
-  const doneRows = new Set();
-  for (const k of keys) {
-    const s = sceneOfKey(k), meta = P.sup.sc[k] || {}, f = stripRGB(s), rows = [];
-    const t = [meta.start && 'Inicio ' + meta.start, meta.end && 'Fin ' + meta.end, meta.screen && 'En pantalla ' + meta.screen].filter(Boolean).join(' · ');
-    rows.push([{ ...pdfRich([{ segs: [{ t: s.heading, st: 'bold' }, { t: `   ${fmtEighths(D.metrics.eighths[s.idx])} págs.${t ? '   ·   ' + t : ''}`, col: mutedOn(f) }] }], { colSpan: 6, fillColor: f, textColor: inkOn(f) }), _badge: k }]);
-    for (const sh of (D.shotsBy[k] || [])) {
-      const takes = P.sup.takes[sh.id] || [];
-      // lo rodado se marca en la primera celda (las filas se copian al traducir; las celdas conservan lo suyo)
-      const row = [{ content: D.code[sh.id] + (sh.of && P.shots[sh.of] ? (sh.pu ? '\nPICK-UP' : '\nNO PREV.') : ''), _done: sh.done ? 1 : 0 }, pdfSafe(sh.desc || shotTextExcerpt(sh, 100)), pdfSafe(shotLabel(sh)),
-        pdfSafe(takes.map(t => 'T' + t.n + (t.st === 'ng' ? ' NG' : t.st === 'bn' ? ' (B)' : '') + (t.r ? ' [' + t.r + ']' : '') + (t.note ? ' - ' + t.note : '')).join('\n')), pdfSafe((P.sup.obs || {})[sh.id] || ''), sh.done ? 'Rodado' : 'Pendiente'];
-      rows.push(row);
-    }
-    if (meta.notes) rows.push([{ content: pdfSafe('Continuidad: ' + meta.notes), colSpan: 6, styles: { textColor: MUTED, fontSize: PF.small } }]);
-    blocks.push(rows);
-  }
-  const lhf = doc.getLineHeightFactor(), isDone = d => { const c0 = d.column.index === 0 ? d.cell : d.row.cells && d.row.cells[0]; return !!(c0 && c0.raw && c0.raw._done); };
-  pdfBlocks(doc, y + 6, { ...TBL, head: [['Plano', 'Descripción', 'Técnica', 'Tomas', 'Observaciones', 'Estado']],
-    columnStyles: { 0: { cellWidth: 38, fontStyle: 'bold' }, 2: { cellWidth: 96 }, 3: { cellWidth: 104 }, 4: { cellWidth: 96 }, 5: { cellWidth: 58 } },
-    didParseCell: d => { if (d.section !== 'body') return; if (d.column.index === 5) d.cell.styles.textColor = d.cell.raw === 'Rodado' ? OKC : MUTED; if (isDone(d)) d.cell.styles.fillColor = SUP_DONE; },
-    didDrawCell: d => {
-      // lo rodado, tachado en verde (cada línea del texto, a la altura de su letra)
-      if (d.section === 'body' && isDone(d) && d.column.index === 1) {
-        doc.setDrawColor(...OKC); doc.setLineWidth(1);
-        const fs = d.cell.styles.fontSize, lh = fs * lhf;
-        d.cell.text.forEach((ln, i) => {
-          const ly = d.cell.y + d.cell.padding('top') + i * lh + fs * .62;
-          const w = Math.min(d.cell.width - 8, doc.getTextWidth(ln || '') + 2);
-          doc.line(d.cell.x + d.cell.padding('left'), ly, d.cell.x + d.cell.padding('left') + w, ly);
-        });
-      }
-    } }, blocks);
-  pageNumbers(doc, 'Hoja de script');
-  return { doc, name: fileSafe(P.meta.title) + '_hoja_de_script' + (UI.supDay >= 0 ? '_jornada_' + (UI.supDay + 1) : '') + '.pdf' };
-}
+/* ---------- hoja de script (lote AD): la hoja para imprimir (en blanco) y la llena, en sup-partes.js ---------- */
+function pdfSup(opts = {}) { return pdfSupSheet(!!(opts && opts.blank)); }
 
 function pdfAnimatic() {
   const doc = newDoc('landscape');
