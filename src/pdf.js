@@ -1167,7 +1167,7 @@ function pdfCallHead(doc, X, V) {
     if (url) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.6); doc.setTextColor(40, 90, 170); doc.text('Ver mapa', x3 + 15, yy + 1); doc.link(x3 + 15, yy - 6, doc.getTextWidth(trDone(tr('Ver mapa'))), 9, { url }); yy += 10; }
     doc.setTextColor(...INK); yr = yy + 6;
   };
-  const Dd = X.dd, wx = [Dd.wx, (Dd.hi || Dd.lo) && [Dd.hi && `Máx. ${Dd.hi}°`, Dd.lo && `Mín. ${Dd.lo}°`].filter(Boolean).join(' · '), Dd.hum && `Hum. ${Dd.hum} %`].filter(Boolean);
+  const Dd = X.dd, wx = wxLine(Dd);   // (lote Y) con la unidad pegada al número: «Máx. 30°», «Hum. 10%»
   if (wx.length) row('wx', [{ t: wx.join('  ·  '), raw: true }]);
   if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('  ·  '), raw: true }]);
   // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos

@@ -18,6 +18,15 @@ const CS_DEPTS = [
   ['sound', 'Sonido', ['Sonidista', 'Microfonista']],
 ];
 const capFirst = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+/* (lote Y) el clima con su unidad pegada al número: la máxima y la mínima con «°», la humedad con «%» y, en «Clima», un
+   número solo es la temperatura («29°»). Se guarda el número sin la unidad (si la escriben, se quita) y la unidad se
+   pone al mostrarlo: en la pantalla aparece al lado apenas se escribe; en el PDF y el Excel, pegada al número */
+const WX_NUM = /^[-−]?\d+(?:[.,]\d+)?$/;
+const WX_U = { wx: '°', hi: '°', lo: '°', hum: '%' };
+const wxBare = v => String(v ?? '').trim().replace(/\s*(?:[°º]\s*[cC]?|%)$/, '').trim();
+const wxShow = (f, v) => { const b = wxBare(v); return !b ? '' : WX_NUM.test(b) ? b + WX_U[f] : String(v).trim(); };
+/* la línea del clima para el PDF y el Excel: «Soleado · Máx. 30° · Mín. 15° · Hum. 10%» */
+const wxLine = (dd, sep = ' · ') => [wxShow('wx', dd.wx), (dd.hi || dd.lo) && [dd.hi && `Máx. ${wxShow('hi', dd.hi)}`, dd.lo && `Mín. ${wxShow('lo', dd.lo)}`].filter(Boolean).join(sep), dd.hum && `Hum. ${wxShow('hum', dd.hum)}`].filter(Boolean);
 const callEditable = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('llamado'));
 const CALL = () => P.call;
 /* hora por plano: apagada por defecto. En rodaje se trabaja con inicio y fin de escena; repartir la escena
@@ -398,6 +407,11 @@ RENDER.call = function () {
   const M = P.meta;
   const hosp = { ...C.hospital, ...(dd.hosp || {}) };
   const inp = (f, ph, extra = '') => `<input type="text" value="${esc(dd[f] || '')}" placeholder="${esc(ph || '')}" data-bind="cs-day" data-f="${ea(f)}" ${dis} ${extra}>`;
+  // (lote Y) un dato del clima con su unidad al lado del número (se ve apenas se escribe: wxSync)
+  const uInp = (f, phd, lab, tip) => {
+    const v = dd[f] || '', b = wxBare(v), on = WX_NUM.test(b);
+    return `<span class="cl-u${on ? ' on' : ''}${f === 'wx' ? ' cl-uw' : ''}"><input type="text" value="${esc(on ? b : v)}" placeholder="${esc(phd || '')}" data-bind="cs-day" data-f="${ea(f)}" ${dis} aria-label="${ea(lab)}" title="${ea(tip)}"${on ? ` size="${Math.max(1, b.length)}"` : ''}><i aria-hidden="true">${WX_U[f]}</i></span>`;
+  };
   const fig = d.rows.reduce((a, i) => a + num(P.schedule.items[i].fig), 0);
   const call = dd.crewCall || def.crewCall;
   const inf = dayInfo(d.keys, d.rows);
@@ -454,7 +468,7 @@ RENDER.call = function () {
       ${ed || links.some(Boolean) ? `<div class="cl-links">${links.map((u, i) => u ? `<span class="chip"><a href="${ea(u)}" target="_blank" rel="noopener noreferrer">${esc(linkName(u))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>` : ''}
       ${ed || phs.length ? `<div class="cl-mph">${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}</div>` : ''}</div></div>` : '';
   const colR = `<div class="cl-c3">
-    ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${inp('wx', ph('Clima'), 'aria-label="Clima" title="Soleado, nublado, lluvia, viento…"')}<span class="cl-temp"><span>Máx.</span>${inp('hi', ph('°C'), 'aria-label="Máxima" title="Máxima (°C)"')}<span>Mín.</span>${inp('lo', ph('°C'), 'aria-label="Mínima" title="Mínima (°C)"')}<span>Hum.</span>${inp('hum', ph('%'), 'aria-label="Humedad" title="Humedad (%)"')}</span></div></div>
+    ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${uInp('wx', ph('Clima'), 'Clima', 'Soleado, nublado, lluvia, viento… o la temperatura')}<span class="cl-temp"><span>Máx.</span>${uInp('hi', ph('°C'), 'Máxima', 'Máxima (°C)')}<span>Mín.</span>${uInp('lo', ph('°C'), 'Mínima', 'Mínima (°C)')}<span>Hum.</span>${uInp('hum', ph('%'), 'Humedad', 'Humedad (%)')}</span></div></div>
     <div class="cl-ir">${CL_ICO.sun}<div class="cl-sunr"><label><span>Amanecer</span>${tmIn(dd.sunrise, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunrise" aria-label="Amanecer"', dis)}</label><label><span>Anochece</span>${tmIn(dd.sunset, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunset" aria-label="Anochece"', dis)}</label></div></div>`
     : ed ? `<button type="button" class="cl-ir cl-irb" data-act="cs-open" data-k="wx">${CL_ICO.wx}<span><b>Clima</b><small>Máxima y mínima, amanecer y anochecer</small></span></button>` : ''}
     ${meetHTML}
@@ -733,6 +747,14 @@ function callShotSet(d, shotId, v) {
   }
   return true;
 }
+/* (lote Y) al escribir un número en el clima, su unidad aparece al lado («30°», «10%»); si se escribe la unidad a mano,
+   no sale repetida (el campo la deja y se quita al guardar) */
+function wxSync(el) {
+  const box = el.closest('.cl-u'); if (!box) return;
+  const raw = el.value.trim(), b = wxBare(raw), on = WX_NUM.test(b) && b === raw;
+  box.classList.toggle('on', on);
+  if (on) el.size = Math.max(1, b.length); else el.removeAttribute('size');
+}
 const curDayId = () => { const { days } = callDays(); return days[UI.callDay] ? days[UI.callDay].id : null; };
 const setOrDel = (o, k, v) => { if (v) o[k] = v; else delete o[k]; };
 Object.assign(BIND, {
@@ -740,6 +762,7 @@ Object.assign(BIND, {
   'cs-day': (el, ev) => {
     const id = curDayId(); if (!id) return;
     let v = el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
+    if (WX_U[el.dataset.f]) { wxSync(el); const b = wxBare(v); if (WX_NUM.test(b)) v = b; }
     if (el.classList.contains('tm')) {
       if (ev !== 'change') return;
       v = el.value = normHM(v);
@@ -909,7 +932,7 @@ function callSheetXLSX(X) {
   const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha';
   const mid = [`Jornada ${X.n + 1} de ${X.total}`, date, 'LLAMADO GENERAL', X.call || '—', [X.motor && 'Listos motor ' + X.motor, X.lunch && 'Almuerzo ' + X.lunch].filter(Boolean).join(' · '), X.dd.craft && 'Catering: ' + X.dd.craft].filter(Boolean).join('\n');
   const m = X.meet, mLinks = (m.links || []).map(safeUrl).filter(Boolean);
-  const wx = [X.dd.wx, (X.dd.hi || X.dd.lo) && [X.dd.hi && `Máx. ${X.dd.hi}°`, X.dd.lo && `Mín. ${X.dd.lo}°`].filter(Boolean).join(' · '), X.dd.hum && `Hum. ${X.dd.hum} %`].filter(Boolean).join(' · ');
+  const wx = wxLine(X.dd).join(' · ');   // (lote Y) con la unidad pegada al número
   const right = [wx && 'Clima: ' + wx, [X.dd.sunrise && 'Amanecer ' + X.dd.sunrise, X.dd.sunset && 'Anochece ' + X.dd.sunset].filter(Boolean).join(' · '),
     (m.addr || m.note) && 'Punto de encuentro: ' + [m.addr, m.note].filter(Boolean).join(' · '), ...mLinks,
     'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—')].filter(Boolean).join('\n');
