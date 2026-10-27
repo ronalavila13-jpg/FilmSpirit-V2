@@ -5425,6 +5425,10 @@ svg.tip-i{width:16px;height:16px;flex:none;background:none;color:var(--muted);ma
   .pages:not(.av-pages) .page .lines{padding-left:2.5em}
   .pages:not(.av-pages) .page .scn{left:0 !important;right:auto !important;width:2em}
   .pages:not(.av-pages) .page .pgno{right:1.5em}
+  /* notas al margen: su capa sigue a la columna del texto (que aquí empieza a los 2,5 em y no a los 9) y la marca
+     queda en el borde de la hoja, no fuera de ella (la hoja ya no se corre de lado para alcanzarla) */
+  .pages:not(.av-pages) .page .mn-wrap{left:-6.5em}
+  .pages:not(.av-pages) .page .mn-dot{left:44.1em}
 }
 
 /* 9 · etiquetas en tipo oración, no en mayúsculas */
