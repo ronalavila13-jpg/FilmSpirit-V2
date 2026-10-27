@@ -27,13 +27,14 @@ function planGate(tab) {
   const me = APITEAM.me || { plan: 'free', limits: {} }, L = me.limits || {};
   const admin = !P._shared || (SHARE && SHARE.admin), paid = (L.projects || 0) > 0;
   const name = (typeof TAB_NAME !== 'undefined' && TAB_NAME[tab]) || 'Esta pestaña';
-  const slots = paid ? `Usa 1 de tus ${L.projects} proyectos de producción (${me.own || 0} en uso).` : 'Los proyectos de producción son de Indie, Pro y Studio. Pro tiene 30 días de prueba gratis.';
+  // (lote AD) sin prueba gratis: a una cuenta gratis, los planes y el proyecto de ejemplo para explorar
+  const slots = paid ? `Usa 1 de tus ${L.projects} proyectos de producción (${me.own || 0} en uso).` : 'Los proyectos de producción son de Indie, Pro y Studio. En el ejemplo ves todas sus pestañas sin pagar.';
   $('#view').innerHTML = `<div class="ws ws-1"><section class="center"><div class="scroller pad"><div class="kind-gate card">
     <div class="eyebrow">${esc(name)}</div>
     <h2>Lleva «${esc(P.meta.title || 'tu guion')}» a producción</h2>
     <p>${esc(TAB_GAIN[tab] || '')}</p>
     <p class="hint">Este proyecto es un guion: se guarda el texto y lo escriben hasta ${esc(String(L.writers || 4))} personas. En producción se suman el desglose, el storyboard, el animatic, el plan de rodaje, el calendario, la hoja de llamado y el presupuesto. El guion no cambia.</p>
-    ${admin ? `<div class="kg-go"><button class="btn primary" data-act="kind-produce">${paid ? 'Llevar a producción' : 'Probar Pro 30 días gratis'}</button><span class="hint">${esc(slots)}</span></div>`
+    ${admin ? `<div class="kg-go">${paid ? '<button class="btn primary" data-act="kind-produce">Llevar a producción</button>' : `<div class="kg-pair">${samplePairHTML('kind-produce')}</div>`}<span class="hint">${esc(slots)}</span></div>`
       : '<p class="hint"><b>Quien creó el guion puede llevarlo a producción.</b></p>'}
   </div></div></section></div>`;
   return true;
@@ -45,7 +46,7 @@ function kindCardHTML() {
   const admin = !P._shared || (SHARE && SHARE.admin);
   return `<div class="card pj-card pj-wide pj-kindcard"><div class="eyebrow">Guion</div>
     <p style="margin:0">Este proyecto es un guion: lo escriben hasta ${esc(String(L.writers || 4))} personas y se guarda solo el texto${paid ? '; no ocupa un lugar entre tus proyectos de producción' : ''}. Cuando quieras desglosarlo y planificar el rodaje, llévalo a producción.</p>
-    ${admin ? `<div class="pj-lb"><button class="btn primary" data-act="kind-produce">${paid ? 'Llevar a producción' : 'Llevar a producción · Pro 30 días gratis'}</button></div>` : ''}</div>`;
+    ${admin ? `<div class="pj-lb">${paid ? '<button class="btn primary" data-act="kind-produce">Llevar a producción</button>' : samplePairHTML('kind-produce')}</div>` : ''}</div>`;
 }
 /* llevar el guion a producción: cuenta como uno de los proyectos de producción del plan */
 async function produceProject() {
@@ -60,7 +61,7 @@ async function produceProject() {
     return;
   }
   if (!SHARE || !SHARE.admin) { toast('Solo quien creó el guion puede llevarlo a producción.', 5000); return; }
-  // sin plan de pago: los planes (con la prueba de Pro), sin pasar por el servidor
+  // sin plan de pago: los planes, sin pasar por el servidor (después de pagar, se lleva a producción solo)
   if (!(me.limits && me.limits.projects)) { ls.set('produceAfter', P.id); return freeLimitNotice('prod'); }
   try {
     if (dirty.size) await flushSave();

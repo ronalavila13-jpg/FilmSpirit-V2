@@ -7,6 +7,9 @@
    Fotos: FRAMES['lc~<candidata>~<foto>'] (WebP de 1200 px, como las del desglose)
    (lote W) Ubicación en el mapa general: lat, lng, geo ('link' | 'hand') y gmap en cada candidata (mapa-enlace.js);
    la vista «Mapa general» está en scout-mapa.js (UI.scView = 'map')
+   (lote AD) Los mapas son de Studio (studioFeat('mapas'), proyectos.js): en Indie y Pro el campo «Mapa» y el «Mapa
+   general» se ven con el candado de Studio y, al tocarlos, se ofrece pasar a Studio. El enlace que ya tenía una
+   candidata se sigue viendo (con «Abrir»), pero no se escribe ni se cambia
    ============================================================ */
 const SC_ST = [['visitar', 'Por visitar'], ['visitada', 'Visitada'], ['aprobada', 'Aprobada'], ['descartada', 'Descartada']];
 const SC_PERMIT = [['', 'Sin pedir'], ['pedido', 'Pedido'], ['ok', 'Aprobado'], ['no', 'No hace falta']];
@@ -114,7 +117,7 @@ function scCandHTML(pl, c, ed) {
         ${candSel(c, 'status', SC_ST, 'sc-c', ed, 'Estado')}
         ${candSel(c, 'permit', SC_PERMIT, 'sc-c', ed, 'Permiso')}
         ${candFld(c, 'addr', 'Dirección', 'sc-c', ed, `placeholder="${ea(ed ? 'Calle, número, distrito' : '')}"`)}
-        <label class="cand-fl"><span>Mapa${safeUrl(c.map) ? ` · <a href="${ea(safeUrl(c.map))}" target="_blank" rel="noopener noreferrer">Abrir</a>` : ''}</span><input type="url" class="cand-in" value="${esc(c.map)}" data-bind="sc-c" data-id="${ea(c.id)}" data-f="map" placeholder="${ea(ed ? 'Enlace de Google Maps' : '')}" ${ed ? '' : 'readonly'}></label>
+        ${scMapFld(c, ed)}
         ${candFld(c, 'contact', 'Contacto', 'sc-c', ed, `placeholder="${ea(ed ? 'Quién da el permiso' : '')}"`)}
         ${candFld(c, 'phone', 'Teléfono', 'sc-c', ed, '', 'tel')}
         ${candFld(c, 'cost', `Costo por día (${cur})`, 'sc-c', ed, 'inputmode="decimal"')}
@@ -124,11 +127,21 @@ function scCandHTML(pl, c, ed) {
     </div>
   </article>`;
 }
+/* el campo «Mapa» de la candidata: con Studio, el enlace de siempre; sin Studio, el que ya tenía (solo para verlo y
+   abrirlo) con el candado, y tocarlo ofrece pasar a Studio */
+function scMapFld(c, ed) {
+  const open = safeUrl(c.map) ? ` · <a href="${ea(safeUrl(c.map))}" target="_blank" rel="noopener noreferrer">Abrir</a>` : '';
+  if (studioFeat('mapas')) return `<label class="cand-fl"><span>Mapa${open}</span><input type="url" class="cand-in" value="${esc(c.map)}" data-bind="sc-c" data-id="${ea(c.id)}" data-f="map" placeholder="${ea(ed ? 'Enlace de Google Maps' : '')}" ${ed ? '' : 'readonly'}></label>`;
+  const v = String(c.map || '').trim();
+  return `<div class="cand-fl st-off"><span>Mapa${open} ${studioLockHTML('mapas')}</span>${ed
+    ? `<button type="button" class="cand-in st-field${v ? '' : ' ph'}" data-act="st-ask" data-k="mapas" title="Los mapas en Scouting son parte de FilmSpirit Studio." aria-label="Mapa: función de Studio"><span data-no-tr>${esc(v)}</span>${v ? '' : '<span>Enlace de Google Maps</span>'}</button>`
+    : `<span class="cand-in st-ro" data-no-tr>${esc(v) || '—'}</span>`}</div>`;
+}
 RENDER.scout = function () {
   const v = $('#view');
   if (!D.sc.scenes.length && !Object.keys(SCT().places).length) { v.innerHTML = emptyScript(); bindView(); return; }
   if (UI.scView == null) UI.scView = ls.get('scView', 'place') === 'map' ? 'map' : 'place';
-  if (UI.scView === 'map') { smRender(); return; }
+  if (UI.scView === 'map' && studioFeat('mapas')) { smRender(); return; }   // (lote AD) sin Studio, la vista por lugar
   const ed = scoutEditable(), places = scoutPlaces(), cur = scCurPlace(places);
   const picked = places.filter(p => scPlaceData(p.b).pick).length;
   const side = `${hdSide('Lugares', `${places.length} · ${picked} ${picked === 1 ? 'elegido' : 'elegidos'}`, 'Buscar lugar')}
@@ -206,7 +219,12 @@ Object.assign(ACT, {
     const x = scCand(b.dataset.id); if (!x) return;
     popover(b, '<div class="menu"><button data-m="dup">Duplicar</button><button data-m="del">Quitar la candidata</button></div>', p => p.addEventListener('click', e => {
       const m = e.target.closest('[data-m]'); if (!m) return; closePop();
-      if (m.dataset.m === 'dup') { const c = { ...JSON.parse(JSON.stringify(x.c)), id: uid('l'), ph: [], name: x.c.name ? x.c.name + ' (copia)' : '' }; x.pl.cands.splice(x.pl.cands.indexOf(x.c) + 1, 0, c); changed('data'); render(); }
+      if (m.dataset.m === 'dup') {
+        const c = { ...JSON.parse(JSON.stringify(x.c)), id: uid('l'), ph: [], name: x.c.name ? x.c.name + ' (copia)' : '' };
+        // (lote AD) sin Studio, la copia no lleva el mapa: sería agregar un enlace (el de la original se queda)
+        if (!studioFeat('mapas')) { c.map = ''; delete c.lat; delete c.lng; delete c.geo; delete c.gmap; }
+        x.pl.cands.splice(x.pl.cands.indexOf(x.c) + 1, 0, c); changed('data'); render();
+      }
       else {
         const frames = Object.fromEntries((x.c.ph || []).map(p => [scPhKey(x.c.id, p.id), FRAMES[scPhKey(x.c.id, p.id)]]).filter(([, u]) => u));
         histNote('Quitar una candidata', frames, 'scout');
@@ -221,11 +239,13 @@ Object.assign(ACT, {
   'sc-view': b => { const x = scCand(b.dataset.id); if (!x) return; const ks = (x.c.ph || []).map(p => scPhKey(x.c.id, p.id)); photoViewer(ks, x.c.name || '', { at: ks.indexOf(scPhKey(x.c.id, b.dataset.p)) }); },
   'sc-phdel': b => { const x = scCand(b.dataset.id); if (!x) return; candDelPhoto(x.c, pid => scPhKey(x.c.id, pid), b.dataset.p, 'scout'); render(); toastUndo('Foto quitada.'); },
   'cand-pro': () => proGate('photos'),
+  'st-ask': b => studioAsk(b.dataset.k),   // (lote AD) lo que es de Studio: la ventana que lo explica
 });
 Object.assign(BIND, {
   'sc-c': (el, ev) => {
     const x = scCand(el.dataset.id); if (!x) return;
     const f = el.dataset.f, old = x.c.name.trim() || titleCase(x.b);
+    if (f === 'map' && !studioFeat('mapas')) return;   // (lote AD) sin Studio, el enlace no se cambia
     x.c[f] = el.value;
     if (f === 'map' && ev === 'change') candGeoStore(x.c);   // (lote W) las coordenadas del enlace nuevo
     if (x.pl.pick === x.c.id && (f === 'name' || f === 'addr') && ev === 'change') scSyncPick(x.b, f === 'name' ? old : null);
@@ -248,6 +268,8 @@ HELP.scout = [
   ['Equipo', 'El scouting viaja con el plan de rodaje: lo edita quien puede editar el plan.'],
   ['Exportar', 'Un dossier en PDF con cada lugar y sus candidatas, con o sin fotos, o solo con las elegidas.'],
 ];
+// (lote AD) los mapas son de Studio (en la web publicada en Claude todo está abierto)
+if (TARGET !== 'web') HELP.scout.push(['Studio', 'El enlace del mapa de cada candidata y el «Mapa general» son de FilmSpirit Studio: los usa todo el equipo en los proyectos cuyo dueño tiene Studio. En Indie y Pro se ven con un candado, y el enlace que ya tenía una candidata se sigue viendo.']);
 EXPORTS.scout = () => [
   { label: 'Dossier de locaciones', hint: 'PDF con fotos: cada lugar y sus candidatas', run: btn => exportPDF('scouting', btn, { photos: true }), pdf: { kind: 'scouting', opts: { photos: true } } },
   { label: 'Dossier sin fotos', hint: 'PDF liviano, para imprimir', run: btn => exportPDF('scouting', btn, { photos: false }), pdf: { kind: 'scouting', opts: { photos: false } } },

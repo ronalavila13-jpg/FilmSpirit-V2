@@ -314,7 +314,7 @@ async function adoptSample() {
     const m = modal({
       title: 'Guardar el ejemplo',
       body: `<p style="margin:0">${paid ? 'Tus proyectos de producción están en uso, así que el ejemplo se guarda como guion' : 'En el plan Guion el ejemplo se guarda como guion'}: queda el texto y las notas; el desglose, el storyboard, el plan y el presupuesto del ejemplo no se guardan.</p>`,
-      foot: `<button class="btn" data-close>Cancelar</button><button class="btn" id="adPlans">${paid ? 'Ver planes' : 'Probar Pro 30 días gratis'}</button><button class="btn primary" id="adGo">Guardar como guion</button>`,
+      foot: `<button class="btn" data-close>Cancelar</button><button class="btn" id="adPlans">${paid ? 'Ver planes' : 'Ver planes de suscripción'}</button><button class="btn primary" id="adGo">Guardar como guion</button>`,
     });
     $('#adPlans', m).onclick = () => { closeModal(); freeLimitNotice('prod'); };
     $('#adGo', m).onclick = () => { closeModal(); adoptSample.ok = true; adoptSample().finally(() => { adoptSample.ok = false; }); };
