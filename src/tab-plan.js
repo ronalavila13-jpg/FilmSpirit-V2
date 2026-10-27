@@ -551,10 +551,10 @@ function startColResize(e, h) {
 }
 /* guarda el ancho de una columna (null: vuelve al automático) como un paso del historial */
 function planColSet(k, w) {
-  const col = PL_COLS.find(x => x[0] === k); if (!col || !planEditable()) return;
+  const col = PL_COLS.find(x => x[0] === k && k !== 'more'); if (!col || !planEditable()) return;
   const cw = plColW(P.schedule);
   if (w == null) { if (!(k in cw)) return; delete cw[k]; } else cw[k] = plCwClamp(k, w);
-  histNote(`Ancho de la columna «${col[1]}»`);
+  histNote(`Ancho de la columna ${col[1]}`);
   if (Object.keys(cw).length) P.schedule.colW = cw; else delete P.schedule.colW;
   changed('data'); render();
 }
