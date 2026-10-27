@@ -73,7 +73,8 @@ function bRefHTML(r, ed) {
   const u = safeUrl(r.u), dis = ed ? '' : 'readonly';
   return `<div class="b-ref" data-ref="${ea(r.id)}">
     <div class="b-ref-top">
-      <select class="b-ref-k" data-bind="b-ref" data-id="${ea(r.id)}" data-f="kind" aria-label="Tipo de referencia" ${ed ? '' : 'disabled'}>${B_REF_K.map(([k, n]) => `<option value="${ea(k)}" ${r.kind === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+      ${ed ? `<select class="b-ref-k" data-bind="b-ref" data-id="${ea(r.id)}" data-f="kind" aria-label="Tipo de referencia">${B_REF_K.map(([k, n]) => `<option value="${ea(k)}" ${r.kind === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`
+        : `<span class="b-ref-k">${esc((B_REF_K.find(x => x[0] === r.kind) || [, ''])[1])}</span>`}
       <input type="text" class="b-ref-t" value="${esc(r.t)}" data-bind="b-ref" data-id="${ea(r.id)}" data-f="t" placeholder="${ea(ed ? 'Título (y su año, director o autor)' : '')}" aria-label="Título de la referencia" ${dis}>
       ${ed ? `<button class="icbtn b-ref-x" data-act="b-ref-rm" data-id="${ea(r.id)}" aria-label="Quitar la referencia" title="Quitar">${ICO.close}</button>` : ''}
     </div>
@@ -291,9 +292,11 @@ function pdfPremisa() {
       const R = B.refs.filter(r => r.t.trim() || r.n.trim() || r.u.trim()); if (!R.length) continue;
       y = pdfSec(doc, y + 4, gname, { right: `${R.length} ${R.length === 1 ? 'referencia' : 'referencias'}` });
       const kind = k => (B_REF_K.find(x => x[0] === k) || [, ''])[1];
-      doc.autoTable({ ...TBL, startY: y, head: [['Tipo', 'Título y nota', 'Enlace']],
-        body: R.map(r => [pdfSafe(kind(r.kind)), pdfRich([{ t: r.t.trim() || 'Sin título', st: 'bold', tr: r.t.trim() ? false : 1 }, r.n.trim() ? { t: r.n.trim(), fs: PF.small + .2, col: MUTED, tr: false } : null].filter(Boolean)), { content: pdfSafe(safeUrl(r.u)), styles: { textColor: MUTED, fontSize: PF.small } }]),
-        columnStyles: { 0: { cellWidth: 62 }, 2: { cellWidth: 150 } } });
+      // la columna del enlace, solo si alguna lo tiene
+      const link = R.some(r => safeUrl(r.u));
+      doc.autoTable({ ...TBL, startY: y, head: [['Tipo', 'Título y nota', ...(link ? ['Enlace'] : [])]],
+        body: R.map(r => [pdfSafe(kind(r.kind)), pdfRich([{ t: r.t.trim() || 'Sin título', st: 'bold', tr: r.t.trim() ? false : 1 }, r.n.trim() ? { t: r.n.trim(), fs: PF.small + .2, col: MUTED, tr: false } : null].filter(Boolean)), ...(link ? [{ content: pdfSafe(safeUrl(r.u)), styles: { textColor: MUTED, fontSize: PF.small } }] : [])]),
+        columnStyles: { 0: { cellWidth: 74 }, ...(link ? { 2: { cellWidth: 150 } } : {}) } });
       y = doc.lastAutoTable.finalY + PF.gap;
       continue;
     }
@@ -320,12 +323,13 @@ function pdfEstructura() {
     if (ai) down(10);
     room(70);
     const S = items.filter(it => Math.min(n - 1, it.eff) === ai), e8 = S.reduce((a, it) => a + (it.s ? D.metrics.eighths[it.s.idx] || 0 : 0), 0), ya = y;
-    // el acto: un círculo del color de la pestaña sobre la línea, su nombre y cuántas escenas tiene
+    // el acto: un círculo oscuro con su número sobre la línea (como en la pantalla), su nombre y cuántas escenas tiene
     doc.setFont('title', 'bold'); doc.setFontSize(PF.sec); doc.setTextColor(...INK); doc.text(pdfSafe(bActName(B.acts[ai], ai)), TX, ya + 11);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED);
     doc.text(pdfSafe(`${S.length} ${S.length === 1 ? 'escena' : 'escenas'}${e8 ? ` · ${fmtEighths(e8)} págs.` : ''}`), W - M, ya + 11, { align: 'right' });
     y = ya + 7; down(17);
-    doc.setFillColor(...PT.c); doc.circle(RX, ya + 7, 5.5, 'F');
+    doc.setFillColor(...INK); doc.circle(RX, ya + 7, 7.5, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...PDF_WHITE); doc.text(B_ROMAN[ai] || String(ai + 1), RX, ya + 9.3, { align: 'center' });
     if (!L.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED); doc.text('Ningún punto clave en este acto.', TX, y + 8); down(16); return; }
     for (const { k, i, it } of L) {
       const [, name, , usual] = B_BEATS[i], d = ((B.beats[k] || {}).d || '').trim();
