@@ -56,7 +56,8 @@ const f = {
   '_version_cerrada': '_locked_version', '_archivo': '_archive', '_escenas_': '_scenes_', '_jornadas_': '_days_', '_jornada_': '_day_', '_paginas_': '_pages_',
   '_hoja_de_llamado_J': '_call_sheet_day_', '_hoja_de_llamado': '_call_sheet', '_parte_diario_jornada_': '_daily_production_report_day_', '_parte_diario': '_daily_production_report',
   '_planta_general_esc': '_overall_floor_plan_sc', '_planta_': '_floor_plan_', '_lamina_': '_photo_board_', '_equipo': '_crew', '_storyboard': '_storyboard', '_scouting': '_scouting', '_casting': '_casting',
-  '_orden_de_compra_': '_purchase_order_', '_sobre_de_caja_chica_': '_petty_cash_envelope_', '_reporte_de_sobrecostos': '_overage_report', '_pagos': '_payments',  '_premisa_y_mundo': '_premise_and_world', '_estructura': '_structure',   // lote AD · historia
+  '_orden_de_compra_': '_purchase_order_', '_sobre_de_caja_chica_': '_petty_cash_envelope_', '_reporte_de_sobrecostos': '_overage_report', '_pagos': '_payments',
+  '_premisa_y_mundo': '_premise_and_world', '_estructura': '_structure',   // lote AD · historia
 };
 process.stdout.write('const I18N_EN = ' + JSON.stringify({ x, p, f, k }) + ';\n');
 process.stderr.write(`i18n: ${Object.keys(x).length} frases, ${p.length} plantillas, ${n} del glosario\n`);
