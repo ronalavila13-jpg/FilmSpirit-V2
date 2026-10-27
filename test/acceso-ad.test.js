@@ -94,7 +94,10 @@ test('primero y destacado: el plan gratis y sin cuenta; en los planes de pago, c
   vm.runInContext('APITEAM.me = null; APITEAM.anon = true', e); assert.ok(vm.runInContext('sampleFirst()', e), 'sin cuenta');
   vm.runInContext('Store.kind = "desk"', e); assert.ok(!vm.runInContext('sampleFirst()', e), 'escritorio: como siempre');
   assert.ok(/class="pj-row pj-sample/.test(leer('proyectos.js')) && /home-card home-sample/.test(leer('inicio.js')), 'la fila y la tarjeta');
-  assert.ok(/#CE0C1C/.test(leer('shell.html').split('.home-sample,.pj-sample{')[1].split('\n')[0]) && /#F49B1E/.test(leer('shell.html').split('.home-sample,.pj-sample{')[1].split('\n')[0]), 'en el rojo y el naranja de la marca');
+  // (lote AE) en el rojo de la marca, liso: sin degradado
+  const samp = leer('shell.html').split('.home-sample,.pj-sample{')[1].split('\n')[0];
+  assert.ok(/--samp:#CE0C1C/.test(samp) && !/gradient/.test(samp), 'en el rojo de la marca, sin degradado');
+  assert.ok(!/home-sample[^{]*\{[^}]*rgba\(206,12,28/.test(leer('shell.html')), 'sin resplandor');
 });
 test('al salir con cambios en el ejemplo, el navegador avisa (aunque esté abierto otro proyecto)', () => {
   const s = leer('arranque.js'), f = s.slice(s.indexOf('function unsavedWork('));

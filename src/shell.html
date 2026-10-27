@@ -4275,12 +4275,12 @@ body.home #brand{cursor:default}
 .pj-empty.bad{color:var(--bad)}
 .pj-ft{display:flex;gap:4px;flex-wrap:wrap;border-top:var(--l1) solid var(--line-2);margin-top:8px;padding:8px 2px 0}
 .pj-ft .btn{white-space:nowrap}
-/* (lote AD) el proyecto de ejemplo, primero y destacado en Inicio y en Proyectos (plan gratis y sin cuenta): el rojo de la
-   marca con el naranja que entra por una esquina (#CE0C1C → #F49B1E); la letra, blanca sobre el rojo */
-.home-sample,.pj-sample{--samp:radial-gradient(140% 150% at 100% 100%,#F49B1E 0,rgba(244,155,30,.6) 26%,rgba(244,155,30,0) 58%),linear-gradient(135deg,#CE0C1C,#B90B19)}
-.home-card.home-sample{background:var(--samp);border-color:transparent;box-shadow:0 6px 18px rgba(206,12,28,.25)}
-.home-card.home-sample:hover{border-color:transparent;box-shadow:0 8px 26px rgba(206,12,28,.36)}
-.home-card.home-sample.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px #CE0C1C,0 8px 26px rgba(206,12,28,.3)}
+/* (lote AD) el proyecto de ejemplo, primero y destacado en Inicio y en Proyectos (plan gratis y sin cuenta). (lote AE) Sin
+   degradado ni resplandor: el rojo de la marca liso (#CE0C1C) con un borde simple; la letra, blanca sobre el rojo */
+.home-sample,.pj-sample{--samp:#CE0C1C;--samp-hi:#B80A19}
+.home-card.home-sample{background:var(--samp);border-color:var(--samp-hi);box-shadow:none}
+.home-card.home-sample:hover{background:var(--samp-hi);border-color:var(--samp-hi);box-shadow:none}
+.home-card.home-sample.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px #CE0C1C}
 .home-sample .home-open{color:#fff;padding:18px 18px 16px}
 .home-sample .home-open:focus-visible{outline:2px solid #fff;outline-offset:-5px}
 .home-sample .home-t{font-size:var(--fs-6)}
@@ -4289,8 +4289,8 @@ body.home #brand{cursor:default}
 .home-k.s{background:rgba(255,255,255,.2);color:#fff}
 .home-samp{margin-bottom:16px}
 .pj-samp{margin-bottom:6px}
-.pj-row.pj-sample,.pj-row.pj-sample:hover,.pj-row.pj-sample:focus-within{background:var(--samp)}
-.pj-row.pj-sample:hover{box-shadow:0 3px 12px rgba(206,12,28,.3)}
+.pj-row.pj-sample,.pj-row.pj-sample:focus-within{background:var(--samp)}
+.pj-row.pj-sample:hover{background:var(--samp-hi);box-shadow:none}
 .pj-row.pj-sample.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.75)}
 .pj-sample .pj-open{color:#fff;padding:9px 10px}
 .pj-sample .pj-open:focus-visible{outline-color:#fff}
