@@ -1824,5 +1824,22 @@
 "Su punto de la acción en el centro de la escena, sin giro": "Its action point at the scene center, with no rotation",
 "Lo del entorno que queda debajo del modelo (árboles, rocas, palmeras…) se quita.": "Anything in the environment under the model (trees, rocks, palm trees…) is removed.",
 "Todos los planos de {0} con un entorno lo ven en este lugar.": "Every shot of {0} with an environment shows it in this place.",
-"esta locación": "this location"
+"esta locación": "this location",
+"// lote AD · zoom": "entrada y salida del animatic (I y O) y exportar una parte del video",
+"Marcar la entrada en el cabezal": "Mark In at playhead",
+"Marcar la salida en el cabezal": "Mark Out at playhead",
+"Quitar las marcas de entrada y salida": "Clear In and Out",
+"Quitar las marcas de entrada y salida ({0})": "Clear In and Out ({0})",
+"La entrada tiene que quedar antes del final del montaje.": "The In point has to be before the end of the cut.",
+"La salida tiene que quedar después del comienzo del montaje.": "The Out point has to be after the start of the cut.",
+"La salida quedaba antes de la entrada: se quitó.": "The Out point was before the In point, so it was cleared.",
+"La entrada quedaba después de la salida: se quitó.": "The In point was after the Out point, so it was cleared.",
+"Exportar video": "Export video",
+"Todo el montaje": "The whole cut",
+"De la entrada a la salida": "From In to Out",
+"Marca la entrada (I) y la salida (O) en la línea de tiempo.": "Mark In (I) and Out (O) on the timeline.",
+"Una escena": "One scene",
+"Se graba en tiempo real: tarda lo que dura la parte elegida.": "Recorded in real time: it takes as long as the chosen part.",
+"Entrada y salida": "In and Out",
+"I marca la entrada y O la salida en el cabezal (o los botones con llaves { } de la barra): la parte elegida se ve sombreada y su × quita las marcas. Mayús + I y Mayús + O llevan el cabezal a cada una. Al exportar el video eliges todo, de la entrada a la salida o una escena.": "I marks In and O marks Out at the playhead (or the { } buttons on the toolbar): the chosen part is shaded and its × clears the marks. Shift + I and Shift + O move the playhead to each one. When you export the video, choose the whole cut, from In to Out, or one scene."
 }
