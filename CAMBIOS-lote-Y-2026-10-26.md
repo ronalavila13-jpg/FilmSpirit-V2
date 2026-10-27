@@ -14,7 +14,11 @@ lote; si el lote W todavía no se instaló, se aplican solas las migraciones 10 
 - Igual en el PDF y en el Excel.
 
 ## 2. Stripboard: el ancho de cada columna
-Ver [CAMBIOS-lote-Y-columnas.md](CAMBIOS-lote-Y-columnas.md).
+En la computadora, se arrastra el borde derecho del título de una columna para hacerla más angosta o más ancha; doble clic
+en ese borde la devuelve a su ancho automático, y «Restaurar el ancho de las columnas» (Ajustes › Columnas en pantalla)
+las devuelve todas. Se guarda en el proyecto: todo el equipo ve el stripboard igual (solo quien edita lo cambia). Con
+una columna angosta, el texto se corta con «…» y se lee entero al pasar el mouse. Se deshace con Ctrl+Z. El teléfono,
+el PDF y el Excel no cambian. Detalle en [CAMBIOS-lote-Y-columnas.md](CAMBIOS-lote-Y-columnas.md).
 
 ## 3. La hoja de llamado al estilo Apple (pantalla y PDF), con la misma estructura
 - Los mismos bloques, en el mismo orden y con los mismos datos. Cambia la forma:
@@ -39,7 +43,8 @@ Ver [CAMBIOS-lote-Y-columnas.md](CAMBIOS-lote-Y-columnas.md).
 - Igual en el modo oscuro y en el teléfono.
 
 ## Pruebas
-- Nuevas: `test/lote-y.test.js` (el clima con su unidad y la escala del PDF proporcional a la de la pantalla).
+- Nuevas: `test/lote-y.test.js` (el clima con su unidad y la escala del PDF proporcional a la de la pantalla) y
+  `test/columnas-y.test.js` (el ancho de las columnas).
   `test/pdf-diseno.test.js` ahora espera las etiquetas en minúsculas.
 - Todas las pruebas de la app pasan, salvo `test/pdf.test.js`, que ya fallaba antes (le falta el módulo canvas).
 - En el navegador: la hoja de llamado en la computadora (claro y oscuro) y en el teléfono, y su PDF (dos páginas), sin
