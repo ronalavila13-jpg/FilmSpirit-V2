@@ -795,7 +795,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
   .pl-head>.pl-rz.end{right:0;width:6px}
   .pl-head>.pl-rz::after{content:"";position:absolute;top:5px;bottom:5px;right:5px;width:1px;border-radius:2px;background:transparent;transition:background .12s}
   .pl-head>.pl-rz.end::after{right:0}
-  .pl-head:hover>.pl-rz::after{background:var(--line)}
+  .pl-head:hover>.pl-rz::after{background:color-mix(in srgb,var(--ink) 22%,transparent)}
   .pl-head>.pl-rz:hover::after,.pl-head>.pl-rz.on::after{right:4px;width:3px;background:var(--accent)}
   .pl-head>.pl-rz.end:hover::after,.pl-head>.pl-rz.end.on::after{right:0}
 }
@@ -903,13 +903,15 @@ html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!impor
 .prow .pmore:hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
 .prow.empty{grid-template-columns:minmax(0,1fr);background:var(--surface)}
 .prow.empty .c-empty{font-size:var(--fs-3);color:var(--muted)}
-/* (lote Y) una columna angosta no se mete en la de al lado: en la computadora cada celda recorta lo suyo y los textos de
-   una línea (.tx, el tiempo) se cortan con «…». Con el ancho propio de la columna (.w-<clave>) la locación del guion, el
-   reparto y la locación de rodaje quedan en dos líneas como mucho, y las columnas chicas ganan lugar con menos margen.
-   El texto entero se lee al pasar el mouse (title). Con la Locación angosta (.set-nt) la miniatura deja su lugar */
-.prow .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* (lote Y) una columna angosta no se mete en la de al lado: en la computadora cada celda recorta lo suyo. Con el ancho
+   propio de la columna (.w-<clave>) los textos de una línea (.tx) se cortan con «…», la locación del guion, el reparto y
+   la locación de rodaje quedan en dos líneas como mucho y las columnas chicas ganan lugar con menos margen (con el ancho
+   automático se ven como siempre). El texto entero se lee al pasar el mouse (title). Con la Locación angosta (.set-nt)
+   la miniatura deja su lugar */
+.prow .tx{white-space:nowrap}
 @media (min-width:761px){
   .pl .prow:not(.brk)>*{overflow:hidden}
+  .pl.w-esc .c-esc>.tx,.pl.w-ie .c-ie>.tx,.pl.w-dn .c-dn>.tx,.pl.w-pg .c-pg>.tx{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .prow .c-n{justify-content:safe flex-end}
   .prow .c-t input{text-overflow:ellipsis}
   .pl.w-set .prow .c-set b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
@@ -918,7 +920,9 @@ html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!impor
   .pl.w-cast .prow .c-cast .cns{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:0}
   .pl.w-cast .prow .c-cast:has(.cnm){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;align-self:center;padding-block:0}
   .pl.w-cast .prow .c-cast .cnm:not(:last-child)::after{content:", "}
-  .pl.w-loc .prow .c-loc .wfld-v{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;padding-block:0;margin-block:6px}
+  .pl.w-loc .prow .c-loc .wfld-v{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;padding:0 4px;margin-block:6px}
+  .pl.w-loc .prow>.c-loc{padding-inline:4px}
+  .pl.w-loc .prow .c-loc input{padding-inline:3px}
   .pl.w-esc :is(.prow,.pl-head)>.c-esc,.pl.w-ie :is(.prow,.pl-head)>.c-ie,.pl.w-dn :is(.prow,.pl-head)>.c-dn,.pl.w-cast :is(.prow,.pl-head)>.c-cast,
   .pl.w-fig :is(.prow,.pl-head)>.c-fig,.pl.w-pgs :is(.prow,.pl-head)>.c-pgs,.pl.w-pg :is(.prow,.pl-head)>.c-pg,.pl.w-t :is(.prow,.pl-head)>.c-t{padding-inline:4px}
 }

@@ -84,9 +84,10 @@ test('planColsCSS lleva los anchos del proyecto a --pl-cols y --pl-min', () => {
 });
 test('los títulos llevan un asa por columna en pantalla, fuera de los botones que ordenan; sin editar, ninguna', () => {
   c.P.schedule = { items: [], colW: { set: 150, cast: 60 } };
-  const h = c.plHeadHTML(), rz = [...h.matchAll(/<i class="pl-rz( end)?" data-c="(\w+)" style="grid-column:(\d+)"/g)];
+  const h = c.plHeadHTML(), rz = [...h.matchAll(/<i class="pl-rz( end)?" data-c="(\w+)" style="grid-column:(\d+)\/(\d+)"/g)];
   assert.deepStrictEqual(rz.map(m => m[2]), [...c.plColKeys(c.planCols())]);
-  assert.deepStrictEqual(rz.map(m => +m[3]), rz.map((_, j) => j + 1));
+  // cada asa en su columna, de una línea a la siguiente (un «auto» la llevaría hasta el borde de la grilla)
+  assert.deepStrictEqual(rz.map(m => [+m[3], +m[4]]), rz.map((_, j) => [j + 1, j + 2]));
   assert.deepStrictEqual(rz.map(m => !!m[1]), rz.map((_, j) => j === rz.length - 1));   // la última, por dentro
   for (const b of h.match(/<button[\s\S]*?<\/button>/g)) assert(!b.includes('pl-rz'), b);
   assert.match(h, /<span class="c-cast" title="Reparto">/);   // con un ancho propio, el título entero al pasar el mouse

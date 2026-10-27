@@ -91,7 +91,7 @@ function plHeadHTML() {
   }).join('');
   /* (lote Y) el asa para cambiar el ancho: en el borde derecho de cada título, fuera del botón que ordena (va aparte,
      ubicada sobre su columna de la grilla); solo quien puede editar el plan, y el CSS la deja solo para el ratón */
-  const rz = ed ? keys.map((k, j) => `<i class="pl-rz${j === keys.length - 1 ? ' end' : ''}" data-c="${k}" style="grid-column:${j + 1}" title="Arrastra para cambiar el ancho · doble clic: ancho automático" aria-hidden="true"></i>`).join('') : '';
+  const rz = ed ? keys.map((k, j) => `<i class="pl-rz${j === keys.length - 1 ? ' end' : ''}" data-c="${k}" style="grid-column:${j + 1}/${j + 2}" title="Arrastra para cambiar el ancho · doble clic: ancho automático" aria-hidden="true"></i>`).join('') : '';
   return `<div class="pl-head">${cells}${rz}</div>`;
 }
 /* columnas opcionales de la pantalla (cada persona elige las suyas; el PDF y el Excel siempre las llevan).
