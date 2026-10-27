@@ -1310,10 +1310,12 @@ function pdfCall(opts = {}) {
       }
       if (r.ev) { const ef = mixc(pdfHl(r.it) || LIGHT, PDF_WHITE, .7), st = { fillColor: ef, textColor: inkOn(ef) }; blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, pdfRich([{ segs: [{ t: r.name, st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, col: mutedOn(ef), tr: false }] : [])] }], { ...st, colSpan: 4 })]]); return; }
       const col = pdfHl(r.it) || rgb(stripColor(r.s)), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
-      const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: CLF.h3, tr: false }, (r.t0 || r.t) ? sub(r.t0 || r.t, INK, false, 'bold') : null], { cellPadding: { ...PS, left: 10, right: 4 } }), _bar: bar },
-        { content: ieLab(r.s), styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } },
-        pdfRich([{ t: setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: CLF.bd }, syn ? sub(syn) : null, cl ? { t: cl + (r.fig ? ` · Fig. ${r.fig}` : ''), fs: CLF.ft, st: 'bold' } : null], { cellPadding: PS }),
-        { content: DN_LAB[stripDN(r.s)], styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } }, { content: r.pages, styles: { fontStyle: 'bold', halign: 'right', cellPadding: PS } }]];
+      // (lote Z) la fila de la escena a todo color, como su tira en el plan de rodaje (los planos de debajo, en blanco)
+      const SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS }, ink = inkOn(col), mut = mutedOn(col);
+      const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: CLF.h3, tr: false, col: ink }, (r.t0 || r.t) ? sub(r.t0 || r.t, ink, false, 'bold') : null], { ...SC, cellPadding: { ...PS, left: 10, right: 4 } }), _bar: bar },
+        { content: ieLab(r.s), styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
+        pdfRich([{ t: setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: CLF.bd, col: ink }, syn ? sub(syn, mut) : null, cl ? { t: cl + (r.fig ? ` · Fig. ${r.fig}` : ''), fs: CLF.ft, st: 'bold', col: ink } : null], SC),
+        { content: DN_LAB[stripDN(r.s)], styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: r.pages, styles: { ...SC, fontStyle: 'bold', halign: 'right' } }]];
       for (const x of r.shots || []) {
         const u = th ? thumbCached(x.sh) : null;
         // el set del plano solo si no es ya la locación que dice la escena
@@ -1343,8 +1345,10 @@ function pdfCall(opts = {}) {
     const A = X.adv;
     if (A) {
       y = pdfSec(doc, y - 4, trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), { ...CL_SEC, right: [A.call ? `Llamado general ${A.call}` : 'Llamado por confirmar', A.locs.join(', ')].filter(Boolean).join('  ·  '), need: 70 });
-      const ab = A.rows.map(r => [{ content: r.code, styles: { fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: 10, right: 4 } }, _bar: barOfRGB(pdfHl(r.it) || rgb(lgCol('plan', r.strip))) }, { content: r.ie, styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } },
-        pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd }, r.syn ? sub(r.syn) : null], { cellPadding: PS }), { content: r.dn, styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } }, { content: pdfSafe(r.cast.join(', ')), styles: { fontStyle: 'bold', cellPadding: PS } }, { content: fmtEighths(r.e8), styles: { halign: 'right', fontStyle: 'bold', cellPadding: PS } }]);
+      // (lote Z) cada escena del avance a todo color, como en el cronograma
+      const ab = A.rows.map(r => { const col = pdfHl(r.it) || rgb(lgCol('plan', r.strip)), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
+        return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: 10, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
+          pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd, col: inkOn(col) }, r.syn ? sub(r.syn, mutedOn(col)) : null], SC), { content: r.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(r.cast.join(', ')), styles: { ...SC, fontStyle: 'bold' } }, { content: fmtEighths(r.e8), styles: { ...SC, halign: 'right', fontStyle: 'bold' } }]; });
       if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);
       ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', lineWidth: 0, fontSize: CLF.ft })]);
       T({ head: [['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }]], body: ab, rowPageBreak: 'avoid', ...hooks,

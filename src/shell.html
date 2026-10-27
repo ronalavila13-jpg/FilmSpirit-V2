@@ -4273,6 +4273,15 @@ details.sec.z>summary .st{color:var(--muted);font-weight:500}
 .nb.nb-draft{z-index:300;pointer-events:none}
 body.notes-off .nb{display:none}
 #noteAdd.off .nt-ico,#noteAdd.off .nt-tb{opacity:.45}
+/* (lote Z) el ícono de notas en «recorte», como los de las etapas: un globo amarillo sobre una hoja roja girada, con las
+   líneas en negro (los colores del logo; no cambia con Grafito). Al pasar el mouse se levanta, como la nota que se
+   arrastra; el número de notas pendientes va un poco más afuera para no taparlo */
+#noteAdd{padding:4px 6px}
+#noteAdd .nt-rc{width:28px;height:26px;display:block;flex:none;transition:transform .18s cubic-bezier(.3,.7,.3,1.3),filter .18s;filter:drop-shadow(0 1.5px 1.2px rgba(0,0,0,.28))}
+#noteAdd:not(:disabled):hover .nt-rc,#noteAdd:focus-visible .nt-rc{transform:rotate(-6deg) translateY(-2px) scale(1.08);filter:drop-shadow(0 4px 3px rgba(0,0,0,.28))}
+#noteAdd[aria-pressed="true"] .nt-rc{transform:rotate(-6deg) scale(1.04)}
+#noteAdd .cnt{top:-6px;right:-10px}
+@media (prefers-reduced-motion:reduce){ #noteAdd .nt-rc{transition:none} #noteAdd:not(:disabled):hover .nt-rc,#noteAdd:focus-visible .nt-rc{transform:none} }
 .nb:hover,.nb:focus-visible{opacity:1;transform:scale(1.1)}
 .nb.nb-new{animation:nbPop .7s ease-out}
 @keyframes nbPop{0%{transform:scale(.3)}55%{transform:scale(1.3)}100%{transform:scale(1)}}
@@ -5925,6 +5934,17 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
 /* el pie: el centro de salud y los canales de radio */
 .cs.cl .cl-foot{border-top:1px solid var(--ink);padding-top:14px;gap:28px}
 .cs.cl :is(.cl-fh,.cl-fr)>.ic{width:18px;height:18px;color:var(--cl-3)}
+/* (lote Z) cada escena del cronograma y del avance a todo color, como su tira en el plan de rodaje (o el color con que se
+   resaltó); los planos de debajo siguen en blanco con su franja. Sobre el color, los grises salen de la tinta mezclada con
+   la tira (se leen) y sobre un color oscuro la letra es clara. En la apariencia oscura, con el velo del stripboard */
+.cs.cl .cl-lsc>td{background:var(--rc)}
+.cs.cl .cl-lsc{--cl-2:color-mix(in oklab,var(--ink) 80%,var(--rc));--cl-3:color-mix(in oklab,var(--ink) 70%,var(--rc));--muted:var(--cl-2)}
+.cs.cl .cl-lsc>td{border-top-color:color-mix(in oklab,var(--ink) 18%,var(--rc))}
+:root:not([data-tone="dark"]) .cs.cl .cl-lsc.dk{--ink:#F4F4F4;--cl-2:#E4E4E4;--cl-3:#D6D6D6;--muted:#E4E4E4;color:#F4F4F4}
+:root:not([data-tone="dark"]) .cs.cl .cl-lsc.dk :is(input,select){color:#F4F4F4}
+:root[data-tone="dark"] .cs.cl .cl-lsc>td{background:color-mix(in srgb,var(--rc) 21%,var(--surface))}
+:root[data-tone="dark"] .cs.cl .cl-lsc[data-strip="di"]>td{background:color-mix(in srgb,#FFFFFF 10%,var(--surface))}
+:root[data-tone="dark"] .cs.cl .cl-lsc{--cl-2:color-mix(in srgb,var(--ink) 74%,var(--surface));--cl-3:color-mix(in srgb,var(--ink) 62%,var(--surface))}
 @media (max-width:760px){
   .cs.cl{--cl-px:16px;--cl-hero:46px;--cl-h1:22px;--cl-h2:17px;--cl-h3:16px}
   .cs.cl .cl-doc{padding:14px var(--cl-px) 24px;gap:30px}
@@ -5942,7 +5962,7 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
     <button type="button" class="proj" id="projBtn" title="Datos del proyecto, logos y equipo"><span class="t" id="projTitle">Cargando…</span><svg class="tbi proj-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/></svg></button>
     <span class="save" id="saveState"></span>
     <span class="tb-hist" role="group" aria-label="Historial del proyecto"><button class="btn ghost" id="undoBtn" type="button" aria-label="Deshacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button class="btn ghost" id="redoBtn" type="button" aria-label="Rehacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></span>
-    <span class="tb-notes"><button class="btn ghost note-add" id="noteAdd" type="button" title="Nota: arrástrala hasta un plano, una escena, una tarea… (o haz clic)" aria-label="Notas: arrastra para pegar una; clic para pegarla con un toque o ver notas y actividad" aria-haspopup="menu" aria-pressed="false"><svg class="nt-tb tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3.5h10A4.5 4.5 0 0 1 21.5 8v4a4.5 4.5 0 0 1-4.5 4.5H10l-5.5 4 1.3-4.6A4.5 4.5 0 0 1 2.5 12V8A4.5 4.5 0 0 1 7 3.5z"/><path d="M8 8.6h8M8 12h5"/></svg><span class="cnt" hidden></span></button></span>
+    <span class="tb-notes"><button class="btn ghost note-add" id="noteAdd" type="button" title="Nota: arrástrala hasta un plano, una escena, una tarea… (o haz clic)" aria-label="Notas: arrastra para pegar una; clic para pegarla con un toque o ver notas y actividad" aria-haspopup="menu" aria-pressed="false"><svg class="nt-tb nt-rc" viewBox="0 0 28 26" aria-hidden="true" focusable="false"><path transform="translate(1.6 1.4) rotate(11 15 13)" d="M9 3.5h12a5 5 0 0 1 5 5V13a5 5 0 0 1-5 5h-8.5l-6 4.6 1.2-4.9A5 5 0 0 1 4 13V8.5a5 5 0 0 1 5-5z" fill="#E3262E"/><path d="M7 4h12a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5h-8.5L4.5 23l1.3-5.2A5 5 0 0 1 2 13V9a5 5 0 0 1 5-5z" fill="#FFD84D"/><rect x="7" y="8.4" width="10.5" height="2.2" rx=".3" fill="#1E1E1E"/><rect x="7" y="12.1" width="6.6" height="2.2" rx=".3" fill="#1E1E1E"/></svg><span class="cnt" hidden></span></button></span>
     <span class="spacer"></span>
     <button class="btn ghost tb-btn tb-help" id="helpBtn" type="button" title="Ayuda y soporte" aria-label="Ayuda y soporte" aria-haspopup="menu"><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17.2h.01" stroke-width="2.6"/></svg></button>
     <button class="btn ghost tb-btn" id="shareBtn" type="button" title="Compartir el proyecto con tu equipo" aria-label="Compartir"><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.5v11.5M7.5 8 12 3.5 16.5 8M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg><span class="hide-sm">Compartir</span></button>
