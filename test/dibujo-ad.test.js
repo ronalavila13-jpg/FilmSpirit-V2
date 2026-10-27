@@ -38,9 +38,20 @@ test('el bote rellena la zona cerrada y no lo de afuera', () => {
   assert(bb, 'algo se pinta');
   assert.strictEqual(a(dst, 20, 20), 255); assert.deepStrictEqual(rgb(dst, 20, 20), [200, 56, 44]);
   assert.strictEqual(a(dst, 5, 5), 0, 'afuera no'); assert.strictEqual(a(dst, 45, 20), 0);
-  // entra bajo la línea (sin filo blanco), pero no la pasa
-  assert.strictEqual(a(dst, 10, 20), 255, 'bajo la línea'); assert.strictEqual(a(dst, 9, 20), 0, 'del otro lado');
-  assert.deepStrictEqual(Array.from(bb), [10, 10, 41, 31]);
+  assert.strictEqual(a(dst, 11, 20), 255, 'hasta la línea'); assert.strictEqual(a(dst, 9, 20), 0, 'del otro lado no');
+  assert.deepStrictEqual(Array.from(bb), [11, 11, 40, 30]);
+});
+test('entra 2 px bajo una línea gruesa (sin filo blanco), y no asoma del otro lado de una fina', () => {
+  // gruesa: 4 px (x 8 a 11) con su borde suave adentro (x 12, a medias)
+  const grueso = hoja((x, y) => (x >= 8 && x <= 11) || x >= 50 || y <= 2 || y >= 37);
+  for (let y = 3; y < 37; y++) grueso[(y * W + 12) * 4 + 3] = 128;
+  const d1 = capa(); fill({ line: grueso, dst: d1, x: 30, y: 20 });
+  assert.strictEqual(a(d1, 12, 20), 255, 'bajo el borde suave'); assert.strictEqual(a(d1, 11, 20), 255, 'bajo la línea'); assert.strictEqual(a(d1, 10, 20), 0, 'no más de 2 px');
+  // fina: 2 px a medias (x 10 y 11): el de afuera queda sin pintar
+  const fino = hoja((x, y) => x >= 50 || y <= 2 || y >= 37);
+  for (let y = 0; y < H; y++) for (const x of [10, 11]) fino[(y * W + x) * 4 + 3] = 128;
+  const d2 = capa(); fill({ line: fino, dst: d2, x: 30, y: 20 });
+  assert.strictEqual(a(d2, 11, 20), 255, 'bajo la línea'); assert.strictEqual(a(d2, 10, 20), 0, 'no asoma del otro lado');
 });
 test('con una abertura, sin «Cerrar huecos» se escapa; con él, no', () => {
   const line = hoja(marco(10, 10, 40, 30, [24, 26]));
@@ -65,15 +76,25 @@ test('en la misma capa de la línea, el relleno va detrás de ella', () => {
 });
 test('si la línea es de una capa de debajo, el relleno no la tapa', () => {
   const line = hoja(marco(10, 10, 40, 30)), dst = capa();
-  fill({ line, dst, below: line, x: 20, y: 20 });
-  assert.strictEqual(a(dst, 10, 20), 0, 'la línea de debajo se sigue viendo'); assert.strictEqual(a(dst, 11, 20), 255);
+  const l2 = line.slice(); for (let y = 11; y < 30; y++) l2[(y * W + 11) * 4 + 3] = 100;   // con su borde suave
+  fill({ line: l2, dst, below: l2, x: 20, y: 20 });
+  assert.strictEqual(a(dst, 10, 20), 0, 'la línea de debajo se sigue viendo'); assert.strictEqual(a(dst, 11, 20), 155, 'su borde suave, a medias'); assert.strictEqual(a(dst, 12, 20), 255);
 });
 test('cambiar el color de un relleno: toma también su borde bajo la línea', () => {
   const line = hoja(marco(10, 10, 40, 30)), dst = capa();
   fill({ line, dst, x: 20, y: 20 });
   const l2 = line.slice(); for (let i = 0; i < W * H * 4; i += 4) if (dst[i + 3] && !l2[i + 3]) { l2[i] = 200; l2[i + 1] = 56; l2[i + 2] = 44; l2[i + 3] = 255; }
   fill({ line: l2, dst, x: 20, y: 20, rgb: [46, 143, 191] });
-  assert.deepStrictEqual(rgb(dst, 20, 20), [46, 143, 191]); assert.deepStrictEqual(rgb(dst, 10, 20), [46, 143, 191], 'sin rastro del color de antes');
+  assert.deepStrictEqual(rgb(dst, 20, 20), [46, 143, 191]); assert.deepStrictEqual(rgb(dst, 11, 20), [46, 143, 191], 'sin rastro del color de antes');
+  assert.strictEqual(a(dst, 9, 20), 0, 'no crece hacia afuera');
+});
+test('al cambiar el color, tampoco asoma del otro lado de una línea fina', () => {
+  const fino = hoja((x, y) => x >= 50 || y <= 2 || y >= 37);
+  for (let y = 0; y < H; y++) for (const x of [10, 11]) fino[(y * W + x) * 4 + 3] = 128;
+  const dst = capa(); fill({ line: fino, dst, x: 30, y: 20 });
+  const l2 = fino.slice(); for (let i = 0; i < W * H * 4; i += 4) if (dst[i + 3] && !l2[i + 3]) { l2[i] = 200; l2[i + 1] = 56; l2[i + 2] = 44; l2[i + 3] = 255; }
+  fill({ line: l2, dst, x: 30, y: 20, rgb: [46, 143, 191] });
+  assert.deepStrictEqual(rgb(dst, 30, 20), [46, 143, 191]); assert.strictEqual(a(dst, 10, 20), 0, 'no asoma'); assert.strictEqual(a(dst, 5, 20), 0);
 });
 test('la tolerancia toma los colores parecidos', () => {
   const line = capa(); for (let i = 0; i < W * H * 4; i += 4) { const x = (i / 4) % W; line[i] = x < 30 ? 100 : 130; line[i + 1] = line[i + 2] = 100; line[i + 3] = 255; }

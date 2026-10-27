@@ -346,12 +346,16 @@ function d2Fill(o) {
   let r = Math.ceil(Math.max(0, +o.gap || 0) / 2), R = null;
   if (r) { const Bd = d2Grow(B, W, H, r); if (!Bd[si]) R = d2Grow(d2Flood(Bd, W, H, si), W, H, r); }
   if (!R) R = d2Flood(B, W, H, si);
-  const G = d2Grow(R, W, H, 2), [nr, ng, nb] = rgb, ta0 = dst[s4 + 3], tr0 = dst[s4], tg0 = dst[s4 + 1], tb0 = dst[s4 + 2];
+  // bajo la línea: hasta 2 px desde la zona, sin llegar al borde de afuera de una línea fina (lo vacío que no se rellenó
+  // no se toca, ni el píxel de al lado: el relleno no asoma del otro lado)
+  const G = d2Grow(R, W, H, 2), Out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (!R[i] && line[i * 4 + 3] <= thr) Out[i] = 1;
+  const Od = d2Grow(Out, W, H, 1), [nr, ng, nb] = rgb, ta0 = dst[s4 + 3], tr0 = dst[s4], tg0 = dst[s4 + 1], tb0 = dst[s4 + 2];
   let x0 = W, y0 = H, x1 = -1, y1 = -1;
   for (let i = 0, j = 0; i < N; i++, j += 4) {
     let a;
     if (R[i] && !B[i]) a = -1;   // la zona: el color nuevo, entero
-    else if (G[i] && B[i] && line[j + 3] && (!allow || allow[i])) a = below ? 255 - below[j + 3] : 255;   // bajo la línea
+    else if (G[i] && B[i] && !Od[i] && line[j + 3] && (!allow || allow[i])) a = below ? 255 - below[j + 3] : 255;   // bajo la línea
     else continue;
     const ta = dst[j + 3];
     if (a < 0 || !ta) { if (!a) continue; dst[j] = nr; dst[j + 1] = ng; dst[j + 2] = nb; dst[j + 3] = a < 0 ? 255 : a; }
@@ -459,7 +463,7 @@ async function openShot2D(id, isNew) {
     // (lote AD) la selección del lazo: los lazos que suman y restan (selOps), su máscara (selM), su contorno (selLoops) y
     // su rectángulo (selBB); lmode: qué hace el próximo lazo en el celular (sin Ctrl); touchy: hay pantalla táctil
     selOps: [], selM: null, selLoops: null, selPath: null, selBB: null, lmode: 'add', ants: 0,
-    touchy: typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches,
+    touchy: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
     V: { z: 1, x: 0, y: 0 }, hist: [], redo: [], dirty: false, playing: false, BGs: new Map(), v3sel: false, ver: 0, hover: null, space: false, ro: UI.readOnly,
   };
   d.layers = d2Layers(d);   // las de fondo (detrás de las figuras) primero: el orden de la lista es el que se ve
@@ -935,7 +939,7 @@ async function openShot2D(id, isNew) {
       else {
         g.putImageData(im, 0, 0);
         E.selM = M; E.selBB = [x0, y0, x1 + 1, y1 + 1]; E.selLoops = d2Outline(M, DW, DH);
-        const P = new Path2D(); for (const lp of E.selLoops) { lp.forEach(([x, y], i) => i ? P.lineTo(x, y) : P.moveTo(x, y)); P.closePath(); } E.selPath = P;
+        const path = new Path2D(); for (const lp of E.selLoops) { lp.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath(); } E.selPath = path;
         const sg = SHADE.getContext('2d'); sg.clearRect(0, 0, DW, DH); sg.fillStyle = 'rgba(22,23,27,.24)'; sg.fillRect(0, 0, DW, DH);
         sg.globalCompositeOperation = 'destination-out'; sg.drawImage(SELC, 0, 0); sg.globalCompositeOperation = 'source-over';
       }
@@ -943,7 +947,7 @@ async function openShot2D(id, isNew) {
     req();
   }
   function changeSel(ops) { const a = opsCopy(E.selOps); setSel(ops); pushSel(a, opsCopy(E.selOps)); }
-  function addLasso(path, sub) { if (sub && !selOn()) return; changeSel([...E.selOps, { sub, pts: path }]); }
+  function addLasso(path, sub) { if (sub && !selOn()) { toast('No hay una selección de la que restar: primero rodea una zona.'); return; } changeSel([...E.selOps, { sub, pts: path }]); }
   function clearSel() { if (E.float) applyFloat(); if (!selOn()) return false; changeSel([]); return true; }
   const selHas = p => { const x = Math.floor(p.x), y = Math.floor(p.y); return !!E.selM && x >= 0 && y >= 0 && x < DW && y < DH && !!E.selM[y * DW + x]; };
   function contentBox(c) {
@@ -1020,6 +1024,7 @@ async function openShot2D(id, isNew) {
     insp(); return true;
   }
   function eraseSel() {
+    if (E.ro) return;
     if (E.float) { dropFloat(); req(); return; }
     const L = actL(), F = curF();
     if (!selOn() || !writable(L)) return;
@@ -1171,6 +1176,8 @@ async function openShot2D(id, isNew) {
     }
     if (PTR.size > 1) return;
     e.preventDefault();
+    // (lote AD) con el dedo, el panel muestra los botones del celular (Sumar, Restar, Expandir); con el mouse, las teclas
+    if ((e.pointerType === 'touch') !== E.touchy && e.pointerType !== 'pen') { E.touchy = e.pointerType === 'touch'; insp(); }
     const p = toDoc(e);
     if (e.button === 1 || E.space || E.tool === 'hand') { E.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, V: { ...E.V } }; stage.classList.add('panning'); return; }
     // Alt + clic derecho y arrastrar: a los lados el tamaño del pincel, arriba y abajo su opacidad
@@ -1183,7 +1190,6 @@ async function openShot2D(id, isNew) {
     // (lote AD) el bote rellena al soltar (con dos dedos es pellizcar: no rellena); Alt + clic toma un color de la hoja
     if (tool === 'fill') { if (e.altKey) pickColor(p); else E.drag = { kind: 'fill', p }; return; }
     if (tool === 'lasso') {
-      if (e.pointerType === 'touch' && !E.touchy) { E.touchy = true; insp(); }
       if (E.float) { const h = floatHit(p); if (h) { E.drag = { kind: 'float', fn: floatDrag(h, p) }; return; } applyFloat(); }
       // (lote AD) siempre dibuja un lazo: suma, o resta si Ctrl estaba apretado al empezar (o «Restar» en el celular)
       const ctrl = e.ctrlKey || e.metaKey;

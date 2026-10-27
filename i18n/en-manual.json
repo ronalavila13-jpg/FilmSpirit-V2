@@ -1720,6 +1720,7 @@
 "Intro o Esc terminan.": "Enter or Esc finishes.",
 "«Aplicar» termina.": "“Apply” finishes.",
 "Primero rodea una zona con el lazo; después Ctrl + clic sobre ella muestra la caja para agrandar, girar y mover.": "First draw around an area with the lasso; then Ctrl + click on it shows the box to enlarge, rotate and move.",
+"No hay una selección de la que restar: primero rodea una zona.": "There's no selection to subtract from: first draw around an area.",
 "No hay dibujo dentro de la selección en la capa «{0}».": "There's no drawing inside the selection on layer “{0}”.",
 "Copiado. «Pegar» lo pone en la capa activa.": "Copied. “Paste” puts it on the active layer.",
 "Copiado. Ctrl + V lo pega en la capa activa.": "Copied. Ctrl + V pastes it on the active layer.",
