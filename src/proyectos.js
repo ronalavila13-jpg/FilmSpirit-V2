@@ -74,6 +74,7 @@ function normalizeProject(Px) {
   if (!S.locs) S.locs = [];
   if (!S.setLoc) S.setLoc = {};
   if (!S.castMode) S.castMode = 'num';
+  plColWClean(S);   // (lote AC) el ancho de las columnas del stripboard, limpio una vez aquí (plan-columnas.js)
   const B = Px.budget = Px.budget || { currency: 'S/', contingency: 0, igv: false, igvRate: 18, lines: [] };
   if (!B.taxName) B.taxName = 'IGV';
   if (!B.fx) B.fx = { on: false, rate: 3.75 };
