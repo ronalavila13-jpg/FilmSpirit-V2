@@ -572,7 +572,11 @@ function startDrag(e, row) {
   ghost.classList.add('ghost');
   Object.assign(ghost.style, { width: rect.width + 'px', left: rect.left + 'px', top: rect.top + 'px', gridTemplateColumns: getComputedStyle(row).gridTemplateColumns, height: rect.height + 'px' });
   if (multi) { const b = document.createElement('span'); b.className = 'gcount'; b.textContent = keys.size + ' filas'; ghost.appendChild(b); }
-  document.body.appendChild(ghost);
+  // (lote Y) la copia va dentro de una caja sin caja (display:contents) con las clases del tablero: con los anchos
+  // propios de las columnas corta sus textos igual que la fila
+  const gwrap = document.createElement('div');
+  gwrap.className = board.className; gwrap.style.display = 'contents';
+  gwrap.appendChild(ghost); document.body.appendChild(gwrap);
   // las demás filas que viajan se pliegan: el hueco las representa a todas
   const others = $$('.prow[data-key]', board).filter(r => r !== row && keys.has(r.dataset.key));
   const H = rect.height + others.reduce((a, r) => a + r.getBoundingClientRect().height, 0);
@@ -607,7 +611,7 @@ function startDrag(e, row) {
     cancelAnimationFrame(raf);
     removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
     removeEventListener('keydown', esc, true);
-    ghost.remove(); document.body.classList.remove('lifting');
+    gwrap.remove(); document.body.classList.remove('lifting');
     flipClear($$('.prow', board));
     const cancel = ev && ev.type !== 'pointerup';
     if (cancel || !moved) { render(); return; }
