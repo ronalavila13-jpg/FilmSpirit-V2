@@ -443,6 +443,7 @@ function bindBoard() {
     e.preventDefault();
     stripMenu(ptAnchor(e), +row.dataset.i);
   });
+  // (lote AC) el asa de un título va en la lista: su pointerdown no sigue, pero el clic que viene después sí llega
   deselectOn('plan', () => { if (plSel().size) { plSel().clear(); paintSel(); } }, '.prow[data-key], .pstart, #plSelBar, .pl-rz');
   if (!bindBoard.keys) {
     bindBoard.keys = true;
