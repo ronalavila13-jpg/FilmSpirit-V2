@@ -1,5 +1,5 @@
 /* Portada: código de descuento del enlace (/r/CODIGO), región de precios (soles en el Perú, dólares fuera), botones
-   que llevan a la app si hay sesión, lista de espera de Studio y la hoja de guion de prueba */
+   que llevan a la app si hay sesión y la hoja de guion de prueba (la lista de espera de Studio se cerró en el lote AD) */
 'use strict';
 (function () {
   const root = document.documentElement;
@@ -41,21 +41,6 @@
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { }
   setRegion(saved === 'pe' || saved === 'intl' ? saved : tz === 'America/Lima' ? 'pe' : root.dataset.region === 'pe' ? 'pe' : 'intl');
   document.querySelectorAll('.region-pick [data-region]').forEach(b => b.addEventListener('click', () => setRegion(b.dataset.region, true)));
-
-  /* lista de espera de Studio */
-  const wl = document.getElementById('wlForm');
-  if (wl) wl.addEventListener('submit', async e => {
-    e.preventDefault();
-    const msg = wl.querySelector('.wl-msg'), inp = wl.querySelector('input'), btn = wl.querySelector('button');
-    const email = inp.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.textContent = msg.dataset.bad; msg.classList.add('bad'); inp.focus(); return; }
-    btn.disabled = true;
-    try {
-      const r = await fetch('/api/waitlist', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-FS': '1' }, body: JSON.stringify({ plan: 'studio', email, lang: root.lang, tz }) });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '');
-      msg.textContent = msg.dataset.ok; msg.classList.remove('bad'); inp.value = '';
-    } catch (er) { msg.textContent = er.message || msg.dataset.bad; msg.classList.add('bad'); btn.disabled = false; }
-  });
 
   /* la hoja de guion: la escena de ejemplo se escribe sola (con «reducir movimiento», ya escrita) y después se edita.
      Enter pasa a la línea siguiente con el tipo que corresponde (tras el personaje, el diálogo); en una línea vacía, Tab

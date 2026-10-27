@@ -30,87 +30,82 @@ const PAY_TX = {
   es: {
     all: 'Todo lo que incluye cada plan', title: 'Planes de FilmSpirit', you: 'Tu plan',
     rows: ['Guiones', 'Coescritura', 'Proyectos de producción activos', 'Personas por proyecto de producción', 'Espacio'],
-    more: ['Editor de guion e importación (Final Draft, Fountain, PDF)', 'PDF del guion sin marca de agua', 'Desglose, plan de rodaje, calendario, hoja de llamado y presupuesto', 'Storyboard 2D y 3D y animatic', 'Fotos y exportaciones sin marca de agua', 'Equipo con permisos por área', 'Scouting con mapas y casting', 'Plantillas de productora, varios administradores y resumen de proyectos', 'Proyectos archivados'],
-    unl: 'Sin límite', people: '{n} personas', solo: 'Solo tú', text: 'Solo texto', free: 'Gratis', soonTag: 'pronto',
+    more: ['Editor de guion e importación (Final Draft, Fountain, PDF)', 'PDF del guion sin marca de agua', 'Desglose, casting, scouting, plan de rodaje, calendario, hoja de llamado y presupuesto', 'Storyboard 2D y 3D y animatic', 'Fotos y exportaciones sin marca de agua', 'Equipo con permisos por área', 'Mapas en Scouting y escenarios 3D importados', 'Proyectos archivados'],
+    unl: 'Sin límite', people: '{n} personas', solo: 'Solo tú', text: 'Solo texto', free: 'Gratis',
     yes: 'Sí', from: 'Pagas desde', pe: 'Perú · soles · Mercado Pago', intl: 'Otro país · dólares · tarjeta', plan: 'Plan', month: 'Mensual', year: 'Anual', perM: 'al mes', perY: 'al año', code: 'Código de descuento', opt: 'Opcional', apply: 'Aplicar', mpMail: 'Correo de tu cuenta de Mercado Pago', mail: 'Tu correo (para el recibo)',
-    freeDays: '<b>Hoy no pagas nada.</b> Tienes {n} días gratis de Pro; el primer cobro es el {date}.', usedTrial: '<b>Se cobra hoy</b> (tu cuenta ya usó la prueba de 30 días).', today: '<b>Se cobra hoy.</b>',
+    today: '<b>Se cobra hoy.</b>',
     pay: 'Pagas {amount} {per}', firstYear: 'el primer año', during: 'durante {n} meses', then: 'luego {base}', off: '{pct}% de descuento', atCk: 'El código {code} se aplica en la página de pago.', tax: 'Los impuestos de tu país se calculan en la página de pago.', cancel: 'Se renueva sola en cada periodo hasta que la canceles; cancelas cuando quieras desde tu cuenta.', legal: 'Al continuar aceptas los <a href="/terminos" target="_blank" rel="noopener">Términos</a> y la política de <a href="/reembolsos" target="_blank" rel="noopener">cancelaciones y reembolsos</a>.',
     later: 'Ahora no', goMP: 'Continuar a Mercado Pago', goLS: 'Continuar al pago', opening: 'Abriendo la página de pago…', close: 'Cerrar', seePlans: 'Ver la página de planes',
     hasSub: 'Ya tienes FilmSpirit {plan}. Ves o cancelas tu suscripción en el botón de tu cuenta.', soon: 'Los pagos {where} se habilitan muy pronto.', wherePE: 'con Mercado Pago', whereIntl: 'internacionales',
     confirming: 'Confirmando tu suscripción…', welcome: '¡Ya tienes FilmSpirit {plan}!', thanks: 'Gracias por suscribirte. Ya puedes trabajar con {projects} proyectos de producción activos, en equipo con hasta {members} personas por proyecto, y exportar sin marca de agua.', thanksSolo: 'Gracias por suscribirte. Ya puedes llevar tus guiones a producción ({projects} proyectos activos) y exportar sin marca de agua.', start: 'Empezar',
     pending: 'El medio de pago aún no confirma tu suscripción. Si la completaste, se activará en unos minutos.',
-    upPro: 'Pasa a Pro: {projects} proyectos de producción y equipos de hasta {members} personas con permisos por área.', upStudio: 'Pasa a Studio: {projects} proyectos de producción y hasta {members} personas por proyecto.', choose: 'Elegir',
-    trial: 'Pro tiene 30 días de prueba gratis, con tarjeta, una vez por cuenta.', yearly: 'El plan anual cuesta 10 meses.', down: 'Si bajas de plan, los proyectos que pasen el límite quedan en solo lectura: no se borra nada.',
+    upPro: 'Pasa a Pro: {projects} proyectos de producción y equipos de hasta {members} personas con permisos por área.', upStudio: 'Pasa a Studio: {projects} proyectos de producción, hasta {members} personas por proyecto y, solo en Studio, los mapas en Scouting y los escenarios 3D importados.', choose: 'Elegir',
+    sample: 'Ningún plan tiene prueba gratis: para ver la producción, explora el proyecto de ejemplo.', explore: 'Explorar con un proyecto de ejemplo', yearly: 'El plan anual cuesta 10 meses.', down: 'Si bajas de plan, los proyectos que pasen el límite quedan en solo lectura: no se borra nada.',
     founderPE: '<b>Precio de fundador:</b> Pro a {m} al mes ({y} al año) si te suscribes antes del {date}, y lo mantienes mientras sigas suscrito.', founderIntl: '<b>Precio de fundador:</b> {pct} % menos en cada cobro de Pro (código {code}) si te suscribes antes del {date}.', founderTag: 'fundador',
-    wait: 'Lista de espera', waitTxt: 'Studio abre cuando estén listos el scouting con mapas y el casting. Déjanos tu correo y te avisamos primero.', waitGo: 'Avísame cuando abra', waitOk: 'Listo: te avisaremos a {email} cuando abra Studio.',
   },
   en: {
     all: 'Everything each plan includes', title: 'FilmSpirit plans', you: 'Your plan',
     rows: ['Scripts', 'Co-writing', 'Active production projects', 'People per production project', 'Storage'],
-    more: ['Script editor and import (Final Draft, Fountain, PDF)', 'Script PDF without watermark', 'Breakdown, shooting schedule, calendar, call sheet and budget', '2D/3D storyboard and animatic', 'Photos and exports without watermark', 'Team with per-department permissions', 'Location scouting with maps and casting', 'Company templates, several admins and projects overview', 'Archived projects'],
-    unl: 'Unlimited', people: '{n} people', solo: 'Just you', text: 'Text only', free: 'Free', soonTag: 'soon',
+    more: ['Script editor and import (Final Draft, Fountain, PDF)', 'Script PDF without watermark', 'Breakdown, casting, location scouting, shooting schedule, calendar, call sheet and budget', '2D/3D storyboard and animatic', 'Photos and exports without watermark', 'Team with per-department permissions', 'Maps in Location scouting and imported 3D sets', 'Archived projects'],
+    unl: 'Unlimited', people: '{n} people', solo: 'Just you', text: 'Text only', free: 'Free',
     yes: 'Yes', from: 'Paying from', pe: 'Peru · soles · Mercado Pago', intl: 'Another country · US dollars · card', plan: 'Plan', month: 'Monthly', year: 'Yearly', perM: 'per month', perY: 'per year', code: 'Discount code', opt: 'Optional', apply: 'Apply', mpMail: 'Email of your Mercado Pago account', mail: 'Your email (for the receipt)',
-    freeDays: '<b>You pay nothing today.</b> You get {n} free days of Pro; the first charge is on {date}.', usedTrial: '<b>You are charged today</b> (your account already used the 30-day trial).', today: '<b>You are charged today.</b>',
+    today: '<b>You are charged today.</b>',
     pay: 'You pay {amount} {per}', firstYear: 'the first year', during: 'for {n} months', then: 'then {base}', off: '{pct}% off', atCk: 'Code {code} is applied on the payment page.', tax: 'Your local taxes are calculated on the payment page.', cancel: 'It renews automatically every period until you cancel; cancel anytime from your account.', legal: 'By continuing you accept the <a href="/terminos" target="_blank" rel="noopener">Terms</a> and the <a href="/reembolsos" target="_blank" rel="noopener">cancellation and refund policy</a> (in Spanish).',
     later: 'Not now', goMP: 'Continue to Mercado Pago', goLS: 'Continue to payment', opening: 'Opening the payment page…', close: 'Close', seePlans: 'See the plans page',
     hasSub: 'You already have FilmSpirit {plan}. Manage or cancel it from your account button.', soon: 'Payments {where} open very soon.', wherePE: 'with Mercado Pago', whereIntl: 'from abroad',
     confirming: 'Confirming your subscription…', welcome: 'You now have FilmSpirit {plan}!', thanks: 'Thanks for subscribing. You can now run {projects} active production projects with teams of up to {members} people each, and export without watermark.', thanksSolo: 'Thanks for subscribing. You can now take your scripts into production ({projects} active projects) and export without watermark.', start: 'Get started',
     pending: 'The payment provider has not confirmed your subscription yet. If you completed it, it will activate in a few minutes.',
-    upPro: 'Move to Pro: {projects} production projects and teams of up to {members} people with permissions.', upStudio: 'Move to Studio: {projects} production projects and up to {members} people per project.', choose: 'Choose',
-    trial: 'Pro comes with a 30-day free trial, card required, once per account.', yearly: 'The yearly plan costs 10 months.', down: 'If you downgrade, projects over the limit become read-only: nothing is deleted.',
+    upPro: 'Move to Pro: {projects} production projects and teams of up to {members} people with permissions.', upStudio: 'Move to Studio: {projects} production projects, up to {members} people per project and, only in Studio, maps in Location scouting and imported 3D sets.', choose: 'Choose',
+    sample: 'No plan has a free trial: to see production, explore the sample project.', explore: 'Explore with a sample project', yearly: 'The yearly plan costs 10 months.', down: 'If you downgrade, projects over the limit become read-only: nothing is deleted.',
     founderPE: '<b>Founder price:</b> Pro at {m} per month ({y} per year) if you subscribe before {date}, for as long as you stay subscribed.', founderIntl: '<b>Founder price:</b> {pct}% off every Pro charge (code {code}) if you subscribe before {date}.', founderTag: 'founder',
-    wait: 'Waitlist', waitTxt: 'Studio opens once location scouting with maps and casting are ready. Leave your email and we will tell you first.', waitGo: 'Notify me', waitOk: 'Done: we will email {email} when Studio opens.',
   },
   pt: {
     all: 'Tudo o que cada plano inclui', title: 'Planos do FilmSpirit', you: 'Seu plano',
     rows: ['Roteiros', 'Coescrita', 'Projetos de produção ativos', 'Pessoas por projeto de produção', 'Espaço'],
-    more: ['Editor de roteiro e importação (Final Draft, Fountain, PDF)', 'PDF do roteiro sem marca-d\'água', 'Decupagem, plano de filmagem, calendário, ordem do dia e orçamento', 'Storyboard 2D/3D e animatic', 'Fotos e exportações sem marca-d\'água', 'Equipe com permissões por área', 'Locações com mapas e casting', 'Modelos da produtora, vários administradores e resumo de projetos', 'Projetos arquivados'],
-    unl: 'Sem limite', people: '{n} pessoas', solo: 'Só você', text: 'Só texto', free: 'Grátis', soonTag: 'em breve',
+    more: ['Editor de roteiro e importação (Final Draft, Fountain, PDF)', 'PDF do roteiro sem marca-d\'água', 'Decupagem, casting, locações, plano de filmagem, calendário, ordem do dia e orçamento', 'Storyboard 2D/3D e animatic', 'Fotos e exportações sem marca-d\'água', 'Equipe com permissões por área', 'Mapas nas locações e cenários 3D importados', 'Projetos arquivados'],
+    unl: 'Sem limite', people: '{n} pessoas', solo: 'Só você', text: 'Só texto', free: 'Grátis',
     yes: 'Sim', from: 'Você paga de', pe: 'Peru · soles · Mercado Pago', intl: 'Outro país · dólares · cartão', plan: 'Plano', month: 'Mensal', year: 'Anual', perM: 'por mês', perY: 'por ano', code: 'Código de desconto', opt: 'Opcional', apply: 'Aplicar', mpMail: 'E-mail da sua conta do Mercado Pago', mail: 'Seu e-mail (para o recibo)',
-    freeDays: '<b>Hoje você não paga nada.</b> Você tem {n} dias grátis de Pro; a primeira cobrança é em {date}.', usedTrial: '<b>Cobrado hoje</b> (sua conta já usou o teste de 30 dias).', today: '<b>Cobrado hoje.</b>',
+    today: '<b>Cobrado hoje.</b>',
     pay: 'Você paga {amount} {per}', firstYear: 'no primeiro ano', during: 'durante {n} meses', then: 'depois {base}', off: '{pct}% de desconto', atCk: 'O código {code} é aplicado na página de pagamento.', tax: 'Os impostos do seu país são calculados na página de pagamento.', cancel: 'Renova automaticamente a cada período até você cancelar; cancele quando quiser pela sua conta.', legal: 'Ao continuar você aceita os <a href="/terminos" target="_blank" rel="noopener">Termos</a> e a política de <a href="/reembolsos" target="_blank" rel="noopener">cancelamentos e reembolsos</a> (em espanhol).',
     later: 'Agora não', goMP: 'Continuar para o Mercado Pago', goLS: 'Continuar para o pagamento', opening: 'Abrindo a página de pagamento…', close: 'Fechar', seePlans: 'Ver a página de planos',
     hasSub: 'Você já tem o FilmSpirit {plan}. Gerencie ou cancele no botão da sua conta.', soon: 'Os pagamentos {where} abrem em breve.', wherePE: 'com Mercado Pago', whereIntl: 'internacionais',
     confirming: 'Confirmando sua assinatura…', welcome: 'Agora você tem o FilmSpirit {plan}!', thanks: 'Obrigado por assinar. Agora você pode ter {projects} projetos de produção ativos, com equipes de até {members} pessoas por projeto, e exportar sem marca-d\'água.', thanksSolo: 'Obrigado por assinar. Agora você pode levar seus roteiros para a produção ({projects} projetos ativos) e exportar sem marca-d\'água.', start: 'Começar',
     pending: 'O meio de pagamento ainda não confirmou sua assinatura. Se você a concluiu, ela será ativada em alguns minutos.',
-    upPro: 'Passe para o Pro: {projects} projetos de produção e equipes de até {members} pessoas com permissões.', upStudio: 'Passe para o Studio: {projects} projetos de produção e até {members} pessoas por projeto.', choose: 'Escolher',
-    trial: 'O Pro tem 30 dias de teste grátis, com cartão, uma vez por conta.', yearly: 'O plano anual custa 10 meses.', down: 'Se você mudar para um plano menor, os projetos acima do limite ficam só para leitura: nada é apagado.',
+    upPro: 'Passe para o Pro: {projects} projetos de produção e equipes de até {members} pessoas com permissões.', upStudio: 'Passe para o Studio: {projects} projetos de produção, até {members} pessoas por projeto e, só no Studio, os mapas nas locações e os cenários 3D importados.', choose: 'Escolher',
+    sample: 'Nenhum plano tem teste grátis: para ver a produção, explore o projeto de exemplo.', explore: 'Explorar com um projeto de exemplo', yearly: 'O plano anual custa 10 meses.', down: 'Se você mudar para um plano menor, os projetos acima do limite ficam só para leitura: nada é apagado.',
     founderPE: '<b>Preço de fundador:</b> Pro por {m} por mês ({y} por ano) se você assinar antes de {date}, enquanto continuar assinando.', founderIntl: '<b>Preço de fundador:</b> {pct}% a menos em cada cobrança do Pro (código {code}) se você assinar antes de {date}.', founderTag: 'fundador',
-    wait: 'Lista de espera', waitTxt: 'O Studio abre quando as locações com mapas e o casting estiverem prontos. Deixe seu e-mail e avisamos você primeiro.', waitGo: 'Avise-me', waitOk: 'Pronto: avisaremos {email} quando o Studio abrir.',
   },
   fr: {
     all: 'Tout ce que comprend chaque offre', title: 'Offres FilmSpirit', you: 'Votre offre',
     rows: ['Scénarios', 'Coécriture', 'Projets de production actifs', 'Personnes par projet de production', 'Espace'],
-    more: ['Éditeur de scénario et import (Final Draft, Fountain, PDF)', 'PDF du scénario sans filigrane', 'Dépouillement, plan de travail, calendrier, feuille de service et budget', 'Storyboard 2D/3D et animatique', 'Photos et exports sans filigrane', 'Équipe avec permissions par poste', 'Repérages avec cartes et casting', 'Modèles de société, plusieurs administrateurs et vue d\'ensemble des projets', 'Projets archivés'],
-    unl: 'Illimités', people: '{n} personnes', solo: 'Vous seul', text: 'Texte seul', free: 'Gratuit', soonTag: 'bientôt',
+    more: ['Éditeur de scénario et import (Final Draft, Fountain, PDF)', 'PDF du scénario sans filigrane', 'Dépouillement, casting, repérages, plan de travail, calendrier, feuille de service et budget', 'Storyboard 2D/3D et animatique', 'Photos et exports sans filigrane', 'Équipe avec permissions par poste', 'Cartes des repérages et décors 3D importés', 'Projets archivés'],
+    unl: 'Illimités', people: '{n} personnes', solo: 'Vous seul', text: 'Texte seul', free: 'Gratuit',
     yes: 'Oui', from: 'Vous payez depuis', pe: 'Pérou · soles · Mercado Pago', intl: 'Autre pays · dollars · carte', plan: 'Offre', month: 'Mensuel', year: 'Annuel', perM: 'par mois', perY: 'par an', code: 'Code de réduction', opt: 'Facultatif', apply: 'Appliquer', mpMail: 'E-mail de votre compte Mercado Pago', mail: 'Votre e-mail (pour le reçu)',
-    freeDays: '<b>Vous ne payez rien aujourd\'hui.</b> Vous avez {n} jours gratuits de Pro ; le premier prélèvement aura lieu le {date}.', usedTrial: '<b>Prélevé aujourd\'hui</b> (votre compte a déjà utilisé l\'essai de 30 jours).', today: '<b>Prélevé aujourd\'hui.</b>',
+    today: '<b>Prélevé aujourd\'hui.</b>',
     pay: 'Vous payez {amount} {per}', firstYear: 'la première année', during: 'pendant {n} mois', then: 'puis {base}', off: '{pct} % de réduction', atCk: 'Le code {code} s\'applique sur la page de paiement.', tax: 'Les taxes de votre pays sont calculées sur la page de paiement.', cancel: 'Renouvellement automatique à chaque période jusqu\'à résiliation ; résiliable à tout moment depuis votre compte.', legal: 'En continuant, vous acceptez les <a href="/terminos" target="_blank" rel="noopener">Conditions</a> et la politique d\'<a href="/reembolsos" target="_blank" rel="noopener">annulation et de remboursement</a> (en espagnol).',
     later: 'Plus tard', goMP: 'Continuer vers Mercado Pago', goLS: 'Continuer vers le paiement', opening: 'Ouverture de la page de paiement…', close: 'Fermer', seePlans: 'Voir la page des offres',
     hasSub: 'Vous avez déjà FilmSpirit {plan}. Gérez-le ou résiliez-le depuis le bouton de votre compte.', soon: 'Les paiements {where} ouvrent très bientôt.', wherePE: 'avec Mercado Pago', whereIntl: 'internationaux',
     confirming: 'Confirmation de votre abonnement…', welcome: 'Vous avez maintenant FilmSpirit {plan} !', thanks: 'Merci pour votre abonnement. Vous pouvez gérer {projects} projets de production actifs, avec des équipes jusqu\'à {members} personnes par projet, et exporter sans filigrane.', thanksSolo: 'Merci pour votre abonnement. Vous pouvez passer vos scénarios en production ({projects} projets actifs) et exporter sans filigrane.', start: 'Commencer',
     pending: 'Le moyen de paiement n\'a pas encore confirmé votre abonnement. Si vous l\'avez finalisé, il s\'activera dans quelques minutes.',
-    upPro: 'Passez à Pro : {projects} projets de production et des équipes jusqu\'à {members} personnes avec permissions.', upStudio: 'Passez à Studio : {projects} projets de production et jusqu\'à {members} personnes par projet.', choose: 'Choisir',
-    trial: 'Pro inclut 30 jours d\'essai gratuit, avec carte, une fois par compte.', yearly: 'L\'offre annuelle coûte 10 mois.', down: 'Si vous changez pour une offre inférieure, les projets au-delà de la limite passent en lecture seule : rien n\'est supprimé.',
+    upPro: 'Passez à Pro : {projects} projets de production et des équipes jusqu\'à {members} personnes avec permissions.', upStudio: 'Passez à Studio : {projects} projets de production, jusqu\'à {members} personnes par projet et, uniquement dans Studio, les cartes des repérages et les décors 3D importés.', choose: 'Choisir',
+    sample: 'Aucune offre n\'a d\'essai gratuit : pour voir la production, explorez le projet d\'exemple.', explore: 'Explorer avec un projet d\'exemple', yearly: 'L\'offre annuelle coûte 10 mois.', down: 'Si vous changez pour une offre inférieure, les projets au-delà de la limite passent en lecture seule : rien n\'est supprimé.',
     founderPE: '<b>Prix fondateur :</b> Pro à {m} par mois ({y} par an) si vous vous abonnez avant le {date}, tant que vous restez abonné.', founderIntl: '<b>Prix fondateur :</b> {pct} % de moins sur chaque prélèvement Pro (code {code}) si vous vous abonnez avant le {date}.', founderTag: 'fondateur',
-    wait: 'Liste d\'attente', waitTxt: 'Studio ouvre dès que les repérages avec cartes et le casting sont prêts. Laissez votre e-mail et nous vous prévenons en premier.', waitGo: 'Prévenez-moi', waitOk: 'C\'est noté : nous écrirons à {email} à l\'ouverture de Studio.',
   },
   it: {
     all: 'Tutto ciò che include ogni piano', title: 'Piani di FilmSpirit', you: 'Il tuo piano',
     rows: ['Sceneggiature', 'Co-scrittura', 'Progetti di produzione attivi', 'Persone per progetto di produzione', 'Spazio'],
-    more: ['Editor di sceneggiatura e importazione (Final Draft, Fountain, PDF)', 'PDF della sceneggiatura senza filigrana', 'Spoglio, piano di lavorazione, calendario, ordine del giorno e budget', 'Storyboard 2D/3D e animatic', 'Foto ed esportazioni senza filigrana', 'Troupe con permessi per reparto', 'Sopralluoghi con mappe e casting', 'Modelli della casa di produzione, più amministratori e riepilogo dei progetti', 'Progetti archiviati'],
-    unl: 'Senza limiti', people: '{n} persone', solo: 'Solo tu', text: 'Solo testo', free: 'Gratis', soonTag: 'presto',
+    more: ['Editor di sceneggiatura e importazione (Final Draft, Fountain, PDF)', 'PDF della sceneggiatura senza filigrana', 'Spoglio, casting, sopralluoghi, piano di lavorazione, calendario, ordine del giorno e budget', 'Storyboard 2D/3D e animatic', 'Foto ed esportazioni senza filigrana', 'Troupe con permessi per reparto', 'Mappe dei sopralluoghi e scenografie 3D importate', 'Progetti archiviati'],
+    unl: 'Senza limiti', people: '{n} persone', solo: 'Solo tu', text: 'Solo testo', free: 'Gratis',
     yes: 'Sì', from: 'Paghi da', pe: 'Perù · soles · Mercado Pago', intl: 'Altro paese · dollari · carta', plan: 'Piano', month: 'Mensile', year: 'Annuale', perM: 'al mese', perY: 'all\'anno', code: 'Codice sconto', opt: 'Facoltativo', apply: 'Applica', mpMail: 'Email del tuo account Mercado Pago', mail: 'La tua email (per la ricevuta)',
-    freeDays: '<b>Oggi non paghi nulla.</b> Hai {n} giorni gratis di Pro; il primo addebito è il {date}.', usedTrial: '<b>Addebito oggi</b> (il tuo account ha già usato la prova di 30 giorni).', today: '<b>Addebito oggi.</b>',
+    today: '<b>Addebito oggi.</b>',
     pay: 'Paghi {amount} {per}', firstYear: 'il primo anno', during: 'per {n} mesi', then: 'poi {base}', off: '{pct}% di sconto', atCk: 'Il codice {code} si applica nella pagina di pagamento.', tax: 'Le tasse del tuo paese vengono calcolate nella pagina di pagamento.', cancel: 'Si rinnova automaticamente a ogni periodo finché non disdici; disdici quando vuoi dal tuo account.', legal: 'Continuando accetti i <a href="/terminos" target="_blank" rel="noopener">Termini</a> e la politica di <a href="/reembolsos" target="_blank" rel="noopener">disdetta e rimborsi</a> (in spagnolo).',
     later: 'Non ora', goMP: 'Continua su Mercado Pago', goLS: 'Continua al pagamento', opening: 'Apertura della pagina di pagamento…', close: 'Chiudi', seePlans: 'Vedi la pagina dei piani',
     hasSub: 'Hai già FilmSpirit {plan}. Gestiscilo o disdicilo dal pulsante del tuo account.', soon: 'I pagamenti {where} aprono molto presto.', wherePE: 'con Mercado Pago', whereIntl: 'internazionali',
     confirming: 'Conferma dell\'abbonamento…', welcome: 'Ora hai FilmSpirit {plan}!', thanks: 'Grazie per l\'abbonamento. Ora puoi gestire {projects} progetti di produzione attivi, con troupe fino a {members} persone per progetto, ed esportare senza filigrana.', thanksSolo: 'Grazie per l\'abbonamento. Ora puoi portare le tue sceneggiature in produzione ({projects} progetti attivi) ed esportare senza filigrana.', start: 'Inizia',
     pending: 'Il metodo di pagamento non ha ancora confermato l\'abbonamento. Se lo hai completato, si attiverà tra pochi minuti.',
-    upPro: 'Passa a Pro: {projects} progetti di produzione e troupe fino a {members} persone con permessi.', upStudio: 'Passa a Studio: {projects} progetti di produzione e fino a {members} persone per progetto.', choose: 'Scegli',
-    trial: 'Pro ha 30 giorni di prova gratuita, con carta, una volta per account.', yearly: 'Il piano annuale costa 10 mesi.', down: 'Se passi a un piano inferiore, i progetti oltre il limite restano in sola lettura: non si cancella nulla.',
+    upPro: 'Passa a Pro: {projects} progetti di produzione e troupe fino a {members} persone con permessi.', upStudio: 'Passa a Studio: {projects} progetti di produzione, fino a {members} persone per progetto e, solo in Studio, le mappe dei sopralluoghi e le scenografie 3D importate.', choose: 'Scegli',
+    sample: 'Nessun piano ha una prova gratuita: per vedere la produzione, esplora il progetto di esempio.', explore: 'Esplora con un progetto di esempio', yearly: 'Il piano annuale costa 10 mesi.', down: 'Se passi a un piano inferiore, i progetti oltre il limite restano in sola lettura: non si cancella nulla.',
     founderPE: '<b>Prezzo fondatore:</b> Pro a {m} al mese ({y} all\'anno) se ti abboni prima del {date}, finché resti abbonato.', founderIntl: '<b>Prezzo fondatore:</b> {pct}% in meno su ogni addebito di Pro (codice {code}) se ti abboni prima del {date}.', founderTag: 'fondatore',
-    wait: 'Lista d\'attesa', waitTxt: 'Studio apre quando saranno pronti i sopralluoghi con mappe e il casting. Lasciaci la tua email e ti avvisiamo per primo.', waitGo: 'Avvisami', waitOk: 'Fatto: scriveremo a {email} quando apre Studio.',
   },
 };
 const T$ = (k, v = {}) => { const x = (PAY_TX[PAY_LANG] || PAY_TX.es)[k] ?? PAY_TX.es[k] ?? k; return typeof x === 'string' ? x.replace(/\{(\w+)\}/g, (m, y) => v[y] ?? m) : x; };
@@ -129,7 +124,7 @@ const payMoney = (n, cur) => (cur === 'USD' ? 'US$ ' : 'S/ ') + (Number.isIntege
 const soles = n => payMoney(n, 'PEN');
 /* región de pago: la elegida a mano o la que detectó el servidor (zona horaria, país) */
 const payRegion = B => { const r = ls.get('payRegion', ''); return r === 'pe' || r === 'intl' ? r : (B && B.region) || (TZ === 'America/Lima' ? 'pe' : 'intl'); };
-/* qué plan ofrecer a continuación: Guion → Pro (con la prueba), Indie → Pro, Pro → Studio */
+/* qué plan ofrecer a continuación: Guion → Pro, Indie → Pro, Pro → Studio (lote AD: sin prueba gratis) */
 const nextPlan = plan => plan === 'pro' || plan === 'studio' ? 'studio' : 'pro';
 async function accountMenu(anchor) {
   const me = APITEAM.me, B = await billInfo(true);
@@ -143,13 +138,13 @@ async function accountMenu(anchor) {
   const arch = me.archived ? ` · ${me.archived} archivado${me.archived === 1 ? '' : 's'}` : '';
   const used = me.plan === 'free' ? `${me.scripts || 0} de ${L.scripts} guiones activos${arch}`
     : `${me.own} de ${L.projects} ${L.projects === 1 ? 'proyecto de producción' : 'proyectos de producción'} · ${me.scripts || 0} ${me.scripts === 1 ? 'guion' : 'guiones'}${arch}`;
-  const studioOpen = !!(B && B.studioOpen);
+  // (lote AD) Studio siempre a la venta; a una cuenta gratis, los planes y el proyecto de ejemplo (no hay prueba gratis)
   const planBtn = me.plan === 'studio' && sub && sub.status !== 'cancelled' ? ''
     : sub && sub.status === 'cancelled' ? 'Elegir un plan'
-      : me.plan === 'free' ? 'Ver planes · Pro 30 días gratis' : me.plan === 'indie' ? 'Pasar a Pro' : me.plan === 'pro' ? (studioOpen ? 'Pasar a Studio' : 'Studio: lista de espera') : 'Elegir un plan';
+      : me.plan === 'free' ? 'Ver planes de suscripción' : me.plan === 'indie' ? 'Pasar a Pro' : me.plan === 'pro' ? 'Pasar a Studio' : 'Elegir un plan';
   popover(anchor, `<h5>${esc(me.name)}</h5><p class="hint" style="margin:0 0 8px;word-break:break-all">${esc(me.email)}</p>
     <div class="acct-plan ${ea(me.plan)}"><b>FilmSpirit ${pn}</b><span class="hint">${esc(st)}</span><span class="hint">${esc(used)}</span></div>
-    <div class="menu">${planBtn ? `<button data-a="plan">${esc(planBtn)}</button>` : ''}
+    <div class="menu">${planBtn ? `<button data-a="plan">${esc(planBtn)}</button>` : ''}${me.plan === 'free' && !sub ? '<button data-a="sample">Explorar con un proyecto de ejemplo</button>' : ''}
       ${sub && sub.portal ? '<button data-a="portal">Recibos y medio de pago</button>' : ''}
       ${sub && sub.status === 'authorized' ? '<button data-a="cancel">Cancelar la suscripción…</button>' : ''}
       ${me.admin ? '<button data-a="admin">Panel de administración</button>' : ''}
@@ -161,6 +156,7 @@ async function accountMenu(anchor) {
       const a = b.dataset.a;
       const PL = me.plans || PLAN_DEFAULTS;
       if (a === 'plan') licenseDialog(me.plan === 'indie' ? T$('upPro', PL.pro) : me.plan === 'pro' ? T$('upStudio', PL.studio) : '', nextPlan(me.plan));
+      if (a === 'sample') sampleExplore();
       if (a === 'portal') {
         if (sub.portal !== 'paddle') { window.open(sub.portal, '_blank', 'noopener'); return; }
         // Paddle: un enlace de un solo uso al portal del cliente (se abre la pestaña antes, para que el navegador no la bloquee)
@@ -234,17 +230,15 @@ async function licenseDialog(lead, want) {
     KEYS.map(k => !PL[k].projects ? n : PL[k].members <= 1 ? T$('solo') : PL[k].members),
     KEYS.map(k => k === 'free' ? T$('text') : gb(PL[k].storageMB)),
   ];
-  const soon = ` <span class="pl-soon">${esc(T$('soonTag'))}</span>`;
-  const more = [[y, y, y, y], [y, y, y, y], [n, y, y, y], [n, y, y, y], [n, y, y, y], [n, n, y, y], [n, n, n, y + soon], [n, n, n, y], KEYS.map(k => PL[k].projects ? PL[k].archived : n)];
+  // (lote AD) lo exclusivo de Studio: los mapas en Scouting y los escenarios 3D importados (ya no «pronto»)
+  const more = [[y, y, y, y], [y, y, y, y], [n, y, y, y], [n, y, y, y], [n, y, y, y], [n, n, y, y], [n, n, n, y], KEYS.map(k => PL[k].projects ? PL[k].archived : n)];
   const sub = B && B.sub && B.sub.status !== 'cancelled' ? B.sub : null;
   const subTier = sub ? PLAN_TIER[sub.plan || 'pro'] : 0;
-  const studioOpen = !!(B && B.studioOpen);
   // con suscripción activa, solo planes mayores; sin ella, desde el plan actual (un plan de regalo o cancelado se puede contratar)
   const sell = ['indie', 'pro', 'studio'].filter(k => sub ? PLAN_TIER[k] > subTier : PLAN_TIER[k] >= (PLAN_TIER[me.plan] || 0));
   let plan = sell.includes(want) ? want : sell.includes('pro') ? 'pro' : sell[0] || 'studio', cycle = 'month', region = payRegion(B), q = null;
   const provOn = r => !!(B && B.providers && (r === 'pe' ? B.providers.mp : B.providers.ls));
-  const waiting = () => plan === 'studio' && !studioOpen;
-  const canBuy = () => B && provOn(region) && !waiting() && PLAN_TIER[plan] > subTier;
+  const canBuy = () => B && provOn(region) && PLAN_TIER[plan] > subTier;
   const cur = () => region === 'pe' ? 'PEN' : 'USD';
   const F = B && B.founder;
   const listOf = (pl, cy) => B ? B.prices[cur()][pl][cy] : 0;
@@ -252,7 +246,8 @@ async function licenseDialog(lead, want) {
   const priceOf = (pl, cy) => { if (!B) return ''; const f = founderOf(pl, cy), l = listOf(pl, cy); return f != null && f < l ? `<s>${esc(payMoney(l, cur()))}</s> ${esc(payMoney(f, cur()))}` : esc(payMoney(l, cur())); };
   const notes = () => [
     F ? (region === 'pe' ? T$('founderPE', { m: payMoney(F.PEN.month, 'PEN'), y: payMoney(F.PEN.year, 'PEN'), date: fdate(F.until) }) : B.intl === 'paddle' ? T$('founderIntl', { pct: F.pct, code: esc(F.code), date: fdate(F.until) }) : '') : '',
-    esc(T$('trial')), esc(T$('yearly')), esc(T$('down')),
+    // sin prueba gratis: para ver la producción, el proyecto de ejemplo (a una cuenta gratis, con su botón)
+    esc(T$('sample')) + (me.plan === 'free' ? ` <button type="button" class="linkbtn pl-sample" id="plSample">${esc(T$('explore'))}</button>` : ''), esc(T$('yearly')), esc(T$('down')),
   ].filter(Boolean).map(x => `<li>${x}</li>`).join('');
   const m = modal({
     title: T$('title'), wide: true,
@@ -278,37 +273,33 @@ async function licenseDialog(lead, want) {
         <label class="fld"><span id="byMailL"></span><input type="email" id="byMail" value="${esc(me.email || '')}" autocomplete="email"></label>
         <p class="buy-sum" id="bySum"></p>
         </div>
-        <div class="buy-wait" hidden><p style="margin:0">${esc(T$('waitTxt'))}</p><button class="btn" type="button" id="byWait">${esc(T$('waitGo'))}</button></div>
       </div>`}`,
     foot: `<button class="btn" data-close>${T$('later')}</button><button class="btn" id="plGo">${T$('seePlans')}</button><button class="btn primary" id="byGo">${T$('goMP')}</button>`,
   });
   $('#plGo', m).onclick = () => window.open('/#planes', '_blank', 'noopener');
+  const smp = $('#plSample', m); if (smp) smp.onclick = () => sampleExplore();
   const sum = $('#bySum', m), go = $('#byGo', m);
-  const paintPrices = () => ['indie', 'pro', 'studio'].forEach(k => { const c = $('#plP' + k, m); if (c) c.innerHTML = k === 'studio' && !studioOpen ? esc(T$('wait')) : priceOf(k, 'month'); });
+  const paintPrices = () => ['indie', 'pro', 'studio'].forEach(k => { const c = $('#plP' + k, m); if (c) c.innerHTML = priceOf(k, 'month'); });
   if (!$('.buy', m)) { go.hidden = true; paintPrices(); return; }
   const paint = () => {
     $$('[data-rg]', m).forEach(x => { x.setAttribute('aria-pressed', x.dataset.rg === region); x.setAttribute('aria-checked', x.dataset.rg === region); });
     $$('[data-pl]', m).forEach(x => { x.classList.toggle('on', x.dataset.pl === plan); x.setAttribute('aria-checked', x.dataset.pl === plan); });
     $$('[data-cy]', m).forEach(x => { x.classList.toggle('on', x.dataset.cy === cycle); x.setAttribute('aria-checked', x.dataset.cy === cycle); });
     const per = cycle === 'year' ? T$('perY') : T$('perM');
-    for (const k of sell) { const s = $('#bp_' + k, m); if (s) s.innerHTML = k === 'studio' && !studioOpen ? esc(T$('wait')) : priceOf(k, cycle) + ' ' + esc(per); }
+    for (const k of sell) { const s = $('#bp_' + k, m); if (s) s.innerHTML = priceOf(k, cycle) + ' ' + esc(per); }
     paintPrices();
-    $('.buy-pay', m).hidden = waiting(); $('.buy-wait', m).hidden = !waiting();
-    if (!waiting()) { $('#bcM', m).innerHTML = priceOf(plan, 'month') + ' ' + esc(T$('perM')); $('#bcY', m).innerHTML = priceOf(plan, 'year') + ' ' + esc(T$('perY')); }
+    $('#bcM', m).innerHTML = priceOf(plan, 'month') + ' ' + esc(T$('perM')); $('#bcY', m).innerHTML = priceOf(plan, 'year') + ' ' + esc(T$('perY'));
     $('#byMailL', m).textContent = region === 'pe' ? T$('mpMail') : T$('mail');
     // con Paddle se paga siempre con el correo de la cuenta (el servidor no acepta otro): el campo no hace falta
     $('#byMail', m).closest('.fld').hidden = region === 'intl' && !!B && B.intl === 'paddle';
     go.textContent = region === 'pe' ? T$('goMP') : T$('goLS');
-    go.hidden = waiting();
     go.disabled = !canBuy();
     if (!provOn(region)) sum.innerHTML = esc(T$('soon', { where: region === 'pe' ? T$('wherePE') : T$('whereIntl') }));
   };
   const show = () => {
-    if (!q || !provOn(region) || waiting()) return paint();
+    if (!q || !provOn(region)) return paint();
     const per = cycle === 'year' ? T$('perY') : T$('perM'), c = q.currency;
-    const parts = [];
-    if (q.trialDays) parts.push(T$('freeDays', { n: q.trialDays, date: fdate(Date.now() + q.trialDays * 864e5) }));
-    else parts.push(plan === 'pro' && region === 'pe' && B && !B.trial ? T$('usedTrial') : T$('today'));
+    const parts = [T$('today')];   // sin prueba gratis: se cobra al suscribirse
     let pay = T$('pay', { amount: payMoney(q.amount, c), per: q.pct && q.cycles && cycle === 'year' ? T$('firstYear') : per });
     if (q.founder && q.amount < q.list) pay += ` (${esc(T$('founderTag'))}${q.pct ? ' · ' + T$('off', { pct: q.pct }) : ''})`;
     else if (q.pct) pay += ` (${T$('off', { pct: q.pct })}${q.label ? ' · ' + esc(q.label) : ''})${q.cycles && cycle === 'month' ? ' ' + T$('during', { n: q.cycles }) : ''}${q.cycles ? ', ' + T$('then', { base: payMoney(q.base, c) }) : ''}`;
@@ -320,7 +311,7 @@ async function licenseDialog(lead, want) {
     paint();
   };
   const quote = async () => {
-    if (!provOn(region) || waiting()) { q = null; return paint(); }
+    if (!provOn(region)) { q = null; return paint(); }
     const code = $('#byCode', m).value.trim();
     try { q = (await apiFetch('POST', '/api/billing/quote', { plan, cycle, code, region })).json; show(); return true; }
     catch (e) {
@@ -336,11 +327,6 @@ async function licenseDialog(lead, want) {
   });
   $('#byApply', m).onclick = () => quote().then(ok => { if (ok && $('#byCode', m).value.trim()) toast('✓'); });
   $('#byCode', m).addEventListener('keydown', e => { if (e.key === 'Enter') $('#byApply', m).click(); });
-  $('#byWait', m).onclick = async () => {
-    const b = $('#byWait', m); b.disabled = true;
-    try { await apiFetch('POST', '/api/waitlist', { plan: 'studio', lang: PAY_LANG, tz: TZ }); b.textContent = '✓'; toast(T$('waitOk', { email: me.email }), 6000); }
-    catch (e) { b.disabled = false; toast(e.message, 5000); }
-  };
   paint(); quote();
   go.onclick = async () => {
     go.disabled = true; go.textContent = T$('opening');
@@ -382,7 +368,7 @@ function freeLimitNotice(kind, msg) {
   const me = APITEAM.me || { plan: 'free', limits: PLAN_DEFAULTS.free };
   const L = me.limits, k = kind || (me.plan === 'free' ? 'guion' : 'prod');
   const text = msg || (k === 'guion' ? `El plan Guion permite ${L.scripts} guiones activos. Archiva uno que terminaste o pasa a Indie, Pro o Studio (guiones sin límite).`
-    : me.plan === 'free' ? 'Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Prueba Pro 30 días gratis.'
+    : me.plan === 'free' ? 'Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Para conocerlos sin pagar, explora el proyecto de ejemplo.'
       : me.plan === 'indie' ? `Tu plan Indie permite ${L.projects} proyectos de producción activos. Archiva uno que ya no uses o pasa a Pro (${(me.plans && me.plans.pro.projects) || 7}).`
         : me.plan === 'pro' ? `Tu plan Pro permite ${L.projects} proyectos de producción activos. Archiva uno que ya no uses o pasa a Studio (${(me.plans && me.plans.studio.projects) || 20}).`
           : `Tu plan permite ${L.projects} proyectos de producción activos a la vez. Archiva uno que ya no uses.`);
@@ -576,7 +562,8 @@ function planBanner() {
     : SHARE.admin
       ? (SHARE.kind !== 'guion' && !(SHARE.limits && SHARE.limits.projects)
         // plan Guion con un proyecto de producción (de antes, o al terminar la suscripción)
-        ? 'Solo lectura: los proyectos de producción son de Indie, Pro y Studio. Puedes verlo, exportarlo y descargarlo; tus datos siguen aquí. <button class="btn sm" data-b="zip">Descargar ZIP</button> <button class="btn sm primary" data-b="pro">Ver planes · Pro 30 días gratis</button>'
+        // (lote AD) sin prueba gratis: los planes y, al lado, el proyecto de ejemplo con todas sus pestañas
+        ? 'Solo lectura: los proyectos de producción son de Indie, Pro y Studio. Puedes verlo, exportarlo y descargarlo; tus datos siguen aquí. <button class="btn sm" data-b="zip">Descargar ZIP</button> <button class="btn sm primary" data-b="pro">Ver planes de suscripción</button> <button class="btn sm" data-b="sample">Explorar con un proyecto de ejemplo</button>'
         : `Solo lectura: tu plan permite ${SHARE.kind === 'guion' ? `${SHARE.limits && SHARE.limits.scripts} guiones activos` : `${SHARE.limits && SHARE.limits.projects} ${(SHARE.limits && SHARE.limits.projects) === 1 ? 'proyecto de producción activo' : 'proyectos de producción activos'}`}. Puedes verlo y exportarlo. <button class="btn sm" data-b="act">Usar este como activo</button> <button class="btn sm" data-b="arch">Archivar otro…</button> <button class="btn sm primary" data-b="pro">Ver planes</button>`)
       : 'Solo lectura: quien administra este proyecto superó los proyectos activos de su plan.';
   $('#banners').appendChild(b);     // fila propia de avisos (no rompe la grilla si hay más de uno)
@@ -585,6 +572,7 @@ function planBanner() {
     if (x.dataset.b === 'pro') return licenseDialog('', nextPlan((APITEAM.me || {}).plan));
     if (x.dataset.b === 'unarch') return archiveProject(false);
     if (x.dataset.b === 'zip') return archiveZipDialog();
+    if (x.dataset.b === 'sample') return sampleExplore();
     if (x.dataset.b === 'arch') return openMenu($('#openBtn'));
     confirmBox('Proyecto activo', `«${esc(P.meta.title)}» pasará a ser uno de tus proyectos activos y otro quedará en solo lectura. Puedes cambiarlo una vez cada 30 días; archivar un proyecto libera su lugar sin esperar.`, 'Cambiar', async () => {
       try { await apiFetch('POST', `/api/p/${encodeURIComponent(P.id)}/activate`, {}); toast('Listo: este proyecto está activo.'); }

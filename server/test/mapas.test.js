@@ -64,6 +64,29 @@ test('no sigue a otros sitios, ni por http, ni más de 5 saltos', async () => {
   await assert.rejects(caida.resolve('https://maps.app.goo.gl/x1'), e => e.code === 'resolve_failed');
 });
 
+test('el endpoint, en un proyecto: según el plan de quien es dueño (todo su equipo); sin acceso, no', async () => {
+  const S = await start();
+  try {
+    S.mapas.clear();
+    S.mapas.resolve = makeMapas({ fetch: fakeNet({ 'https://maps.app.goo.gl/Ok1': [302, LONG] }) }).resolve;
+    const sec = t => ({ guion: JSON.stringify({ meta: { title: t }, paras: [] }) });
+    const who = async (email, plan) => { const c = client(S.base); await c.post('/api/auth/google', { credential: S.token(email, email.split('@')[0]) }); S.S.run('UPDATE users SET plan=? WHERE email=?', plan, email); return c; };
+    const st = await who('studio@prueba.pe', 'studio'), pro = await who('pro@prueba.pe', 'pro'), fuera = await who('fuera@prueba.pe', 'studio');
+    const pS = (await st.post('/api/projects', { sections: sec('De Studio') })).json.pid, pP = (await pro.post('/api/projects', { sections: sec('De Pro') })).json.pid;
+    await st.put(`/api/p/${pS}/team`, { list: [{ add: true, email: 'pro@prueba.pe', role: 'Locaciones', perms: { plan: 'editar' } }] });
+    await pro.put(`/api/p/${pP}/team`, { list: [{ add: true, email: 'studio@prueba.pe', role: 'Locaciones', perms: { plan: 'editar' } }] });
+    await pro.get(`/api/p/${pS}`); await st.get(`/api/p/${pP}`);   // abrir el enlace acepta la invitación
+    const res = (c, pid) => c.post('/api/maps/resolve', { url: 'https://maps.app.goo.gl/Ok1', pid });
+    assert.equal((await res(st, pS)).status, 200, 'dueño Studio');
+    assert.equal((await res(pro, pS)).status, 200, 'alguien de Pro en un proyecto de Studio: sí');
+    let r = await res(st, pP);
+    assert.equal(r.status, 403, 'alguien de Studio en un proyecto de Pro: no'); assert.equal(r.json.code, 'plan_studio');
+    assert.equal((await res(pro, pP)).status, 403, 'dueño Pro');
+    assert.equal((await res(fuera, pS)).status, 403, 'sin acceso al proyecto, no');
+    assert.equal((await res(st, 'no-existe')).status, 403);
+  } finally { await S.stop(); }
+});
+
 test('el endpoint: con sesión y la cabecera de la app, con límite por persona', async () => {
   const S = await start();
   try {
@@ -77,6 +100,10 @@ test('el endpoint: con sesión y la cabecera de la app, con límite por persona'
     assert.equal(r.status, 401, 'sin sesión, no');
     const A = client(S.base);
     await A.post('/api/auth/google', { credential: S.token('mapa@prueba.pe', 'Mapa') });
+    // (lote AD) los mapas del scouting son de Studio: sin proyecto, según el plan de la cuenta
+    r = await A.post('/api/maps/resolve', { url: 'https://maps.app.goo.gl/Ok1' });
+    assert.equal(r.status, 403); assert.equal(r.json.code, 'plan_studio'); assert.match(r.json.error, /Studio/);
+    S.S.run("UPDATE users SET plan='studio' WHERE email='mapa@prueba.pe'");
     r = await A.post('/api/maps/resolve', { url: 'https://maps.app.goo.gl/Ok1' });
     assert.equal(r.status, 200, r.text);
     assert.equal(r.json.url, LONG);

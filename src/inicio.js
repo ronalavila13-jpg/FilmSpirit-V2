@@ -175,20 +175,44 @@ async function homeClick(e) {
   if (h === 'file') return Store.kind === 'desk' ? deskMenu('open') : pickFile(PROJ_ACCEPT, 'restore');
 }
 
+/* (lote AD) «Explorar con un proyecto de ejemplo»: ningún plan tiene prueba gratis; para ver la producción está el
+   ejemplo, con todas sus pestañas. Se abre en la misma pestaña en que estaba la persona (el desglose, el plan…) */
+async function sampleExplore() {
+  const tab = UI.tab;
+  closeModal(); closePop();
+  if (P && dirty.size && !saving) await flushSave();
+  // openSample (lote AD · acceso, proyectos.js) reutiliza el ejemplo en memoria si ya existe; sin ella, uno nuevo
+  await (typeof openSample === 'function' ? openSample() : setProject(buildSample()));
+  if (tab && tab !== UI.tab && RENDER[tab] && (typeof canSeeTab !== 'function' || canSeeTab(tab))) setTab(tab);
+  toast('Este es el proyecto de ejemplo, con todas sus pestañas. Explóralo: lo que cambies aquí no se guarda.', 6000);
+}
+/* el par de botones donde antes se ofrecía la prueba gratis: los planes y el ejemplo. planAct: la acción del de los
+   planes (en un guion, «kind-produce»: después de pagar se lleva a producción solo); cls: clases extra de los botones */
+const samplePairHTML = (planAct = 'plans-see', cls = '') => `<button class="btn primary${cls}" data-act="${ea(planAct)}">Ver planes de suscripción</button><button class="btn${cls}" data-act="sample-explore">Explorar con un proyecto de ejemplo</button>`;
+Object.assign(ACT, {
+  'sample-explore': () => sampleExplore(),
+  'plans-see': () => {
+    if (typeof licenseDialog !== 'function') return;
+    const me = typeof APITEAM !== 'undefined' && APITEAM.me;
+    licenseDialog('', me && typeof nextPlan === 'function' ? nextPlan(me.plan) : 'pro');
+  },
+});
+
 /* ---------- «Nuevo»: Guion o Proyecto ---------- */
 function newMenu(anchor) {
   const api = Store.kind === 'api', me = api ? APITEAM.me : null;
   const paid = !api || !!(me && me.limits && me.limits.projects);
   popover(anchor, `<div class="menu xmenu new-menu">
       <button data-n="guion"><b>Guion</b><small>En blanco, para escribir. Se guarda solo.</small></button>
-      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y plan de rodaje: Indie, Pro y Studio. Prueba Pro 30 días gratis.'}</small></button>
-    </div>`, p => p.addEventListener('click', e => { const x = e.target.closest('[data-n]'); if (!x) return; closePop(); newOf(x.dataset.n); }));
+      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y plan de rodaje: Indie, Pro y Studio.'}</small></button>
+      ${paid ? '' : '<button data-n="sample"><b>Proyecto de ejemplo</b><small>Todas las pestañas de producción, para explorarlas sin pagar.</small></button>'}
+    </div>`, p => p.addEventListener('click', e => { const x = e.target.closest('[data-n]'); if (!x) return; closePop(); if (x.dataset.n === 'sample') sampleExplore(); else newOf(x.dataset.n); }));
 }
 async function newOf(kind) {
   if (Store.kind === 'api' && APITEAM.anon) return anonAsk('new');   // sin cuenta: crear pide la cuenta (lote AD)
   if (kind === 'prod' && Store.kind === 'api') {
     const me = APITEAM.me;
-    // plan Guion: los planes, con la prueba de Pro (para los curiosos)
+    // plan Guion: los planes y el proyecto de ejemplo (lote AD: sin prueba gratis)
     if (!(me && me.limits && me.limits.projects)) return freeLimitNotice('prod');
   }
   return newBlankProject(kind);

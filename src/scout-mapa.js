@@ -5,6 +5,7 @@
    cada candidata (mapa-enlace.js) o se ponen a mano («Ubicar en el mapa»; el pin se arrastra para corregir).
    Leaflet se carga solo al abrir el mapa: en la web publicada desde jsdelivr; en el servidor y en el escritorio desde
    app/lib (lo copian server/make.js y desktop/make.js desde tools/leaflet).
+   (lote AD) Es de Studio (studioFeat('mapas')): sin Studio, «Mapa general» lleva el candado y ofrece pasar a Studio
    ============================================================ */
 const LEAFLET_V = '1.9.4';
 const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -66,7 +67,7 @@ function smPinSVG(st, o = {}) {
 /* ---------- la vista ---------- */
 // el mapa vive fuera de la vista: al repintar la pestaña se vuelve a poner en su lugar (no se rehace ni pide teselas)
 const SM = { el: null, map: null, layer: null, tiles: null, mk: new Map(), sel: null, placing: null, pid: null, fit: false, tileOk: false, tileErr: 0, failed: false, ask: new Set(), note: '' };
-const smEditable = () => scoutEditable();
+const smEditable = () => scoutEditable() && studioFeat('mapas');   // (lote AD) ubicar y mover pines: de Studio
 function smCandRow(g, c) {
   const st = smState(g.d, c), geo = candGeo(c), on = SM.sel === c.id;
   const sub = (st === 'pick' ? 'Elegida' : SM_LABEL[st] || '') + (geo ? '' : ' · sin ubicar');
@@ -99,7 +100,13 @@ const SM_ICO = {
   go: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M9 6h9v9"/></svg>',
 };
 /* la barra de las dos vistas: «Por lugar | Mapa general» */
-const smViewSeg = () => hdSeg([{ label: 'Por lugar', attrs: 'data-act="sc-view" data-v="place"', on: UI.scView !== 'map' }, { label: 'Mapa general', attrs: 'data-act="sc-view" data-v="map"', on: UI.scView === 'map' }], 'Vista');
+const smViewSeg = () => {
+  const st = studioFeat('mapas'), on = UI.scView === 'map' && st;
+  return hdSeg([{ label: 'Por lugar', attrs: 'data-act="sc-view" data-v="place"', on: !on },
+    st ? { label: 'Mapa general', attrs: 'data-act="sc-view" data-v="map"', on }
+      // (el « · » escondido: en el teléfono el selector de vistas lee el texto, «Mapa general · Studio»)
+      : { label: `<span>Mapa general</span><span class="sr-only"> · </span>${studioLockHTML('mapas')}`, attrs: 'data-act="st-ask" data-k="mapas" class="st-seg" title="Los mapas en Scouting son parte de FilmSpirit Studio."', on: false }], 'Vista');
+};
 function smRender() {
   const v = $('#view'), ed = smEditable(), groups = smGroups();
   if (P.id !== SM.pid) { SM.pid = P.id; SM.sel = null; SM.placing = null; SM.fit = false; }
@@ -298,7 +305,8 @@ function smResolveShort(groups) {
     const u = String(c.map || '').trim();
     if (!mapIsShort(u) || MAP_RES.has(u) || SM.ask.has(u) || candGeo(c)) continue;
     SM.ask.add(u);
-    apiFetch('POST', '/api/maps/resolve', { url: u }).then(r => {
+    // (lote AD) con el proyecto: el servidor lo resuelve solo si quien es dueño tiene Studio
+    apiFetch('POST', '/api/maps/resolve', { url: u, ...(P._shared ? { pid: P.id } : {}) }).then(r => {
       const p = r && r.json && r.json.url ? mapLatLng(r.json.url) : null;
       MAP_RES.set(u, p);
       // queda guardado en la candidata, sin ser un paso de deshacer (no lo hizo la persona)
@@ -309,7 +317,10 @@ function smResolveShort(groups) {
   }
 }
 Object.assign(ACT, {
-  'sc-view': b => { UI.scView = b.dataset.v === 'map' ? 'map' : 'place'; ls.set('scView', UI.scView); if (UI.scView !== 'map') SM.placing = null; closeDrawers(); render(); },
+  'sc-view': b => {
+    if (b.dataset.v === 'map' && !studioFeat('mapas')) { studioAsk('mapas'); return; }   // (lote AD)
+    UI.scView = b.dataset.v === 'map' ? 'map' : 'place'; ls.set('scView', UI.scView); if (UI.scView !== 'map') SM.placing = null; closeDrawers(); render();
+  },
   'sm-sel': b => { const x = scCand(b.dataset.id); if (!x) return; if (SM.placing && SM.placing !== b.dataset.id && !candGeo(x.c)) { SM.placing = b.dataset.id; } smSelect(b.dataset.id, true); },
   'sm-close': () => { SM.sel = null; smPaint(); },
   'sm-open': b => { const x = scCand(b.dataset.id); if (!x) return; UI.scView = 'place'; ls.set('scView', 'place'); UI.scPlace = x.b; SM.placing = null; render();

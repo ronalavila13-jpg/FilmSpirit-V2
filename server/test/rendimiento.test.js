@@ -74,7 +74,8 @@ test('modelos 3D: uno que descomprimido pasa de 96 MB se rechaza sin llenar la m
   const raw = Buffer.alloc(8 + head.length + 97 * 1024 * 1024); raw.write('FSM1', 0, 'latin1'); raw.writeUInt32LE(head.length, 4); head.copy(raw, 8);
   const url = 'data:model/x-fsm;base64,' + zlib.gzipSync(raw).toString('base64');
   const rss = process.memoryUsage().rss;
-  const rs = await Promise.all([1, 2, 3, 4, 5, 6].map(i => A.put(`/api/p/${pid}/f`, { k: 'm3~s~b' + i, url })));
+  // (lote AD) con modelos de personajes («m3~c~…»): los de escenarios son de Studio y este proyecto es de Pro
+  const rs = await Promise.all([1, 2, 3, 4, 5, 6].map(i => A.put(`/api/p/${pid}/f`, { k: 'm3~c~b' + i, url })));
   assert.ok(rs.every(r => r.status === 400 && r.json.code === 'bad_image'), rs.map(r => r.status).join(','));
   assert.ok(process.memoryUsage().rss - rss < 200 * 1048576, 'seis a la vez no suman cientos de MB');
 });

@@ -648,3 +648,48 @@ function proGate(f) {
   if (typeof licenseDialog === 'function') licenseDialog(msg); else toast(msg, 4000);
   return false;
 }
+
+/* ---------- (lote AD) lo exclusivo de Studio: los mapas del scouting ('mapas') y los escenarios 3D importados ('set3d')
+   Va según el plan de quien es dueño del proyecto abierto: si es Studio, todo su equipo los usa en él aunque cada quien
+   tenga otro plan (el servidor también lo controla: los enlaces cortos de los mapas y la subida de los modelos). En el
+   escritorio manda la licencia (LIC.plan); en la web publicada en Claude todo está abierto, y en el proyecto de ejemplo
+   también, para poder explorarlo. Lo que un proyecto ya tiene se sigue viendo: esto decide si se agrega o se cambia.
+   Lo usan otras partes de la app (con guardas typeof): studioFeat(k), studioLockHTML(k) y studioAsk(k) ---------- */
+const STUDIO_FEATS = {
+  mapas: { lead: 'Los mapas en Scouting son parte de FilmSpirit Studio.', what: 'El enlace al mapa de cada candidata y el «Mapa general», con todas las locaciones en un mapa, su estado y cómo llegar.' },
+  set3d: { lead: 'Los escenarios 3D importados son parte de FilmSpirit Studio.', what: 'Importar el modelo 3D de una locación (de SketchUp, Blender…) como escenario de los planos, ajustarlo y hacer su versión liviana.' },
+};
+/* ¿el proyecto abierto puede usar esa función? */
+function studioFeat(k) {
+  if (!P) return false;
+  if (P._sample && !P._saved) return true;
+  if (TARGET === 'web') return true;
+  if (DESK) return LIC.mode === 'pro' && LIC.plan === 'studio';
+  if (typeof Store !== 'undefined' && Store.kind === 'api') {
+    if (typeof SHARE !== 'undefined' && SHARE && SHARE.pid === P.id) return SHARE.ownerPlan === 'studio';
+    return !P._shared && LIC.plan === 'studio';   // todavía no está en el servidor: será de esta cuenta
+  }
+  return true;
+}
+/* el candado chico con «Studio», junto a lo que es de Studio */
+function studioLockHTML(k) { return `<span class="st-lock" data-k="${ea(k || '')}" title="Función de FilmSpirit Studio">${ICO.lock}<span>Studio</span></span>`; }
+/* la ventana que explica que es de Studio, con «Ver planes de suscripción» */
+function studioAsk(k) {
+  const F = STUDIO_FEATS[k] || STUDIO_FEATS.mapas, api = typeof Store !== 'undefined' && Store.kind === 'api';
+  // alguien del equipo (no quien administra): en este proyecto lo decide el plan de quien lo administra
+  const team = api && P && P._shared && typeof SHARE !== 'undefined' && SHARE && SHARE.pid === P.id && !SHARE.admin;
+  const why = DESK ? 'Se activan con una licencia de FilmSpirit Studio.'
+    : team ? 'En este proyecto los habilita el plan de quien lo administra: si tiene Studio, todo el equipo los usa.'
+      : 'Con Studio los usa todo tu equipo en tus proyectos, aunque cada persona tenga otro plan.';
+  const m = modal({
+    title: 'Función de Studio',
+    body: `<div class="st-ask">${studioLockHTML(k)}<p><b>${esc(F.lead)}</b></p><p>${esc(F.what)}</p><p>${esc(why)}</p><p class="hint">Lo que este proyecto ya tiene se sigue viendo.</p></div>`,
+    foot: `<button class="btn" data-close>Ahora no</button><button class="btn primary" id="stGo">Ver planes de suscripción</button>`,
+  });
+  $('#stGo', m).onclick = () => {
+    closeModal();
+    if (typeof licenseDialog !== 'function') return;
+    if (api) licenseDialog('', 'studio'); else licenseDialog(F.lead);
+  };
+  return m;
+}

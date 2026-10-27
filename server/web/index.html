@@ -66,7 +66,7 @@ __HREFLANG__
   </section>
 
   <!-- ============ escribir y producir ============ -->
-  <section class="sec paper" data-studio="__STUDIO_OPEN__" aria-labelledby="t-prod">
+  <section class="sec paper" aria-labelledby="t-prod">
     <div class="wrap split">
       <div class="split-h">
         <h2 id="t-prod" class="rc">{{t.p_h2}}</h2>
@@ -74,8 +74,8 @@ __HREFLANG__
       </div>
       <div class="feats">
         <div class="feat"><h3 class="rc">{{t.p1_h}}</h3><p>{{t.p1_p}}</p></div>
-        <div class="feat"><h3 class="rc">{{t.p2_h}}</h3><span class="tag dark wl-only">{{t.wl_tag}}</span><p>{{t.p2_p}}</p></div>
-        <div class="feat"><h3 class="rc">{{t.p3_h}}</h3><span class="tag dark wl-only">{{t.wl_tag}}</span><p>{{t.p3_p}}</p></div>
+        <div class="feat"><h3 class="rc">{{t.p2_h}}</h3><p>{{t.p2_p}}</p></div>
+        <div class="feat"><h3 class="rc">{{t.p3_h}}</h3><p>{{t.p3_p}}</p></div>
         <div class="feat"><h3 class="rc">{{t.p4_h}}</h3><p>{{t.p4_p}}</p></div>
       </div>
     </div>
@@ -84,9 +84,9 @@ __HREFLANG__
   __TESTIMONIO__
 
   <!-- ============ planes ============ -->
-  <!-- Guion (gratis), Indie, Pro y Studio (PLANES-Y-PRECIOS.md). data-founder: precio de fundador vigente;
-       data-studio: Studio a la venta (si no, lista de espera) -->
-  <section class="sec sand" id="planes" data-founder="__FOUNDER__" data-studio="__STUDIO_OPEN__" aria-labelledby="t-planes">
+  <!-- Guion (gratis), Indie, Pro y Studio (PLANES-Y-PRECIOS.md). data-founder: precio de fundador vigente.
+       (lote AD) Sin prueba gratis y con Studio a la venta: ya no hay lista de espera -->
+  <section class="sec sand" id="planes" data-founder="__FOUNDER__" aria-labelledby="t-planes">
     <div class="wrap">
       <div class="plans-h">
         <div>
@@ -112,22 +112,16 @@ __HREFLANG__
           <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.in_cta}}</a></div>
         </li>
         <li class="row">
-          <div class="row-n"><h3 class="rc">Pro</h3><span class="tag">{{t.trial_tag}}</span></div>
+          <div class="row-n"><h3 class="rc">Pro</h3></div>
           <div class="row-d"><p>{{t.row_pro}}</p><p class="fnd"><span data-only="pe">{{t.fnd_pe}}</span><span data-only="intl">{{t.fnd_intl}}</span></p></div>
           <p class="row-p"><b><span class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_PRO_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_PRO_Y__ {{t.per_year}}">{{t.or}} __P_PRO_Y__ {{t.per_year}}</span></p>
           <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.pro_cta}}</a></div>
         </li>
         <li class="row studio">
-          <div class="row-n"><h3 class="rc">Studio</h3><span class="tag dark wl-only">{{t.wl_tag}}</span></div>
+          <div class="row-n"><h3 class="rc">Studio</h3></div>
           <p class="row-d">{{t.row_st}}</p>
           <p class="row-p"><b><span class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_ST_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_ST_Y__ {{t.per_year}}">{{t.or}} __P_ST_Y__ {{t.per_year}}</span></p>
-          <div class="row-a"><a class="lnk st-buy" href="/entrar" data-login>{{t.st_cta}}</a></div>
-          <form class="wl wl-only" id="wlForm" novalidate>
-            <label class="wl-p" for="wlMail">{{t.wl_p}}</label>
-            <div class="wl-row"><input id="wlMail" type="email" name="email" required autocomplete="email" placeholder="{{t.wl_ph}}"><button class="btn dark" type="submit">{{t.wl_go}}</button></div>
-            <p class="wl-note">{{h.wl_priv}}</p>
-            <p class="wl-msg" role="status" aria-live="polite" data-ok="{{t.wl_ok}}" data-bad="{{t.wl_bad}}"></p>
-          </form>
+          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.st_cta}}</a></div>
         </li>
       </ul>
       <p class="pay-note"><span data-only="pe">{{t.pay_pe}}</span><span data-only="intl">{{t.pay_intl}}</span></p>
@@ -152,20 +146,19 @@ __HREFLANG__
               <tr><th scope="row">{{t.cmp_photos}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
               <tr><th scope="row">{{t.cmp_team}}</th><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td></tr>
               <tr><th scope="row">{{t.cmp_scout}}</th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_studio}}</th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
             </tbody>
           </table></div>
         </details>
         <details id="condiciones">
           <summary>{{t.cond_h}}</summary>
           <ul class="cond">
-            <li>{{t.cond_trial}}</li>
+            <li>{{t.cond_sample}}</li>
             <li class="fnd-li"><span data-only="pe">{{t.cond_fnd_pe}}</span><span data-only="intl">{{t.cond_fnd_intl}}</span></li>
             <li>{{t.cond_year}}</li>
             <li>{{h.cond_renew}}</li>
             <li>{{t.cond_down}}</li>
             <li>{{t.cond_invite}}</li>
-            <li class="wl-only">{{t.cond_studio}}</li>
+            <li>{{t.cond_studio}}</li>
           </ul>
         </details>
       </div>

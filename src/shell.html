@@ -3893,6 +3893,22 @@ body.home #brand{cursor:default}
 .plan-t s{color:var(--muted);font-weight:500;margin-right:3px}
 .pl-soon{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-left:2px}
 .pl-notes{margin:0;padding-left:18px;display:grid;gap:3px;color:var(--muted);font-size:var(--fs-3)}
+/* (lote AD) lo exclusivo de Studio: el candado chico con «Studio» (proyectos.js · studioLockHTML), el campo del mapa y
+   «Mapa general» sin Studio, la ventana que lo explica; y el par «Ver planes de suscripción» / «Explorar con un
+   proyecto de ejemplo» donde antes se ofrecía la prueba gratis */
+.st-lock{display:inline-flex;align-items:center;gap:3px;font:700 10px/1 var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--accent-text);background:var(--accent-soft);border-radius:3px;padding:3px 6px 3px 5px;vertical-align:1px;white-space:nowrap;flex:none}
+.st-lock .ic{width:11px;height:11px;stroke-width:2.3;vertical-align:0}
+.hd-seg .st-seg{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.cand-fl.st-off>span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cand .st-field{display:block;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);min-height:30px}
+.cand .st-field.ph{color:var(--ph);font-style:italic}
+.cand .st-field:hover{background:color-mix(in srgb,var(--accent) 7%,var(--fill))}
+.cand .st-field:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cand .st-ro{display:block;background:transparent;padding-inline:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-ask{display:grid;gap:10px;justify-items:start}
+.st-ask p{margin:0}
+.kg-pair{display:flex;gap:8px;flex-wrap:wrap}
+.pl-sample{margin-left:4px}
 .buy-plan.pl3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .buy-plan.pl1{grid-template-columns:minmax(0,1fr)}
 .buy-plan button span s{color:var(--muted);margin-right:3px}

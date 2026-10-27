@@ -488,6 +488,8 @@ const APITEAM = {
       // sin conexión: la imagen queda en el equipo y se sube después
       if (e.code === 'offline' && !retry) { OFFLINE.set(true); await OFFLINE.putFrame(pid, k, url || null); if (url) FCACHE.put(pid, k, 0, url); else FCACHE.drop(pid, [k]); if (typeof FRIDX !== 'undefined' && FRIDX && FRAMES_PID === pid) { if (url) FRIDX[k] = 0; else delete FRIDX[k]; } return; }
       if (e.code === 'plan_photos' || e.code === 'quota' || e.code === 'no_area') { if (!this.warned) { this.warned = 1; setTimeout(() => this.warned = 0, 8000); planNotice(e.message, e.code === 'plan_photos'); } }
+      // (lote AD) un escenario 3D importado en un proyecto que no es de Studio (al guardar el ejemplo, por ejemplo)
+      if (e.code === 'plan_studio' && typeof studioAsk === 'function') { if (!this.warned) { this.warned = 1; setTimeout(() => this.warned = 0, 8000); studioAsk(String(k).startsWith('m3') ? 'set3d' : 'mapas'); } }
       throw e;
     }
   },

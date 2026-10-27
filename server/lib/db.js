@@ -107,6 +107,11 @@ const MIGRATIONS = [
      body TEXT NOT NULL, reply_to TEXT, tries INTEGER NOT NULL DEFAULT 0, next INTEGER NOT NULL, created INTEGER NOT NULL,
      sent INTEGER, dead INTEGER, err TEXT);
    CREATE INDEX outbox_next ON outbox(next) WHERE sent IS NULL AND dead IS NULL;`,
+  // 12 · (lote AD) Studio abierto y sin prueba gratis: a quién de la lista de espera ya se avisó que Studio abrió; las
+  //      marcas de navegador y las huellas de cuentas eliminadas solo servían para que el mes gratis no se repitiera
+  `ALTER TABLE waitlist ADD COLUMN notified INTEGER;
+   DELETE FROM devices;
+   DELETE FROM gone;`,
 ];
 
 function open(dataDir) {

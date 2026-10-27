@@ -105,7 +105,7 @@ Primero en **modo de prueba**, luego en producción.
    ```
    y `sudo systemctl restart filmspirit`. La clave secreta es obligatoria: sin ella el servidor rechaza los avisos de
    Mercado Pago (por seguridad) y las suscripciones se activan recién en el repaso de cada hora.
-5. Prueba con la cuenta de comprador de prueba: botón de tu cuenta › **Ver planes** › Pro › Perú · soles › Continuar a Mercado Pago. Al volver, la app debe decir «¡Ya tienes FilmSpirit Pro!». En el panel, pestaña **Suscripciones**, la verás activa.
+5. Prueba con la cuenta de comprador de prueba: botón de tu cuenta › **Ver planes de suscripción** › Pro › Perú · soles › Continuar a Mercado Pago. Al volver, la app debe decir «¡Ya tienes FilmSpirit Pro!». En el panel, pestaña **Suscripciones**, la verás activa.
 6. **Producción:** activa las credenciales de producción (Mercado Pago pide los datos de tu negocio), reemplaza el Access Token por el de producción y reinicia. La URL del webhook es la misma (en el modo productivo).
 
 > El correo que la persona escribe en «Correo de tu cuenta de Mercado Pago» debe ser el de la cuenta con la que pagará; por eso la app lo pregunta.
@@ -120,7 +120,7 @@ Quien entra desde el Perú ve los precios en soles y paga con Mercado Pago; desd
    - Pro: **US$ 14,99 al mes** y **US$ 149 al año**
    - Studio: **US$ 39 al mes** y **US$ 390 al año**
 
-   Copia el id de cada precio (`pri_…`). Para el mes gratis de Pro fuera del Perú, agrega a Pro otro precio mensual de US$ 14,99 con **Trial period: 30 days** (y si quieres, uno anual igual).
+   Copia el id de cada precio (`pri_…`). Ningún plan tiene prueba gratis: ya no hacen falta precios con **Trial period** (si ya creaste los de Pro con 30 días y alguien empezó su prueba con ellos, deja `PADDLE_PRICE_PRO_MONTH_TRIAL` y `PADDLE_PRICE_PRO_YEAR_TRIAL` en el `.env` hasta que esas pruebas terminen: el servidor los sigue reconociendo, pero no los ofrece a nadie).
 3. **Catalog › Discounts › New discount**: código `FUNDADOR`, 20 %, **Recurring** (se repite en cada cobro), válido para Pro y con fecha de fin **28 de febrero de 2027**. Copia su id (`dsc_…`).
 4. **Developer tools › Authentication**: crea una **API key** (con permisos de escritura) y un **Client-side token**.
 5. **Developer tools › Notifications › New destination**:
@@ -140,7 +140,6 @@ Quien entra desde el Perú ve los precios en soles y paga con Mercado Pago; desd
    PADDLE_PRICE_PRO_YEAR=pri_…
    PADDLE_PRICE_STUDIO_MONTH=pri_…
    PADDLE_PRICE_STUDIO_YEAR=pri_…
-   PADDLE_PRICE_PRO_MONTH_TRIAL=pri_…
    PADDLE_DISCOUNT_FUNDADOR=dsc_…
    ```
    y `sudo systemctl restart filmspirit`.
@@ -149,7 +148,7 @@ Quien entra desde el Perú ve los precios en soles y paga con Mercado Pago; desd
 
 > Si Paddle está vacío y Lemon Squeezy configurado (`LS_*`), los pagos de fuera del Perú siguen yendo a Lemon Squeezy como antes.
 
-> **Studio** se vende cuando existan el scouting con mapas y el casting: mientras `STUDIO_OPEN=0`, la portada y la app muestran «Lista de espera» y los correos quedan en el panel (pestaña **Lista de espera**). Para abrirlo: `STUDIO_OPEN=1` y reinicia.
+> **Studio** está siempre a la venta (ya no hace falta `STUDIO_OPEN`; si está en el `.env`, se ignora). Lo exclusivo de Studio son los mapas en Scouting y los escenarios 3D importados. La lista de espera se cerró: en el panel, pestaña **Lista de espera**, el botón «Avisar a la lista de espera que Studio abrió» envía un correo a cada persona que aún no lo recibió (una sola vez; necesita el correo configurado). No se envía nada solo: tú decides cuándo.
 
 > **Precio de fundador:** hasta `FOUNDER_UNTIL` (28 de febrero de 2027), Pro cuesta S/ 39 al mes en el Perú y, fuera, se aplica solo el código FUNDADOR. Quien se suscribe en ese plazo mantiene el precio mientras siga suscrito.
 

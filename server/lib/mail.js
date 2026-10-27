@@ -1,6 +1,7 @@
 /* ============================================================
-   Correos del sistema (opcional): copia del libro de reclamaciones,
-   avisos de suscripción y del fin del mes gratis.
+   Correos del sistema (opcional): copia del libro de reclamaciones, avisos de suscripción, el aviso del fin del mes
+   gratis (solo a quien empezó su prueba antes del lote AD: ya no hay prueba gratis) y, cuando quien administra lo
+   pide desde el panel, el aviso a la lista de espera de que Studio abrió.
    Usa la API de un servicio de envío; sin configuración, no envía nada.
      MAIL_PROVIDER  resend | brevo
      MAIL_API_KEY   la clave del servicio
@@ -9,7 +10,7 @@
    cupo), se reintenta solo: al minuto, a los 5, a los 15, a la hora… hasta unos dos días. Antes se intentaba una vez y,
    si fallaba, se perdía (también el aviso del fin del mes gratis, que quedaba marcado como enviado).
    · deliver(): lo intenta en el momento y dice si salió (el libro de reclamaciones lo muestra); si no, queda en cola.
-   · queue(): lo deja en cola y vuelve enseguida (bienvenida, aviso del mes gratis, copia a soporte).
+   · queue(): lo deja en cola y vuelve enseguida (bienvenida, aviso del mes gratis, copia a soporte, aviso de Studio).
    Lo enviado se queda sin el texto (que puede llevar datos del libro de reclamaciones) y a los 30 días se borra.
    ============================================================ */
 'use strict';
