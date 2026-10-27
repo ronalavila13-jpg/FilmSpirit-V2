@@ -231,7 +231,7 @@ function openSobrePlacer(o, done) {
       <div class="so-l">
         <div class="so-cv" id="soWrap"><canvas id="soC" tabindex="0" role="application" aria-label="${ea('Vista desde arriba. Las flechas mueven el modelo; Q y E lo giran.')}"></canvas>
           <div class="so-zoom"><button class="icbtn" data-z="-1" aria-label="Alejar" title="Alejar">−</button><button class="icbtn" data-z="1" aria-label="Acercar" title="Acercar">+</button><button class="icbtn" data-z="0" aria-label="Ver todo" title="Ver todo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div></div>
-        <p class="hint so-hint">Arrastra el modelo para moverlo y el asa redonda para girarlo (de 15° en 15°; con Mayús, libre). Arrastra el fondo para mover la vista.</p>
+        <p class="hint so-hint">${esc(matchMedia('(pointer: coarse)').matches ? 'Arrastra el modelo para moverlo y el asa redonda para girarlo (de 15° en 15°). Arrastra el fondo para mover la vista.' : 'Arrastra el modelo para moverlo y el asa redonda para girarlo (de 15° en 15°; con Mayús, libre). Arrastra el fondo para mover la vista.')}</p>
       </div>
       <div class="so-r">
         <div class="e3-info"><span><b>${esc(d.n)}</b><small>${esc(`${set3dM(2 * F0.hw)} × ${set3dM(2 * F0.hd)} m`)}</small></span></div>
@@ -320,7 +320,7 @@ function openSobrePlacer(o, done) {
   const pt = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   cv.addEventListener('pointerdown', e => {
     if (e.button > 0) return;
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch (_) { }
     const [px, py] = pt(e), F = foot(), [hx, hy] = handle(F), [wx, wz] = toW(px, py);
     if (Math.hypot(px - hx, py - hy) <= (e.pointerType === 'touch' ? 22 : 14)) S.drag = { k: 'rot' };
     else if (sobreIn(F, wx, wz)) S.drag = { k: 'move', dx: S.x - wx, dz: S.z - wz };

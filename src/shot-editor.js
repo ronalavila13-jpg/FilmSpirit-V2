@@ -2287,13 +2287,13 @@ function openShotEditor(id, isNew, from2d, waited) {
     return ro ? '' : `<button class="btn sm so-add" data-c="sobreadd" aria-haspopup="menu" title="Una casa, un muelle o cualquier escenario 3D importado, encima de este entorno">Agregar modelo importado…${lk}</button>`;
   }
   function sobrePut(v) {
-    const loc = s.loc || '', old = P.sobre3d && P.sobre3d[loc] ? { ...P.sobre3d[loc] } : null, where = titleCase(loc) || 'esta locación';
+    const loc = s.loc || '', old = P.sobre3d && P.sobre3d[loc] ? { ...P.sobre3d[loc] } : null;
     const n = ((v ? P.sets3d[v.id] : old && P.sets3d[old.id]) || {}).n || '';
     histNote(v ? `Modelo «${n}» sobre el entorno` : `Quitar el modelo «${n}» del entorno`, null, 'board');
     sobreSet(loc, v); changed('data');
     stCache = null; redraw(); plan.draw(); panel();
     const back = () => { sobreSet(loc, old); changed('data'); if (EDT === E) { stCache = null; redraw(); plan.draw(); panel(); } else render(); };
-    toast(!v ? `«${n}» ya no está sobre el entorno.` : old && old.id === v.id ? `«${n}» en su nuevo lugar: así lo ven los planos de ${where}.` : `«${n}» sobre el entorno: lo ven todos los planos de ${where}.`, 5000, { label: 'Deshacer', fn: back });
+    toast(!v ? `«${n}» ya no está sobre el entorno.` : old && old.id === v.id ? `«${n}» en su nuevo lugar, en todos los planos de esta locación.` : `«${n}» puesto: lo ven todos los planos de esta locación.`, 5000, { label: 'Deshacer', fn: back });
   }
   function sobrePlace(id) {
     if (!set3dStudio()) { set3dAsk(); return; }
