@@ -138,5 +138,57 @@ test('el editor del guion también se pellizca: la letra cambia con --ez y en el
   c.matchMedia = () => ({ matches: false }); assert.strictEqual(c.ED_ZMIN(), .6);
 });
 
+/* ---------- animatic: entrada y salida (I y O) y exportar una parte ---------- */
+const A = { Math, clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)) };
+vm.createContext(A);
+vm.runInContext(pieza('tab-animatic.js', 'function anIoRange(') + pieza('tab-animatic.js', 'function anIoSet(') + pieza('tab-animatic.js', 'function anExportSegs(')
+  + pieza('tab-animatic.js', 'const segsDur') + pieza('tab-animatic.js', 'function segAt('), A);
+const arr = x => JSON.parse(JSON.stringify(x));
+test('la parte marcada: con las dos marcas, con una sola, y nada si queda fuera del montaje o vacía', () => {
+  assert.deepStrictEqual(arr(A.anIoRange({ a: 2, b: 5.5 }, 60, 24)), [2, 5.5]);
+  assert.deepStrictEqual(arr(A.anIoRange({ a: 10 }, 60, 24)), [10, 60], 'solo la entrada: hasta el final');
+  assert.deepStrictEqual(arr(A.anIoRange({ b: 8 }, 60, 24)), [0, 8], 'solo la salida: desde el comienzo');
+  assert.deepStrictEqual(arr(A.anIoRange({ a: 50, b: 90 }, 60, 24)), [50, 60], 'el montaje se acortó: hasta su final');
+  assert.strictEqual(A.anIoRange({ a: 70 }, 60, 24), null, 'la entrada quedó fuera del montaje');
+  assert.strictEqual(A.anIoRange(null, 60, 24), null); assert.strictEqual(A.anIoRange({}, 60, 24), null);
+});
+test('marcar va al cuadro más cercano y quita la otra marca si queda del lado equivocado', () => {
+  assert.deepStrictEqual(arr(A.anIoSet(null, 'a', 2.013, 24)), { a: 2 });
+  assert.deepStrictEqual(arr(A.anIoSet({ a: 2 }, 'b', 5.52, 24)), { a: 2, b: 5.5 });
+  assert.deepStrictEqual(arr(A.anIoSet({ a: 2, b: 5.5 }, 'a', 7, 24)), { a: 7 }, 'entrada después de la salida');
+  assert.deepStrictEqual(arr(A.anIoSet({ a: 7, b: 9 }, 'b', 3, 24)), { b: 3 }, 'salida antes de la entrada');
+  assert.deepStrictEqual(arr(A.anIoSet({ a: 2, b: 5.5 }, 'b', 2, 24)), { b: 2 }, 'en el mismo cuadro tampoco');
+});
+test('qué se graba: todo, de la entrada a la salida o los clips de una escena (sus pedazos seguidos)', () => {
+  const clip = (sc, start, end) => ({ sc, start, end });
+  const L = { total: 30, clips: [clip('1', 0, 4), clip('1', 4, 9), clip('2', 9, 15), clip('1', 15, 18), clip('3', 18, 30)] };
+  assert.deepStrictEqual(arr(A.anExportSegs(L, 'all')), [[0, 30]]);
+  assert.deepStrictEqual(arr(A.anExportSegs(L, 'io', [2, 5.5])), [[2, 5.5]]);
+  assert.deepStrictEqual(arr(A.anExportSegs(L, 'io', null)), [[0, 30]], 'sin marcas, todo');
+  assert.deepStrictEqual(arr(A.anExportSegs(L, 'sc', null, '1')), [[0, 9], [15, 18]], 'la escena 1, partida por la 2');
+  assert.deepStrictEqual(arr(A.anExportSegs(L, 'sc', null, '9')), [[0, 30]], 'una escena que no está: todo');
+  assert.strictEqual(A.segsDur(A.anExportSegs(L, 'sc', null, '1')), 12);
+});
+test('mientras graba, cada segundo grabado es su momento del montaje (saltando entre los pedazos)', () => {
+  const segs = [[0, 9], [15, 18]];
+  assert.strictEqual(A.segAt(segs, 0), 0); assert.strictEqual(A.segAt(segs, 8.5), 8.5);
+  assert.strictEqual(A.segAt(segs, 9), 15); assert.strictEqual(A.segAt(segs, 11), 17); assert.strictEqual(A.segAt(segs, 99), 18);
+  assert.strictEqual(A.segAt([[2, 5.5]], 1), 3);
+});
+test('I y O: no se activan escribiendo en un campo, funcionan sin poder editar y deshacer no mueve las marcas', () => {
+  const s = leer('tab-animatic.js');
+  const key = s.slice(s.indexOf("addEventListener('keydown', e => {\n  const ae = document.activeElement"), s.indexOf('SETTINGS.animatic'));
+  assert(/INPUT\|TEXTAREA\|SELECT/.test(key) && /ae\.isContentEditable/.test(key), 'escribiendo, las letras se escriben');
+  assert(key.indexOf("lk === 'i' || lk === 'o'") > 0 && key.indexOf("lk === 'i' || lk === 'o'") < key.indexOf('else if (UI.readOnly) return;'), 'también en solo lectura');
+  assert.strictEqual(key.split('\n').filter(l => /lk === '[io]'/.test(l)).length, 1, 'ningún otro atajo usa I u O');
+  assert(/const io = anCfg\(\)\.io;   \/\/ las marcas de entrada y salida no se deshacen/.test(s));
+  assert(/histQuiet\('animatic'\)/.test(s), 'marcar no deja un paso de deshacer');
+});
+test('exportar: el video recorre solo su parte y se llama según ella', () => {
+  const s = leer('tab-animatic.js');
+  assert(/const T = segAt\(segs, e\);/.test(s) && /e >= dur\) \{ resolve\(\); return; \}/.test(s));
+  assert(/'_animatic' \+ tag \+ '\.webm'/.test(s));
+});
+
 console.log(fail ? `\n${fail} prueba(s) fallaron` : '\nTodo bien');
 process.exit(fail ? 1 : 0);
