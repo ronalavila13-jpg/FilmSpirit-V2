@@ -3,13 +3,13 @@
    ============================================================ */
 const clone = o => JSON.parse(JSON.stringify(o));
 let EDT = null;
-/* pestañas del panel: íconos; la elegida muestra su nombre */
+/* pestañas del panel: íconos; la elegida muestra su nombre. (lote AD) Plano va primero y la viñeta se abre en ella */
 const SX_TABS = [
+  ['shot', 'Plano', '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7.5 6 9.5 10M13 6l2 4M18.5 6l2 4"/>'],
   ['sel', 'Figura', '<circle cx="12" cy="7" r="3.2"/><path d="M5 20.5v-1.8A5.2 5.2 0 0 1 10.2 13.5h3.6A5.2 5.2 0 0 1 19 18.7v1.8"/>'],
   ['cam', 'Cámara', '<rect x="2.5" y="7" width="13" height="10" rx="2.4"/><path d="M15.5 10.6 21 7.6v8.8l-5.5-3z"/>'],
   ['esc', 'Escena', '<path d="M3 19.5 9 10l4 6 2.5-3.5 5.5 7z"/><circle cx="16.5" cy="6.5" r="2"/>'],
   ['luz', 'Luz', '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>'],
-  ['shot', 'Plano', '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7.5 6 9.5 10M13 6l2 4M18.5 6l2 4"/>'],
 ];
 /* la tecla que alterna la vista libre con un toque: Ctrl, o ⌘ en la Mac */
 const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'Meta' : 'Control';
@@ -102,7 +102,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   const fk = [id, id + '~a', ...d2LayerKeys(sh, null)].filter(k => frameHas(k) && !FRAMES[k]);   // (y las capas del dibujo 2D)
   if (fk.length && !waited) { framesNeed(fk).finally(() => openShotEditor(id, isNew, from2d, true)); return; }
   const E = EDT = {
-    id, sh, s, isNew, from2d: !!from2d, t: 0, sel: null, playing: false, tab: 'sel', autokey: false, custom: !!sh.s3, cam: 'a',
+    id, sh, s, isNew, from2d: !!from2d, t: 0, sel: null, playing: false, tab: 'shot', autokey: false, custom: !!sh.s3, cam: 'a',
     s3: (x => { if (x.atm == null && typeof envFromScene === 'function') { const a = envFromScene(s).atm; if (a !== 'dia') x.atm = a; } return x; })(clone(s3Of(sh))), form: { size: sh.size, angle: sh.angle, move: sh.move, support: sh.support, snd: sh.snd || '', desc: sh.desc, notes: sh.notes, done: !!sh.done, names: !sh.noNames, p0: sh.p0 ?? s.p0, p1: sh.p1 ?? s.p1 - 1 },
     // la referencia y la anotación que el dibujo 2D trajo como capas se ven allá (d2Imp), no aquí otra vez
     dur: shotDur(sh), durSet: !!(sh.dur && num(sh.dur) > 0), ref: (d2On(sh) && d2Imp(sh.d2, 'ref') ? null : FRAMES[id]) || null, refBack: !!sh.refBack, l2: ls.get('ed2d', true), refDirty: false, anno: null, annoDirty: false, hist: [], fut: [], gesture: false, tmp: null, gd: new Set(ls.get('guias', ls.get('guides', true) ? ['tercios', 'segura'] : [])),
@@ -184,7 +184,7 @@ function openShotEditor(id, isNew, from2d, waited) {
             </div></div>
         </div>
         <div class="sx-insp">
-          <div class="seg sx-tabs" role="group" aria-label="Panel del plano">${SX_TABS.map(([k, n, ic]) => `<button data-tab="${k}" aria-pressed="${ea(k === 'sel')}" title="${n}" aria-label="${n}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${n}</span></button>`).join('')}</div>
+          <div class="seg sx-tabs" role="group" aria-label="Panel del plano">${SX_TABS.map(([k, n, ic]) => `<button data-tab="${k}" aria-pressed="${ea(k === 'shot')}" title="${n}" aria-label="${n}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${n}</span></button>`).join('')}</div>
           <div id="sxPanel" class="sx-panel"></div>
         </div></div>`,
     foot: `<div class="left"><button class="btn" id="edMore" aria-haspopup="menu" title="Duplicar o eliminar el plano" aria-label="Más acciones del plano">${ICO.more}</button>
@@ -446,7 +446,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   }
   function freeOn(on) {
     if (on && !has3D) return;
-    if (on && E.tab === 'draw') { E.tab = 'sel'; panel(); }    // el dibujo va sobre el encuadre del plano, no sobre la vista libre
+    if (on && E.tab === 'draw') { E.tab = E.tabBack || 'shot'; panel(); }    // el dibujo va sobre el encuadre del plano, no sobre la vista libre
     if (on) {
       // empieza mirando desde donde está la cámara del plano, para no perder la orientación
       const t = freeTarget(), c = ed.state().cam, dx = c.x - t.x, dy = c.h - t.y, dz = c.z - t.z, d = Math.hypot(dx, dy, dz) || 3;
@@ -1257,7 +1257,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   // agregar sin salir de la planta completa: lo nuevo aparece delante de la cámara, elegido, para arrastrarlo aquí mismo
   $m('.pl-add').addEventListener('click', e => {
     const b = e.target.closest('[data-pa]'); if (!b) return;
-    if (E.tab === 'draw') { E.tab = 'sel'; panel(); }
+    if (E.tab === 'draw') { E.tab = E.tabBack || 'shot'; panel(); }
     if (b.dataset.pa === 'gen') { plantaGeneral(sh.sc, { from: E }); return; }
     if (b.dataset.pa === 'exp') { const a = JSON.parse(jsonA()); plantaExportMenu(b, { id, s3: a, sc: sh.sc, live: { id, s3: a } }); return; }
     if (b.dataset.pa === 'fig') addFig({ currentTarget: b });
@@ -2329,7 +2329,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (b.dataset.c === 'fotap') { focusTap(); return; }
     if (b.dataset.o === 'stgupd' || b.dataset.o === 'stgkeep') { stageAct(b.dataset.o === 'stgupd'); return; }
     if (b.dataset.o === 'screset') { const ob = selOb(); if (!ob || !ob.sc) return; snapshot(); E.custom = true; scSet(ob, 1); commit(); redraw(); toast(`${(S3_PROPS[ob.kind] || {}).name || 'Objeto'}: tamaño original.`); return; }
-    if (b.dataset.d === 'done') { E.tab = 'sel'; panel(); redraw(); return; }
+    if (b.dataset.d === 'done') { E.tab = E.tabBack || 'shot'; panel(); redraw(); return; }
     const ob = selOb();
     if (b.dataset.o === 'exprmenu' && ob) { if (!E.exprOpen) openExprMenu(ob, b); return; }
     if (ob && ob.kind === 'gente' && /^gn-/.test(b.dataset.o || '')) {
@@ -2728,11 +2728,12 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (v === 'guides') { guideMenu(b); return; }
     if (dr && v === 'undo') { if (E.draw.undo.length) { actx.putImageData(E.draw.undo.pop(), 0, 0); E.annoDirty = true; paintTop(); } return; }
     // lo que agrega o cambia la escena sale del dibujo
-    if (dr && v !== 'draw' && v !== 'names' && v !== 'ws2d' && v !== 'l2') { E.tab = 'sel'; panel(); redraw(); }
+    if (dr && v !== 'draw' && v !== 'names' && v !== 'ws2d' && v !== 'l2') { E.tab = E.tabBack || 'shot'; panel(); redraw(); }
     if (v === 'undo') histGo(-1);
     else if (v === 'redo') histGo(1);
     else if (v === 'fig') addFig({ currentTarget: b });
-    else if (v === 'draw') { E.tab = dr ? 'sel' : 'draw'; E.part = null; panel(); redraw(); }
+    // (lote AD) al terminar de dibujar vuelve a la pestaña en que estaba (Plano si no había otra)
+    else if (v === 'draw') { if (!dr) E.tabBack = E.tab; E.tab = dr ? E.tabBack || 'shot' : 'draw'; E.part = null; panel(); redraw(); }
     else if (v === 'ws2d') { const w = document.querySelector('[data-ws="2d"]'); if (w) { vpFull(false); w.click(); } }
     else if (v === 'obj') addObj({ currentTarget: b });
     else if (v === 'l2') { E.l2 = !E.l2; ls.set('ed2d', E.l2); redraw(); }
