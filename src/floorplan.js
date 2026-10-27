@@ -343,7 +343,7 @@ const CALLE_BLOCKS = [[-200, 8.5, 200, 14.5], [-200, -17.5, 200, -11.5]];
    un dolly sigue siendo un dolly, y la cámara conserva lo que el movimiento gira (tilt, paneo). */
 function s3CamInside(s3) {
   const pl = planOf(s3);
-  // lote W · la calle a la escala de su locación (escenarios-construidos.js)
+  // lote W · la calle a la escala de su locación (escenarios-escala.js)
   const R = pl ? planRectsWorld(pl) : s3 && s3.set === 'calle' ? (k => k === 1 ? CALLE_BLOCKS : CALLE_BLOCKS.map(r => r.map(v => v * k)))(typeof envEscOf === 'function' ? envEscOf(s3) : 1) : null;
   if (!R) return 0;
   const inR = (x, z, r) => x > r[0] && x < r[2] && z > r[1] && z < r[3];

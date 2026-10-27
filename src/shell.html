@@ -2396,39 +2396,26 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .esc-row{display:flex;align-items:center;gap:8px;margin-top:-6px}
 .esc-row .btn{flex:none;margin-left:auto}
 .esc-h{flex:1;min-width:0;font-size:var(--fs-2)}
-/* lote W · replicar y versión liviana (importador de escenarios 3D) */
+/* lote W · versión liviana (importador de escenarios 3D) */
 .e3-w{display:grid;gap:6px;padding-top:8px;border-top:1px solid var(--line)}
 .e3-w[hidden]{display:none}
 .e3-w .btn{justify-self:start}
-.e3-w .hint{margin:-2px 0 2px;font-size:var(--fs-2)}
-/* lote W · constructor de escenarios */
-.sb-dlg{width:min(1240px,calc(100vw - 32px))}
-.sb{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
-.sb-l{display:grid;gap:8px;align-content:start;min-width:0}
-.sb-r{display:grid;gap:12px;align-content:start;max-height:min(68vh,600px);overflow:auto;padding-right:2px}
-.sb-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:34px}
-.sb-bar .grow{flex:1}
-.sb-tools button{display:inline-flex;align-items:center;gap:6px;padding:6px 9px}
-.sb-tools .ic{width:16px;height:16px;flex:none}
-.sb-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
-.sb-cv{position:relative;height:min(64vh,580px);min-height:300px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:#F7F6F2;touch-action:none}
-.sb-cv > canvas{position:absolute;inset:0;width:100%;height:100%;outline:none;touch-action:none}
-.sb-cv > canvas[hidden]{display:none}
-.sb-cv > canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
-.sb-zoom{position:absolute;right:8px;bottom:8px;display:flex;gap:2px;padding:3px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--panel) 72%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.sb-zoom[hidden]{display:none}
-.sb-hint{margin:0;min-height:1.3em}
-.sb-sel{display:grid;gap:8px;padding:10px;border-radius:var(--r-sm);background:var(--fill)}
-.sb-sel h3{margin:0;font-size:var(--fs-4)}
-.sb-sel .hint{margin:0}
-.sb-del{justify-self:start;color:var(--bad)}
-.sb-n .sb-nu{display:flex;align-items:center;gap:4px}
-.sb-n input{width:100%;min-width:0}
-.sb-n i{font-style:normal;color:var(--muted);font-size:var(--fs-2)}
-.sb-all{padding:8px 10px}
-#sbCount{margin-right:auto}
-@media (max-width:860px){ .sb{grid-template-columns:minmax(0,1fr)} .sb-r{max-height:none} .sb-cv{height:52vh} }
 @media (max-width:860px){ .fpi{grid-template-columns:minmax(0,1fr)} }
+/* lote AD · escenarios: un escenario importado sobre el entorno (Escena › Escenario) y la ventana para ubicarlo */
+.so-add{justify-self:start}
+.so-info .btn{flex:none}
+.so{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
+.so-l{display:grid;gap:8px;align-content:start;min-width:0}
+.so-r{display:grid;gap:12px;align-content:start}
+.so-r .so-c{justify-self:start}
+.so-cv{position:relative;height:min(62vh,560px);min-height:300px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:#F7F6F2;touch-action:none}
+.so-cv > canvas{position:absolute;inset:0;width:100%;height:100%;outline:none;touch-action:none;cursor:grab}
+.so-cv > canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.so-zoom{position:absolute;right:8px;bottom:8px;display:flex;gap:2px;padding:3px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--panel) 72%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.so-zoom .icbtn{font:600 16px/1 var(--font-ui)}
+.so-zoom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.so-hint{margin:0}
+@media (max-width:860px){ .so{grid-template-columns:minmax(0,1fr)} .so-cv{height:50vh;min-height:260px} }
 /* ---------- fotos del personaje ---------- */
 .phx{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px}
 .ph-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}

@@ -375,7 +375,7 @@ function envLampsOn(s3, st) {
   const L = envLamps(k); if (!L) return { k, on: 0, near: [] };
   let x = 0, z = 0, n = 0; for (const ob of s3.objs) if (ob.kind === 'actor' && st.o[ob.id]) { x += st.o[ob.id].x; z += st.o[ob.id].z; n++; }
   if (n) { x /= n; z /= n; }
-  // lote W · las lámparas siguen a la calle o al parque escalado (escenarios-construidos.js)
+  // lote W · las lámparas siguen a la calle o al parque escalado (escenarios-escala.js)
   const ke = typeof envEscOf === 'function' ? envEscOf(s3) : 1, list = ke === 1 ? L.list : L.list.map(q => ({ x: q.x * ke, y: q.y * ke, z: q.z * ke }));
   const near = list.map(q => [q, Math.hypot(q.x - x, q.z - z)]).sort((a, b) => a[1] - b[1]).slice(0, 4).map(a => a[0]);
   return { k, on, near, P };
