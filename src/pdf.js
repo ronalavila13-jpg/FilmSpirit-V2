@@ -1314,7 +1314,7 @@ async function exportPDF(kind, btn, opts) {
   // guion cerrado: cada copia puede llevar el nombre de quien la recibe; también se baja la versión cerrada
   if ((kind === 'screenplay' || kind === 'script') && typeof scriptLock === 'function' && scriptLock() && !(opts && opts.copy)) { lkCopyDialog(kind, btn, opts); return; }
   if (!(await loadPdfLib())) { problem('No se pudo cargar el generador de PDF. Revisa tu conexión.', () => exportPDF(kind, btn, opts)); return; }
-  if (!D.sc.scenes.length && !['budget', 'calendar', 'calmes', 'screenplay', 'argumento', 'bios', 'escaleta', 'tarjetas', 'scouting', 'casting'].includes(kind)) { toast('Escribe o importa un guion primero.'); return; }
+  if (!D.sc.scenes.length && !['budget', 'calendar', 'calmes', 'screenplay', 'argumento', 'premisa', 'bios', 'estructura', 'escaleta', 'tarjetas', 'scouting', 'casting'].includes(kind)) { toast('Escribe o importa un guion primero.'); return; }
   if ((kind === 'escaleta' || kind === 'tarjetas') && !bItems().length) { toast('Aún no hay escenas: agrega una con «+ Escena» o escribe el guion.', 4200); return; }
   if (kind === 'parte' && !(UI.supDay >= 0 && scheduleDays(P, D.sc).days[UI.supDay])) { toast('Elige una jornada arriba para su parte diario.', 4000); return; }
   if (kind === 'dood' && (!Object.keys(D.castNum).length || !scheduleDays(P, D.sc).days.length)) { toast('Hacen falta personajes marcados y jornadas en el plan.', 4000); return; }

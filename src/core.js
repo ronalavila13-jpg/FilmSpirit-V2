@@ -1414,6 +1414,8 @@ function sceneRename(P, map, { shots = true } = {}) {
   if (P.build) {
     if (P.build.sc) P.build.sc = mv(P.build.sc);
     for (const c of Object.values(P.build.cards || {})) if (c && c.after != null) { if (stale(c.after)) delete c.after; else c.after = ren(c.after); }
+    // (lote AD) los puntos clave de la Estructura unidos a una escena escrita
+    for (const b of Object.values(P.build.beats || {})) if (b && typeof b.on === 'string' && b.on.startsWith('sc:')) { const k = b.on.slice(3); if (stale(k)) delete b.on; else b.on = 'sc:' + ren(k); }
   }
   if (shots) for (const sh of Object.values(P.shots || {})) { if (sh.sc in map) sh.sc = map[sh.sc]; else if (stale(sh.sc)) sh.sc = '~' + sh.sc; }
   // lo agregado desde la hoja de desglose (sin lugar en el texto: va por número de escena)

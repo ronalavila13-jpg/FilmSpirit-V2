@@ -7,7 +7,8 @@
      cards: { id: { id, h, syn, after, ord, act, plot } }   escenas por escribir; «after» es la escena escrita que
                                                          las precede (null: al principio del guion)
      sc: { clave: { act, plot } }                          acto y trama de cada escena escrita
-     acts: ['Acto I', 'Acto II', 'Acto III'], plots: [{ id, name, c }] }
+     acts: ['Acto I', 'Acto II', 'Acto III'], plots: [{ id, name, c }],
+     bios: { id: biografía }, prem, refs y beats (lote AD: «Premisa y mundo» y «Estructura», en historia-previa.js) }
    Escaleta y Tarjetas muestran las mismas escenas: las escritas siguen el orden del guion; moverlas mueve
    también su texto en el guion (se pregunta antes). «Pasar al guion» crea el encabezado donde le toca.
    ============================================================ */
@@ -19,7 +20,8 @@ const B_ARG = [
 ];
 const B_PLOT_C = ['#E0523A', '#3D7FD6', '#2F9A5B', '#C99A12', '#8D5CC8', '#D9669B'];
 const B_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-const B_VIEWS = [['arg', 'Argumento'], ['bio', 'Biografías'], ['esc', 'Escaleta'], ['cards', 'Tarjetas']];
+// (lote AD) «Premisa y mundo» y «Estructura»: historia-previa.js
+const B_VIEWS = [['arg', 'Argumento'], ['prem', 'Premisa y mundo'], ['bio', 'Biografías'], ['est', 'Estructura'], ['esc', 'Escaleta'], ['cards', 'Tarjetas']];
 /* biografía de personaje: los campos, en el orden en que se piensa un personaje */
 const B_ROLES = ['', 'Protagonista', 'Antagonista', 'Secundario', 'Episódico', 'Otro'];
 const B_BIO_F = [
@@ -69,6 +71,7 @@ function buildNormalize(Px) {
     if (b.el != null && typeof b.el !== 'string') delete b.el;
     if (!Number.isFinite(+b.ord)) b.ord = 0;
   }
+  bPrevNormalize(B);   // premisa y mundo, y estructura (historia-previa.js)
   return B;
 }
 const BLD = () => P.build || buildNormalize(P);
@@ -183,6 +186,7 @@ function bToScript(id) {
   if (c.syn && synEditable()) { P.scenes[key] = { ...(P.scenes[key] || {}), synopsis: c.syn }; }
   const m = {}; if (Number.isInteger(c.act)) m.act = c.act; if (c.plot) m.plot = c.plot; B.sc[key] = m;
   for (const o of Object.values(B.cards)) if (o !== c && o.after === c.after && o.ord > c.ord) o.after = key;
+  for (const bt of Object.values(B.beats || {})) if (bt.on === 'cd:' + id) bt.on = 'sc:' + key;   // los puntos clave unidos (Estructura)
   delete B.cards[id];
   changed('data'); render();
   toast(`La escena ${key} ya está en el guion.`, 5200, { label: 'Escribirla', fn: () => bOpenScene(key) });
@@ -199,6 +203,9 @@ function bOpenScene(key) {
 function bDelCard(id) {
   const B = BLD(), c = B.cards[id]; if (!c) return;
   histNote('Quitar una escena por escribir', null, 'build');
+  // un punto clave unido a ella se queda en su acto, suelto
+  const eff = (bItems().find(it => it.id === 'cd:' + id) || {}).eff;
+  for (const bt of Object.values(B.beats || {})) if (bt.on === 'cd:' + id) { if (Number.isInteger(eff)) bt.act = eff; delete bt.on; }
   delete B.cards[id]; changed('data'); render();
   toastUndo('Escena por escribir quitada.');
 }
@@ -280,6 +287,7 @@ RENDER.build = function () {
   const v = $('#view'), view = bView(), ed = buildEditable();
   BLD();
   if (view === 'bio') { bBioRender(v, ed); return; }
+  if (view === 'prem' || view === 'est') { bPrevRender(v, view, ed); return; }
   const items = view === 'arg' ? [] : bItems(), todo = items.filter(it => !it.s).length;
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
@@ -441,7 +449,7 @@ Object.assign(ACT, {
   'b-act-rm': () => {
     const B = BLD(); if (B.acts.length < 2) return;
     const last = B.acts.length - 1;
-    for (const x of [...Object.values(B.cards), ...Object.values(B.sc)]) if (Number.isInteger(x.act) && x.act >= last) x.act = last - 1;
+    for (const x of [...Object.values(B.cards), ...Object.values(B.sc), ...Object.values(B.beats || {})]) if (Number.isInteger(x.act) && x.act >= last) x.act = last - 1;
     B.acts.pop(); changed('data'); render();
   },
 });
@@ -466,7 +474,7 @@ HELP.build = [
   ['Mover', 'Arrastra una escena (con el dedo, desde ⠿) o usa ⋯ › Subir y Bajar. Si mueves una escena escrita a otro lugar, se pregunta antes de moverla también en el guion, con su texto, sus marcas y sus planos.'],
   ['Actos', 'Cada acto empieza donde lo marcas: ⋯ › «El Acto II empieza aquí». Sus nombres se cambian tocándolos; «+ Acto» agrega otro.'],
   ['Tramas', 'El punto de color de cada escena es su trama. «Tramas…» cambia sus nombres y colores.'],
-  ['Exportar', 'El argumento sale en un PDF con portada y los textos seguidos (eliges cuáles); la escaleta, como tabla por actos; y las tarjetas, cuatro por hoja para recortar.'],
+  ['Exportar', 'El argumento sale en un PDF con portada y los textos seguidos (eliges cuáles); la premisa y el mundo, las biografías y la estructura, cada uno en su PDF; la escaleta, como tabla por actos; y las tarjetas, cuatro por hoja para recortar.'],
 ];
 EXPORTS.build = () => [
   { label: 'Argumento', hint: 'PDF con portada: logline, storyline, sinopsis y argumento seguidos', run: btn => bArgExportDialog(btn) },

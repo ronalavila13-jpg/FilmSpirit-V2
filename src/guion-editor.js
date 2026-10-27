@@ -63,6 +63,7 @@ function edRetiredKeys() {
   const out = [], add = o => { if (o && typeof o === 'object') out.push(...Object.keys(o)); };
   add(P.scenes); add(P.schedule && P.schedule.gone); add(P.sup && P.sup.sc); add(P.build && P.build.sc);
   for (const sh of Object.values(P.shots || {})) if (sh && sh.sc != null) out.push(String(sh.sc));
+  for (const b of Object.values((P.build && P.build.beats) || {})) if (b && typeof b.on === 'string' && b.on.startsWith('sc:')) out.push(b.on.slice(3));   // (lote AD) Estructura
   return out;
 }
 /* número para un encabezado nuevo: siguiente entero al final, o la escena anterior con letra */

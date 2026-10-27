@@ -584,6 +584,8 @@ const CHDESC = {
     if (LA.on && !LB.rev && LA.rev) return { what: `abrió la revisión ${rn(LA.rev)} del guion` };
     if (LA.on && LB.rev && !LA.rev) { const r = (LA.revs || []).find(x => x.at === LB.rev.at && x.c === LB.rev.c); return { what: `cerró la revisión ${rn(LB.rev)} del guion${r && r.n ? ` (${r.n} ${r.n === 1 ? 'párrafo' : 'párrafos'})` : ' sin cambios'}` }; }
     if (chCanon(b.meta) !== chCanon(a.meta) && chCanon(b.paras) === chCanon(a.paras)) return { what: LA.on && chCanon(LB) !== chCanon(LA) ? 'cambió el acceso al guion cerrado' : 'cambió los datos del proyecto' };
+    // (lote AD) solo cambió la Historia (argumento, premisa, estructura…): antes se contaba como «editó la escena N»
+    if (chCanon(b.paras) === chCanon(a.paras) && typeof bChangeWhat === 'function') { const w = bChangeWhat(b.build, a.build); if (w) return { what: w }; }
     const B = b.paras || [], A = a.paras || [];
     let i = 0; while (i < B.length && i < A.length && chCanon(B[i]) === chCanon(A[i])) i++;
     let j = 0; while (j < B.length - i && j < A.length - i && chCanon(B[B.length - 1 - j]) === chCanon(A[A.length - 1 - j])) j++;
