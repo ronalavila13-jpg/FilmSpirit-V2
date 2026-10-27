@@ -124,7 +124,8 @@ function homeCard(o) {
     <span class="home-m">${kind}${[opened, who, o.role && !o.mine ? esc(String(o.role).toLowerCase()) : '', api && o.archived ? 'solo lectura' : ''].filter(Boolean).map(x => `<span>${x}</span>`).join('')}</span>
     <span class="home-w">${esc(cur ? 'Vuelve donde lo dejaste' : homeWhere(o))}</span></button></div>`;
 }
-/* (lote AD) la tarjeta del ejemplo, en el rojo y el naranja de la marca: se abre con un toque, con todas sus pestañas */
+/* (lote AD) la tarjeta del ejemplo: se abre con un toque, con todas sus pestañas. (lote AG) Como las demás tarjetas, con la
+   etiqueta «Ejemplo» en rojo */
 function homeSampleCard() {
   const open = !!(P && P === SAMPLE_MEM.P && P._sample && !P._saved);
   return `<div class="home-card home-sample${ea(open ? ' on' : '')}"><button class="home-open" data-h="sample">

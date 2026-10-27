@@ -13,12 +13,13 @@ test('sin proyecto abierto, las notas al margen no se activan (antes: error al l
   c.P = { meta: {} }; c.edFormat = () => 'cine';
   assert.strictEqual(c.mnOn(), true, 'con proyecto, como siempre');
 });
-test('la tarjeta del ejemplo: rojo de la marca liso, con borde y sin resplandor', () => {
+test('la tarjeta del ejemplo: sin degradado ni resplandor (lote AG: blanca, con la etiqueta «Ejemplo» en rojo)', () => {
   const css = leer('shell.html');
-  const block = css.slice(css.indexOf('.home-sample,.pj-sample{'), css.indexOf('.home-sample .home-open'));
+  const block = css.slice(css.indexOf('/* (lote AD) el proyecto de ejemplo, primero'), css.indexOf('/* sin cuenta: el botón para crearla'));
   assert(!/gradient/.test(block), 'sin degradado');
   assert(!/rgba\(206,12,28/.test(block), 'sin resplandor rojo');
-  assert(/\.home-card\.home-sample\{background:var\(--samp\);border-color:var\(--samp-hi\)/.test(block), 'con borde simple');
+  assert(!/\.home-card\.home-sample\{background/.test(block), 'la tarjeta, como las demás');
+  assert(/\.home-k\.s,\.pj-ex\{background:#CE0C1C;color:#fff\}/.test(block), 'la etiqueta en rojo');
 });
 
 console.log(fail ? `\n${fail} prueba(s) fallaron` : '\nTodo bien');

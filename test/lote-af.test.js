@@ -26,6 +26,9 @@ test('los textos nuevos de la portada, en los cinco idiomas', () => {
     assert(t.nav_example && t.ex_q && t.ex_cta && t.ex_note, lg);
   }
 });
+test('el botón del ejemplo en la portada, con esquinas apenas redondeadas como en el programa (lote AG)', () => {
+  assert(/<a class="btn cream big" href="\/app\/\?ejemplo=1" data-sample>\{\{t\.ex_cta\}\}<\/a>/.test(html), 'sin forma de píldora');
+});
 test('la tarjeta del ejemplo dice «Explora todas las funciones del programa» (con su inglés)', () => {
   assert(/const SAMPLE_INVITE = 'Explora todas las funciones del programa';/.test(leer('src/proyectos.js')));
   assert.strictEqual(JSON.parse(leer('i18n/en-manual.json'))['Explora todas las funciones del programa'], "Explore all the app's features");

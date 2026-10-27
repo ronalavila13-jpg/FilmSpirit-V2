@@ -539,7 +539,7 @@ async function openMenu(anchor, tab) {
   const firstS = sampleFirst();
   const sampleRow = () => {
     const open = !!(P && P === SAMPLE_MEM.P && P._sample && !P._saved);
-    return `<div class="pj-list pj-samp"><div class="pj-row pj-sample${ea(open ? ' on' : '')}"><button class="pj-open" data-m="sample" ${open ? 'aria-current="true"' : ''}><span class="pj-t" data-no-tr>${esc(sampleName())}</span><span class="pj-m">${open ? '<b>abierto</b> · ' : ''}${esc(SAMPLE_INVITE)}</span></button>${open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : ''}</div></div>`;
+    return `<div class="pj-list pj-samp"><div class="pj-row pj-sample${ea(open ? ' on' : '')}"><button class="pj-open" data-m="sample" ${open ? 'aria-current="true"' : ''}><span class="pj-t" data-no-tr>${esc(sampleName())}</span><span class="pj-m"><span class="pj-ex">Ejemplo</span>${open ? '<b>abierto</b> · ' : ''}${esc(SAMPLE_INVITE)}</span></button>${open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : ''}</div></div>`;
   };
   const html = () => {
     const A = act(), R = arc(), L = (cur === 'arc' ? R : A).filter(o => !q || deaccent(String(o.title || '')).toLowerCase().includes(deaccent(q).toLowerCase()));

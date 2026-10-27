@@ -4275,29 +4275,15 @@ body.home #brand{cursor:default}
 .pj-empty.bad{color:var(--bad)}
 .pj-ft{display:flex;gap:4px;flex-wrap:wrap;border-top:var(--l1) solid var(--line-2);margin-top:8px;padding:8px 2px 0}
 .pj-ft .btn{white-space:nowrap}
-/* (lote AD) el proyecto de ejemplo, primero y destacado en Inicio y en Proyectos (plan gratis y sin cuenta). (lote AE) Sin
-   degradado ni resplandor: el rojo de la marca liso (#CE0C1C) con un borde simple; la letra, blanca sobre el rojo */
-.home-sample,.pj-sample{--samp:#CE0C1C;--samp-hi:#B80A19}
-.home-card.home-sample{background:var(--samp);border-color:var(--samp-hi);box-shadow:none}
-.home-card.home-sample:hover{background:var(--samp-hi);border-color:var(--samp-hi);box-shadow:none}
-.home-card.home-sample.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px #CE0C1C}
-.home-sample .home-open{color:#fff;padding:18px 18px 16px}
-.home-sample .home-open:focus-visible{outline:2px solid #fff;outline-offset:-5px}
-.home-sample .home-t{font-size:var(--fs-6)}
-.home-sample .home-m{color:rgba(255,255,255,.9)}
-.home-sample .home-w{color:#fff;font-size:var(--fs-3);line-height:1.45;max-width:46ch}
-.home-k.s{background:rgba(255,255,255,.2);color:#fff}
+/* (lote AD) el proyecto de ejemplo, primero en Inicio y en Proyectos (plan gratis y sin cuenta). (lote AG) Como las demás
+   tarjetas y filas: lo único rojo es la etiqueta «Ejemplo», llena y con letra blanca (no se confunde con «Guion», que es
+   letra roja sobre rosado) */
+.home-k.s,.pj-ex{background:#CE0C1C;color:#fff}
+.pj-ex{display:inline-block;margin-right:6px;padding:1px 5px;border-radius:2px;font-weight:700;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;vertical-align:1px}
+.home-sample .home-w{color:var(--muted);font-size:var(--fs-2);line-height:1.45}
 .home-samp{margin-bottom:16px}
 .pj-samp{margin-bottom:6px}
-.pj-row.pj-sample,.pj-row.pj-sample:focus-within{background:var(--samp)}
-.pj-row.pj-sample:hover{background:var(--samp-hi);box-shadow:none}
-.pj-row.pj-sample.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.75)}
-.pj-sample .pj-open{color:#fff;padding:9px 10px}
-.pj-sample .pj-open:focus-visible{outline-color:#fff}
-.pj-sample .pj-m{color:#fff;white-space:normal;line-height:1.4;opacity:.95}
-.pj-sample .pj-m b{color:#fff}
-.pj-sample .pj-act,.pj-sample .pj-act:hover{color:#fff}
-.pj-sample .pj-act:hover{background:rgba(255,255,255,.18)}
+.pj-sample .pj-m{white-space:normal;line-height:1.4}
 /* sin cuenta: el botón para crearla, en la barra de arriba */
 .anon-btn{border:0;color:#fff;font-weight:700;background:linear-gradient(120deg,#CE0C1C 55%,#E2501A);white-space:nowrap}
 .anon-btn:hover{filter:brightness(1.08)}
