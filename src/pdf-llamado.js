@@ -35,8 +35,8 @@ function pdfImgC(doc, url, xc, y, maxW, maxH) {
    tamaño de la pantalla por 8,6/13,5 (el texto de 13,5 px sale en 8,6 pt), así etiqueta, nota, texto, sección, fecha,
    título y llamado guardan entre sí lo mismo que en la pantalla; los tres grises salen de la tinta (texto, secundario y
    etiqueta), las líneas son finas y las etiquetas van en minúsculas. Todo en la letra de la app (Archivo o la elegida) */
-const CLK = 8.6 / 13.5, CLF = { cap: 11.5 * CLK, ft: 12.5 * CLK, bd: 8.6, h3: 17 * CLK, h2: 19 * CLK, h1: 26 * CLK, hero: 56 * CLK };
-const clTones = () => ({ c2: mixc(INK, PDF_WHITE, .66), c3: mixc(INK, PDF_WHITE, .52), sep: mixc(INK, PDF_WHITE, .13), sep2: mixc(INK, PDF_WHITE, .07), acc: [184, 10, 25] });
+const CLK = 8.6 / CL_SCALE.bd, CLF = Object.fromEntries(Object.entries(CL_SCALE).map(([k, v]) => [k, v * CLK]));   // (lote AC) de la tabla de tab-call.js
+const clTones = () => ({ c2: mixc(INK, PDF_WHITE, CL_TONE[2]), c3: mixc(INK, PDF_WHITE, CL_TONE[3]), sep: mixc(INK, PDF_WHITE, CL_TONE.sep), sep2: mixc(INK, PDF_WHITE, CL_TONE.sep2), acc: [184, 10, 25] });
 /* (lote AC) lo que usan la cabecera y el pie: el ancho de un texto tal cual (lote AB: en inglés, getTextWidth lo
    traduciría otra vez: «Craft Services / Craft Services…»), la etiqueta chica y los pares etiqueta y valor */
 const clRawW = doc => t => doc._rawW ? doc._rawW(t) : (doc._raw || doc).getTextWidth(t);

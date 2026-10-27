@@ -18,6 +18,16 @@ const CS_DEPTS = [
   ['sound', 'Sonido', ['Sonidista', 'Microfonista']],
 ];
 const capFirst = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+/* (lote AC) la escala de letras de la hoja (px en la pantalla) y sus grises (cuánto de la tinta sobre el fondo), en una
+   sola tabla: la pantalla los toma como variables (--cl-cap… y --cl-2, --cl-3, --cl-sep…, puestas al cargar en la raíz;
+   el teléfono achica algunas en shell.html) y el PDF los usa en la misma proporción (CLF y clTones, pdf-llamado.js) */
+const CL_SCALE = { cap: 11.5, ft: 12.5, bd: 13.5, h3: 17, h2: 19, h1: 26, hero: 56 };
+const CL_TONE = { 2: .66, 3: .52, sep: .13, sep2: .07, fill: .05 };
+if (typeof document !== 'undefined' && document.documentElement) {
+  const st = document.documentElement.style;
+  for (const [k, v] of Object.entries(CL_SCALE)) st.setProperty('--cl-' + k, v + 'px');
+  for (const [k, v] of Object.entries(CL_TONE)) st.setProperty('--cl-' + k, `color-mix(in srgb,var(--ink) ${Math.round(v * 100)}%,var(--surface))`);
+}
 /* (lote Y) el clima con su unidad pegada al número: la máxima y la mínima con «°», la humedad con «%» y, en «Clima», un
    número solo es la temperatura («29°»). Se guarda el número sin la unidad (si la escriben, se quita) y la unidad se
    pone al mostrarlo: en la pantalla aparece al lado apenas se escribe; en el PDF y el Excel, pegada al número */

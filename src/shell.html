@@ -3370,15 +3370,9 @@ a.cl-maps{color:var(--ink)}   /* botones, no enlaces azules */
    tres tonos de gris derivados de la tinta (texto, secundario y etiqueta), líneas finas en vez de reglas gruesas, las
    etiquetas en minúsculas (no en MAYÚSCULAS espaciadas), márgenes parejos y los números alineados. El PDF usa la misma
    escala, los mismos tonos y las mismas líneas (pdf.js, pdfCall) */
-.cs.cl{
-  --cl-2:color-mix(in srgb,var(--ink) 66%,var(--surface));
-  --cl-3:color-mix(in srgb,var(--ink) 52%,var(--surface));
-  --cl-sep:color-mix(in srgb,var(--ink) 13%,var(--surface));
-  --cl-sep2:color-mix(in srgb,var(--ink) 7%,var(--surface));
-  --cl-fill:color-mix(in srgb,var(--ink) 5%,var(--surface));
-  --cl-cap:11.5px; --cl-ft:12.5px; --cl-bd:13.5px; --cl-h3:17px; --cl-h2:19px; --cl-h1:26px; --cl-hero:56px; --cl-px:40px;
-  --muted:var(--cl-2)
-}
+/* la escala de letras (--cl-cap, --cl-ft, --cl-bd, --cl-h3, --cl-h2, --cl-h1, --cl-hero) y los grises (--cl-2, --cl-3,
+   --cl-sep, --cl-sep2, --cl-fill) vienen de una sola tabla (CL_SCALE y CL_TONE, tab-call.js), la misma del PDF */
+.cs.cl{--cl-px:40px;--muted:var(--cl-2)}
 .cs.cl :is(input,textarea){border-radius:6px}
 /* sin cursivas: los ejemplos de los campos vacíos y las ayudas, en gris y derechos */
 .cs.cl :is(input,textarea)::placeholder,.cs.cl :is(.hint,.cl-dim,.cs-none){font-style:normal}
