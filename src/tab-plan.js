@@ -100,10 +100,11 @@ const planCols = () => ({ fig: ls.get('plFig', false), tech: ls.get('plTech', tr
 /* (lote Y) el ancho de cada columna se cambia arrastrando su título y se guarda en el proyecto (P.schedule.colW, en px
    por clave de PL_COLS): todo el equipo ve los mismos anchos. Las que no tienen el suyo siguen con su ancho automático.
    El PDF y el Excel no cambian. Mínimo de cada columna (las chicas, 32 px) y máximo para todas */
-const PL_CW_MIN = { set: 80, loc: 80, tech: 60, obs: 60, cast: 40, t: 44 }, PL_CW_MAX = 800;
+const PL_CW_MIN = { set: 80, loc: 80, tech: 60, obs: 60, cast: 40, t: 44, ie: 36 }, PL_CW_MAX = 800;
 const plCwClamp = (k, v) => Math.round(Math.min(PL_CW_MAX, Math.max(PL_CW_MIN[k] || 32, +v || 0)));
-// con la Locación más angosta que esto, la miniatura del storyboard deja el lugar a su texto
-const PL_TH_MIN = 200;
+// con la columna más angosta que esto, la miniatura del storyboard (Locación) y el ícono del pin (Locación de rodaje)
+// dejan el lugar a su texto: la clase del tablero que lo hace
+const PL_NARROW = { set: [200, 'set-nt'], loc: [120, 'loc-np'] };
 /* las columnas de la pantalla, en orden (sin el menú ⋮ de las pantallas táctiles) */
 const plColKeys = c => PL_COLS.map(x => x[0]).filter(k => k !== 'more' && (k !== 'fig' || c.fig) && (k !== 'tech' || c.tech) && (k !== 'obs' || c.obs));
 /* los anchos guardados que sirven: de columnas que existen, en número y dentro del mínimo y el máximo */
@@ -123,8 +124,9 @@ function plGrid(c, used, cw) {
   return { keys, cols: keys.map(k => cw[k] ? cw[k] + 'px' : auto[k][0]), min: keys.reduce((a, k) => a + (cw[k] || auto[k][1]), 0) };
 }
 const plNotesUsed = () => ({ tech: P.schedule.items.some(it => (it.tech || '').trim()), obs: P.schedule.items.some(it => (it.obs || '').trim()) });
-/* las clases del tablero por los anchos guardados: .w-<clave> (la columna corta su texto con «…») y .set-nt */
-const plCwCls = (cw, keys) => keys.filter(k => cw[k]).map(k => ' w-' + k).join('') + (keys.includes('set') && cw.set && cw.set < PL_TH_MIN ? ' set-nt' : '');
+/* las clases del tablero por los anchos guardados: .w-<clave> (la columna corta su texto con «…») y las de PL_NARROW */
+const plNarrow = (cw, keys) => Object.entries(PL_NARROW).map(([k, [n, cl]]) => [cl, keys.includes(k) && !!cw[k] && cw[k] < n]);
+const plCwCls = (cw, keys) => keys.filter(k => cw[k]).map(k => ' w-' + k).join('') + plNarrow(cw, keys).filter(x => x[1]).map(x => ' ' + x[0]).join('');
 function planColsCSS() {
   const c = planCols(), cw = plColW(P.schedule);
   // (lote W) sin la columna del menú ⋮: la suma el CSS solo en las pantallas táctiles (--pl-more)
@@ -524,7 +526,7 @@ function startColResize(e, h) {
     board.style.setProperty('--pl-cols', G.cols.join(' '));
     board.style.setProperty('--pl-min', G.min + 'px');
     board.classList.add('w-' + k);
-    board.classList.toggle('set-nt', keys.includes('set') && !!cw.set && cw.set < PL_TH_MIN);
+    for (const [cl, on] of plNarrow(cw, keys)) board.classList.toggle(cl, on);
     // la línea, en el borde derecho de la columna (lo que suman sus columnas desde la izquierda)
     const t = tracks(), x = head.getBoundingClientRect().left + t.slice(0, j + 1).reduce((a, b) => a + b, 0);
     line.style.left = (x - board.getBoundingClientRect().left) + 'px';

@@ -16,9 +16,9 @@ vm.runInContext(`var P = { id: 'p1', schedule: { items: [] } }, LS = {}, ls = { 
 vm.runInContext([
   grab('tab-plan.js', 'const PL_COLS = [', ']];\n'), grab('tab-plan.js', 'const PL_TIP = ', '\n'), grab('tab-plan.js', 'const PL_SORT = ', '\n'),
   grab('tab-plan.js', 'function plHeadHTML('), grab('tab-plan.js', 'const planCols = ', '\n'),
-  grab('tab-plan.js', 'const PL_CW_MIN = ', '\n'), grab('tab-plan.js', 'const plCwClamp = ', '\n'), grab('tab-plan.js', 'const PL_TH_MIN = ', '\n'),
+  grab('tab-plan.js', 'const PL_CW_MIN = ', '\n'), grab('tab-plan.js', 'const plCwClamp = ', '\n'), grab('tab-plan.js', 'const PL_NARROW = ', '\n'),
   grab('tab-plan.js', 'const plColKeys = ', '\n'), grab('tab-plan.js', 'function plColW('), grab('tab-plan.js', 'function plGrid('),
-  grab('tab-plan.js', 'const plNotesUsed = ', '\n'), grab('tab-plan.js', 'const plCwCls = ', '\n'), grab('tab-plan.js', 'function planColsCSS('),
+  grab('tab-plan.js', 'const plNotesUsed = ', '\n'), grab('tab-plan.js', 'const plNarrow = ', '\n'), grab('tab-plan.js', 'const plCwCls = ', '\n'), grab('tab-plan.js', 'function planColsCSS('),
   grab('tab-plan.js', 'function planColSet('),
 ].join('\n').replace(/^const /gm, 'var '), c);
 
@@ -60,18 +60,19 @@ test('el ancho de una columna apagada no cuenta', () => {
 });
 test('los anchos guardados: dentro del mínimo y el máximo, en número; lo demás no cuenta', () => {
   const W = colW => JSON.parse(JSON.stringify(c.plColW({ colW })));
-  assert.deepStrictEqual(W({ set: 10, loc: 50, esc: 5, cast: 20, t: 3, tech: 1, esc2: 9 }), { set: 80, loc: 80, esc: 32, cast: 40, t: 44, tech: 60 });
+  assert.deepStrictEqual(W({ set: 10, loc: 50, esc: 5, cast: 20, t: 3, tech: 1, ie: 2, esc2: 9 }), { set: 80, loc: 80, esc: 32, cast: 40, t: 44, tech: 60, ie: 36 });
   assert.deepStrictEqual(W({ obs: 5000, pg: '120', dn: 123.6 }), { obs: 800, pg: 120, dn: 124 });
   assert.deepStrictEqual(W({ loc: 'ancho', more: 50, ie: -4, fig: 0, set: null, pgs: NaN }), {});
   assert.deepStrictEqual(W([100, 200]), {}); assert.deepStrictEqual(W(null), {}); assert.deepStrictEqual(W('260'), {});
   assert.deepStrictEqual(JSON.parse(JSON.stringify(c.plColW(undefined))), {});
   assert.strictEqual(c.plCwClamp('set', 79.4), 80); assert.strictEqual(c.plCwClamp('pg', 31), 32); assert.strictEqual(c.plCwClamp('loc', 801), 800);
 });
-test('las clases del tablero: .w-<clave> de las columnas con su ancho y .set-nt con la Locación angosta', () => {
+test('las clases del tablero: .w-<clave> de las columnas con su ancho; .set-nt y .loc-np con la Locación o la de rodaje angostas', () => {
   const keys = c.plColKeys({ fig: false, tech: true, obs: true });
   assert.strictEqual(c.plCwCls({}, keys), '');
   assert.strictEqual(c.plCwCls({ set: 150, loc: 200 }, keys), ' w-set w-loc set-nt');
-  assert.strictEqual(c.plCwCls({ set: c.PL_TH_MIN }, keys), ' w-set');
+  assert.strictEqual(c.plCwCls({ set: c.PL_NARROW.set[0], loc: 119 }, keys), ' w-set w-loc loc-np');
+  assert.strictEqual(c.plCwCls({ loc: c.PL_NARROW.loc[0] }, keys), ' w-loc');
   assert.strictEqual(c.plCwCls({ fig: 60 }, keys), '');   // la figuración apagada
 });
 test('planColsCSS lleva los anchos del proyecto a --pl-cols y --pl-min', () => {

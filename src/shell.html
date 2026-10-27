@@ -907,7 +907,7 @@ html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!impor
    propio de la columna (.w-<clave>) los textos de una línea (.tx) se cortan con «…», la locación del guion, el reparto y
    la locación de rodaje quedan en dos líneas como mucho y las columnas chicas ganan lugar con menos margen (con el ancho
    automático se ven como siempre). El texto entero se lee al pasar el mouse (title). Con la Locación angosta (.set-nt)
-   la miniatura deja su lugar */
+   la miniatura deja su lugar; con la de rodaje angosta (.loc-np), el pin */
 .prow .tx{white-space:nowrap}
 @media (min-width:761px){
   .pl .prow:not(.brk)>*{overflow:hidden}
@@ -916,12 +916,14 @@ html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!impor
   .prow .c-t input{text-overflow:ellipsis}
   .pl.w-set .prow .c-set b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .pl.set-nt .prow .c-set.th{padding-left:8px;min-height:0}
-  .pl.set-nt .prow .pl-th{display:none}
+  .pl.set-nt .prow .pl-th,.pl.loc-np .prow .c-loc>.ic{display:none}
   .pl.w-cast .prow .c-cast .cns{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:0}
   .pl.w-cast .prow .c-cast:has(.cnm){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;align-self:center;padding-block:0}
   .pl.w-cast .prow .c-cast .cnm:not(:last-child)::after{content:", "}
   .pl.w-loc .prow .c-loc .wfld-v{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;padding:0 4px;margin-block:6px}
   .pl.w-loc .prow>.c-loc{padding-inline:4px}
+  /* las notas vacías de una columna angosta no crecen por su texto de ayuda (field-sizing lo cuenta aunque no se vea) */
+  .pl.w-tech .prow .c-tech textarea:placeholder-shown,.pl.w-obs .prow .c-obs textarea:placeholder-shown{field-sizing:fixed}
   .pl.w-loc .prow .c-loc input{padding-inline:3px}
   .pl.w-esc :is(.prow,.pl-head)>.c-esc,.pl.w-ie :is(.prow,.pl-head)>.c-ie,.pl.w-dn :is(.prow,.pl-head)>.c-dn,.pl.w-cast :is(.prow,.pl-head)>.c-cast,
   .pl.w-fig :is(.prow,.pl-head)>.c-fig,.pl.w-pgs :is(.prow,.pl-head)>.c-pgs,.pl.w-pg :is(.prow,.pl-head)>.c-pg,.pl.w-t :is(.prow,.pl-head)>.c-t{padding-inline:4px}
