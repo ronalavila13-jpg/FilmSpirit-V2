@@ -5758,6 +5758,139 @@ details.sec .tbl td,details.sec .tbl th{padding-inline:10px}
 details.sec .tbl td.num,details.sec .tbl th.num{text-align:right}
 details.sec .tbl td.num input{display:block;margin-left:auto}
 .cl .cl-note textarea{text-align:center}
+/* ---------- (lote Y) la hoja de llamado al estilo Apple, con la misma estructura ----------
+   Una sola escala de letras (etiqueta 11,5 · nota 12,5 · texto 13,5 · sección 17 · fecha 19 · título 26 · llamado 56),
+   tres tonos de gris derivados de la tinta (texto, secundario y etiqueta), líneas finas en vez de reglas gruesas, las
+   etiquetas en minúsculas (no en MAYÚSCULAS espaciadas), márgenes parejos y los números alineados. El PDF usa la misma
+   escala, los mismos tonos y las mismas líneas (pdf.js, pdfCall) */
+.cs.cl{
+  --cl-2:color-mix(in srgb,var(--ink) 66%,var(--surface));
+  --cl-3:color-mix(in srgb,var(--ink) 52%,var(--surface));
+  --cl-sep:color-mix(in srgb,var(--ink) 13%,var(--surface));
+  --cl-sep2:color-mix(in srgb,var(--ink) 7%,var(--surface));
+  --cl-fill:color-mix(in srgb,var(--ink) 5%,var(--surface));
+  --cl-cap:11.5px; --cl-ft:12.5px; --cl-bd:13.5px; --cl-h3:17px; --cl-h2:19px; --cl-h1:26px; --cl-hero:56px; --cl-px:40px;
+  --muted:var(--cl-2)
+}
+.cs.cl .cl-doc{padding:26px var(--cl-px) 36px;gap:40px;border-radius:14px;font-size:var(--cl-bd);line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.03),0 8px 28px rgba(0,0,0,.035)}
+.cs.cl :is(input,textarea){border-radius:6px}
+/* sin cursivas: los ejemplos de los campos vacíos y las ayudas, en gris y derechos */
+.cs.cl :is(input,textarea)::placeholder,.cs.cl :is(.hint,.cl-dim,.cs-none){font-style:normal}
+.cs.cl input[data-miss]{font-style:normal}
+/* los campos de las columnas de la cabecera y del pie empiezan donde empieza su etiqueta (el relleno queda afuera) */
+.cs.cl :is(.cl-mp,.cl-fh>div,.cl-fr>div)>:is(input,textarea),.cs.cl .cl-uw:not(.on)>input,.cs.cl .cl-mp .cl-link-in{margin-left:-6px;padding-inline:6px;width:calc(100% + 6px)}
+.cs.cl .cl-uw.on{margin-left:-6px}
+.cs.cl .cl-uw.on>input{padding-left:6px}
+.cs.cl .cl-doc>.cl-hd{gap:28px}
+.cs.cl .cl-acts{padding-bottom:14px;border-bottom:1px solid var(--cl-sep)}
+.cs.cl .cl-top{gap:32px}
+.cs.cl :is(.cl-c1,.cl-c3){gap:16px;font-size:var(--cl-bd)}
+.cs.cl .cl-c2{gap:6px;padding-inline:28px;border-inline:1px solid var(--cl-sep)}
+/* las etiquetas: chicas, en minúsculas y en el gris más claro */
+.cs.cl .cl-kl{font-size:var(--cl-cap);font-weight:600;letter-spacing:0;text-transform:none;color:var(--cl-3);line-height:1.3}
+.cs.cl .cl-co{font:650 var(--cl-h3)/1.25 var(--font-ui);letter-spacing:-.012em}
+.cs.cl .cl-kc{gap:2px}
+.cs.cl .cl-kc b{font-weight:600}
+.cs.cl .cl-kp{font-size:var(--cl-ft);color:var(--cl-2)}
+.cs.cl .cl-dim{color:var(--cl-2)}
+/* al centro: el proyecto, la jornada, la fecha y el llamado general, la cifra más grande de la hoja */
+.cs.cl .cl-ttl{font:700 var(--cl-h1)/1.15 var(--font-ui);letter-spacing:-.022em}
+.cs.cl .cl-jn{font-size:var(--cl-ft);font-weight:600;letter-spacing:0;text-transform:none;color:var(--cl-2);gap:4px 10px}
+.cs.cl .cl-ep{font-weight:500}
+.cs.cl .cl-date{font:600 var(--cl-h2)/1.25 var(--font-ui);letter-spacing:-.012em;margin-top:0}
+.cs.cl .cl-callg{margin-top:14px}
+.cs.cl .cl-big input.tm{font:700 var(--cl-hero)/1.02 var(--font-ui);letter-spacing:-.035em}
+.cs.cl .cl-big .hd-tag{font-size:var(--cl-cap);font-weight:600;color:var(--cl-2);background:var(--cl-fill);border-radius:999px;padding:2px 9px}
+.cs.cl .cl-sub{font-size:var(--cl-ft);color:var(--cl-2);gap:4px 18px;margin-top:6px}
+.cs.cl .cl-sub input{font-size:var(--cl-bd);font-weight:600}
+.cs.cl .cl-sum{font-size:var(--cl-ft);color:var(--cl-2);margin-top:2px}
+/* a la derecha: el clima, el punto de encuentro y la locación, cada uno con su ícono */
+.cs.cl .cl-ir{grid-template-columns:18px minmax(0,1fr);gap:10px}
+.cs.cl .cl-ir>.ic{width:18px;height:18px;margin-top:4px;color:var(--cl-3)}
+.cs.cl :is(.cl-wx,.cl-mp){gap:3px}
+.cs.cl :is(.cl-wx .cl-temp,.cl-sunr){font-size:var(--cl-ft);color:var(--cl-2);gap:2px 10px}
+.cs.cl .cl-irl b{font-weight:650}
+.cs.cl .cl-irl small,.cs.cl .cl-irb small{font-size:var(--cl-ft);color:var(--cl-2)}
+.cs.cl .cl-map{font-size:var(--cl-ft);font-weight:600}
+/* (lote Y) el clima con su unidad pegada al número: «30°», «10%»; en Clima, un número solo es la temperatura */
+.cs.cl .cl-u{display:inline-flex;align-items:baseline;min-width:0;border-radius:6px}
+.cs.cl .cl-u>i{display:none;font-style:normal;color:var(--ink)}
+.cs.cl .cl-temp .cl-u>i{font-weight:650}
+.cs.cl .cl-u.on>i{display:inline;padding-right:5px;margin-left:-1px}
+.cs.cl .cl-u.on>input{border-right-width:0 !important}
+.cs.cl .cl-u.on>input{width:auto !important;min-width:1ch;padding-right:0 !important;text-align:left !important;field-sizing:content}
+.cs.cl .cl-u.on:hover,.cs.cl .cl-u.on:focus-within{background:var(--fill)}
+.cs.cl .cl-u.on>input:is(:hover,:focus){background:transparent}
+.cs.cl .cl-uw:not(.on){display:flex}
+.cs.cl .cl-uw:not(.on)>input{flex:1 1 auto}
+.cs.cl .cl-uw.on{justify-self:start}
+/* la nota para el equipo y la utilería especial */
+.cs.cl .cl-notes{gap:12px}
+.cs.cl .cl-note{border-radius:12px;padding:14px 22px 16px}
+.cs.cl .cl-note h3{font:650 var(--cl-bd)/1.3 var(--font-ui);margin:0 0 4px}
+.cs.cl .cl-note textarea{font-size:14px;line-height:1.5}
+.cs.cl .cl-util{font-size:var(--cl-bd);color:var(--cl-2)}
+.cs.cl .cl-util b{color:var(--ink);font-weight:650}
+/* las secciones: el título y una regla fina de tinta debajo */
+.cs.cl .cl-sec{gap:4px}
+.cs.cl .cl-sec>header{gap:4px 12px;padding-bottom:8px;border-bottom:1px solid var(--ink)}
+.cs.cl .cl-sec>header h3{font:650 var(--cl-h3)/1.25 var(--font-ui);letter-spacing:-.012em}
+.cs.cl .cl-sec>header .hint{font-size:var(--cl-ft);color:var(--cl-2)}
+.cs.cl .cl-sec>header .linkbtn{font-size:var(--cl-ft);font-weight:600}
+.cs.cl .cl-opt{font-size:var(--cl-ft);color:var(--cl-2)}
+/* las tablas: títulos chicos en minúsculas, filas con aire y separadas por una línea fina */
+.cs.cl :is(.cl-list,.cl-tbl){font-size:var(--cl-bd)}
+.cs.cl :is(.cl-list,.cl-tbl) th{font-size:var(--cl-cap);font-weight:600;letter-spacing:0;text-transform:none;color:var(--cl-3);padding:10px 10px 6px;border-bottom:0}
+.cs.cl :is(.cl-list,.cl-tbl) thead tr:last-child th{border-bottom:1px solid var(--cl-sep);padding-bottom:7px}
+.cs.cl .cl-lhs th{padding-top:0;font-weight:500;color:var(--cl-3)}
+.cs.cl .cl-list td{padding:11px 10px;border-top:1px solid var(--cl-sep)}
+.cs.cl .cl-sn{font:700 var(--cl-h3)/1.15 var(--font-ui);letter-spacing:-.01em}
+.cs.cl .cl-ln input.tm{font-size:var(--cl-ft);font-weight:600}
+.cs.cl :is(.cl-lsc,.cl-lsh) .cl-ln{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--rc) 85%,var(--ink));padding-left:14px}
+.cs.cl .cl-lsd b{font-weight:650;letter-spacing:.005em;line-height:1.35}
+.cs.cl .cl-syn{font-size:var(--cl-ft);line-height:1.45;color:var(--cl-2);margin-top:2px;max-width:82ch}
+.cs.cl .cl-lc{font-size:var(--cl-ft);font-weight:600;margin-top:4px}
+.cs.cl :is(.cl-lie,.cl-ldn){font-size:var(--cl-ft);font-weight:600}
+.cs.cl .cl-lpg{font-weight:650}
+/* los planos de cada escena: una línea más clara, sin el recuadro del número */
+.cs.cl .cl-lsh td{border-top:1px solid var(--cl-sep2);padding-block:8px;font-size:var(--cl-ft)}
+.cs.cl .cl-pc .cl-code{border:0;background:none;padding:0;min-width:0;font-size:var(--cl-ft);font-weight:650;color:var(--ink)}
+.cs.cl .cl-shd b{font-weight:650}
+.cs.cl :is(.cl-shd>span,.cl-shset){color:var(--cl-2)}
+.cs.cl select.cl-snd{background:var(--cl-fill);border-radius:6px;font-size:var(--cl-ft);padding:3px 6px}
+.cs.cl .cl-th{border-radius:4px}
+.cs.cl .cl-lev td span{color:var(--cl-2)}
+.cs.cl .cl-lend td{border-top:1px solid var(--ink);padding-block:10px}
+.cs.cl .cl-lend .cl-lpg small{font-size:var(--cl-cap);text-transform:none;letter-spacing:0;color:var(--cl-3);font-weight:600}
+.cs.cl .cl-tot{font-size:var(--cl-ft);margin-top:6px}
+.cs.cl .cl-fin{font:650 var(--cl-h3) var(--font-ui)}
+/* las personas, la movilidad y los proveedores */
+.cs.cl .cl-tw{padding:0}
+.cs.cl :is(.cl-ptbl,.cl-vtbl) td{padding:4px 8px}
+.cs.cl .cl-sep td{padding:16px 10px 4px !important;font-size:var(--cl-cap);font-weight:600;letter-spacing:0;text-transform:none;color:var(--cl-3)}
+.cs.cl .cl-ptbl .cl-pn input{font-weight:600}
+.cs.cl .cs-av{display:inline-block;width:auto;min-width:0;height:auto;background:none;border-radius:0;color:var(--cl-2);font-weight:650;font-size:var(--cl-ft)}
+.cs.cl .cl-pj b{font-weight:600}
+.cs.cl .cl-pj small{font-size:var(--cl-cap);color:var(--cl-2);margin-left:16px}
+.cs.cl .cl-ptbl .cl-tt input,.cs.cl .cl-vtbl .cl-tt input{font-weight:600}
+.cs.cl :is(.cs-fold,.cs-dept h4){text-transform:none;letter-spacing:0;font-size:var(--cl-ft);font-weight:600;color:var(--cl-2)}
+.cs.cl .cs-folds{border-top:1px solid var(--cl-sep);margin-top:12px;padding-top:8px}
+.cs.cl :is(.cs-none,.cl-free,.cs-out){font-size:var(--cl-ft)}
+.cs.cl .cl-vn{background:var(--cl-fill);color:var(--ink);border-radius:6px;font-size:var(--cl-ft);font-weight:650}
+.cs.cl .cl-veh{border-top-color:var(--cl-sep)}
+.cs.cl :is(.cl-p,.cl-drv select,.cl-drv input){border-radius:6px;background:var(--cl-fill)}
+/* el pie: el centro de salud y los canales de radio */
+.cs.cl .cl-foot{border-top:1px solid var(--ink);padding-top:14px;gap:28px}
+.cs.cl :is(.cl-fh,.cl-fr)>.ic{width:18px;height:18px;color:var(--cl-3)}
+@media (max-width:760px){
+  .cs.cl{--cl-px:16px;--cl-hero:46px;--cl-h1:22px;--cl-h2:17px;--cl-h3:16px}
+  .cs.cl .cl-doc{padding:14px var(--cl-px) 24px;gap:30px}
+  .cs.cl .cl-top{gap:18px}
+  .cs.cl .cl-c2{padding:0 0 16px;border-inline:0;border-bottom:1px solid var(--cl-sep)}
+  .cs.cl .cl-list td{border-top:0;padding:8px 5px}
+  .cs.cl :is(.cl-list,.cl-ptbl,.cl-vtbl) tr{border-top-color:var(--cl-sep)}
+  .cs.cl .cl-lsh{border-top-color:var(--cl-sep2)}
+}
 </style>
 
 <div id="app">

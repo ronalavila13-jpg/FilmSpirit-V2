@@ -187,15 +187,16 @@ function docHeader(doc, label, sub) {
 /* el título de una sección (lote K): en la letra de los títulos, negrita y en minúscula normal, con una regla fina
    debajo (antes, una barra gris con el nombre en MAYÚSCULAS dentro de la tabla). Si no queda lugar para el título y
    unas filas, pasa a la página siguiente. right: un dato chico a la derecha. Devuelve dónde sigue */
-function pdfSec(doc, y, title, { x0 = 36, x1, right, need = 96 } = {}) {
+function pdfSec(doc, y, title, { x0 = 36, x1, right, need = 96, font = 'title', fs = PF.sec, rfs = PF.small, rcol = MUTED, line = mixc(INK, PDF_WHITE, .7), lw = .6, gap = 5, after = 11 } = {}) {
+  // (lote Y) la hoja de llamado pasa su letra, sus tamaños y su regla (pdfCall: CL_SEC); los demás PDF siguen igual
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); x1 = x1 || W - x0;
   if (y + need > H - 44) { doc.addPage(); y = 44; }
-  doc.setFont('title', 'bold'); doc.setFontSize(PF.sec); doc.setTextColor(...INK);
-  doc.text(pdfSafe(title), x0, y + PF.sec);
-  if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED); doc.text(pdfSafe(right), x1, y + PF.sec, { align: 'right' }); }
-  doc.setDrawColor(...mixc(INK, PDF_WHITE, .7)); doc.setLineWidth(.6); doc.line(x0, y + PF.sec + 5, x1, y + PF.sec + 5);
+  doc.setFont(font, 'bold'); doc.setFontSize(fs); doc.setTextColor(...INK);
+  doc.text(pdfSafe(title), x0, y + fs);
+  if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(rfs); doc.setTextColor(...rcol); doc.text(pdfSafe(right), x1, y + fs, { align: 'right' }); }
+  doc.setDrawColor(...line); doc.setLineWidth(lw); doc.line(x0, y + fs + gap, x1, y + fs + gap);
   doc.setTextColor(...INK);
-  return y + PF.sec + 11;
+  return y + fs + after;
 }
 /* celdas con más de un estilo (lote K): el encabezado de una escena en negrita y sus páginas en gris, o «Utilería y
    arte:» como etiqueta gris y la lista en normal. cell.raw._rich = [párrafo…]; cada párrafo es { fs, segs: [{ t, st,
@@ -1107,108 +1108,119 @@ function pdfImgC(doc, url, xc, y, maxW, maxH) {
   url = pdfImgSrc(url);
   try { const p = doc.getImageProperties(url), r = p.width / p.height; let w = maxW, h = w / r; if (h > maxH) { h = maxH; w = h * r; } doc.addImage(url, imgFmt(url), xc - w / 2, y, w, h); return h; } catch (e) { return 0; }
 }
+/* (lote Y) la hoja en el PDF con la escala, los tonos y las líneas de la pantalla («estilo Apple», shell.html): cada
+   tamaño de la pantalla por 8,6/13,5 (el texto de 13,5 px sale en 8,6 pt), así etiqueta, nota, texto, sección, fecha,
+   título y llamado guardan entre sí lo mismo que en la pantalla; los tres grises salen de la tinta (texto, secundario y
+   etiqueta), las líneas son finas y las etiquetas van en minúsculas. Todo en la letra de la app (Archivo o la elegida) */
+const CLK = 8.6 / 13.5, CLF = { cap: 11.5 * CLK, ft: 12.5 * CLK, bd: 8.6, h3: 17 * CLK, h2: 19 * CLK, h1: 26 * CLK, hero: 56 * CLK };
+const clTones = () => ({ c2: mixc(INK, PDF_WHITE, .66), c3: mixc(INK, PDF_WHITE, .52), sep: mixc(INK, PDF_WHITE, .13), sep2: mixc(INK, PDF_WHITE, .07), acc: [184, 10, 25] });
 /* la cabecera en tres columnas; devuelve dónde sigue */
 function pdfCallHead(doc, X, V) {
-  const W = doc.internal.pageSize.getWidth(), M = 36, TBC = 'Por confirmar', cs = typeof doc.setCharSpace === 'function';
-  const lab = (t, x, y, al) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(6.4); doc.setTextColor(...MUTED); if (cs) doc.setCharSpace(.4); doc.text(trDone(pdfSafe(trDone(tr(t)).toUpperCase())), x, y, al ? { align: al } : undefined); if (cs) doc.setCharSpace(0); };
-  // arriba, a la derecha, la versión de la hoja (lote W: sin «Hecha con FilmSpirit» a la izquierda)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(...MUTED);
+  const W = doc.internal.pageSize.getWidth(), M = 36, TBC = 'Por confirmar', K = clTones(), raw = doc._raw || doc;
+  const lab = (t, x, y, al) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c3); doc.text(trDone(pdfSafe(trDone(tr(t)))), x, y, al ? { align: al } : undefined); };
+  // arriba, a la derecha, la versión de la hoja (lote W: sin «Hecha con FilmSpirit» a la izquierda), sobre una línea fina
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c2);
   doc.text(pdfSafe([trDone(tr('Hoja de llamado')), V ? callVerTxt(V) : ''].filter(Boolean).join(' · ')), W - M, 22, { align: 'right' });
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.6); doc.line(M, 28, W - M, 28);
-  const y0 = 42, w1 = 158, xc = W / 2, wc = 200, x3 = W - M - 158, w3 = 158;
+  doc.setDrawColor(...K.sep); doc.setLineWidth(.5); doc.line(M, 28, W - M, 28);
+  const y0 = 48, w1 = 158, xc = W / 2, wc = 200, x3 = W - M - 158, w3 = 158;
   // izquierda: la productora y el equipo clave con su teléfono
   let yl = y0;
   const clogo = brandOn('company') && brandLogo('logo') ? P.meta.logo : '';
   if (clogo) { const h = pdfImg(doc, clogo, M, yl - 8, 120, 26) ? 26 : 0; yl += h ? h + 4 : 0; }
-  if (P.meta.company && brandOn('company')) { doc.setFont('title', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); const t = doc.splitTextToSize(trDone(pdfSafe(P.meta.company)), w1).slice(0, 2); (doc._raw || doc).text(t, M, yl + 2); yl += t.length * 13 + 6; }
+  if (P.meta.company && brandOn('company')) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); doc.setTextColor(...INK); const t = doc.splitTextToSize(trDone(pdfSafe(P.meta.company)), w1).slice(0, 2); raw.text(t, M, yl + 3); yl += t.length * CLF.h3 * 1.25 + 9; }
   // (lote W) con la producción y el cliente (lo que pedía «Equipo clave» antes), si tienen nombre
   for (const k of [...X.keyCrew, ...(X.keyMore || [])]) {
     lab(k.lab, M, yl + 4);
-    doc.setFont('helvetica', k.name ? 'bold' : 'normal'); doc.setFontSize(8.6); doc.setTextColor(...(k.name ? INK : MUTED));
-    k.name ? (doc._raw || doc).text(pdfSafe(k.name), M, yl + 15) : doc.text(TBC, M, yl + 15);
+    doc.setFont('helvetica', k.name ? 'bold' : 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(k.name ? INK : K.c2));
+    k.name ? raw.text(pdfSafe(k.name), M, yl + 15) : doc.text(TBC, M, yl + 15);
     // el teléfono, debajo del nombre (se toca para llamar)
-    if (k.phone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...INK); const t = pdfSafe(k.phone); (doc._raw || doc).text(t, M, yl + 25); doc.link(M, yl + 18, (doc._raw || doc).getTextWidth(t), 9, { url: 'tel:' + String(k.phone).replace(/[^\d+]/g, '') }); yl += 10; }
-    yl += 24;
+    if (k.phone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); const t = pdfSafe(k.phone); raw.text(t, M, yl + 25); doc.link(M, yl + 18, raw.getTextWidth(t), 9, { url: 'tel:' + String(k.phone).replace(/[^\d+]/g, '') }); yl += 10; }
+    yl += 26;
   }
-  // centro: el proyecto (su logo o su nombre), la jornada, la fecha y el llamado general en grande
+  // centro: el proyecto (su logo o su nombre), la jornada, la fecha y el llamado general, la cifra más grande de la hoja
   let yc = y0 - 6;
   const plogo = brandOn('project') && brandLogo('projLogo') ? P.meta.projLogo : '';
   const lh = plogo ? pdfImgC(doc, plogo, xc, yc, 190, 42) : 0;
   if (lh) yc += lh + 8;
-  else { doc.setFont('title', 'bold'); doc.setFontSize(16); doc.setTextColor(...INK); const t = doc.splitTextToSize(pdfSafe(P.meta.title), wc + 16).slice(0, 2); (doc._raw || doc).text(t, xc, yc + 13, { align: 'center' }); yc += t.length * 18 + 4; }
-  lab(`Jornada ${X.n + 1} de ${X.total}${X.eps ? ' · ' + X.eps : ''}`, xc, yc + 6, 'center');
+  else { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h1); doc.setTextColor(...INK); const t = doc.splitTextToSize(pdfSafe(P.meta.title), wc + 16).slice(0, 2); raw.text(t, xc, yc + CLF.h1 * .82, { align: 'center' }); yc += t.length * CLF.h1 * 1.15 + 3; }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2);
+  doc.text(trDone(pdfSafe(trDone(tr(`Jornada ${X.n + 1} de ${X.total}${X.eps ? ' · ' + X.eps : ''}`)))), xc, yc + 8, { align: 'center' });
   const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })).replace(',', '') : 'Sin fecha';
-  doc.setFont('title', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...INK); doc.text(pdfSafe(date), xc, yc + 22, { align: 'center' });
-  lab('Llamado general', xc, yc + 38, 'center');
-  doc.setFont('title', 'bold'); doc.setFontSize(30); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), xc, yc + 66, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h2); doc.setTextColor(...INK); doc.text(pdfSafe(date), xc, yc + 25, { align: 'center' });
+  lab('Llamado general', xc, yc + 45, 'center');
+  const yh = yc + 46 + CLF.hero * .76;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.hero); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), xc, yh, { align: 'center' });
   // (lote W) el catering va tal cual lo escribieron (antes, en inglés, «Catering: …» se traducía entero y salía repetido)
   const subl = [X.motor && trDone(tr(`Listos motor ${X.motor}`)), X.lunch && trDone(tr(`Almuerzo ${X.lunch}`)), X.dd.craft && trDone(tr('Catering') + ': ' + X.dd.craft.trim())].filter(Boolean);
-  if (subl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(...MUTED); doc.text(trDone(pdfSafe(subl.join('   ·   '))), xc, yc + 80, { align: 'center' }); }
-  yc += subl.length ? 86 : 74;
+  if (subl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); doc.text(trDone(pdfSafe(subl.join('     '))), xc, yh + 16, { align: 'center' }); }
+  yc = yh + (subl.length ? 24 : 10);
   // derecha: el clima, el punto de encuentro (o estacionamiento) y la locación con su mapa, cada uno con su ícono
-  let yr = y0 - 6;
+  let yr = y0 - 5;
   const row = (ico, parts, url) => {
-    pdfCallIco(doc, ico, x3, yr + 1, 9);
-    let yy = yr + 8;
+    pdfCallIco(doc, ico, x3, yr, 9, K.c3);
+    let yy = yr + 7.5;
     for (const p of parts) {
-      doc.setFont('helvetica', p.st || 'normal'); doc.setFontSize(p.fs || 8); doc.setTextColor(...(p.col || INK));
+      const fs = p.fs || CLF.bd;
+      doc.setFont('helvetica', p.st || 'normal'); doc.setFontSize(fs); doc.setTextColor(...(p.col || INK));
       // lo escrito por cada uno (p.raw) no se traduce
-      const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 15).slice(0, p.max || 3); (doc._raw || doc).text(t, x3 + 15, yy); yy += t.length * (p.fs || 8) * 1.28;
+      const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 16).slice(0, p.max || 3); raw.text(t, x3 + 16, yy); yy += t.length * fs * 1.34;
       // los enlaces del punto de encuentro, por su nombre («Google Maps · Waze»), cada uno se toca
-      if (p.links) { let xx = x3 + 15; doc.setFont('helvetica', 'bold'); doc.setFontSize(7.4); doc.setTextColor(40, 90, 170);
-        p.links.forEach((u, i) => { const t2 = (i ? '  ·  ' : '') + linkName(u), w = (doc._raw || doc).getTextWidth(t2); if (xx + w > x3 + w3 && i) { xx = x3 + 15; yy += 9; } (doc._raw || doc).text(t2, xx, yy - 2); doc.link(xx, yy - 9, w, 9, { url: u }); xx += w; }); yy += 8; }
-      // y sus fotos, chicas, una al lado de la otra (hasta dos)
-      if (p.ph && p.ph.length) { const pw = (w3 - 15 - 4) / 2, phH = pw * .75;
-        p.ph.slice(0, 2).forEach((q, i) => { const k = Math.min(pw / (q.w || 4), phH / (q.h || 3)), iw = (q.w || 4) * k, ih = (q.h || 3) * k, xx = x3 + 15 + i * (pw + 4);
-          doc.setFillColor(246, 247, 248); doc.rect(xx, yy - 4, pw, phH, 'F');
+      if (p.links) { let xx = x3 + 16; doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.acc);
+        p.links.forEach((u, i) => { const t2 = (i ? '   ' : '') + linkName(u), w = raw.getTextWidth(t2); if (xx + w > x3 + w3 && i) { xx = x3 + 16; yy += 9; } raw.text(t2, xx, yy - 2); doc.link(xx, yy - 9, w, 9, { url: u }); xx += w; }); yy += 8; }
+      // y sus fotos, chicas, una al lado de la otra (hasta dos), con las esquinas apenas redondeadas
+      if (p.ph && p.ph.length) { const pw = (w3 - 16 - 4) / 2, phH = pw * .75;
+        p.ph.slice(0, 2).forEach((q, i) => { const k = Math.min(pw / (q.w || 4), phH / (q.h || 3)), iw = (q.w || 4) * k, ih = (q.h || 3) * k, xx = x3 + 16 + i * (pw + 4);
+          doc.setFillColor(246, 246, 247); doc.roundedRect(xx, yy - 4, pw, phH, 2, 2, 'F');
           try { doc.addImage(photoForPdf(clPhKey(X.d.id, q.id)), 'JPEG', xx + (pw - iw) / 2, yy - 4 + (phH - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; } });
         yy += phH + 2; }
     }
-    if (url) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7.6); doc.setTextColor(40, 90, 170); doc.text('Ver mapa', x3 + 15, yy + 1); doc.link(x3 + 15, yy - 6, doc.getTextWidth(trDone(tr('Ver mapa'))), 9, { url }); yy += 10; }
-    doc.setTextColor(...INK); yr = yy + 6;
+    if (url) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.acc); doc.text('Ver mapa', x3 + 16, yy + 1); doc.link(x3 + 16, yy - 6, doc.getTextWidth(trDone(tr('Ver mapa'))), 9, { url }); yy += 10; }
+    doc.setTextColor(...INK); yr = yy + 8;
   };
-  const Dd = X.dd, wx = wxLine(Dd);   // (lote Y) con la unidad pegada al número: «Máx. 30°», «Hum. 10%»
-  if (wx.length) row('wx', [{ t: wx.join('  ·  '), raw: true }]);
-  if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('  ·  '), raw: true }]);
+  // (lote Y) el clima como en la pantalla: lo que se escribió en «Clima» (con «°» si es un número) y, debajo, en gris, la
+  // máxima, la mínima y la humedad con su unidad pegada al número
+  const Dd = X.dd, wx = wxLine(Dd), wx0 = wxShow('wx', Dd.wx);
+  if (wx.length) row('wx', [wx0 ? { t: wx0, raw: true } : null, wx.slice(wx0 ? 1 : 0).length ? { t: wx.slice(wx0 ? 1 : 0).join('     '), fs: CLF.ft, col: K.c2, raw: true } : null].filter(Boolean));
+  if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('     '), fs: CLF.ft, col: K.c2, raw: true }]);
   // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos
   const mt = X.meet, mAddr = (mt.addr || '').trim(), mNote = (mt.note || '').trim(), mLinks = (mt.links || []).map(safeUrl).filter(Boolean);
   const mPh = (mt.ph || []).filter(q => FRAMES[clPhKey(X.d.id, q.id)]);
-  if (mAddr || mNote || mLinks.length || mPh.length) row('park', [{ t: 'Punto de encuentro', fs: 6.4, st: 'bold', col: MUTED }, mAddr ? { t: mAddr, st: 'bold', raw: true } : null, mNote ? { t: mNote, fs: 7.4, col: MUTED, raw: true, max: 4 } : null,
+  if (mAddr || mNote || mLinks.length || mPh.length) row('park', [{ t: 'Punto de encuentro', fs: CLF.cap, st: 'bold', col: K.c3 }, mAddr ? { t: mAddr, st: 'bold', raw: true } : null, mNote ? { t: mNote, fs: CLF.ft, col: K.c2, raw: true, max: 4 } : null,
     mLinks.length || mPh.length ? { t: '', fs: 1, links: mLinks.length ? mLinks : null, ph: mPh } : null].filter(Boolean));
   const url = mapsUrl(X.meet, X.locs);
-  if (X.locs.length) for (const [nm, ad] of X.locs.slice(0, 3)) row('pin', [{ t: nm, st: 'bold', fs: 8.8 }, ad ? { t: ad, fs: 7.6, col: MUTED, raw: true } : null].filter(Boolean), nm === X.locs[Math.min(2, X.locs.length - 1)][0] ? url : '');
-  else row('pin', [{ t: mAddr || TBC, col: mAddr ? INK : MUTED, raw: !!mAddr }], url);
-  const yb = Math.max(yl, yc, yr) + 4;
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.6);
-  doc.line(xc - wc / 2 - 8, y0 - 6, xc - wc / 2 - 8, yb - 8); doc.line(xc + wc / 2 + 8, y0 - 6, xc + wc / 2 + 8, yb - 8);
+  if (X.locs.length) for (const [nm, ad] of X.locs.slice(0, 3)) row('pin', [{ t: nm, st: 'bold' }, ad ? { t: ad, fs: CLF.ft, col: K.c2, raw: true } : null].filter(Boolean), nm === X.locs[Math.min(2, X.locs.length - 1)][0] ? url : '');
+  else row('pin', [{ t: mAddr || TBC, col: mAddr ? INK : K.c2, raw: !!mAddr }], url);
+  const yb = Math.max(yl, yc, yr) + 6;
+  doc.setDrawColor(...K.sep); doc.setLineWidth(.5);
+  doc.line(xc - wc / 2 - 10, y0 - 6, xc - wc / 2 - 10, yb - 10); doc.line(xc + wc / 2 + 10, y0 - 6, xc + wc / 2 + 10, yb - 10);
   doc.setTextColor(...INK);
-  return yb;
+  return yb + 4;
 }
-/* el pie de cada página de una hoja: el centro de salud, los canales de radio y «1 de N» */
+/* el pie de cada página de una hoja: el centro de salud, los canales de radio y «1 de N», bajo una regla fina de tinta */
 function pdfCallFoot(doc, X, i, N) {
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36, y = H - CL_FOOT + 8, cs = typeof doc.setCharSpace === 'function';
-  const lab = (t, x, yy) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(6.2); doc.setTextColor(...MUTED); if (cs) doc.setCharSpace(.4); doc.text(trDone(pdfSafe(trDone(tr(t)).toUpperCase())), x, yy); if (cs) doc.setCharSpace(0); };
-  doc.setDrawColor(...INK); doc.setLineWidth(.8); doc.line(M, y - 6, W - M, y - 6);
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36, y = H - CL_FOOT + 8, K = clTones(), raw = doc._raw || doc;
+  const lab = (t, x, yy) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c3); doc.text(trDone(pdfSafe(trDone(tr(t)))), x, yy); };
+  doc.setDrawColor(...INK); doc.setLineWidth(.6); doc.line(M, y - 6, W - M, y - 6);
   // el centro de salud
-  pdfCallIco(doc, 'hosp', M, y, 10);
-  lab('Centro de salud', M + 16, y + 6);
+  pdfCallIco(doc, 'hosp', M, y + 1, 9, K.c3);
+  lab('Centro de salud', M + 16, y + 7);
   const h = X.hosp;
-  doc.setFont('helvetica', h.name ? 'bold' : 'normal'); doc.setFontSize(8.2); doc.setTextColor(...(h.name ? INK : MUTED));
-  h.name ? (doc._raw || doc).text(pdfSafe(h.name).slice(0, 60), M + 16, y + 17) : doc.text('Por confirmar', M + 16, y + 17);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.4); doc.setTextColor(...INK);
-  const sub = [h.phone, h.addr].filter(Boolean).map(pdfSafe).join('  ·  ');
-  if (sub) (doc._raw || doc).text(doc.splitTextToSize(trDone(sub), 230).slice(0, 2), M + 16, y + 27);
+  doc.setFont('helvetica', h.name ? 'bold' : 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(h.name ? INK : K.c2));
+  h.name ? raw.text(pdfSafe(h.name).slice(0, 60), M + 16, y + 18) : doc.text('Por confirmar', M + 16, y + 18);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2);
+  const sub = [h.phone, h.addr].filter(Boolean).map(pdfSafe).join('     ');
+  if (sub) raw.text(doc.splitTextToSize(trDone(sub), 230).slice(0, 2), M + 16, y + 28);
   // los canales de radio
   const xr = M + 270;
-  pdfCallIco(doc, 'radio', xr, y, 10);
-  lab('Canales de radio', xr + 16, y + 6);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(...(X.radio ? INK : MUTED));
-  X.radio ? (doc._raw || doc).text(doc.splitTextToSize(trDone(pdfSafe(X.radio)), 150).slice(0, 3), xr + 16, y + 17) : doc.text('Por confirmar', xr + 16, y + 17);
+  pdfCallIco(doc, 'radio', xr, y + 1, 9, K.c3);
+  lab('Canales de radio', xr + 16, y + 7);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(X.radio ? INK : K.c2));
+  X.radio ? raw.text(doc.splitTextToSize(trDone(pdfSafe(X.radio)), 150).slice(0, 3), xr + 16, y + 18) : doc.text('Por confirmar', xr + 16, y + 18);
   // el número de página de esta hoja
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(...MUTED);
-  doc.text(pdfSafe(trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`))), W - M, y + 6, { align: 'right' });
-  doc.setFont('title', 'bold'); doc.setFontSize(10); doc.setTextColor(...INK);
-  doc.text(pdfSafe(trDone(tr(`${i} de ${N}`))), W - M, y + 19, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c2);
+  doc.text(pdfSafe(trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`))), W - M, y + 7, { align: 'right' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); doc.setTextColor(...INK);
+  doc.text(pdfSafe(trDone(tr(`${i} de ${N}`))), W - M, y + 21, { align: 'right' });
   doc.setTextColor(...INK);
 }
 function pdfCall(opts = {}) {
@@ -1222,134 +1234,146 @@ function pdfCall(opts = {}) {
   const rec = !(PDF_SEL && PDF_SEL.pages) && !(typeof OFFER_CAPTURE !== 'undefined' && OFFER_CAPTURE);
   const vers = Object.fromEntries(list.map(n => [n, callVer(n, cd, rec)]));
   PDF_CALL_DONE = { list, vers };
-  const sheets = [];
+  const sheets = [], K = clTones();
+  // (lote Y) los títulos de sección como en la pantalla: en la letra de la app, con su dato en gris y una regla fina de tinta
+  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: INK, lw: .6, gap: 6, after: 10 };
+  // las celdas con otra línea debajo (entre una escena y sus planos, y entre los planos, una más clara)
+  const withLine = (c, col) => c && typeof c === 'object' ? { ...c, styles: { ...(c.styles || {}), lineColor: col } } : { content: c || '', styles: { lineColor: col } };
   list.forEach((n, pi) => {
     if (pi) doc.addPage();
     const X = callSheetData(n), m = X.meet, p0 = doc.getCurrentPageInfo().pageNumber;
     const MG = { left: M, right: M, bottom: CL_FOOT + 6, top: 40 };
     let y = pdfCallHead(doc, X, vers[n]);
-    // más justa que las demás tablas: la primera página tiene que leerse entera de un vistazo
-    const GAP = 10, TB = { ...TBL, styles: { ...TBL.styles, fontSize: 8.2, cellPadding: { top: 3.4, bottom: 3.4, left: 6, right: 6 } }, headStyles: { ...TBL.headStyles, fontSize: 6.8, cellPadding: { top: 4, bottom: 3.4, left: 6, right: 6 } } };
+    // (lote Y) las tablas como en la pantalla: sin fondo en los títulos (chicos, en minúsculas y en el gris más claro) y
+    // filas con aire separadas por una línea fina
+    const GAP = 14, HL = { lineWidth: { top: 0, right: 0, bottom: .5, left: 0 }, lineColor: K.sep };
+    const TB = { ...TBL, styles: { ...TBL.styles, fontSize: CLF.bd, lineColor: K.sep, cellPadding: { top: 4.6, bottom: 4.6, left: 6, right: 6 } },
+      headStyles: { ...TBL.headStyles, fillColor: false, textColor: K.c3, fontStyle: 'bold', fontSize: CLF.cap, cellPadding: { top: 5, bottom: 4, left: 6, right: 6 }, ...HL } };
     const T = (o, mg) => { doc.autoTable({ ...TB, startY: y, margin: { ...MG, ...(mg || {}) }, ...o }); y = doc.lastAutoTable.finalY + GAP; };
-    const sub = (t, col, tr0) => ({ t, fs: 7.4, col: col || MUTED, ...(tr0 === false ? { tr: false } : {}) });
+    const sub = (t, col, tr0, st) => ({ t, fs: CLF.ft, col: col || K.c2, ...(st ? { st } : {}), ...(tr0 === false ? { tr: false } : {}) });
     const TBC = 'Por confirmar';
-    // la franja de la tira al comienzo de cada escena y el enlace del mapa en los traslados
+    // la franja de la tira a lo alto de cada fila de la escena y sus planos, y el enlace del mapa en los traslados
     const hooks = {
       didDrawCell: d => {
         const r = d.cell.raw; if (d.section !== 'body' || !r) return;
-        if (r._bar) { doc.setFillColor(...r._bar); doc.rect(d.cell.x, d.cell.y + 2, 3.2, d.cell.height - 4, 'F'); }
+        if (r._bar) { doc.setFillColor(...r._bar); doc.rect(d.cell.x, d.cell.y, 2.2, d.cell.height, 'F'); }
         if (r._url) doc.link(d.cell.x, d.cell.y, d.cell.width, d.cell.height, { url: r._url });
       },
     };
-    const barOfRGB = c => mixc(c, INK, .8);
-    // 1. la nota del 1.er asistente, al centro, y la utilería especial
+    const barOfRGB = c => mixc(c, INK, .85);
+    // 1. la nota del 1.er asistente, al centro, en su recuadro amarillo de esquinas redondeadas, y la utilería especial
     const notes = (X.dd.notes || '').trim();
-    if (notes) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: PF.small, tr: 1 }, ...notes.split('\n').filter(t => t.trim()).map(t => ({ t, tr: false }))], { fillColor: YEL, halign: 'center', lineWidth: 0, cellPadding: { top: 7, bottom: 8, left: 12, right: 12 } })]] }, { left: M + 60, right: M + 60 });
-    if (X.props.length) { y -= notes ? GAP - 4 : 0; T({ body: [[pdfRich([{ segs: [{ t: 'Utilería especial: ', st: 'bold' }, { t: X.props.join(', ') }] }], { halign: 'center', lineWidth: 0, cellPadding: { top: 2, bottom: 2, left: 6, right: 6 } })]] }); }
+    if (notes) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: CLF.bd, tr: 1 }, ...notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: 14 * CLK, tr: false }))], { halign: 'center', lineWidth: 0, cellPadding: { top: 9, bottom: 10, left: 14, right: 14 } })]],
+      willDrawCell: d => { if (d.section !== 'body') return; d.cell.styles.fillColor = false; doc.setFillColor(...YEL); doc.setDrawColor(...mixc(YEL, INK, .9)); doc.setLineWidth(.5); doc.roundedRect(d.cell.x, d.cell.y, d.cell.width, d.cell.height, 7, 7, 'FD'); } }, { left: M + 64, right: M + 64 });
+    if (X.props.length) { y -= notes ? GAP - 6 : 0; T({ body: [[pdfRich([{ segs: [{ t: 'Utilería especial: ', st: 'bold' }, { t: X.props.join(', '), col: K.c2 }] }], { halign: 'center', lineWidth: 0, cellPadding: { top: 2, bottom: 2, left: 6, right: 6 } })]] }); }
+    y += 6;
     // 2. el cronograma en lista: la hora (eventos) o el número de escena con su hora; el encabezado, la sinopsis y el
     // reparto con su número; D/N y las páginas. Los traslados, una banda celeste con su dirección y el mapa.
-    // (lote W) Debajo de cada escena, sus planos (lo que antes iba en «Cronograma por plano», al final): el plano con su
-    // hora, la miniatura, la descripción técnica y la acción, el lente y el sonido, y los personajes. Cada escena con sus
-    // planos es un bloque: si no cabe al pie de la página, pasa entera a la siguiente
+    // (lote W) Debajo de cada escena, sus planos: el plano con su hora, la miniatura, la descripción técnica y la acción,
+    // el lente y el sonido, y los personajes. Cada escena con sus planos es un bloque: si no cabe al pie de la página,
+    // pasa entera a la siguiente
     const inf = dayInfo(X.d.keys, X.d.rows);
-    y = pdfSec(doc, y, 'Cronograma', { right: `${X.d.keys.length} ${X.d.keys.length === 1 ? 'escena' : 'escenas'} · ${fmtEighths(inf.e)} págs.`, need: 110 });
+    y = pdfSec(doc, y, 'Cronograma', { ...CL_SEC, right: `${X.d.keys.length} ${X.d.keys.length === 1 ? 'escena' : 'escenas'} · ${fmtEighths(inf.e)} págs.`, need: 110 });
     const all = [...X.sched.rows, ...X.sched.close], blocks = [];
     const th = callThumbs() && typeof thumbCached === 'function', TW = 48, TH = TW * 9 / 16;
+    const PS = { top: 6, bottom: 6, left: 6, right: 6 }, PSH = { top: 4, bottom: 4, left: 6, right: 6 };
     all.forEach((r, j) => {
       if (isMove(r)) {
         const to = callMoveTo(all, j, m), st = { fillColor: CL_CEL, textColor: INK };
-        blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, { ...pdfRich([{ segs: [{ t: r.name || 'Traslado', st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, tr: false }] : []), ...(to ? [{ t: '   → ', tr: false }, { t: to.name, st: 'bold' }, ...(to.addr ? [{ t: '  ·  ' + to.addr, tr: false }] : []), ...(to.url ? [{ t: '   Ver mapa', st: 'bold', col: [40, 90, 170] }] : [])] : [])] }], { ...st, colSpan: 4 }), _url: to && to.url }]]);
+        blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, { ...pdfRich([{ segs: [{ t: r.name || 'Traslado', st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, tr: false }] : []), ...(to ? [{ t: '   → ', tr: false }, { t: to.name, st: 'bold' }, ...(to.addr ? [{ t: '  ·  ' + to.addr, tr: false }] : []), ...(to.url ? [{ t: '   Ver mapa', st: 'bold', col: K.acc }] : [])] : [])] }], { ...st, colSpan: 4 }), _url: to && to.url }]]);
         return;
       }
       if (r.ev) { const ef = mixc(pdfHl(r.it) || LIGHT, PDF_WHITE, .7), st = { fillColor: ef, textColor: inkOn(ef) }; blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, pdfRich([{ segs: [{ t: r.name, st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, col: mutedOn(ef), tr: false }] : [])] }], { ...st, colSpan: 4 })]]); return; }
       const col = pdfHl(r.it) || rgb(stripColor(r.s)), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
-      const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: 9.6, tr: false }, (r.t0 || r.t) ? sub(r.t0 || r.t, INK, false) : null], { cellPadding: { top: 3.4, bottom: 3.4, left: 10, right: 4 } }), _bar: bar },
-        { content: ieLab(r.s), styles: { fontSize: 7.4, fontStyle: 'bold' } },
-        pdfRich([{ t: setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: 8.2 }, syn ? sub(syn, MUTED) : null, cl ? { t: cl + (r.fig ? ` · Fig. ${r.fig}` : ''), fs: 7.4, st: 'bold' } : null]),
-        { content: DN_LAB[stripDN(r.s)], styles: { fontSize: 7.4, fontStyle: 'bold' } }, { content: r.pages, styles: { fontStyle: 'bold', halign: 'right' } }]];
+      const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: CLF.h3, tr: false }, (r.t0 || r.t) ? sub(r.t0 || r.t, INK, false, 'bold') : null], { cellPadding: { ...PS, left: 10, right: 4 } }), _bar: bar },
+        { content: ieLab(r.s), styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } },
+        pdfRich([{ t: setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: CLF.bd }, syn ? sub(syn) : null, cl ? { t: cl + (r.fig ? ` · Fig. ${r.fig}` : ''), fs: CLF.ft, st: 'bold' } : null], { cellPadding: PS }),
+        { content: DN_LAB[stripDN(r.s)], styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } }, { content: r.pages, styles: { fontStyle: 'bold', halign: 'right', cellPadding: PS } }]];
       for (const x of r.shots || []) {
         const u = th ? thumbCached(x.sh) : null;
         // el set del plano solo si no es ya la locación que dice la escena
         const setX = r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? r.set : '';
-        rows.push([{ ...pdfRich([{ t: x.code, st: 'bold', fs: 7.6, tr: false }, X.shotT && x.t0 ? { t: x.t0, fs: 7, col: MUTED, tr: false } : null], { cellPadding: { top: 3, bottom: 3, left: 10, right: 4 } }), _bar: bar },
-          { ...pdfRich([{ fs: 7.6, segs: [{ t: x.size || '', st: 'bold' }, ...(x.det.length ? [{ t: (x.size ? ' · ' : '') + x.det.join(' · '), col: MUTED, tr: false }] : [])] }, x.act ? { t: x.act, fs: 7.4, tr: false } : null, setX ? { fs: 7, segs: [{ t: 'Set: ', col: MUTED }, { t: setX, tr: false }] } : null],
-            { colSpan: 2, cellPadding: { top: 3, bottom: 3, left: u ? TW + 12 : 6, right: 6 }, ...(u ? { minCellHeight: TH + 6 } : {}) }), _img: u },
-          x.lens || x.snd ? pdfRich([x.lens ? { t: x.lens, fs: 7.4, tr: false } : null, x.snd ? { t: x.snd, fs: 7, col: MUTED } : null]) : '',
-          { content: pdfSafe(x.cast.join(', ')), styles: { fontSize: 7.4, halign: 'right' } }]);
+        rows.push([{ ...pdfRich([{ t: x.code, st: 'bold', fs: CLF.ft, tr: false }, X.shotT && x.t0 ? { t: x.t0, fs: CLF.cap, col: K.c2, tr: false } : null], { cellPadding: { ...PSH, left: 10, right: 4 } }), _bar: bar },
+          { ...pdfRich([{ fs: CLF.ft, segs: [{ t: x.size || '', st: 'bold' }, ...(x.det.length ? [{ t: (x.size ? ' · ' : '') + x.det.join(' · '), col: K.c2, tr: false }] : [])] }, x.act ? { t: x.act, fs: CLF.ft, tr: false } : null, setX ? { fs: CLF.cap, segs: [{ t: 'Set: ', col: K.c3 }, { t: setX, col: K.c2, tr: false }] } : null],
+            { colSpan: 2, cellPadding: { ...PSH, left: u ? TW + 12 : 6 }, ...(u ? { minCellHeight: TH + 8 } : {}) }), _img: u },
+          x.lens || x.snd ? pdfRich([x.lens ? { t: x.lens, fs: CLF.ft, tr: false } : null, x.snd ? { t: x.snd, fs: CLF.cap, col: K.c2 } : null], { cellPadding: PSH }) : { content: '', styles: { cellPadding: PSH } },
+          { content: pdfSafe(x.cast.join(', ')), styles: { fontSize: CLF.ft, halign: 'right', cellPadding: PSH } }]);
       }
-      blocks.push(rows);
+      // entre la escena y sus planos, y entre los planos, la línea más clara; la de abajo del último, la de siempre
+      blocks.push(rows.map((rw, i) => i < rows.length - 1 ? rw.map(c => withLine(c, K.sep2)) : rw));
     });
-    if (!all.some(r => !r.ev)) blocks.push([[{ content: 'Jornada sin escenas.', colSpan: 5, styles: { textColor: MUTED } }]]);
-    const lnTop = { top: .9, right: 0, bottom: 0, left: 0 };
-    blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', lineWidth: lnTop, lineColor: INK } }, { content: 'Fin de jornada', colSpan: 3, styles: { fontStyle: 'bold', lineWidth: lnTop, lineColor: INK } },
-      pdfRich([{ segs: [{ t: 'Total ', fs: 7, col: MUTED }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', lineWidth: lnTop, lineColor: INK })]]);
-    // con planos, una segunda fila de títulos chica: lo que dice cada columna en las filas de los planos
-    const h2 = { fontStyle: 'normal', fontSize: 6.2, cellPadding: { top: 0, bottom: 3.4, left: 6, right: 6 } };
-    const head = [['Hora · Esc.', 'I/E', 'Escena', 'D/N', { content: 'Págs.', styles: { halign: 'right' } }],
-      ...(X.sched.byShot ? [[{ content: 'Plano', styles: h2 }, { content: 'Descripción y acción', colSpan: 2, styles: h2 }, { content: 'Lente · Sonido', styles: h2 }, { content: 'Personajes', styles: { ...h2, halign: 'right' } }]] : [])];
+    if (!all.some(r => !r.ev)) blocks.push([[{ content: 'Jornada sin escenas.', colSpan: 5, styles: { textColor: K.c2 } }]]);
+    const lnTop = { top: .6, right: 0, bottom: 0, left: 0 };
+    blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', lineWidth: lnTop, lineColor: INK, cellPadding: PS } }, { content: 'Fin de jornada', colSpan: 3, styles: { fontStyle: 'bold', lineWidth: lnTop, lineColor: INK, cellPadding: PS } },
+      pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', lineWidth: lnTop, lineColor: INK, cellPadding: PS })]]);
+    // con planos, una segunda fila de títulos: lo que dice cada columna en las filas de los planos (la línea, debajo de
+    // la última fila de títulos)
+    const two = X.sched.byShot, h1 = two ? { lineWidth: 0, cellPadding: { top: 5, bottom: 1.5, left: 6, right: 6 } } : {}, h2 = { fontStyle: 'normal', cellPadding: { top: 0, bottom: 4, left: 6, right: 6 } };
+    const head = [[{ content: 'Hora · Esc.', styles: h1 }, { content: 'I/E', styles: h1 }, { content: 'Escena', styles: h1 }, { content: 'D/N', styles: h1 }, { content: 'Págs.', styles: { ...h1, halign: 'right' } }],
+      ...(two ? [[{ content: 'Plano', styles: h2 }, { content: 'Descripción y acción', colSpan: 2, styles: h2 }, { content: 'Lente · Sonido', styles: h2 }, { content: 'Personajes', styles: { ...h2, halign: 'right' } }]] : [])];
     y = pdfBlocks(doc, y, { ...TB, margin: MG, head, rowPageBreak: 'avoid', ...hooks,
-      didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 6, d.cell.y + 3, TW, TH); } catch (e) { PDF_MISS++; } } },
-      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 58, halign: 'right' } } }, blocks) + GAP;
+      didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 6, d.cell.y + 4, TW, TH); } catch (e) { PDF_MISS++; } } },
+      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 58, halign: 'right' } } }, blocks) + GAP + 6;
     // 3. el avance: solo la jornada siguiente (o «Fin de rodaje»)
     const A = X.adv;
     if (A) {
-      y = pdfSec(doc, y - 4, trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), { right: [A.call ? `Llamado general ${A.call}` : 'Llamado por confirmar', A.locs.join(', ')].filter(Boolean).join('  ·  '), need: 70 });
-      const FS = 7.8, ab = A.rows.map(r => [{ content: r.code, styles: { fontStyle: 'bold' }, _bar: barOfRGB(pdfHl(r.it) || rgb(lgCol('plan', r.strip))) }, { content: r.ie, styles: { fontSize: FS - .6 } },
-        pdfRich([{ t: r.set, st: 'bold', fs: FS }, r.syn ? { t: r.syn, fs: FS - .6, col: MUTED } : null]), { content: r.dn, styles: { fontSize: FS - .6 } }, pdfSafe(r.cast.join(', ')), { content: fmtEighths(r.e8), styles: { halign: 'right', fontStyle: 'bold' } }]);
-      if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: MUTED } }]);
-      ab.push([pdfRich([{ segs: [{ t: 'Total ', col: MUTED }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '   ·   Reparto: ', col: MUTED }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') }] : [])] }], { colSpan: 6, halign: 'right', lineWidth: { top: .6, right: 0, bottom: 0, left: 0 }, lineColor: INK, fontSize: FS })]);
+      y = pdfSec(doc, y - 4, trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), { ...CL_SEC, right: [A.call ? `Llamado general ${A.call}` : 'Llamado por confirmar', A.locs.join(', ')].filter(Boolean).join('  ·  '), need: 70 });
+      const ab = A.rows.map(r => [{ content: r.code, styles: { fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: 10, right: 4 } }, _bar: barOfRGB(pdfHl(r.it) || rgb(lgCol('plan', r.strip))) }, { content: r.ie, styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } },
+        pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd }, r.syn ? sub(r.syn) : null], { cellPadding: PS }), { content: r.dn, styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } }, { content: pdfSafe(r.cast.join(', ')), styles: { fontStyle: 'bold', cellPadding: PS } }, { content: fmtEighths(r.e8), styles: { halign: 'right', fontStyle: 'bold', cellPadding: PS } }]);
+      if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);
+      ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', lineWidth: 0, fontSize: CLF.ft })]);
       T({ head: [['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }]], body: ab, rowPageBreak: 'avoid', ...hooks,
-        styles: { ...TB.styles, fontSize: FS, cellPadding: { top: 2.8, bottom: 2.8, left: 6, right: 6 } },
-        columnStyles: { 0: { cellWidth: 38, cellPadding: { top: 2.8, bottom: 2.8, left: 10, right: 4 } }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 58 } } });
+        columnStyles: { 0: { cellWidth: 38, cellPadding: { top: 4.6, bottom: 4.6, left: 10, right: 4 } }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 58 } } });
     } else {
-      y = pdfSec(doc, y - 4, 'Avance de la jornada siguiente', { need: 40 });
-      T({ body: [[{ content: 'Fin de rodaje', styles: { font: 'title', fontStyle: 'bold', fontSize: 11, halign: 'center', lineWidth: 0 } }]] });
+      y = pdfSec(doc, y - 4, 'Avance de la jornada siguiente', { ...CL_SEC, need: 40 });
+      T({ body: [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center', lineWidth: 0 } }]] });
     }
     // 4. una sola tabla de personas: el reparto y el equipo por área (el área, un separador fino con su citación).
     // (lote W) Con las columnas de antes: recojo, llamado, vestuario, maquillaje, listos, teléfono (con el correo debajo,
     // más chico) y observaciones
-    y = pdfSec(doc, y - 4, 'Personas', { right: `${X.cast.length} ${X.cast.length === 1 ? 'personaje' : 'personajes'}${X.fig ? ' · figuración ' + X.fig : ''}`, need: 70 });
+    y = pdfSec(doc, y + 2, 'Personas', { ...CL_SEC, right: `${X.cast.length} ${X.cast.length === 1 ? 'personaje' : 'personajes'}${X.fig ? ' · figuración ' + X.fig : ''}`, need: 70 });
     const NP = 9, CC = { halign: 'center' }, tmc = (v, b) => ({ content: v || '', styles: { ...CC, ...(b ? { fontStyle: 'bold' } : {}) } });
-    const sep = (name, dc) => [{ content: pdfSafe(name.toUpperCase()), colSpan: 3, styles: { fontSize: 6.4, fontStyle: 'bold', textColor: MUTED, cellPadding: { top: 5, bottom: 1.5, left: 6, right: 6 }, lineWidth: 0 } }, { content: dc || '', styles: { fontSize: 7, fontStyle: 'bold', textColor: MUTED, halign: 'center', cellPadding: { top: 5, bottom: 1.5, left: 2, right: 2 }, lineWidth: 0 } }, { content: '', colSpan: NP - 4, styles: { lineWidth: 0 } }];
+    // el nombre del área, chico, en minúsculas y en el gris más claro, con su citación
+    const sep = (name, dc) => [{ content: pdfSafe(name), colSpan: 3, styles: { fontSize: CLF.cap, fontStyle: 'bold', textColor: K.c3, cellPadding: { top: 9, bottom: 2, left: 6, right: 6 } } }, { content: dc || '', styles: { fontSize: CLF.ft, fontStyle: 'bold', textColor: K.c2, halign: 'center', cellPadding: { top: 9, bottom: 2, left: 2, right: 2 } } }, { content: '', colSpan: NP - 4 }];
     // el teléfono y, debajo, el correo (partido en la @ si es largo, para que no se salga de la columna)
     const telMail = (t, e) => { t = (t || '').trim(); e = (e || '').trim(); if (!t && !e) return ''; const at = e.indexOf('@'), long = e.length > 22 && at > 0;
-      return pdfRich([t ? { t, fs: 7.8, tr: false } : null, ...(e ? (long ? [{ t: e.slice(0, at), fs: 6.8, col: MUTED, tr: false }, { t: e.slice(at), fs: 6.8, col: MUTED, tr: false }] : [{ t: e, fs: 6.8, col: MUTED, tr: false }]) : [])]); };
+      return pdfRich([t ? { t, fs: CLF.bd, tr: false } : null, ...(e ? (long ? [{ t: e.slice(0, at), fs: CLF.cap, col: K.c2, tr: false }, { t: e.slice(at), fs: CLF.cap, col: K.c2, tr: false }] : [{ t: e, fs: CLF.cap, col: K.c2, tr: false }]) : [])]); };
     const pb = [];
     if (X.cast.length) {
       pb.push(sep('Reparto', ''));
       for (const { el } of X.cast) {
         const Tl = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {};
-        pb.push([Tl.actor ? { content: pdfSafe(Tl.actor), styles: { fontStyle: 'bold' } } : pdfRich([{ t: TBC, col: MUTED }]), pdfRich([{ segs: [{ t: (D.castNum[el.id] ? D.castNum[el.id] + '. ' : '') + titleCase(el.name) }] }]),
-          tmc(Z.pu), tmc(Z.call || X.call, true), tmc(Z.ves), tmc(Z.mq), tmc(Z.ready), telMail(Tl.phone, Tl.email), { content: pdfSafe(Z.obs || ''), styles: { fontSize: 7.4 } }]);
+        pb.push([Tl.actor ? { content: pdfSafe(Tl.actor), styles: { fontStyle: 'bold' } } : pdfRich([{ t: TBC, col: K.c2 }]), pdfRich([{ segs: [...(D.castNum[el.id] ? [{ t: D.castNum[el.id] + '  ', st: 'bold', col: K.c2, tr: false }] : []), { t: titleCase(el.name), st: 'bold' }] }]),
+          tmc(Z.pu), tmc(Z.call || X.call, true), tmc(Z.ves), tmc(Z.mq), tmc(Z.ready), telMail(Tl.phone, Tl.email), { content: pdfSafe(Z.obs || ''), styles: { fontSize: CLF.ft } }]);
       }
-      if (X.fig) pb.push([{ content: pdfSafe(`Figuración: ${X.fig}`), colSpan: NP, styles: { textColor: MUTED, fontSize: PF.small } }]);
+      if (X.fig) pb.push([{ content: pdfSafe(`Figuración: ${X.fig}`), colSpan: NP, styles: { textColor: K.c2, fontSize: CLF.ft } }]);
     }
     for (const [name, l, dc] of X.crew) {
       pb.push(sep(name, dc));
-      for (const c of l) pb.push([{ content: pdfSafe(c.name), styles: { fontStyle: 'bold' } }, { content: pdfSafe(c.role), styles: { textColor: MUTED } }, '', tmc(c.call, true), '', '', '', telMail(c.phone, c.email), '']);
+      for (const c of l) pb.push([{ content: pdfSafe(c.name), styles: { fontStyle: 'bold' } }, { content: pdfSafe(c.role), styles: { textColor: K.c2 } }, '', tmc(c.call, true), '', '', '', telMail(c.phone, c.email), '']);
     }
-    if (!pb.length) pb.push([{ content: 'Sin reparto ni equipo en esta jornada.', colSpan: NP, styles: { textColor: MUTED } }]);
-    const TC = { cellPadding: { top: 2.8, bottom: 2.8, left: 2, right: 2 }, halign: 'center', fontSize: 7.8 };
-    T({ head: [['Nombre', 'Rol / Personaje', ...['Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos'].map(t => ({ content: t, styles: { halign: 'center', cellPadding: { top: 4, bottom: 3.4, left: 1, right: 1 } } })), 'Teléfono', 'Observaciones']], body: pb, rowPageBreak: 'avoid',
-      styles: { ...TB.styles, cellPadding: { top: 2.8, bottom: 2.8, left: 6, right: 6 } },
+    if (!pb.length) pb.push([{ content: 'Sin reparto ni equipo en esta jornada.', colSpan: NP, styles: { textColor: K.c2 } }]);
+    const TC = { cellPadding: { top: 4.6, bottom: 4.6, left: 2, right: 2 }, halign: 'center' };
+    T({ head: [['Nombre', 'Rol / Personaje', ...['Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos'].map(t => ({ content: t, styles: { halign: 'center', cellPadding: { top: 5, bottom: 4, left: 1, right: 1 } } })), 'Teléfono', 'Observaciones']], body: pb, rowPageBreak: 'avoid',
       columnStyles: { 0: { cellWidth: 96 }, 1: { cellWidth: 90 }, 2: { cellWidth: 34, ...TC }, 3: { cellWidth: 38, ...TC }, 4: { cellWidth: 32, ...TC }, 5: { cellWidth: 32, ...TC }, 6: { cellWidth: 34, ...TC }, 7: { cellWidth: 88 } } });
     // 5. (lote W) la movilidad y los proveedores, después de las personas y con el mismo estilo
     if (X.mov.length) {
-      y = pdfSec(doc, y - 4, 'Movilidad', { right: `${X.mov.length} ${X.mov.length === 1 ? 'vehículo' : 'vehículos'}`, need: 60 });
-      T({ head: [['Vehículo', 'Conductor', 'Pasajeros']], body: X.mov.map((x, i) => [pdfRich([{ segs: [{ t: `${i + 1}. `, st: 'bold', tr: false }, { t: x.name || 'Vehículo', st: 'bold', tr: !x.name }] }]), pdfSafe(x.driver || ''), pdfSafe(x.pax.join(', '))]),
+      y = pdfSec(doc, y + 2, 'Movilidad', { ...CL_SEC, right: `${X.mov.length} ${X.mov.length === 1 ? 'vehículo' : 'vehículos'}`, need: 60 });
+      T({ head: [['Vehículo', 'Conductor', 'Pasajeros']], body: X.mov.map((x, i) => [pdfRich([{ segs: [{ t: `${i + 1}  `, st: 'bold', col: K.c2, tr: false }, { t: x.name || 'Vehículo', st: 'bold', tr: !x.name }] }]), pdfSafe(x.driver || ''), pdfSafe(x.pax.join(', '))]),
         rowPageBreak: 'avoid', columnStyles: { 0: { cellWidth: 140 }, 1: { cellWidth: 130 } } });
     }
     if (X.vend.length) {
-      y = pdfSec(doc, y - 4, 'Proveedores', { need: 60 });
+      y = pdfSec(doc, y + 2, 'Proveedores', { ...CL_SEC, need: 60 });
       T({ head: [['Proveedor', 'Equipo o servicio', 'Contacto', 'Teléfono', { content: 'Llamado', styles: { halign: 'center' } }]], rowPageBreak: 'avoid',
         body: X.vend.map(v => [{ content: pdfSafe(v.name), styles: { fontStyle: 'bold' } }, pdfSafe(v.gear || ''), pdfSafe(v.contact || ''), pdfSafe(v.phone || ''), { content: v.call || '', styles: { halign: 'center', fontStyle: 'bold' } }]), columnStyles: { 3: { cellWidth: 88 }, 4: { cellWidth: 56 } } });
     }
     sheets.push({ X, p0, p1: doc.getNumberOfPages() });
   });
-  // el pie de cada página (y, en las que siguen, una barra angosta con la hoja); «1 de N» cuenta las páginas de cada hoja
+  // el pie de cada página y, en las que siguen, arriba, el proyecto y la hoja en gris sobre una línea fina (como la
+  // versión de la primera); «1 de N» cuenta las páginas de cada hoja
   for (const { X, p0, p1 } of sheets) for (let i = p0; i <= p1; i++) {
     doc.setPage(i);
-    if (i > p0) { const T = PT; doc.setFillColor(...T.bar); doc.rect(0, 0, W, 20, 'F'); doc.setFillColor(...T.c); doc.rect(0, 20, W, 1.6, 'F'); doc.setFont('title', 'bold'); doc.setFontSize(8); doc.setTextColor(...T.barInk); doc.text(pdfSafe(`${P.meta.title}  ·  ${trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`))}`), 36, 13.4); }
+    if (i > p0) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.cap); doc.setTextColor(...K.c2); doc.text(pdfSafe(`${P.meta.title}  ·  ${trDone(tr('Hoja de llamado') + ' · ' + tr(`Jornada ${X.n + 1} de ${X.total}`))}`), M, 22); doc.setDrawColor(...K.sep); doc.setLineWidth(.5); doc.line(M, 28, W - M, 28); }
     pdfCallFoot(doc, X, i - p0 + 1, p1 - p0 + 1);
   }
   return { doc, name: fileSafe(P.meta.title) + (opts.all ? '_hojas_de_llamado.pdf' : `_hoja_de_llamado_J${list[0] + 1}.pdf`) };
