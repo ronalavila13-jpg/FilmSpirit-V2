@@ -4599,6 +4599,82 @@ body.b-dragging,body.b-dragging *{cursor:grabbing !important;user-select:none}
   .b-cards{grid-template-columns:minmax(0,1fr)}
   .b-wc{margin-left:0;width:100%}
 }
+/* ---------- (lote AD) Historia: «Premisa y mundo» y «Estructura» (historia-previa.js) ---------- */
+/* premisa y mundo: la misma hoja del argumento, con todas sus partes a la vista y agrupadas */
+.b-premw{grid-template-columns:220px minmax(0,794px)}
+.b-psheet{aspect-ratio:auto;min-height:0;gap:22px}
+.b-pgrp{display:grid;gap:10px}
+.b-pgh{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid color-mix(in srgb,var(--page-ink) 12%,transparent);padding-bottom:6px}
+.b-pgh h3{margin:0;font-family:var(--font-display);font-size:var(--fs-6);color:var(--page-ink)}
+.b-pgh .b-wc{margin-left:auto;color:color-mix(in srgb,var(--page-ink) 55%,transparent)}
+p.b-pg-hint{margin:-2px 0 0;color:color-mix(in srgb,var(--page-ink) 62%,var(--page))}
+.b-pbox{animation:none}
+.b-pbox .b-box-h{flex-wrap:wrap;row-gap:2px}
+.b-pbox .b-box-h b{white-space:nowrap}
+.b-refs{display:grid;gap:8px}
+.b-ref{background:color-mix(in srgb,var(--page-ink) 4%,var(--page));border:1px solid color-mix(in srgb,var(--page-ink) 12%,transparent);border-radius:var(--r-sm);padding:10px 12px;display:grid;gap:6px}
+.b-ref-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.b-ref :is(select,input,textarea){font:inherit;color:var(--page-ink);background:transparent;border:0;min-width:0;border-radius:0}
+.b-ref select.b-ref-k{font-size:var(--fs-2);font-weight:650;border:1px solid color-mix(in srgb,var(--page-ink) 18%,transparent);border-radius:var(--r-xs);padding:3px 6px;background:var(--page)}
+.b-ref select.b-ref-k:disabled{opacity:1;appearance:none;-webkit-appearance:none;padding:2px 7px}
+.b-ref .b-ref-t{font-weight:650;font-size:var(--fs-5);padding:2px 0;width:100%}
+.b-ref textarea.b-ref-n{width:100%;resize:none;overflow:hidden;font-size:var(--fs-4);line-height:1.5;padding:0;min-height:1.5em}
+.b-ref-u{display:flex;align-items:center;gap:10px;font-size:var(--fs-2)}
+.b-ref .b-ref-u input{flex:1;font-size:var(--fs-2);padding:3px 0;border-bottom:1px dashed color-mix(in srgb,var(--page-ink) 22%,transparent)}
+.b-ref-u a{color:var(--accent-text);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-ref :is(input,textarea)::placeholder{color:color-mix(in srgb,var(--page-ink) 58%,var(--page))}
+.b-ref :is(input,textarea,select):focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px;border-radius:2px}
+.b-ref .b-ref-x{color:color-mix(in srgb,var(--page-ink) 55%,transparent)}
+.b-ref-add{justify-self:start}
+/* apilada (tableta y teléfono), la lista de partes no hace falta: la hoja ya las muestra todas */
+@media (max-width:900px){ .b-premw{grid-template-columns:minmax(0,1fr)} .b-premw .b-argnav{display:none} }
+/* estructura: una línea vertical que baja por los actos; cada acto con su marca y cada punto clave con su punto */
+.b-tl{max-width:860px;margin:0 auto;display:grid}
+.b-tl-act{position:relative;padding-bottom:18px}
+.b-tl-act::before{content:"";position:absolute;left:15px;top:0;bottom:0;width:2px;background:var(--line);border-radius:1px}
+.b-tl-act:first-child::before{top:18px}
+.b-tl-ah{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 0 12px}
+.b-tl-mk{position:relative;z-index:1;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--surface);font:750 11px/1 var(--font-ui);letter-spacing:.02em;flex:none}
+.b-tl-ah b{font-family:var(--font-display);font-weight:var(--fw-display);font-size:var(--fs-6)}
+.b-tl-list{list-style:none;margin:0;padding:0 0 0 44px;display:grid;gap:10px}
+.b-beat{position:relative;background:var(--surface);border:var(--l1) solid var(--line-2);border-radius:var(--r-sm);padding:12px 14px}
+.b-beat::before{content:"";position:absolute;left:-21px;top:21px;width:21px;height:2px;background:var(--line)}
+.b-beat-dot{position:absolute;left:-35px;top:15px;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--faint);box-sizing:border-box;z-index:1}
+.b-beat.has .b-beat-dot{background:var(--accent);border-color:var(--accent)}
+.b-beat-c{display:grid;gap:6px;min-width:0}
+.b-beat-h{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.b-beat-n{font-family:var(--font-display);font-weight:var(--fw-display);font-size:var(--fs-5)}
+.b-beat-u{font-size:var(--fs-2);color:var(--muted)}
+.b-beat-at{margin-left:auto;font-size:var(--fs-2);font-weight:700;color:var(--accent-text);background:var(--accent-soft);border-radius:var(--r-xs);padding:1px 7px;white-space:nowrap}
+.b-beat-d{width:100%;border:0;background:transparent;resize:none;overflow:hidden;font:inherit;font-size:var(--fs-5);line-height:1.55;color:var(--ink);padding:2px 0;min-height:1.6em}
+.b-beat-d::placeholder{color:var(--ph)}
+.b-beat-d:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);outline-offset:3px;border-radius:2px}
+.b-beat-f{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;border-top:1px solid var(--line-2);padding-top:8px}
+.b-beat-l{display:flex;align-items:center;gap:6px;font-size:var(--fs-2);color:var(--muted);min-width:0}
+.b-beat-l select{font:inherit;font-size:var(--fs-3);color:var(--ink);background:var(--fill);border:1px solid transparent;border-radius:var(--r-xs);padding:4px 6px;min-width:0;max-width:100%}
+.b-beat-l select:disabled{opacity:1;background:transparent;padding-inline:0;appearance:none;-webkit-appearance:none}
+.b-beat-sc{flex:1 1 240px}
+.b-beat-sc select{flex:1;width:100%}
+.b-beat-go{margin-left:auto}
+p.b-beat-lost{margin:0;font-size:var(--fs-2)}
+.b-tl-none{padding:4px 0}
+p.b-tl-foot{margin:0 0 0 44px}
+.b-flash{animation:bFlash 1.6s ease-out}
+@keyframes bFlash{0%,35%{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}100%{box-shadow:0 0 0 3px transparent}}
+@media (max-width:640px){
+  .b-tl-act::before{left:10px}
+  .b-tl-mk{width:22px;height:22px;font-size:9px}
+  .b-tl-act:first-child::before{top:13px}
+  .b-tl-list{padding-left:32px}
+  .b-beat{padding:10px 12px}
+  .b-beat::before{left:-15px;width:15px;top:19px}
+  .b-beat-dot{left:-27px;top:14px;width:12px;height:12px}
+  .b-beat-at{margin-left:0}
+  /* el acto y «Ver» en una fila; la escena, debajo, a lo ancho */
+  .b-beat-go{order:1;margin-left:auto}
+  .b-beat-sc{order:2;flex-basis:100%}
+  p.b-tl-foot{margin-left:32px}
+}
 /* ---------- Scouting y Casting: tarjetas de candidatas y candidatos ---------- */
 .cand-num{display:inline-grid;place-items:center;min-width:28px;height:28px;padding:0 6px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--accent-text);font-size:var(--fs-4);font-weight:800}
 .cand-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
