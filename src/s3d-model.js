@@ -70,9 +70,18 @@ const S3_BODY = {
   extra: { name: 'Extra', s: 1, h: 1.7, sh: .96, hip: 1, head: 1, hunch: 0, hair: 'ninguno', hc: '#8E949C', skin: '#C3C8CF', faceless: true },
 };
 const S3_TONOS = ['#D9D3C9', '#C8D2DD', '#CAD6CA', '#E0CCCB', '#E3D2B5', '#D2CBDD', '#BDBCBA', '#D6C6AE'];  // tono sutil del maniquí
-// peinados estilo anime (se arman en s3d-pelo.js): cortos, medios y largos o recogidos, para todas las edades
-const S3_PELO = [['ninguno', 'Sin pelo'], ['rapado', 'Rapado'], ['corto', 'Corto'], ['despeinado', 'Despeinado'], ['raya', 'Raya al lado'], ['flequillo', 'Flequillo'], ['entradas', 'Entradas'], ['calvicie', 'Calvicie'],
-  ['melena', 'Melena'], ['ondas', 'Ondas'], ['larga', 'Larga'], ['cola', 'Cola'], ['coletas', 'Coletas'], ['recogido', 'Moño']];
+// peinados estilo anime (se arman en s3d-pelo.js): cortos, medios y largos o recogidos, para todas las edades.
+// [clave, nombre, a qué cuerpos les va]: h hombre, m mujer, o anciano, a anciana, n niño, i niña (el extra: los de hombre
+// y mujer). El selector muestra primero los que le van a la figura y el resto detrás de «Ver todos»
+const S3_PELO = [['ninguno', 'Sin pelo', 'hmoani'], ['rapado', 'Rapado', 'hon'], ['corto', 'Corto', 'hon'], ['despeinado', 'Despeinado', 'hmni'], ['raya', 'Raya al lado', 'hmon'],
+  ['flequillo', 'Flequillo', 'hmni'], ['puntas', 'Parado en puntas', 'hni'], ['tupe', 'Tupé', 'ho'], ['atras', 'Hacia atrás', 'ho'], ['cresta', 'Cresta', 'hn'], ['rizado', 'Rizado corto', 'hn'],
+  ['entradas', 'Entradas', 'ho'], ['calvicie', 'Calvicie', 'ho'], ['canas', 'Canas hacia atrás', 'oa'], ['tazon', 'Tazón', 'ni'], ['pixie', 'Pixie', 'ma'], ['bob', 'Bob', 'mai'],
+  ['melena', 'Melena', 'mai'], ['ondas', 'Ondas', 'hma'], ['rulos', 'Rulos', 'oa'], ['afro', 'Afro', 'hmni'], ['rastas', 'Rastas', 'hm'], ['larga', 'Larga', 'mi'], ['rizos', 'Rizos largos', 'mi'],
+  ['cola', 'Cola', 'mi'], ['media_cola', 'Media cola', 'mi'], ['coletas', 'Coletas', 'mi'], ['trenza', 'Trenza', 'mi'], ['trenzas', 'Trenzas', 'mni'], ['recogido', 'Moño', 'ma'],
+  ['mono_alto', 'Moño alto', 'hm'], ['mono_bajo', 'Moño bajo', 'moa'], ['chongitos', 'Dos chongitos', 'ni']];
+const S3_PELO_FOR = { hombre: 'h', mujer: 'm', anciano: 'o', anciana: 'a', nino: 'n', nina: 'i', extra: 'hm' };
+/* ¿ese peinado le va a ese tipo de cuerpo? */
+const peloFits = (key, body) => { const r = S3_PELO.find(x => x[0] === key), t = S3_PELO_FOR[body] || 'hm'; return !!r && [...t].some(c => r[2].includes(c)); };
 const S3_SKIN = ['#EFE7DB', '#F2D9C4', '#E2BD98', '#C99A72', '#9E6E4B', '#6B4632', '#C3C8CF'];
 /* proporciones del cuerpo en % (100 = la del tipo de cuerpo) */
 const S3_PROP = [['shw', 'Hombros', 75, 135], ['hipw', 'Caderas', 75, 135], ['headk', 'Cabeza', 80, 130], ['limb', 'Extremidades', 75, 150], ['belly', 'Abdomen', 85, 150]];
