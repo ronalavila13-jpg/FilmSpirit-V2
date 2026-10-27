@@ -784,6 +784,23 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .pl-head .srt:hover .ar,.pl-head .srt:focus-visible .ar{display:inline;opacity:.55}
 .pl-head .srt.on{color:var(--ink)}
 .pl-head .srt.on .ar{display:inline;opacity:1}
+/* (lote Y) el ancho de cada columna: un asa en el borde derecho de cada título, solo con el ratón y en la computadora.
+   Va sobre su columna de la grilla (grid-column, sin ocupar lugar ni tocar el botón que ordena): una raya fina al pasar
+   por los títulos, del color de acento sobre el asa y mientras se arrastra; doble clic, ancho automático */
+.pl-head{position:relative}
+.pl-rz,.pl-rzhint{display:none}
+@media (min-width:761px) and (hover:hover) and (pointer:fine){
+  .pl-rzhint{display:block}
+  .pl-head>.pl-rz{display:block;position:absolute;grid-row:1;top:-3px;bottom:-3px;right:-5px;width:10px;padding:0;overflow:visible;z-index:2;cursor:col-resize}
+  .pl-head>.pl-rz.end{right:0;width:6px}
+  .pl-head>.pl-rz::after{content:"";position:absolute;top:5px;bottom:5px;right:5px;width:1px;border-radius:2px;background:transparent;transition:background .12s}
+  .pl-head>.pl-rz.end::after{right:0}
+  .pl-head:hover>.pl-rz::after{background:var(--line)}
+  .pl-head>.pl-rz:hover::after,.pl-head>.pl-rz.on::after{right:4px;width:3px;background:var(--accent)}
+  .pl-head>.pl-rz.end:hover::after,.pl-head>.pl-rz.end.on::after{right:0}
+}
+.pl-rzline{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);opacity:.55;pointer-events:none;z-index:6}
+html.pl-rzing,html.pl-rzing *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}
 .pl-stage{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:10px 2px 0;color:var(--ink);font-size:var(--fs-3)}
 .pl-stage::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--stg);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .pl-stage b{font-size:var(--fs-5);font-weight:700}
@@ -886,6 +903,25 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow .pmore:hover{background:color-mix(in srgb,var(--ink) 9%,transparent);color:var(--ink)}
 .prow.empty{grid-template-columns:minmax(0,1fr);background:var(--surface)}
 .prow.empty .c-empty{font-size:var(--fs-3);color:var(--muted)}
+/* (lote Y) una columna angosta no se mete en la de al lado: en la computadora cada celda recorta lo suyo y los textos de
+   una línea (.tx, el tiempo) se cortan con «…». Con el ancho propio de la columna (.w-<clave>) la locación del guion, el
+   reparto y la locación de rodaje quedan en dos líneas como mucho, y las columnas chicas ganan lugar con menos margen.
+   El texto entero se lee al pasar el mouse (title). Con la Locación angosta (.set-nt) la miniatura deja su lugar */
+.prow .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (min-width:761px){
+  .pl .prow:not(.brk)>*{overflow:hidden}
+  .prow .c-n{justify-content:safe flex-end}
+  .prow .c-t input{text-overflow:ellipsis}
+  .pl.w-set .prow .c-set b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .pl.set-nt .prow .c-set.th{padding-left:8px;min-height:0}
+  .pl.set-nt .prow .pl-th{display:none}
+  .pl.w-cast .prow .c-cast .cns{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:0}
+  .pl.w-cast .prow .c-cast:has(.cnm){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;align-self:center;padding-block:0}
+  .pl.w-cast .prow .c-cast .cnm:not(:last-child)::after{content:", "}
+  .pl.w-loc .prow .c-loc .wfld-v{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;padding-block:0;margin-block:6px}
+  .pl.w-esc :is(.prow,.pl-head)>.c-esc,.pl.w-ie :is(.prow,.pl-head)>.c-ie,.pl.w-dn :is(.prow,.pl-head)>.c-dn,.pl.w-cast :is(.prow,.pl-head)>.c-cast,
+  .pl.w-fig :is(.prow,.pl-head)>.c-fig,.pl.w-pgs :is(.prow,.pl-head)>.c-pgs,.pl.w-pg :is(.prow,.pl-head)>.c-pg,.pl.w-t :is(.prow,.pl-head)>.c-t{padding-inline:4px}
+}
 .prow.brk{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:10px 16px;font-size:var(--fs-3);min-height:44px;background:var(--brk-bg);color:var(--brk-ink);border-top:0;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:filter .15s}
 .prow.brk::before{display:none}
 .prow.brk>*{padding:0;border:0}
