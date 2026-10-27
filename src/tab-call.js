@@ -30,13 +30,21 @@ if (typeof document !== 'undefined' && document.documentElement) {
 }
 /* (lote Y) el clima con su unidad pegada al número: la máxima y la mínima con «°», la humedad con «%» y, en «Clima», un
    número solo es la temperatura («29°»). Se guarda el número sin la unidad (si la escriben, se quita) y la unidad se
-   pone al mostrarlo: en la pantalla aparece al lado apenas se escribe; en el PDF y el Excel, pegada al número */
-const WX_NUM = /^[-−]?\d+(?:[.,]\d+)?$/;
-const WX_U = { wx: '°', hi: '°', lo: '°', hum: '%' };
+   pone al mostrarlo: en la pantalla aparece al lado apenas se escribe; en el PDF y el Excel, pegada al número.
+   (lote AC) Una sola tabla de los datos con unidad (su etiqueta, su unidad, el ejemplo y la ayuda) para la pantalla, el
+   PDF y el Excel */
+const WX_FIELDS = [
+  { f: 'hi', lab: 'Máx.', u: '°', ph: '°C', aria: 'Máxima', tip: 'Máxima (°C)' },
+  { f: 'lo', lab: 'Mín.', u: '°', ph: '°C', aria: 'Mínima', tip: 'Mínima (°C)' },
+  { f: 'hum', lab: 'Hum.', u: '%', ph: '%', aria: 'Humedad', tip: 'Humedad (%)' },
+];
+const WX_U = { wx: '°', ...Object.fromEntries(WX_FIELDS.map(x => [x.f, x.u])) };
 const wxBare = v => String(v ?? '').trim().replace(/\s*(?:[°º]\s*[cC]?|%)$/, '').trim();
-const wxShow = (f, v) => { const b = wxBare(v); return !b ? '' : WX_NUM.test(b) ? b + WX_U[f] : String(v).trim(); };
-/* la línea del clima para el PDF y el Excel: «Soleado · Máx. 30° · Mín. 15° · Hum. 10%» */
-const wxLine = (dd, sep = ' · ') => [wxShow('wx', dd.wx), (dd.hi || dd.lo) && [dd.hi && `Máx. ${wxShow('hi', dd.hi)}`, dd.lo && `Mín. ${wxShow('lo', dd.lo)}`].filter(Boolean).join(sep), dd.hum && `Hum. ${wxShow('hum', dd.hum)}`].filter(Boolean);
+/* el número de un dato del clima, sin su unidad (o null si lo escrito no es un número) */
+const wxNum = v => { const b = wxBare(v); return /^[-−]?\d+(?:[.,]\d+)?$/.test(b) ? b : null; };
+const wxShow = (f, v) => { const n = wxNum(v); return n !== null ? n + WX_U[f] : String(v ?? '').trim(); };
+/* el clima para mostrar: lo escrito en «Clima» (con «°» si es un número) y los pares [etiqueta, valor con su unidad] */
+const wxParts = dd => ({ wx: wxShow('wx', dd.wx), pairs: WX_FIELDS.map(x => [x.lab, wxShow(x.f, dd[x.f])]).filter(([, v]) => v) });
 const callEditable = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('llamado'));
 const CALL = () => P.call;
 /* hora por plano: apagada por defecto. En rodaje se trabaja con inicio y fin de escena; repartir la escena
@@ -127,6 +135,10 @@ function synOld(s, mode) {
   }
   return '';
 }
+/* (lote X) la sinopsis de la hoja de llamado (pantalla, PDF, Excel y la huella): hasta unas dos líneas (240 letras),
+   cortada al final de una oración */
+const CALL_SYN = 240;
+const callSyn = s => synopsisOf(s, CALL_SYN, true);
 const CALL_SV = 2;   // la versión de la huella: con la sinopsis que sale impresa (CALL_SYN)
 function callSig(n, cd, mode) {
   // lo que sale impreso, con los datos crudos (no el texto ya formateado: el mismo en español y en inglés) y sin
@@ -140,7 +152,7 @@ function callSig(n, cd, mode) {
     const it = P.schedule.items[i], x = T.get(i) || {};
     if (it.e) return ['e', it.name, it.det, it.t, x.start, x.dur, it.hl];
     const s2 = sceneOfKey(it.k); if (!s2) return ['?', it.k];
-    return [it.k, it.sp, s2.heading, mode ? synOld(s2, mode) : synopsisOf(s2, CALL_SYN), it.t, x.start, x.dur, it.fig, planLoc(it, s2), it.hl, partEighths(it), [...D.sem[s2.idx]].map(el).sort(),
+    return [it.k, it.sp, s2.heading, mode ? synOld(s2, mode) : callSyn(s2), it.t, x.start, x.dur, it.fig, planLoc(it, s2), it.hl, partEighths(it), [...D.sem[s2.idx]].map(el).sort(),
       (D.shotsBy[it.k] || []).map(sh => [D.code[sh.id], sh.size, sh.desc, sh.lens, sh.snd, sh.chars, sh.support, sh.angle, sh.move])];
   });
   const day = x => x ? x.getFullYear() + '-' + (x.getMonth() + 1) + '-' + x.getDate() : '';
@@ -410,7 +422,7 @@ function callAdvance(n, cd) {
   const { days, dates } = cd || callDays(), d = days[n + 1]; if (!d) return null;
   const rows = d.rows.map(i => P.schedule.items[i]).filter(it => it && it.k).map(it => {
     const s = sceneOfKey(it.k); if (!s) return null;
-    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: synopsisOf(s, CALL_SYN) || '', dn: DN_LAB[stripDN(s)], ...callRowColor(it, s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
+    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: callSyn(s) || '', dn: DN_LAB[stripDN(s)], ...callRowColor(it, s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
   }).filter(Boolean);
   return { n: n + 2, date: dates[n + 1], call: peekDay(d.id).crewCall || callDefaults(d).crewCall, locs: callLocs(d).map(x => x[0]), rows,
     e8: rows.reduce((a, r) => a + r.e8, 0), cast: callCast(d).map(({ el }) => ({ n: D.castNum[el.id] || '', name: titleCase(el.name) })) };
@@ -444,8 +456,8 @@ RENDER.call = function () {
   const inp = (f, ph, extra = '') => `<input type="text" value="${esc(dd[f] || '')}" placeholder="${esc(ph || '')}" data-bind="cs-day" data-f="${ea(f)}" ${dis} ${extra}>`;
   // (lote Y) un dato del clima con su unidad al lado del número (se ve apenas se escribe: wxSync)
   const uInp = (f, phd, lab, tip) => {
-    const v = dd[f] || '', b = wxBare(v), on = WX_NUM.test(b);
-    return `<span class="cl-u${on ? ' on' : ''}${f === 'wx' ? ' cl-uw' : ''}"><input type="text" value="${esc(on ? b : v)}" placeholder="${esc(phd || '')}" data-bind="cs-day" data-f="${ea(f)}" ${dis} aria-label="${ea(lab)}" title="${ea(tip)}"${on ? ` size="${Math.max(1, b.length)}"` : ''}><i aria-hidden="true">${WX_U[f]}</i></span>`;
+    const v = dd[f] || '', n = wxNum(v), on = n !== null;
+    return `<span class="cl-u${on ? ' on' : ''}${f === 'wx' ? ' cl-uw' : ''}"><input type="text" value="${esc(on ? n : v)}" placeholder="${esc(phd || '')}" data-bind="cs-wx" data-f="${ea(f)}" ${dis} aria-label="${ea(lab)}" title="${ea(tip)}"${on ? ` size="${Math.max(1, n.length)}"` : ''}><i aria-hidden="true">${WX_U[f]}</i></span>`;
   };
   const fig = d.rows.reduce((a, i) => a + num(P.schedule.items[i].fig), 0);
   const call = dd.crewCall || def.crewCall;
@@ -503,7 +515,7 @@ RENDER.call = function () {
       ${ed || links.some(Boolean) ? `<div class="cl-links">${links.map((u, i) => u ? `<span class="chip"><a href="${ea(u)}" target="_blank" rel="noopener noreferrer">${esc(linkName(u))}</a>${ed ? `<button class="x" data-act="cl-link-x" data-i="${i}" aria-label="Quitar el enlace" title="Quitar el enlace">${ICO.close}</button>` : ''}</span>` : '').join('')}${ed ? `<input type="url" class="cl-link-in" placeholder="+ Enlace (Google Maps, Waze…)" data-bind="cl-link" aria-label="Agregar un enlace">` : ''}</div>` : ''}
       ${ed || phs.length ? `<div class="cl-mph">${candPhotosHTML({ id: d.id, ph: m.ph || [] }, pid => clPhKey(d.id, pid), ed, 'cl', 'cl-up', 'Punto de encuentro')}</div>` : ''}</div></div>` : '';
   const colR = `<div class="cl-c3">
-    ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${uInp('wx', ph('Clima'), 'Clima', 'Soleado, nublado, lluvia, viento… o la temperatura')}<span class="cl-temp"><span>Máx.</span>${uInp('hi', ph('°C'), 'Máxima', 'Máxima (°C)')}<span>Mín.</span>${uInp('lo', ph('°C'), 'Mínima', 'Mínima (°C)')}<span>Hum.</span>${uInp('hum', ph('%'), 'Humedad', 'Humedad (%)')}</span></div></div>
+    ${wxOpen ? `<div class="cl-ir">${CL_ICO.wx}<div class="cl-wx">${uInp('wx', ph('Clima'), 'Clima', 'Soleado, nublado, lluvia, viento… o la temperatura')}<span class="cl-temp">${WX_FIELDS.map(x => `<span>${x.lab}</span>${uInp(x.f, ph(x.ph), x.aria, x.tip)}`).join('')}</span></div></div>
     <div class="cl-ir">${CL_ICO.sun}<div class="cl-sunr"><label><span>Amanecer</span>${tmIn(dd.sunrise, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunrise" aria-label="Amanecer"', dis)}</label><label><span>Anochece</span>${tmIn(dd.sunset, ph('Hora', '-'), 'data-bind="cs-day" data-f="sunset" aria-label="Anochece"', dis)}</label></div></div>`
     : ed ? `<button type="button" class="cl-ir cl-irb" data-act="cs-open" data-k="wx">${CL_ICO.wx}<span><b>Clima</b><small>Máxima y mínima, amanecer y anochecer</small></span></button>` : ''}
     ${meetHTML}
@@ -528,7 +540,7 @@ RENDER.call = function () {
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
     if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}</td></tr>`; }
-    const col = r.col, dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s, CALL_SYN);
+    const col = r.col, dn = DN_LAB[stripDN(r.s)], syn = callSyn(r.s);
     // (lote Z) la escena a todo color, como su tira en el plan de rodaje (con letra clara sobre un color oscuro)
     return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}${ea(lgDark(col))}" data-strip="${ea(r.strip)}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
       <td class="cl-lsd"><b>${esc(setOf(r.s))}${r.it.sp ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(ieLab(r.s))} · ${esc(dn)}</span>${syn ? `<span class="cl-syn">${esc(syn)}</span>` : ''}${castLine(r.s) ? `<span class="cl-lc">${esc(castLine(r.s))}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</span>` : ''}</td>
@@ -696,7 +708,7 @@ Object.assign(ACT, {
   'cl-phdel': b => { const m = meetOf(true); if (!m) return; candDelPhoto(m, pid => clPhKey(b.dataset.id, pid), b.dataset.p, 'call'); render(); toastUndo('Foto quitada.'); },
   'cs-crew-add': b => crewAdd(b, b.dataset.dept),
   // una fila «+» de la cabecera (la nota, el clima): se abren sus campos y se escribe en el primero
-  'cs-open': b => { (UI.csOpen || (UI.csOpen = new Set())).add(b.dataset.k); render(); requestAnimationFrame(() => { const f = { notes: 'notes', wx: 'wx' }[b.dataset.k], i = f ? $(`[data-bind="cs-day"][data-f="${f}"]`) : $('[data-bind="cs-hosp"][data-f="name"]'); if (i) i.focus(); }); },
+  'cs-open': b => { (UI.csOpen || (UI.csOpen = new Set())).add(b.dataset.k); render(); requestAnimationFrame(() => { const i = b.dataset.k === 'notes' ? $('[data-bind="cs-day"][data-f="notes"]') : b.dataset.k === 'wx' ? $('[data-bind="cs-wx"][data-f="wx"]') : $('[data-bind="cs-hosp"][data-f="name"]'); if (i) i.focus(); }); },
   // ‹ › de la cabecera: la jornada anterior o la siguiente (la misma en la hoja de script)
   'cl-day': b => { UI.callDay = +b.dataset.d; UI.supDay = UI.callDay; render(); },
   // el aviso «Faltan datos»: la lista, con dónde se completa cada uno; un toque lleva al campo
@@ -787,9 +799,9 @@ function callShotSet(d, shotId, v) {
    no sale repetida (el campo la deja y se quita al guardar) */
 function wxSync(el) {
   const box = el.closest('.cl-u'); if (!box) return;
-  const raw = el.value.trim(), b = wxBare(raw), on = WX_NUM.test(b) && b === raw;
+  const raw = el.value.trim(), n = wxNum(raw), on = n !== null && n === raw;
   box.classList.toggle('on', on);
-  if (on) el.size = Math.max(1, b.length); else el.removeAttribute('size');
+  if (on) el.size = Math.max(1, n.length); else el.removeAttribute('size');
 }
 const curDayId = () => { const { days } = callDays(); return days[UI.callDay] ? days[UI.callDay].id : null; };
 const setOrDel = (o, k, v) => { if (v) o[k] = v; else delete o[k]; };
@@ -798,7 +810,6 @@ Object.assign(BIND, {
   'cs-day': (el, ev) => {
     const id = curDayId(); if (!id) return;
     let v = el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
-    if (WX_U[el.dataset.f]) { wxSync(el); const b = wxBare(v); if (WX_NUM.test(b)) v = b; }
     if (el.classList.contains('tm')) {
       if (ev !== 'change') return;
       v = el.value = normHM(v);
@@ -808,6 +819,8 @@ Object.assign(BIND, {
     setOrDel(dayData(id), el.dataset.f, v); changed('data');
     if (ev === 'change' && el.classList.contains('tm')) render();
   },
+  // (lote AC) el clima: la unidad aparece al escribir (wxSync) y se guarda el número sin ella
+  'cs-wx': el => { const id = curDayId(); if (!id) return; wxSync(el); const v = el.value.trim(), n = wxNum(v); setOrDel(dayData(id), el.dataset.f, n ?? v); changed('data'); },
   'cs-hosp': el => { const id = curDayId(); if (!id) return; const d = dayData(id); d.hosp = d.hosp || {}; setOrDel(d.hosp, el.dataset.f, el.value.trim()); changed('data'); },
   'cs-crew': el => { const c = CALL().crew.find(x => x.id === el.dataset.id); if (!c) return; c[el.dataset.f] = el.value; changed('data'); },
   'cs-ccall': (el, ev) => { if (ev !== 'change') return; const id = curDayId(); if (!id) return; const d = dayData(id); d.crew = d.crew || {}; setOrDel(d.crew, el.dataset.id, el.value = normHM(el.value)); changed('data'); },
@@ -968,7 +981,7 @@ function callSheetXLSX(X) {
   const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha';
   const mid = [`Jornada ${X.n + 1} de ${X.total}`, date, 'LLAMADO GENERAL', X.call || '—', [X.motor && 'Listos motor ' + X.motor, X.lunch && 'Almuerzo ' + X.lunch].filter(Boolean).join(' · '), X.dd.craft && 'Catering: ' + X.dd.craft].filter(Boolean).join('\n');
   const m = X.meet, mLinks = (m.links || []).map(safeUrl).filter(Boolean);
-  const wx = wxLine(X.dd).join(' · ');   // (lote Y) con la unidad pegada al número
+  const W = wxParts(X.dd), wx = [W.wx, ...W.pairs.map(p => p.join(' '))].filter(Boolean).join(' · ');   // (lote Y) con la unidad pegada al número
   const right = [wx && 'Clima: ' + wx, [X.dd.sunrise && 'Amanecer ' + X.dd.sunrise, X.dd.sunset && 'Anochece ' + X.dd.sunset].filter(Boolean).join(' · '),
     (m.addr || m.note) && 'Punto de encuentro: ' + [m.addr, m.note].filter(Boolean).join(' · '), ...mLinks,
     'Locación: ' + (X.locs.map(([n, a]) => n + (a ? ' (' + a + ')' : '')).join(' · ') || '—')].filter(Boolean).join('\n');
@@ -988,7 +1001,7 @@ function callSheetXLSX(X) {
     if (r.ev) { const ef = hlc(r.it) || T.ev, ge = { fill: isMove(r) ? '#DDEFFC' : ef, line: L, color: lgInk(ef) === '#FFFFFF' && !isMove(r) ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true } }]); continue; }
     const fc = r.col, f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
     row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
-      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s, CALL_SYN), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
+      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), callSyn(r.s), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
     for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
   }
   band('FIN DE JORNADA: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.d.keys, X.d.rows).e) + ' págs.', T.black, lgInk(T.black));

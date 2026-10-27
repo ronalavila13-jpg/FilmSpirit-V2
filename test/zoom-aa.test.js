@@ -1,16 +1,13 @@
 /* Lote AA · el zoom de las fotos de las capas del editor 2D (d2ZoomOf, d2PanOf, d2ImgLayer y d2ZoomSig en
    s2d-editor.js): no toca la foto guardada, se aplica al dibujarla.  node test/zoom-aa.test.js */
-const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
-const R = path.join(__dirname, '..');
+const vm = require('vm'), assert = require('assert');
+const { pieza } = require('./utiles/fuente.js');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
-const s = fs.readFileSync(R + '/src/s2d-editor.js', 'utf8');
-const a = s.indexOf('const d2ZoomOf'), b = s.indexOf('\n', s.indexOf('const d2ZoomSig'));
-assert(a > 0 && b > a, 'no se encontró el zoom en s2d-editor.js');
 
 const c = { Math, JSON, clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, v)) };
 vm.createContext(c);
-vm.runInContext(s.slice(a, b + 1).replace(/^const /gm, 'var '), c);
+vm.runInContext(pieza('s2d-editor.js', 'const d2ZoomOf') + pieza('s2d-editor.js', 'const d2PanOf') + pieza('s2d-editor.js', 'function d2ImgLayer(') + pieza('s2d-editor.js', 'function d2SetZoom(') + pieza('s2d-editor.js', 'const d2ZoomSig'), c);
 // un contexto de dibujo de mentira: anota dónde se dibuja la foto
 const ctx = () => { const calls = []; return { calls, save() { }, restore() { }, drawImage(im, x, y, w, h) { calls.push([x, y, w, h]); } }; };
 
@@ -37,6 +34,12 @@ test('el zoom va de 100 % a 400 %', () => {
 test('la viñeta guardada en el navegador cambia con el zoom, y las capas sin zoom no cambian su firma', () => {
   assert.deepStrictEqual(Array.from(c.d2ZoomSig({ kind: 'image' })), []);
   assert.deepStrictEqual(Array.from(c.d2ZoomSig({ kind: 'image', zoom: 1.5, zx: .1 })), [1.5, .1, 0]);
+});
+
+test('d2SetZoom: sin zoom borra el zoom y el encuadre; con zoom, el encuadre se ajusta', () => {
+  const L = { kind: 'image', zoom: 3, zx: 1, zy: -1 };
+  c.d2SetZoom(L, 2); assert.strictEqual(L.zoom, 2); assert.strictEqual(L.zx, .5); assert.strictEqual(L.zy, -.5);
+  c.d2SetZoom(L, 1); assert.deepStrictEqual(Object.keys(L), ['kind']);
 });
 
 console.log(fail ? `\n${fail} prueba(s) fallaron` : '\nTodo bien');

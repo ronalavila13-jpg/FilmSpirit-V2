@@ -128,8 +128,8 @@ function pdfCallHead(doc, X, V) {
   };
   // (lote Y) el clima como en la pantalla: lo que se escribió en «Clima» (con «°» si es un número) y, debajo, en gris, la
   // máxima, la mínima y la humedad con su unidad pegada al número
-  const Dd = X.dd, wx0 = wxShow('wx', Dd.wx), wxP = [['Máx.', wxShow('hi', Dd.hi)], ['Mín.', wxShow('lo', Dd.lo)], ['Hum.', wxShow('hum', Dd.hum)]].filter(([, v]) => v);
-  if (wx0 || wxP.length) row('wx', [wx0 ? { t: wx0, raw: true } : null, wxP.length ? { pairs: wxP, fs: CLF.ft } : null].filter(Boolean));
+  const Dd = X.dd, Wx = wxParts(Dd);
+  if (Wx.wx || Wx.pairs.length) row('wx', [Wx.wx ? { t: Wx.wx, raw: true } : null, Wx.pairs.length ? { pairs: Wx.pairs, fs: CLF.ft } : null].filter(Boolean));
   if (Dd.sunrise || Dd.sunset) row('sun', [{ pairs: [['Amanecer', Dd.sunrise], ['Anochece', Dd.sunset]].filter(([, v]) => v), fs: CLF.ft }]);
   // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos
   const mt = X.meet, mAddr = (mt.addr || '').trim(), mNote = (mt.note || '').trim(), mLinks = (mt.links || []).map(safeUrl).filter(Boolean);
@@ -233,7 +233,7 @@ function pdfCall(opts = {}) {
         return;
       }
       if (r.ev) { const ef = mixc(pdfHl(r.it) || LIGHT, PDF_WHITE, .7), st = { fillColor: ef, textColor: inkOn(ef) }; blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, pdfRich([{ segs: [{ t: r.name, st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, col: mutedOn(ef), tr: false }] : [])] }], { ...st, colSpan: 4 })]]); return; }
-      const col = rgb(r.col), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
+      const col = rgb(r.col), syn = callSyn(r.s), cl = castLine(r.s), bar = barOfRGB(col);
       // (lote Z) la fila de la escena a todo color, como su tira en el plan de rodaje (los planos de debajo, en blanco)
       const SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS }, ink = inkOn(col), mut = mutedOn(col);
       const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: CLF.h3, tr: false, col: ink }, (r.t0 || r.t) ? sub(r.t0 || r.t, ink, false, 'bold') : null], { ...SC, cellPadding: { ...PS, left: 10, right: 4 } }), _bar: bar },
