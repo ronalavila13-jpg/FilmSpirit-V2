@@ -24,7 +24,10 @@ Viene sin los maniquíes 3D (el actualizador conserva los instalados). No hay va
 7. **Editor 2D:** una sola regla decide si se puede dibujar en una capa (oculta, bloqueada o con zoom) y una sola
    función cambia el zoom. Arreglo chico de paso: después de mover un deslizador con el mouse, las letras de las
    herramientas (V, L…) vuelven a funcionar enseguida; con las flechas del teclado el deslizador conserva el foco.
-8. **Pruebas:** un ayudante común para leer el código en las pruebas, en lugar de copiarlo en cada una.
+8. **Columnas del stripboard:** el código del ancho de las columnas pasó a su propio archivo (`plan-columnas.js`).
+   Los anchos guardados se revisan una sola vez al abrir el proyecto (un valor raro se corrige ahí y no cada vez que
+   se dibuja el tablero) y un solo lugar recibe el arrastre del asa.
+9. **Pruebas:** un ayudante común para leer el código en las pruebas, en lugar de copiarlo en cada una.
 
 ## Detalles visibles (casi imperceptibles)
 
@@ -37,4 +40,5 @@ Viene sin los maniquíes 3D (el actualizador conserva los instalados). No hay va
   Las del servidor pasan todas.
 - En el navegador, contra el lote AB: la hoja de llamado en español e inglés, clara y oscura, en computadora y en
   celular, con las mismas medidas; los PDF de la hoja idénticos píxel a píxel; escribir el clima; el zoom y el
-  encuadre de las fotos del editor 2D, con el mouse y con el teclado, y deshacer.
+  encuadre de las fotos del editor 2D, con el mouse y con el teclado, y deshacer; 59 capturas del stripboard
+  (anchos automáticos y guardados, celular, arrastre de columnas y de filas, deshacer) iguales a las de antes.
