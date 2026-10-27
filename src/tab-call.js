@@ -366,7 +366,7 @@ function callAdvance(n, cd) {
   const { days, dates } = cd || callDays(), d = days[n + 1]; if (!d) return null;
   const rows = d.rows.map(i => P.schedule.items[i]).filter(it => it && it.k).map(it => {
     const s = sceneOfKey(it.k); if (!s) return null;
-    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: synopsisOf(s) || '', dn: DN_LAB[stripDN(s)], strip: stripKey(s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
+    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: synopsisOf(s, CALL_SYN) || '', dn: DN_LAB[stripDN(s)], strip: stripKey(s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
   }).filter(Boolean);
   return { n: n + 2, date: dates[n + 1], call: peekDay(d.id).crewCall || callDefaults(d).crewCall, locs: callLocs(d).map(x => x[0]), rows,
     e8: rows.reduce((a, r) => a + r.e8, 0), cast: callCast(d).map(({ el }) => ({ n: D.castNum[el.id] || '', name: titleCase(el.name) })) };
@@ -479,7 +479,7 @@ RENDER.call = function () {
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
     if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}</td></tr>`; }
-    const col = hlc(r.it) || stripColor(r.s), dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s);
+    const col = hlc(r.it) || stripColor(r.s), dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s, CALL_SYN);
     return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
       <td class="cl-lsd"><b>${esc(setOf(r.s))}${r.it.sp ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(ieLab(r.s))} · ${esc(dn)}</span>${syn ? `<span class="cl-syn">${esc(syn)}</span>` : ''}${castLine(r.s) ? `<span class="cl-lc">${esc(castLine(r.s))}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</span>` : ''}</td>
       <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`
@@ -929,7 +929,7 @@ function callSheetXLSX(X) {
     if (r.ev) { const ef = hlc(r.it) || T.ev, ge = { fill: isMove(r) ? '#DDEFFC' : ef, line: L, color: lgInk(ef) === '#FFFFFF' && !isMove(r) ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true } }]); continue; }
     const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
     row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
-      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
+      { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s, CALL_SYN), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
     for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
   }
   band('FIN DE JORNADA: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.d.keys, X.d.rows).e) + ' págs.', T.black, lgInk(T.black));

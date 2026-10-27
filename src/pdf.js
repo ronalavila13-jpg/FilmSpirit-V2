@@ -833,25 +833,6 @@ function pdfShotlist() {
 }
 
 /* ---------- stripboard ---------- */
-/* (lote U) el reparto en números dentro de un círculo, como en la pantalla: la celda lleva _circ = ['1', '2'…] y se
-   dibuja a mano (el texto plano solo sirve para medirla) */
-function pdfCircDraw(doc, d) {
-  const r = d.cell.raw; if (d.section !== 'body' || !r || !r._circ || !r._circ.length) return;
-  const c = d.cell, fs = 6.6, R = 5.6, gap = 2.4, x0 = c.x + c.padding('left'), w = c.width - c.padding('left') - c.padding('right');
-  const ink = Array.isArray(c.styles.textColor) ? c.styles.textColor : INK;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(fs); doc.setDrawColor(...ink); doc.setTextColor(...ink); doc.setLineWidth(.7);
-  let x = x0, y = c.y + c.padding('top') + R;
-  for (const n of r._circ) {
-    const t = String(n), cw = Math.max(2 * R, doc.getTextWidth(t) + 5);
-    if (x > x0 && x + cw > x0 + w + .5) { x = x0; y += 2 * R + gap; }
-    if (cw > 2 * R) doc.roundedRect(x, y - R, cw, 2 * R, R, R, 'S'); else doc.circle(x + R, y, R, 'S');
-    doc.text(t, x + cw / 2, y + .2, { align: 'center', baseline: 'middle' });
-    x += cw + gap;
-  }
-  doc.setTextColor(...INK);
-}
-/* el alto que necesitan los círculos del reparto en una celda de ancho w */
-const pdfCircH = (doc, list, w) => { let rows = 1, x = 0; doc.setFont('helvetica', 'bold'); doc.setFontSize(6.6); for (const n of list) { const cw = Math.max(11.2, doc.getTextWidth(String(n)) + 5); if (x && x + cw > w + .5) { rows++; x = 0; } x += cw + 2.4; } return rows * 11.2 + (rows - 1) * 2.4; };
 /* una línea de texto que no entra se corta con «...» (la sinopsis bajo la locación, como en la pantalla) */
 function pdfOneLine(doc, t, w, fs, st) {
   t = pdfSafe(t); if (!t) return '';
@@ -889,7 +870,8 @@ function pdfPlan() {
     // la locación del guion en negrita y la sinopsis debajo, en una línea, más chica y en gris
     const hd = pdfRich([{ t: setOf(s) + (it.sp ? ` (parte ${it.sp})` : ''), fs: FS, st: 'bold' }, syn ? { t: pdfOneLine(doc, trDone(tr(syn)), setW, PF.small - .4), fs: PF.small - .4, col: mutedOn(sf) } : null], st);
     const nums = S.castMode === 'name' ? null : sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean);
-    const cast = nums ? { content: nums.join(' '), _circ: nums.map(String), styles: { ...st, minCellHeight: pdfCircH(doc, nums, CW[4] - 10) + 9 } }
+    // (lote X) el reparto en números simples, separados por comas (sin círculos)
+    const cast = nums ? { content: nums.join(', '), styles: { ...st, fontStyle: 'bold' } }
       : { content: pdfSafe(sceneCast(s.idx).map(e => titleCase(e.name)).join(', ')), styles: st };
     const e8 = partEighths(it), w8 = Math.floor(e8 / 8), f8 = e8 % 8;
     const pgs = pdfRich([{ segs: [...(w8 || !f8 ? [{ t: String(w8), st: 'bold', fs: FS + 1 }] : []), ...(f8 ? [{ t: (w8 ? ' ' : '') + f8 + '/8', st: 'bold', fs: FS - 1 }] : [])] }], { ...st, halign: 'right', valign: 'top' });
@@ -934,9 +916,7 @@ function pdfPlan() {
   y = pdfBlocks(doc, y, { ...TBL, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo', 'Notas técnicas', 'Observaciones']],
     margin: { left: 30, right: 30, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
     styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, lineColor: mixc(INK, PDF_WHITE, .2), lineWidth: { top: 0, right: 0, bottom: .6, left: 0 } },
-    columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])),
-    willDrawCell: d => { const r = d.cell.raw; if (d.section === 'body' && r && r._circ) d.cell.text = []; },
-    didDrawCell: d => pdfCircDraw(doc, d) }, blocks);
+    columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])) }, blocks);
   if (S.castMode !== 'name') {
     const legend = Object.entries(D.castNum).sort((a, b) => a[1] - b[1]).map(([id, n]) => [String(n), pdfSafe(titleCase(P.elements[id].name))]);
     // los números del reparto en una línea (antes, una tabla que sola pasaba a otra página)
@@ -1282,7 +1262,7 @@ function pdfCall(opts = {}) {
         return;
       }
       if (r.ev) { const ef = mixc(pdfHl(r.it) || LIGHT, PDF_WHITE, .7), st = { fillColor: ef, textColor: inkOn(ef) }; blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, pdfRich([{ segs: [{ t: r.name, st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, col: mutedOn(ef), tr: false }] : [])] }], { ...st, colSpan: 4 })]]); return; }
-      const col = pdfHl(r.it) || rgb(stripColor(r.s)), syn = synopsisOf(r.s), cl = castLine(r.s), bar = barOfRGB(col);
+      const col = pdfHl(r.it) || rgb(stripColor(r.s)), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
       const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: 9.6, tr: false }, (r.t0 || r.t) ? sub(r.t0 || r.t, INK, false) : null], { cellPadding: { top: 3.4, bottom: 3.4, left: 10, right: 4 } }), _bar: bar },
         { content: ieLab(r.s), styles: { fontSize: 7.4, fontStyle: 'bold' } },
         pdfRich([{ t: setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: 8.2 }, syn ? sub(syn, MUTED) : null, cl ? { t: cl + (r.fig ? ` · Fig. ${r.fig}` : ''), fs: 7.4, st: 'bold' } : null]),

@@ -105,12 +105,13 @@ const PL_ICO = {
   addCast: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.7-3.4 3.3-5.5 6.5-5.5 1.6 0 3 .5 4.1 1.4M18 13v6M15 16h6"/></svg>',
   vmore: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor" stroke="none"><circle cx="12" cy="5.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="18.5" r="1.4"/></g></svg>',
 };
-/* el reparto como números en círculo (o por nombre, si se eligió); sin reparto, un ícono para agregarlo en el desglose */
-function castCircles(s, ed) {
+/* el reparto en números (o por nombre, si se eligió); sin reparto, un ícono para agregarlo en el desglose. (lote X) Los
+   números van simples, separados por comas («1, 2, 3, 5»), sin círculos; cada uno dice su personaje al pasar el mouse */
+function castNums(s, ed) {
   const list = sceneCast(s.idx);
   if (!list.length) return ed ? `<button type="button" class="pl-addcast" data-act="pl-bd" data-k="${ea(s.key)}" aria-label="${ea('Agregar reparto a la escena ' + s.key)}" title="Sin reparto: agrégalo en la hoja de desglose">${PL_ICO.addCast}</button>` : '<span class="none">—</span>';
   if (P.schedule.castMode === 'name') return list.map(e => `<span class="cnm">${esc(titleCase(e.name))}</span>`).join('');
-  return list.filter(e => D.castNum[e.id]).map(e => `<span class="cn tnum" title="${ea(titleCase(e.name))}">${D.castNum[e.id]}</span>`).join('');
+  return `<span class="cns tnum">${list.filter(e => D.castNum[e.id]).map(e => `<span class="cn" title="${ea(titleCase(e.name))}">${D.castNum[e.id]}</span>`).join(', ')}</span>`;
 }
 /* los octavos como en una tira: el entero grande y la fracción chica (1 ³⁄₈) */
 const e8HTML = e => { e = Math.max(0, Math.round(e || 0)); const w = Math.floor(e / 8), f = e % 8; return `<span class="e8">${w || !f ? `<b>${w}</b>` : ''}${f ? `<span class="fr"><sup>${f}</sup>⁄<sub>8</sub></span>` : ''}</span>`; };
@@ -207,7 +208,7 @@ function planRowHTML(i, ed) {
     <span class="c-esc tnum">${esc(rowCode(it))}</span><span class="c-ie">${esc(ieLab(s))}</span>
     <span class="c-set${th ? ' th' : ''}" title="${ea(s.heading + (syn ? ' · ' + syn : ''))}">${planThumbHTML(it)}<b>${esc(setOf(s))}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b><small><span class="m-only${syn ? ' sep' : ''}">${esc(ieLab(s))} · ${esc(dn)}</span>${esc(syn)}</small></span>
     <span class="c-dn">${esc(dn)}</span>
-    <span class="c-cast">${castCircles(s, ed)}</span>
+    <span class="c-cast">${castNums(s, ed)}</span>
     <span class="c-fig"><input type="number" min="0" step="1" value="${ea(it.fig ?? '')}" data-bind="pl-f" data-f="fig" data-i="${i}" aria-label="Figurantes" ${dis}></span>
     <span class="c-loc${it.loc || set ? '' : ' none'}">${ICO.pin}${wrapIn(`<input type="text" list="plLocs" value="${esc(it.loc || set)}" placeholder="${ed ? 'Asignar locación…' : ''}" data-bind="pl-f" data-f="loc" data-i="${i}" aria-label="Locación de rodaje" title="${it.loc ? '' : set ? 'Locación del decorado «' + esc(titleCase(s.locBase)) + '»' : ''}" ${dis}>`, it.loc || set, ed ? 'Asignar locación…' : '')}</span>
     ${eCell}<span class="c-n c-pg tnum">${D.metrics.page[s.idx]}</span>${time}${notes}${more('Opciones de la escena ' + rowCode(it))}</div>`;

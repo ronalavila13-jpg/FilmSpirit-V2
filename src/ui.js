@@ -136,15 +136,24 @@ function derive() {
   return D;
 }
 const sceneOfKey = k => D.sc.byKey[k];
-const synopsisOf = s => {
+// La sinopsis de una escena: la que se escribió o la primera acción del guion, cortada a «max» letras. (lote X) Con un
+// «max» largo (la hoja de llamado), el corte cae al final de una oración, sin «…», si hay una que cierre después de la
+// mitad del largo; si no, en una palabra con «…»
+const synopsisOf = (s, max = 110) => {
   const m = P.scenes[s.key];
   if (m && m.synopsis) return m.synopsis;
   for (let i = s.p0 + 1; i < s.p1; i++) if ((P.paras[i].t === 'a' || P.paras[i].t === 'v') && P.paras[i].x.trim()) {
-    const t = P.paras[i].x.trim();
-    return t.length > 110 ? t.slice(0, 107).replace(/\s+\S*$/, '') + '…' : t;
+    const t = P.paras[i].x.trim().replace(/\s+/g, ' ');
+    if (t.length <= max) return t;
+    if (max > 110) {
+      const cut = t.slice(0, max + 1), stop = Math.max(...['. ', '! ', '? ', '.» ', '." ', '…'].map(p => { const k = cut.lastIndexOf(p); return k < 0 ? -1 : k + p.trimEnd().length; }));
+      if (stop >= max * .5) return t.slice(0, stop).trim();
+    }
+    return t.slice(0, max - 3).replace(/\s+\S*$/, '') + '…';
   }
   return '';
 };
+const CALL_SYN = 240;   // (lote X) el largo de la sinopsis en la hoja de llamado (pantalla, PDF y Excel): hasta dos líneas
 function sceneCast(si) {
   return [...D.sem[si]].map(id => P.elements[id]).filter(e => e && e.cat === 'cast')
     .sort((a, b) => (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99));

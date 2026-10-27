@@ -856,8 +856,9 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .prow .c-set small{display:block;max-width:100%;font-size:var(--fs-2);color:var(--muted);font-style:normal;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow .m-only{display:none}
 .prow .c-cast{flex-wrap:wrap;gap:4px;align-content:center}
-/* el reparto en números con su círculo (por nombre, como texto) */
-.prow .c-cast .cn{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;border:1.5px solid color-mix(in srgb,currentColor 70%,transparent);font-size:var(--fs-1);font-weight:750;font-variant-numeric:tabular-nums;line-height:1}
+/* (lote X) el reparto en números simples, separados por comas: «1, 2, 3, 5» (por nombre, como texto) */
+.prow .c-cast .cns{font-size:var(--fs-3);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.35}
+.prow .c-cast .cn{cursor:default}
 .prow .c-cast .cnm{font-weight:650;font-size:var(--fs-2)}
 .prow .c-cast .cnm:not(:last-child)::after{content:","}
 .prow .c-cast .none{color:var(--muted)}
@@ -975,7 +976,6 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
   .prow.sc>.c-loc input{padding:2px 4px}
   .prow.sc>.c-loc .wfld-v{padding:3px 5px}
   .prow.sc>.c-cast{grid-column:3;grid-row:2;padding:0 4px;justify-content:flex-end;gap:3px;flex-wrap:nowrap}
-  .prow.sc>.c-cast .cn{min-width:20px;height:20px}
   .prow.sc>.c-fig{grid-column:4;grid-row:2;padding:0 4px 0 0;width:48px}
   .prow.sc>.c-fig input{padding:2px 4px}
   .prow.sc>.c-fig input:placeholder-shown:not(:focus){opacity:0}
@@ -2947,9 +2947,12 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cl-jn .hd-step{margin:0}
 .cl-ep{letter-spacing:0;text-transform:none;font-weight:650}
 .cl-date{font:650 19px/1.25 var(--font-display);color:var(--ink);margin-top:1px}
-.cl-callg{display:grid;justify-items:center;margin-top:6px}
-.cl-big{display:inline-flex;align-items:center;gap:6px}
-.cl .cl-big input.tm{font:750 44px/1.05 var(--font-display);width:4.3ch;text-align:center;padding:0 2px;letter-spacing:-.02em;color:var(--ink)}
+.cl-callg{display:grid;justify-items:center;margin-top:6px;min-width:0;max-width:100%}
+/* (lote X) la hora grande no se recorta: el campo crece con lo que tiene (con cualquier letra) y «del plan» baja si no
+   cabe al lado */
+.cl-big{display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 6px;max-width:100%}
+.cl .cl-big input.tm{font:750 44px/1.05 var(--font-display);width:5.6ch;min-width:0;flex:none;text-align:center;padding:0 4px;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums;text-overflow:clip}
+@supports (field-sizing:content){ .cl .cl-big input.tm{field-sizing:content;width:auto;min-width:3ch} }
 .cl .cl-big input.tm::placeholder{color:var(--ink)}
 .cl .cl-big input.tm[data-miss]::placeholder{color:var(--warn-text)}
 .cl-sub{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 14px;font-size:var(--fs-2);color:var(--muted)}
@@ -3039,18 +3042,20 @@ body.rz-ns,body.rz-ns *{cursor:ns-resize!important;user-select:none!important}
 .cl-lsh .cl-pc .cl-code{min-width:30px;font-size:var(--fs-1)}
 .cl .cl-lsh .cl-pc input.tm{margin:3px 0 0;width:56px;font-size:var(--fs-1)}
 .cl-lsh .cl-pc small{margin-top:2px}
-.cl-shg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 340px;gap:4px 14px;align-items:start;min-width:0}
-.cl-shg.th{grid-template-columns:72px minmax(0,1fr) minmax(0,1.25fr) 340px}
+.cl-shg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 370px;gap:4px 14px;align-items:start;min-width:0}
+.cl-shg.th{grid-template-columns:72px minmax(0,1fr) minmax(0,1.25fr) 370px}
 .cl-shg .cl-th{position:static;width:72px}
 .cl-shd b{font-weight:700}.cl-shd>span{color:var(--muted)}.cl-shd>span::before{content:" · "}
 .cl-sha{line-height:1.4}
-.cl-shm{display:grid;grid-template-columns:minmax(0,1fr) 50px 92px 76px;gap:6px;align-items:start}
+.cl-shm{display:grid;grid-template-columns:minmax(0,1fr) 52px 92px 96px;gap:6px;align-items:start}
 .cl-shset{color:var(--muted);overflow-wrap:anywhere}
 .cl-shs select.cl-snd{width:100%}
 .cl-lhs th{padding-top:0;font-weight:600;color:var(--faint,var(--muted));text-align:left !important}
 .cl-lhs th:first-child{width:auto}
 .cl-lhs .cl-shg{font-size:var(--fs-1);letter-spacing:.02em}
-.cl-lhs .cl-shm>span{overflow:hidden;text-overflow:ellipsis}
+/* (lote X) los títulos de los planos se ven enteros: si no caben, pasan a la línea siguiente (nunca «PERSONAJ…») */
+.cl-lhs .cl-shm>span{white-space:normal;overflow-wrap:anywhere}
+.cl-lhs th{white-space:normal}
 .cl-lend td{border-top:calc(var(--l2) * .75) solid var(--ink);vertical-align:middle}
 .cl-lend b{font-weight:700}
 .cl-tot{margin:2px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:flex-end;font-size:var(--fs-3);color:var(--muted)}
