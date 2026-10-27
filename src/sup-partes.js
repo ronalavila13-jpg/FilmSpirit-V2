@@ -145,7 +145,8 @@ function hsTakeRow(doc, x0, x1, y, h, t, o = {}) {
 /* el recuadro de continuidad: con líneas para escribir o con lo anotado. Devuelve su alto (dibuja si draw) */
 function hsCont(doc, s, x0, x1, y, fill, draw = true) {
   const m = P.sup.sc[s.key] || {}, gap = 13.5, cw = (x1 - x0 - 15 - gap) / 2, rh = 16.5;
-  const F = [['Vestuario', 'ward'], ['Utilería', 'props'], ['Maquillaje y peinado', 'mk'], ['Posiciones', 'pos'], ['Cambios de texto', 'txt'], ['Fotos n.º', 'ph']];
+  const F = [['Vestuario', 'ward'], [EN ? trDone('Props') : 'Utilería', 'props'],   // «Utilería» en el glosario es el cargo
+    ['Maquillaje y peinado', 'mk'], ['Posiciones', 'pos'], ['Cambios de texto', 'txt'], ['Fotos n.º', 'ph']];
   if (fill && m.notes) F.push(['Notas', 'notes']);
   hsFont(doc, 'normal', 9);
   const val = f => f === 'ph' ? ((m.ph || []).length ? `${(m.ph || []).length}` : '') : pdfSafe(m[f] || '');
