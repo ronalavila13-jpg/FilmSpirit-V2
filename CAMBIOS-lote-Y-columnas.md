@@ -31,6 +31,10 @@ Base: lote X. Rama `lote-y-cols`. Pedido: «permitir contraer horizontalmente ca
   anchos (`plGrid`, `planColsCSS`), las asas de los títulos (`plHeadHTML`), arrastrar y guardar (`startColResize`,
   `planColSet`), «Restaurar el ancho de las columnas» (Ajustes y la acción `pl-colw0`), los textos completos al pasar el
   mouse en las celdas que se cortan, la ayuda de la pestaña y la fila que se arrastra con los mismos cortes.
+  (lote AC) Los anchos, la grilla, las asas, el arrastre, guardar y «Restaurar» pasaron a `src/plan-columnas.js`; los
+  anchos guardados se limpian al abrir el proyecto (`normalizeProject` · `plColWClean`) y las celdas y los títulos de
+  una columna con ancho propio llevan `data-cw` (antes, clases `.w-<clave>` en el tablero). En `tab-plan.js` quedan los
+  títulos (`plHeadHTML`), las celdas de cada fila y la rama del asa en `bindBoard`.
 - `src/shell.html`: el asa y su raya, la línea del arrastre y los cortes con «…» de las columnas angostas (solo en la
   computadora).
 - `i18n/en-manual.json`: los textos nuevos en inglés (bloque «lote Y · columnas»).
