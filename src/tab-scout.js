@@ -145,7 +145,7 @@ RENDER.scout = function () {
     candFramesNeed(keys, 'scout');
     const order = [...d.cands].sort((a, b) => (b.id === d.pick) - (a.id === d.pick) || (a.status === 'descartada') - (b.status === 'descartada'));
     const addBtn = ed ? hdBtn('pri', 'Agregar candidata', { icon: 'plus', attrs: 'data-act="sc-add"' }) : '';
-    body = `<section class="hd cand-hd">${hdHead({ title: esc(titleCase(cur.b)), sub: esc(info), act: (order.length ? addBtn : '') + (typeof sbScoutBtn === 'function' ? sbScoutBtn(cur) : '') })}</section>
+    body = `<section class="hd cand-hd">${hdHead({ title: esc(titleCase(cur.b)), sub: esc(info), act: order.length ? addBtn : '' })}</section>
       ${order.length ? `<div class="cand-grid">${order.map(c => scCandHTML(d, c, ed)).join('')}</div>`
         : hdEmpty({ icon: 'pin', title: 'Aún no hay candidatas', text: `Agrega cada sitio que visites con sus fotos, su dirección y quién da el permiso. Al elegir una, pasa al plan de rodaje como la locación de ${cur.scenes.length === 1 ? 'su escena' : 'sus ' + cur.scenes.length + ' escenas'}.`, btn: addBtn })}
       <label class="hd-tx hd-txc cand-pn"><span>Notas del lugar</span><textarea class="cand-in" rows="2" data-bind="sc-pnote" placeholder="${ea(ed ? 'Qué pide el guion: época, tamaño, vista, acceso para el equipo' : '')}" ${ed ? '' : 'readonly'}>${esc(d.note)}</textarea></label>`;

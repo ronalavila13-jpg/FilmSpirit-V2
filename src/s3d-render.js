@@ -509,7 +509,7 @@ function r3Sync(s3, st, opts) {
   let vis = s3.set === 'plano' ? 'int' : s3.set === 'modelo' ? (typeof set3dSync === 'function' && set3dSync(s3) ? 'modelo' : 'ext') : s3.set;
   if (!R3.sets[vis] && !(envGroup(vis))) vis = 'ext';   // entornos: se arman la primera vez
   for (const k in R3.sets) R3.sets[k].visible = k === vis;
-  // lote W · la calle, los jardines y los paisajes a la escala de su locación (escenarios-construidos.js)
+  // lote W · la calle, los jardines y los paisajes a la escala de su locación (escenarios-escala.js)
   if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(vis) && R3.sets[vis]) R3.sets[vis].scale.setScalar(envEscOf(s3));
   if (R3.room) R3.room.visible = s3.set === 'int';
   syncPlan(s3);

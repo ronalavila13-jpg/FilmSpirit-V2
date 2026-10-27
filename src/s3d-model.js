@@ -177,7 +177,7 @@ const S3_COLORS = ['#C8563F', '#3D6FB6', '#C99A2E', '#4E8F5A', '#8B5BA6', '#3E8F
    s3d-render (CALLE_WALK) y los que la cámara no atraviesa (CALLE_BLOCKS, en floorplan). */
 const CALLE_WALK = { h: .15, z: [-.75, -10.25], d: 2.5 };
 function groundAt(s3, x, z) {
-  // lote W · la vereda, a la escala de la calle de esa locación (escenarios-construidos.js)
+  // lote W · la vereda, a la escala de la calle de esa locación (escenarios-escala.js)
   if (s3 && s3.set === 'calle') { const k = typeof envEscOf === 'function' ? envEscOf(s3) : 1; for (const c of CALLE_WALK.z) if (Math.abs(z - c * k) <= CALLE_WALK.d * k / 2) return CALLE_WALK.h * k; }
   return 0;
 }
@@ -324,7 +324,6 @@ function s3Default(sh) {
   if (set === 'auto' && !ms && typeof envCarCam === 'function') envCarCam(s3);
   s3ApplyMove(s3, sh.move, shotDur(sh), sh.desc);
   if ((s3.set === 'plano' || s3.set === 'calle') && typeof s3CamInside === 'function') s3CamInside(s3);
-  if (ms && typeof bsLights === 'function') bsLights(s3, P.sets3d[ms]);   // lote W · las luces de un escenario construido
   if (typeof escLocSet === 'function') escLocSet(s3, s && s.loc);   // lote W · la locación (para la escala de la calle)
   for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   return s3;

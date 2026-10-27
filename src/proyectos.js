@@ -110,7 +110,7 @@ function normalizeProject(Px) {
     if ('focusD' in sh.s3) { const d = +sh.s3.focusD; if (isFinite(d) && d > 0) sh.s3.focusD = Math.round(clamp(d, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; else delete sh.s3.focusD; }
   }
   sanitizeProject(Px);
-  if (typeof bsNormalize === 'function') bsNormalize(Px);   // lote W · escenarios construidos y escala del escenario
+  if (typeof set3dNormalize === 'function') set3dNormalize(Px);   // lote W · escala del escenario; (lote AD) sin escenarios construidos, modelos sobre un entorno
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas
   buildNormalize(Px);
   scoutNormalize(Px);
