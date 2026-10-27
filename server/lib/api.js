@@ -181,6 +181,21 @@ function makeApi(S, auth, live, cfg) {
   }
   const roMsg = r => r.why === 'archived' ? 'Este proyecto está archivado: desarchívalo para editarlo.' : 'Este proyecto está en solo lectura: tu plan permite menos proyectos activos.';
   const ownerPlan = p => P.planOf(userById(p.owner));
+  /* (lote AD) lo exclusivo de Studio: los mapas del scouting (los enlaces cortos que resuelve el servidor) y los
+     escenarios 3D importados (sus modelos «m3~s~…» y sus plantas «m3p~…»). Va según el plan de quien es dueño del
+     proyecto: si es Studio, todo su equipo los usa en él. Sin proyecto (uno nuevo que todavía no está en el servidor),
+     según el plan de la cuenta, que será su dueña. Lo que un proyecto ya tiene se sigue viendo y se puede quitar */
+  const STUDIO_MSG = {
+    mapas: 'Los mapas del scouting son parte de FilmSpirit Studio. En este proyecto los habilita el plan de quien lo administra.',
+    set3d: 'Importar escenarios 3D es parte de FilmSpirit Studio. En este proyecto lo habilita el plan de quien lo administra.',
+  };
+  const isStudioFrame = k => k.startsWith('m3~s~') || k.startsWith('m3p~');
+  function studioOk(pid, u) {
+    if (pid == null || pid === '') return P.planOf(u) === 'studio';
+    const p = project(String(pid)); if (!p) return false;
+    const r = roleOf(p, u.id);
+    return !!r && !r.suspended && ownerPlan(p) === 'studio';
+  }
   const teamCount = pid => S.one('SELECT (SELECT COUNT(*) FROM members WHERE pid=?) + (SELECT COUNT(*) FROM invites WHERE pid=?) n', pid, pid).n;
   // espacio de la cuenta: imágenes, secciones y su historial (todo cuenta para la cuota del plan). Lo eliminado también
   // cuenta mientras se guarda (30 días, por si hay que recuperarlo): antes, crear y eliminar en ciclo llenaba el disco.
@@ -256,7 +271,7 @@ function makeApi(S, auth, live, cfg) {
     catch (e) { fail(400, `Los datos de ${what} no son válidos.`, 'bad_section'); }
   }
   const safeParse = str => { try { const v = JSON.parse(str); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
-  const NEED_PLAN = `Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Prueba Pro 30 días gratis al llevar tu guion a producción.`;
+  const NEED_PLAN = `Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Para conocerlos sin pagar, explora el proyecto de ejemplo.`;
   const limitMsg = (plan, kind = 'prod') => kind === 'guion'
     ? `El plan Guion permite ${P.PLANS.free.scripts} guiones activos. Archiva uno que terminaste o pasa a Indie, Pro o Studio (guiones sin límite).`
     : plan === 'free' ? NEED_PLAN
@@ -500,6 +515,7 @@ function makeApi(S, auth, live, cfg) {
     if ((sec === 'desglose' || k.startsWith('lc~') || k.startsWith('cl~')) && !P.PLANS[ownerPlan(p)].photos) fail(403, `Las fotos ${k.startsWith('ca~') ? 'del casting' : k.startsWith('lc~') ? 'del scouting' : k.startsWith('cl~') ? 'del punto de encuentro' : 'en el desglose'} son parte de FilmSpirit Pro y Studio.`, 'plan_photos');
     const m3 = k.startsWith('m3~');
     if (m3 && !P.PLANS[ownerPlan(p)].photos) fail(403, 'Los modelos 3D importados son de los planes Indie, Pro y Studio.', 'plan_photos');
+    if (isStudioFrame(k) && ownerPlan(p) !== 'studio') fail(403, STUDIO_MSG.set3d, 'plan_studio');
     const mm = (m3 ? M3_RE : DATA_RE).exec(typeof b.url === 'string' ? b.url : '');
     if (!mm) fail(400, m3 ? 'El modelo 3D no tiene un formato válido.' : 'La imagen no tiene un formato válido (PNG, JPEG o WebP).', 'bad_image');
     const data = Buffer.from(mm[2], 'base64');
@@ -699,7 +715,7 @@ function makeApi(S, auth, live, cfg) {
   }
   /* cambió el plan de una cuenta (pago, vencimiento o administración): sus proyectos se vuelven a evaluar */
   function planChanged(uid) { for (const x of S.all('SELECT id FROM projects WHERE owner=? AND deleted IS NULL', uid)) teamChanged(x.id); }
-  return { handle, state, roleOf, project, planChanged };
+  return { handle, state, roleOf, project, planChanged, studioOk, STUDIO_MSG };
 }
 
 module.exports = { makeApi };

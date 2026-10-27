@@ -1,6 +1,7 @@
 'use strict';
-/* Planes Indie, Pro y Studio: precio de fundador, lista de espera de Studio y pagos fuera del Perú con un
-   Paddle simulado (transacción → /pagar → suscripción; avisos firmados, cobros, portal, cancelación) */
+/* Planes Indie, Pro y Studio: precio de fundador, Studio a la venta (lote AD: sin lista de espera ni prueba gratis) y
+   pagos fuera del Perú con un Paddle simulado (transacción → /pagar → suscripción; avisos firmados, cobros, portal,
+   cancelación). Los precios de Pro con prueba siguen configurados: solo sirven para las pruebas que ya empezaron */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -89,7 +90,7 @@ test.before(async () => {
     PADDLE_PRICE_STUDIO_MONTH: 'pri_st_m', PADDLE_PRICE_STUDIO_YEAR: 'pri_st_y', PADDLE_PRICE_PRO_MONTH_TRIAL: 'pri_pro_m_t', PADDLE_DISCOUNT_FUNDADOR: 'dsc_fundador',
   });
   H = require('./helpers');
-  // el precio de fundador vale hasta dentro de un año; Studio aún en lista de espera
+  // el precio de fundador vale hasta dentro de un año
   S = await H.start({ ADMIN_EMAILS: 'admin@prueba.pe', FOUNDER_UNTIL: iso(Date.now() + 365 * DAY) });
   base = S.base;
 });
@@ -98,55 +99,56 @@ test.after(async () => { await S.stop(); mock.close(); });
 test('precio de fundador: Pro a S/ 39 en el Perú; código FUNDADOR (20 %) fuera; Indie a precio normal', async () => {
   const A = H.client(base); await login(A, 'fundador@prueba.pe', { tz: 'America/Lima' });
   let r = await A.get('/api/billing');
-  assert.equal(r.json.region, 'pe'); assert.equal(r.json.studioOpen, false); assert.equal(r.json.intl, 'paddle');
+  assert.equal(r.json.region, 'pe'); assert.equal(r.json.intl, 'paddle');
   assert.deepEqual(r.json.founder.PEN, { month: 39, year: 390 }); assert.equal(r.json.founder.code, 'FUNDADOR');
   assert.deepEqual(r.json.prices.PEN.indie, { month: 29, year: 290 }); assert.deepEqual(r.json.prices.USD.pro, { month: 14.99, year: 149 });
   r = await A.post('/api/billing/quote', { plan: 'pro', cycle: 'month', region: 'pe' });
-  assert.deepEqual([r.json.amount, r.json.list, r.json.founder, r.json.trialDays], [39, 49, true, 30]);
+  assert.deepEqual([r.json.amount, r.json.list, r.json.founder, r.json.trialDays], [39, 49, true, 0], 'sin mes gratis');
   r = await A.post('/api/billing/quote', { plan: 'pro', cycle: 'year', region: 'pe' }); assert.equal(r.json.amount, 390);
   r = await A.post('/api/billing/quote', { plan: 'indie', cycle: 'month', region: 'pe' });
-  assert.deepEqual([r.json.amount, r.json.founder, r.json.trialDays], [29, false, 0], 'la prueba de 30 días es de Pro');
+  assert.deepEqual([r.json.amount, r.json.founder, r.json.trialDays], [29, false, 0]);
   r = await A.post('/api/billing/quote', { plan: 'pro', cycle: 'month', region: 'intl' });
   assert.deepEqual([r.json.provider, r.json.amount, r.json.pct, r.json.code], ['paddle', 11.99, 20, 'FUNDADOR']);
+  // Studio, a la venta sin configurar nada (antes pedía STUDIO_OPEN=1)
   r = await A.post('/api/billing/quote', { plan: 'studio', cycle: 'month', region: 'pe' });
-  assert.equal(r.status, 403); assert.equal(r.json.code, 'studio_waitlist');
-  r = await A.post('/api/billing/checkout', { plan: 'studio', cycle: 'month', region: 'pe' }); assert.equal(r.json.code, 'studio_waitlist');
+  assert.equal(r.status, 200, r.text); assert.deepEqual([r.json.amount, r.json.founder, r.json.trialDays], [129, false, 0]);
+  r = await A.post('/api/billing/quote', { plan: 'studio', cycle: 'year', region: 'intl' });
+  assert.deepEqual([r.json.provider, r.json.amount, r.json.currency], ['paddle', 390, 'USD']);
   r = await A.post('/api/billing/quote', { plan: 'gratis', cycle: 'month', region: 'pe' }); assert.equal(r.json.code, 'bad_plan');
   // Mercado Pago: la suscripción se crea con el precio de fundador
   r = await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'pe' }); assert.equal(r.status, 200, r.text);
   const pre = Object.values(MPS.pre).at(-1);
   assert.equal(pre.auto_recurring.transaction_amount, 39); assert.match(pre.reason, /Pro mensual · precio de fundador/);
-  assert.equal(pre.auto_recurring.free_trial.frequency, 30);
+  assert.equal(pre.auto_recurring.free_trial, undefined, 'sin mes gratis');
 });
 
-test('lista de espera de Studio: con o sin cuenta, una vez por correo, visible en el panel', async () => {
+test('lista de espera de Studio: cerrada; el panel la muestra y, sin correo configurado, no marca a nadie', async () => {
   const anon = H.client(base);
-  let r = await anon.post('/api/waitlist', { plan: 'studio', email: 'Productora@Ejemplo.com', lang: 'en' }); assert.equal(r.status, 200, r.text);
-  r = await anon.post('/api/waitlist', { plan: 'studio', email: 'productora@ejemplo.com' }); assert.equal(r.status, 200);
-  r = await anon.post('/api/waitlist', { plan: 'studio', email: 'no-es-correo' }); assert.equal(r.json.code, 'bad_email');
-  r = await anon.post('/api/waitlist', { plan: 'pro', email: 'x@y.pe' }); assert.equal(r.json.code, 'bad_plan');
-  r = await anon.req('POST', '/api/waitlist', { plan: 'studio', email: 'z@y.pe' }, { 'X-FS': '' }); assert.equal(r.status, 403, 'sin la cabecera de la app');
+  let r = await anon.post('/api/waitlist', { plan: 'studio', email: 'productora@ejemplo.com', lang: 'en' }); assert.equal(r.status, 404, 'ya no se anota a nadie');
   const A = H.client(base); await login(A, 'espera@prueba.pe');
-  r = await A.post('/api/waitlist', { plan: 'studio', email: 'otro@prueba.pe' }); assert.equal(r.status, 200);
-  const rows = S.S.all('SELECT * FROM waitlist ORDER BY ts');
-  assert.deepEqual(rows.map(x => x.email), ['productora@ejemplo.com', 'espera@prueba.pe'], 'con sesión, el correo de la cuenta');
-  assert.equal(rows[0].lang, 'en'); assert.ok(rows[1].uid);
+  r = await A.post('/api/waitlist', { plan: 'studio' }); assert.equal(r.status, 404);
+  // los que se anotaron antes
+  S.S.run("INSERT INTO waitlist(email,plan,uid,lang,country,ts) VALUES('productora@ejemplo.com','studio',NULL,'en','US',?),('espera@prueba.pe','studio',?,'es','PE',?)", Date.now() - 2000, user('espera@prueba.pe').id, Date.now() - 1000);
   const adm = H.client(base); await login(adm, 'admin@prueba.pe');
-  r = await adm.get('/api/admin/waitlist'); assert.equal(r.json.length, 2);
-  r = await adm.get('/api/admin/stats'); assert.equal(r.json.waitlist, 2);
+  r = await adm.get('/api/admin/waitlist'); assert.equal(r.json.length, 2); assert.equal(r.json[0].notified, null);
+  r = await adm.get('/api/admin/stats'); assert.equal(r.json.waitlist, 2); assert.equal(r.json.waitlistTodo, 2);
   r = await A.get('/api/admin/waitlist'); assert.notEqual(r.status, 200);
+  r = await adm.post('/api/admin/waitlist/notify', {}); assert.equal(r.status, 503); assert.equal(r.json.code, 'mail_off');
+  assert.equal(S.S.one('SELECT COUNT(*) n FROM waitlist WHERE notified IS NOT NULL').n, 0, 'sin correo, nadie queda como avisado');
 });
 
-test('Paddle: Pro con 30 días de prueba, aviso firmado, cobro único, portal, cancelación y fin', async () => {
+test('Paddle: Pro (una prueba que ya había empezado sigue), aviso firmado, cobro único, portal, cancelación y fin', async () => {
   fs.writeFileSync(path.join(S.tmp, 'public', 'pagar.html'), '<html data-token="__PADDLE_CLIENT_TOKEN__" data-env="__PADDLE_ENV__"></html>');
   const A = H.client(base); await login(A, 'nyc@prueba.com', { tz: 'America/New_York' });
   let r = await A.post('/api/billing/quote', { plan: 'pro', cycle: 'month', region: 'intl' });
-  assert.deepEqual([r.json.provider, r.json.trialDays, r.json.currency], ['paddle', 30, 'USD']);
+  assert.deepEqual([r.json.provider, r.json.trialDays, r.json.currency], ['paddle', 0, 'USD']);
   r = await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'intl' }); assert.equal(r.status, 200, r.text);
   const sid = r.json.sid;
   assert.match(r.json.url, new RegExp(`^${base.replace(/[.]/g, '\\.')}/pagar\\?_ptxn=txn_\\w+&sid=${sid}$`));
   const txn = new URL(r.json.url).searchParams.get('_ptxn'), T = PDS.txns[txn];
-  assert.deepEqual(T.items, [{ price_id: 'pri_pro_m_t', quantity: 1 }], 'precio de Pro con prueba');
+  assert.deepEqual(T.items, [{ price_id: 'pri_pro_m', quantity: 1 }], 'el precio de Pro, nunca el de prueba');
+  // (lote AD) una prueba que empezó antes del cambio: el pago se había armado con el precio de prueba y la fila lo dice
+  T.items = [{ price_id: 'pri_pro_m_t', quantity: 1 }]; S.S.run('UPDATE subs SET trial=30 WHERE id=?', sid);
   assert.equal(T.discount_id, 'dsc_fundador'); assert.equal(T.collection_mode, 'automatic');
   assert.deepEqual(T.custom_data, { uid: user('nyc@prueba.com').id, sid });
   assert.equal(user('nyc@prueba.com').plan, 'free', 'pendiente');
@@ -190,7 +192,7 @@ test('Paddle: Pro con 30 días de prueba, aviso firmado, cobro único, portal, c
   s.status = 'canceled'; s.canceled_at = iso(Date.now() - 1000); s.scheduled_change = null; s.current_billing_period.ends_at = iso(Date.now() - 1000);
   assert.equal(await pdHook('subscription.canceled', { id: s.id }), 200);
   assert.equal(user('nyc@prueba.com').plan, 'free');
-  // la prueba de 30 días es una vez por cuenta
+  // de nuevo: sin prueba
   r = await A.post('/api/billing/quote', { plan: 'pro', cycle: 'month', region: 'intl' }); assert.equal(r.json.trialDays, 0);
   r = await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'intl' }); assert.equal(r.status, 200, r.text);
   assert.deepEqual(PDS.txns[new URL(r.json.url).searchParams.get('_ptxn')].items[0].price_id, 'pri_pro_m', 'sin prueba');
@@ -216,10 +218,10 @@ test('Paddle: el pago usa el correo de la cuenta; el portal de otro cliente no s
   r = await X.post('/api/billing/portal', {}); assert.equal(r.status, 403, r.text); assert.equal(r.json.code, 'not_owner');
 });
 
-/* el precio con prueba solo vale si el servidor la ofreció: quien ya usó la prueba no la repite con Paddle.js */
+/* el precio con prueba solo vale si el servidor la ofreció (antes del lote AD): ahora no se ofrece a nadie, y armarlo con
+   Paddle.js no activa el plan */
 test('Paddle: la prueba no ofrecida no activa el plan', async () => {
   const A = H.client(base); await login(A, 'repite@prueba.com', { tz: 'America/New_York' });
-  S.S.run('UPDATE users SET trial_used=1 WHERE email=?', 'repite@prueba.com');
   let r = await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'intl' }); assert.equal(r.status, 200, r.text);
   const txn = new URL(r.json.url).searchParams.get('_ptxn');
   assert.equal(PDS.txns[txn].items[0].price_id, 'pri_pro_m', 'sin prueba');
@@ -266,8 +268,9 @@ test('Paddle: Indie da Indie (no Pro); al pasar a Pro, Indie se cancela al insta
   assert.equal(user('indie@prueba.com').plan, 'pro');
   assert.equal(PDS.subs[s1.id].status, 'canceled', 'Indie se canceló en Paddle');
   assert.equal(S.S.one('SELECT status, note FROM subs WHERE ext_id=?', 'pd:' + s1.id).note, 'cambio de plan');
-  // botón «Ya pagué»: /api/billing/sync lee la transacción si aún no llegó el aviso
-  r = await A.post('/api/billing/checkout', { plan: 'studio', cycle: 'month', region: 'intl' }); assert.equal(r.json.code, 'studio_waitlist');
+  // de Pro a Studio: a la venta (antes, lista de espera)
+  r = await A.post('/api/billing/checkout', { plan: 'studio', cycle: 'month', region: 'intl' }); assert.equal(r.status, 200, r.text);
+  assert.equal(PDS.txns[new URL(r.json.url).searchParams.get('_ptxn')].items[0].price_id, 'pri_st_m');
 });
 
 test('Paddle: «Ya pagué» sin aviso lee la transacción; la clave equivocada no rompe el webhook', async () => {

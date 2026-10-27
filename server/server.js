@@ -11,7 +11,6 @@
      PEN_{INDIE,PRO,STUDIO}_{MONTH,YEAR}            precios en soles (29/290, 49/490, 129/1290)
      USD_{INDIE,PRO,STUDIO}_{MONTH,YEAR}            precios en dólares fuera del Perú (7.99/79, 14.99/149, 39/390)
      FOUNDER_UNTIL     2027-02-28T23:59:59-05:00     precio de fundador de Pro hasta esa fecha (S/ 39; código FUNDADOR fuera)
-     STUDIO_OPEN       1                            Studio a la venta (sin esto, lista de espera)
      MP_ACCESS_TOKEN   APP_USR-…                    Mercado Pago, pagos en el Perú (sin él, quedan apagados)
      MP_WEBHOOK_SECRET …                            clave secreta de los avisos (webhooks) de Mercado Pago
      PADDLE_API_KEY, PADDLE_WEBHOOK_SECRET, PADDLE_CLIENT_TOKEN   Paddle, pagos desde otros países
@@ -38,7 +37,7 @@ const { makeBilling } = require('./lib/billing');
 const { makeAdmin } = require('./lib/admin');
 const { makeReclamos } = require('./lib/reclamos');
 const { makeMail } = require('./lib/mail');
-const { parseCookies, cookie, addCookie, rid, normEmail, isEmail } = require('./lib/util');
+const { parseCookies, cookie, addCookie, normEmail } = require('./lib/util');
 const { LANGS, countryOf, regionOf, langOf } = require('./lib/geo');
 const { makeMapas } = require('./lib/mapas');
 
@@ -66,8 +65,6 @@ function config(over = {}) {
     },
     // precio de fundador de Pro: quien se suscribe antes de la fecha paga ese precio mientras siga suscrito
     founder: { until: Date.parse(e.FOUNDER_UNTIL || '2027-02-28T23:59:59-05:00') || 0, PEN: { month: num('FOUNDER_PEN_MONTH', 39), year: num('FOUNDER_PEN_YEAR', 390) }, pct: num('FOUNDER_USD_PCT', 20), code: String(e.FOUNDER_CODE || 'FUNDADOR').toUpperCase() },
-    // Studio abre cuando existan el scouting con mapas y el casting; mientras tanto, lista de espera
-    studioOpen: e.STUDIO_OPEN === '1',
     business: { name: String(e.BUSINESS_NAME || '').trim(), ruc: String(e.BUSINESS_RUC || '').trim(), address: String(e.BUSINESS_ADDRESS || '').trim(), legalDate: String(e.LEGAL_DATE || '').trim() },
   };
 }
@@ -181,7 +178,6 @@ function createServer(over) {
       FOUNDER: fnd ? '1' : '', FOUNDER_PE_M: money(cfg.founder.PEN.month, 'PEN', lang), FOUNDER_PE_Y: money(cfg.founder.PEN.year, 'PEN', lang),
       FOUNDER_PCT: String(cfg.founder.pct), FOUNDER_CODE: cfg.founder.code,
       FOUNDER_HASTA: cfg.founder.until ? new Date(cfg.founder.until).toLocaleDateString(lang === 'en' ? 'en-US' : lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Lima' }) : '',
-      STUDIO_OPEN: cfg.studioOpen ? '1' : '',
       CONTACTO: cfg.supportEmail || '—',
       EMPRESA_PIE: cfg.business.name || 'FilmSpirit',   // el pie de la portada: la razón social, si está configurada
       EMPRESA: cfg.business.name || '[razón social]', RUC: cfg.business.ruc || '[RUC]', DOMICILIO: cfg.business.address || '[domicilio fiscal]',
@@ -267,13 +263,9 @@ function createServer(over) {
       res.writeHead(req.method === 'GET' || req.method === 'HEAD' ? 301 : 307, { ...SEC_HEADERS, Location: cfg.baseUrl + req.url, 'Cache-Control': 'no-store' });
       return res.end();
     }
-    // marca de este navegador (para que el mes gratis no se repita desde el mismo equipo con otra cuenta). Se pone
-    // solo al entrar con Google, que es cuando se anota (billing.onLogin): quien solo mira la portada no la recibe
-    let dev = parseCookies(req).fs_dev;
-    if (!dev || !/^[\w-]{16,40}$/.test(dev)) {
-      dev = rid(16);
-      if (p === '/api/auth/google') addCookie(res, cookie('fs_dev', dev, { maxAge: 2 * 365 * 86400, secure: /^https:/.test(cfg.baseUrl) }));
-    }
+    // (lote AD) la marca de este navegador (fs_dev) era para que el mes gratis no se repitiera: ya no hay prueba gratis.
+    // Al entrar con Google se borra la que haya quedado
+    if (p === '/api/auth/google' && parseCookies(req).fs_dev) addCookie(res, cookie('fs_dev', '', { maxAge: 0, secure: /^https:/.test(cfg.baseUrl) }));
     if (p.startsWith('/api/')) {
       if (APP_V) res.setHeader('X-FS-App', APP_V);
       if (p === '/api/auth/google' && req.method === 'POST') {
@@ -284,7 +276,7 @@ function createServer(over) {
         try { got = await auth.loginGoogle(b.credential); }
         catch (e) { if (e instanceof HttpError) sec.loginFail(e.code, req.ip); throw e; }
         const { u, isNew } = got;
-        billing.onLogin(u, req, { isNew, ref: b.ref, dev, tz: typeof b.tz === 'string' ? b.tz.slice(0, 60) : '' });
+        billing.onLogin(u, req, { isNew, ref: b.ref, tz: typeof b.tz === 'string' ? b.tz.slice(0, 60) : '' });
         auth.startSession(res, u, req);
         return sendJSON(res, 200, { ok: true, me: auth.userJSON(S.one('SELECT * FROM users WHERE id=?', u.id)), isNew });
       }
@@ -359,26 +351,15 @@ function createServer(over) {
         auth.checkWrite(req);
         rateLimit('maps:' + u.id, 60, 3600e3);
         const b = await readJSON(req, 2048);
+        // (lote AD) los mapas del scouting son de Studio: en un proyecto, según el plan de quien es dueño (todo su equipo
+        // los usa); sin proyecto (uno nuevo que aún no está en el servidor), según el de la cuenta
+        if (!api.studioOk(b && b.pid, u)) return sendJSON(res, 403, { error: api.STUDIO_MSG.mapas, code: 'plan_studio' });
         try { return sendJSON(res, 200, { url: await mapas.resolve(b && b.url) }); }
         catch (e) { return sendJSON(res, e.code === 'bad_url' ? 400 : 422, { error: e.message, code: e.code || 'resolve_failed' }); }
       }
       if (p === '/api/config' && req.method === 'GET') return sendJSON(res, 200, { googleClientId: cfg.googleClientId, supportEmail: cfg.supportEmail || '' });
-      // lista de espera de Studio (abre cuando existan el scouting con mapas y el casting): con o sin cuenta
-      if (p === '/api/waitlist' && req.method === 'POST') {
-        auth.checkWrite(req);
-        rateLimit('wl:' + req.ip, 10, 3600e3);
-        const b = await readJSON(req, 2048), me = auth.current(req);
-        const email = normEmail(me ? me.email : b.email), plan = b.plan === 'studio' ? 'studio' : '';
-        if (!plan) return sendJSON(res, 400, { error: 'Plan desconocido.', code: 'bad_plan' });
-        if (!isEmail(email)) return sendJSON(res, 400, { error: 'Escribe un correo válido.', code: 'bad_email' });
-        // tope diario de correos nuevos (el formulario es público: que no se pueda llenar la lista con correos inventados)
-        if (!S.one('SELECT 1 x FROM waitlist WHERE email=? AND plan=?', email, plan) && S.one('SELECT COUNT(*) n FROM waitlist WHERE ts>?', Date.now() - 864e5).n >= Math.max(1, +(process.env.ESPERA_DIA || 500)))
-          return sendJSON(res, 429, { error: 'Hoy ya se anotaron muchas personas. Inténtalo mañana.', code: 'rate_limited' });
-        const lang = LANGS.includes(b.lang) ? b.lang : 'es', g = countryOf(req, typeof b.tz === 'string' ? b.tz.slice(0, 60) : '');
-        S.run('INSERT INTO waitlist(email,plan,uid,lang,country,ts) VALUES(?,?,?,?,?,?) ON CONFLICT(email,plan) DO UPDATE SET uid=COALESCE(excluded.uid, uid)', email, plan, me ? me.id : null, lang, g.country || '', Date.now());
-        return sendJSON(res, 200, { ok: true });
-      }
-      if (await billing.handle(req, res, url, dev)) return;
+      // (lote AD) Studio está a la venta: la lista de espera se cerró (los correos que quedaron se avisan desde el panel)
+      if (await billing.handle(req, res, url)) return;
       if (await admin.handle(req, res, url)) return;
       if (await reclamos.handle(req, res, url)) return;
       if (await api.handle(req, res, url)) return;
