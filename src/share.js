@@ -697,6 +697,7 @@ function teamDialog(focusId) {
   const m = modal({
     title: 'Equipo y permisos', wide: true,
     body: `<p class="hint" style="margin:0">Elige qué pestañas puede <b>ver</b> o <b>editar</b> cada jefe de área. En el desglose, «Editar» puede limitarse a sus áreas: cada uno llena sus cajas y ve las demás. Ver una pestaña incluye leer el guion y el desglose; el presupuesto también incluye el plan (para contar los días de rodaje).${DESK ? ' Si alguien deja de poder leer algo, se cambian las cerraduras de esa parte.' : ''}</p>
+      ${SHARE.kind === 'guion' ? '' : '<p class="hint" style="margin:0">Historia y Guion los ven el cargo «Guion», los de producción y quien administra; los demás leen el guion en el Guion rayado.</p>'}
       <div class="team-wrap"><table class="team-t"><thead><tr><th>Persona</th>${COLS.map(([, n]) => `<th>${esc(n)}</th>`).join('')}<th></th></tr></thead><tbody id="tmB"></tbody></table></div>
       <div class="team-add"><b>Agregar persona</b>
         ${AP ? `<div class="team-add-row"><input type="email" id="tmE" placeholder="Correo de su cuenta de Google" autocomplete="off" inputmode="email" aria-label="Correo"><select id="tmR" aria-label="Cargo">${ROLES.map(([r]) => `<option>${esc(r)}</option>`).join('')}</select><button class="btn" id="tmA" type="button">＋ Agregar</button></div>
