@@ -796,6 +796,8 @@ function actGo(ref, thread) {
 }
 /* ir a algo: cambia de pestaña, lo busca, lo muestra y (si se pide) abre su conversación */
 function noteGoto(t, id, tab, thread, nid) {
+  // (lote AD) Historia y Guion sin acceso: el guion se lee en el Guion rayado
+  if (tab && !canSeeTab(tab) && (tab === 'build' || tab === 'script') && canSeeTab('lined')) tab = 'lined';
   if (tab && !canSeeTab(tab)) { toast('No tienes acceso a esa pestaña.'); return; }
   if (nid && notesHidden()) ls.set('notesHide', false);
   if (nid) {

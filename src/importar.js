@@ -29,6 +29,7 @@ async function readPDFScript(file) {
   return parsePDFScript(pages);
 }
 function pickFile(accept, mode) {
+  if (Store.kind === 'api' && APITEAM.anon) return anonAsk('import');   // sin cuenta: importar crea un proyecto (lote AD)
   pickMode = mode;
   const f = $('#fileIn');
   f.accept = accept; f.value = '';
@@ -143,6 +144,8 @@ function importDone(msg, ms = 4600) {
 /* tipo de un proyecto nuevo en la web con cuentas: el plan Guion solo crea guiones; los demás, proyectos de producción */
 const newKind = () => API() && APITEAM.me && !(APITEAM.me.limits && APITEAM.me.limits.projects) ? 'guion' : 'prod';
 async function canCreateProject(quiet, kind) {
+  // sin cuenta (el ejemplo desde la portada): crear un proyecto pide la cuenta (lote AD · cuenta.js · anonAsk)
+  if (Store.kind === 'api' && APITEAM.anon) { if (!quiet) anonAsk('new'); return false; }
   if (Store.kind === 'api') {
     const me = APITEAM.me;
     if (!me || !me.limits) return true;

@@ -135,6 +135,9 @@ function makeApi(S, auth, live, cfg) {
     if (P.gaSeesAll(P.gaRole(r)) && !P.readSet(r).has('presupuesto')) { v.partidas = B.lines.filter(l => l.id).map(l => ({ id: l.id, sec: l.sec, name: l.name.slice(0, 120) })); v.moneda = B.cur; v.impuesto = B.tax; }
     return JSON.stringify(v);
   };
+  /* lo que recibe cada persona de una sección: las notas que puede ver, su parte de Gastos y el guion sin Historia si no
+     ve la etapa Guion (lote AD · perm.js · histHidden); lo demás, tal cual */
+  const secView = (p, r, uid, sec, json) => json == null ? null : sec === P.NOTES ? P.notesView(json, r, P.histHidden(p, r)) : sec === P.GASTOS ? gaViewJson(p, json, r, uid) : sec === 'guion' ? P.guionView(json, P.histHidden(p, r)) : json;
   // ¿quién de los conectados ve todo Gastos? (los avisos con detalle van solo a ellos)
   const gaSeer = p => { const memo = new Map(); return c => { if (!memo.has(c.uid)) { const r = roleOf(p, c.uid); memo.set(c.uid, !!r && !r.suspended && P.gaSeesAll(P.gaRole(r))); } return memo.get(c.uid); }; };
   const gaPlanOk = p => !!P.PLANS[ownerPlan(p)].gastos;
@@ -221,14 +224,15 @@ function makeApi(S, auth, live, cfg) {
       limits: { members: P.peopleLimit(plan, kind), photos: !script && P.PLANS[plan].photos, gastos: !script && !!P.PLANS[plan].gastos, projects: P.PLANS[plan].projects, scripts: P.PLANS[plan].scripts, writers: P.PLANS[plan].writers },
     };
     if (full) out.sections = {};
-    const hv = have || {};
+    const hv = have || {}, hist = P.histHidden(p, r);
     for (const s of S.all('SELECT sec, v FROM sections WHERE pid=?', p.id)) {
       if (!readable(p, r, s.sec)) continue;
       out.vers[s.sec] = s.v;
       if (!full) continue;
-      if (hv[s.sec] === s.v) { out.sections[s.sec] = { v: s.v, same: 1, n: S.one('SELECT length(CAST(json AS BLOB)) n FROM sections WHERE pid=? AND sec=?', p.id, s.sec).n }; continue; }
+      // el guion sin Historia (lote AD): el largo es el de lo que esta persona recibe, que es lo que tiene guardado
+      if (hv[s.sec] === s.v) { out.sections[s.sec] = { v: s.v, same: 1, n: s.sec === 'guion' && hist ? Buffer.byteLength(P.guionView(S.one("SELECT json FROM sections WHERE pid=? AND sec='guion'", p.id).json, true)) : S.one('SELECT length(CAST(json AS BLOB)) n FROM sections WHERE pid=? AND sec=?', p.id, s.sec).n }; continue; }
       const json = S.one('SELECT json FROM sections WHERE pid=? AND sec=?', p.id, s.sec).json;
-      out.sections[s.sec] = { json: s.sec === P.NOTES ? P.notesView(json, r) : s.sec === P.GASTOS ? gaViewJson(p, json, r, u.id) : json, v: s.v };
+      out.sections[s.sec] = { json: secView(p, r, u.id, s.sec, json), v: s.v };
     }
     // gastos sin guardar todavía: vacío (versión 0), para que se pueda guardar el primero
     if (full && !script && !out.sections[P.GASTOS]) out.sections[P.GASTOS] = { json: gaViewJson(p, null, r, u.id), v: 0 };
@@ -245,7 +249,9 @@ function makeApi(S, auth, live, cfg) {
     }
     return out;
   }
-  const evaluate = (p, uid) => { const r = roleOf(p, uid); return r && !r.suspended ? { read: P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r) } : null; };
+  const evaluate = (p, uid) => { const r = roleOf(p, uid); return r && !r.suspended ? { read: P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r), hist: P.histHidden(p, r) } : null; };
+  // (lote AD) una nota en la pestaña Historia: quien no ve la etapa Guion no recibe su aviso ni la ve en la actividad
+  const HIST_REF = 'guion|tab|build';
   const teamChanged = pid => { const p = project(pid); live.teamChanged(pid, c => p ? evaluate(p, c.uid) : null); };
 
   function parseSec(str, what) {
@@ -363,7 +369,7 @@ function makeApi(S, auth, live, cfg) {
     const s = S.one('SELECT v, json, by FROM sections WHERE pid=? AND sec=?', p.id, sec);
     if (s) readCost(u, s.json.length);
     if (sec === P.GASTOS) return sendJSON(res, 200, { v: s ? s.v : 0, json: gaViewJson(p, s ? s.json : null, r, u.id), by: s && P.gaSeesAll(P.gaRole(r)) ? (userById(s.by) || {}).name || '' : '' });
-    sendJSON(res, 200, s ? { v: s.v, json: sec === P.NOTES ? P.notesView(s.json, r) : s.json, by: (userById(s.by) || {}).name || '' } : { v: 0, json: null });
+    sendJSON(res, 200, s ? { v: s.v, json: secView(p, r, u.id, sec, s.json), by: (userById(s.by) || {}).name || '' } : { v: 0, json: null });
   });
 
   on('PUT', /^\/api\/p\/([\w-]+)\/s\/(\w+)$/, async (req, res, u, m) => {
@@ -382,7 +388,7 @@ function makeApi(S, auth, live, cfg) {
     let json = b.json;
     const val = parseSec(json, SECNAME[sec]);
     const curV = cur ? cur.v : 0;
-    const notes = sec === P.NOTES, gastos = sec === P.GASTOS, view = j => j == null ? null : notes ? P.notesView(j, r) : gastos ? gaViewJson(p, j, r, u.id) : j;
+    const notes = sec === P.NOTES, gastos = sec === P.GASTOS, view = j => secView(p, r, u.id, sec, j), hist = P.histHidden(p, r);
     if (gastos && !gaPlanOk(p)) fail(403, GA_PLAN, 'plan_gastos');
     if (+b.base !== curV) return sendJSON(res, 409, { error: 'Otra persona guardó antes.', code: 'conflict', v: curV, json: cur ? view(cur.json) : null, by: cur ? (userById(cur.by) || {}).name || '' : '' });
     // guion cerrado: solo con una revisión abierta y por las personas autorizadas; reabrir y cambiar quiénes, producción
@@ -401,10 +407,15 @@ function makeApi(S, auth, live, cfg) {
     }
     if (notes) {
       // cada quien solo cambia lo suyo; lo que no ve queda igual
-      const full = P.notesMerge(cur ? cur.json : null, val, u, r, now());
+      const full = P.notesMerge(cur ? cur.json : null, val, u, r, now(), hist);
       if (cur && P.canonJ(JSON.parse(full)) === P.canonJ(JSON.parse(cur.json))) return sendJSON(res, 200, { v: curV, json: view(cur.json) });
       json = full;
       filtered = P.canonJ(JSON.parse(view(full))) !== P.canonJ(val);
+    }
+    // quien no ve Historia (lote AD): guarda el guion con la Historia vigente (que no la tenga no es que la borró)
+    if (sec === 'guion' && hist) {
+      const g = P.guionKeepHist(cur ? cur.json : null, val);
+      if (P.canonJ(g) !== P.canonJ(val)) { json = JSON.stringify(g); filtered = P.canonJ(JSON.parse(view(json))) !== P.canonJ(val); }
     }
     // jefe de área: solo se guarda lo que cae en sus cajas del desglose
     const ar = sec === 'desglose' ? P.areasOf(r) : null;
@@ -439,7 +450,7 @@ function makeApi(S, auth, live, cfg) {
       live.broadcast(p.id, { t: 'sec', sec, v, by: u.name, uid: u.id, what: act.what, ref: act.ref, aid: act.id || 0, aj: act.joined ? 1 : 0, ts: t, c: String(b.c || '') }, c => sees(c));
       live.broadcast(p.id, { t: 'sec', sec, v, c: String(b.c || '') }, c => !sees(c));
     } else live.broadcast(p.id, { t: 'sec', sec, v, by: u.name, uid: u.id, what: act.what, ref: act.ref, aid: act.id || 0, aj: act.joined ? 1 : 0, ts: t, c: String(b.c || '') },
-      c => (notes || c.read.has(sec)) && (!refSec || c.read.has(refSec)));
+      c => (notes || c.read.has(sec)) && (!refSec || c.read.has(refSec)) && !(c.hist && act.ref === HIST_REF));
     sendJSON(res, 200, filtered ? { v, json: view(json) } : { v });
   });
 
@@ -654,7 +665,8 @@ function makeApi(S, auth, live, cfg) {
     const { p, r } = access(m[1], u);
     // lo de Gastos (quién aprobó, pagó o rindió qué), solo para quien ve todo Gastos
     const gaAll = P.gaSeesAll(P.gaRole(r));
-    const vis = a => readable(p, r, a.sec) && (a.sec !== P.GASTOS || gaAll) && (!a.ref || readable(p, r, a.ref.split('|')[0]));
+    const hist = P.histHidden(p, r);
+    const vis = a => readable(p, r, a.sec) && (a.sec !== P.GASTOS || gaAll) && (!a.ref || readable(p, r, a.ref.split('|')[0])) && !(hist && a.ref === HIST_REF);
     const lim = Math.min(200, Math.max(1, +url.searchParams.get('n') || 60));
     let cursor = +url.searchParams.get('before') || Number.MAX_SAFE_INTEGER;
     const items = [];
@@ -674,7 +686,7 @@ function makeApi(S, auth, live, cfg) {
     if (live.count(u.id) >= 24) fail(429, 'Hay demasiadas pestañas abiertas con tu cuenta.', 'too_many');
     const read = P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r), vers = {};
     for (const s of S.all('SELECT sec, v FROM sections WHERE pid=?', p.id)) if (readable(p, r, s.sec)) vers[s.sec] = s.v;
-    live.open(req, res, p.id, { uid: u.id, sh: sha256(parseCookies(req).fs_s || ''), client: String(url.searchParams.get('c') || '').slice(0, 40), read,
+    live.open(req, res, p.id, { uid: u.id, sh: sha256(parseCookies(req).fs_s || ''), client: String(url.searchParams.get('c') || '').slice(0, 40), read, hist: P.histHidden(p, r),
       name: u.name || String(u.email || '').split('@')[0], pic: u.picture || '', tab: String(url.searchParams.get('tab') || '').slice(0, 12) }, { t: 'hello', vers });
   });
   /* presencia: en qué pestaña del programa está esta ventana (los demás lo ven junto a sus fotos) */

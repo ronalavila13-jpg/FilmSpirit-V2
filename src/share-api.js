@@ -19,7 +19,13 @@ async function clearLocalData() {
   try { if (typeof OFFLINE !== 'undefined') await OFFLINE.clear(); } catch (e) { }
   try { for (const k of Object.keys(localStorage)) if (k.startsWith('filmspirit:p:') || k === 'filmspirit:me') localStorage.removeItem(k); } catch (e) { }
 }
+/* (lote AD) «Explorar con un proyecto de ejemplo» (/app/?ejemplo=1, desde la portada): con sesión se abre el ejemplo;
+   sin sesión, la app entra en modo ejemplo (APITEAM.anon): solo el ejemplo, en la memoria del navegador. Nada se lee ni
+   se guarda en el servidor (aquí abajo se corta toda llamada) y guardar, crear, importar o compartir piden una cuenta
+   (cuenta.js · anonAsk) */
+const SAMPLE_ASK = (() => { try { return new URLSearchParams(location.search).get('ejemplo') === '1'; } catch (e) { return false; } })();
 async function apiFetch(method, path, body) {
+  if (APITEAM.anon) { const er = new Error('Para eso necesitas una cuenta: crea la tuya gratis.'); er.code = 'need_account'; throw er; }
   let r;
   try {
     r = await fetch(path, {
@@ -208,7 +214,7 @@ const OFFLINE = {
   },
 };
 addEventListener('online', () => { if (OFFLINE.on) OFFLINE.reconnect(); });
-addEventListener('offline', () => { if (Store && Store.kind === 'api') OFFLINE.set(true); });
+addEventListener('offline', () => { if (Store && Store.kind === 'api' && !APITEAM.anon) OFFLINE.set(true); });   // sin cuenta no hay nada que enviar después
 /* presencia: con el programa en segundo plano más de un minuto, los demás te ven atenuado («en otra ventana») */
 document.addEventListener('visibilitychange', () => {
   clearTimeout(APITEAM.awayT);
@@ -222,12 +228,14 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localh
 
 /* ---------- transporte ---------- */
 const APITEAM = {
+  anon: false,   // sin cuenta, solo el ejemplo (lote AD · SAMPLE_ASK)
   me: null, h: {}, pid: null, es: null, vers: {}, read: new Set(), queue: {}, creating: new Map(), st: null, esFails: 0,
   who: [], esTab: '', hereTab: '', hereT: 0, away: false, awayT: 0, whoStale: 0,   // presencia: quién más está, en qué pestaña y si a la vista
   async init() {
     let r;
-    // la lista de proyectos se pide a la vez que la cuenta (antes, una después de la otra); list() la usa una vez
-    this.listP = fetch('/api/projects', { credentials: 'same-origin', cache: 'no-store', headers: { 'X-FS': '1' } })
+    // la lista de proyectos se pide a la vez que la cuenta (antes, una después de la otra); list() la usa una vez.
+    // Con ?ejemplo=1 no: puede que no haya sesión (y entonces no se pide nada más)
+    if (!SAMPLE_ASK) this.listP = fetch('/api/projects', { credentials: 'same-origin', cache: 'no-store', headers: { 'X-FS': '1' } })
       .then(x => x.ok ? x.json() : null).catch(() => null);
     for (let i = 0; ; i++) {
       try { r = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }); break; }
@@ -239,6 +247,8 @@ const APITEAM = {
         await new Promise(res => setTimeout(res, 1500));
       }
     }
+    // sin sesión y con ?ejemplo=1: el modo ejemplo, sin cuenta (lote AD). Con el plan gratis: marca de agua y lo de Pro cerrado
+    if (r.status === 401 && SAMPLE_ASK) { this.anon = true; LIC = { mode: 'free', plan: 'free' }; paintBrand(); shareInit(); anonButton(); return; }
     if (r.status === 401) { location.replace('/entrar?next=' + encodeURIComponent(location.pathname + location.search)); await new Promise(() => { }); }
     this.setMe(await r.json());
     shareInit();
@@ -258,6 +268,7 @@ const APITEAM = {
   on(ev, fn) { this.h[ev] = fn; },
   emit(ev, ...a) { const f = this.h[ev]; if (f) { try { f(...a); } catch (e) { console.warn('equipo:', e); } } },
   async list() {
+    if (this.anon) return [];   // sin cuenta no hay proyectos guardados: solo el ejemplo
     const pre = this.listP ? await this.listP : null;
     this.listP = null;
     if (Array.isArray(pre)) { const out = pre.map(x => ({ ...x, shared: x.shared || !x.mine })); ls.set('offList', out); return out; }
@@ -584,6 +595,7 @@ const APITEAM = {
 
 /* la dirección lleva el proyecto abierto: se puede recargar o enviar como enlace */
 function apiUrl(pid) {
+  if (APITEAM.anon) return;   // sin cuenta la dirección conserva ?ejemplo=1: al recargar se vuelve al ejemplo
   try { history.replaceState(null, '', pid ? '?p=' + encodeURIComponent(pid) : location.pathname); } catch (e) { }
 }
 function apiLink(pid) { return location.origin + '/app/?p=' + encodeURIComponent(pid); }

@@ -218,6 +218,7 @@ async function deleteAccountDialog() {
 }
 /* planes y suscripción: Mercado Pago en el Perú (soles); fuera, Paddle (o Lemon Squeezy), en dólares */
 async function licenseDialog(lead, want) {
+  if (APITEAM.anon) return anonAsk('plan', () => licenseDialog(lead, want), lead);   // sin cuenta: primero la cuenta (lote AD)
   if (typeof OFFLINE !== 'undefined' && OFFLINE.on) { toast('Sin conexión: los planes se ven cuando vuelva internet.', 4000); return; }
   const me = APITEAM.me || { plan: 'free', limits: {} };
   const B = await billInfo(true);
@@ -432,6 +433,83 @@ async function reauthDialog() {
   }
 }
 
+/* ---------- (lote AD) sin cuenta: el ejemplo desde la portada (/app/?ejemplo=1, share-api.js · SAMPLE_ASK) ----------
+   Se explora el ejemplo sin entrar; guardar, crear, importar, compartir o ver los planes piden una cuenta. Se entra con
+   Google aquí mismo, como cuando vence la sesión (reauthDialog): el ejemplo sigue en pantalla con lo que cambiaste y lo
+   que se pidió (guardar el ejemplo, crear un proyecto, ver los planes) sigue al entrar, con el límite del plan de la
+   cuenta. Si el botón de Google no carga, se entra en la página de siempre (/entrar) */
+const ANON_WHY = {
+  save: 'Para guardar tus cambios en el ejemplo necesitas una cuenta.', new: 'Para crear un proyecto necesitas una cuenta.',
+  import: 'Para importar tu guion necesitas una cuenta.', share: 'Para compartir un proyecto con tu equipo necesitas una cuenta.',
+};
+let ANON_GO = null;   // lo que se pidió hacer antes de entrar: se hace al entrar
+function anonButton() {
+  if ($('#anonBtn')) return;
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'anonBtn'; b.className = 'btn tb-btn anon-btn';
+  b.title = 'Para guardar tus cambios y crear tus proyectos'; b.setAttribute('aria-label', 'Crear cuenta gratis');
+  b.innerHTML = '<span class="hide-sm">Crear cuenta gratis</span><span class="only-sm">Crear cuenta</span>';
+  b.onclick = () => anonAsk('');
+  $('.topbar').appendChild(b);
+  document.body.classList.add('anon');
+}
+async function anonAsk(what, then, lead) {
+  if (!APITEAM.anon) { if (then) then(); return; }
+  ANON_GO = then || null;
+  if ($('#modal.anon-m')) return;
+  const why = lead || ANON_WHY[what] || 'Con una cuenta guardas tus guiones y proyectos, y trabajas con tu equipo.';
+  const m = modal({
+    title: 'Crea tu cuenta gratis',
+    body: `<p style="margin:0"><span>${esc(why)}</span> <span>${what === 'save' ? 'Es gratis: entras con tu cuenta de Google y el ejemplo, con tus cambios, se guarda como un proyecto tuyo.' : 'Es gratis: entras con tu cuenta de Google, y lo que cambiaste en el ejemplo sigue aquí.'}</span></p>
+      <div id="anonGis" class="gis-box"><span class="hint">Cargando el botón de Google…</span></div><p class="hint" id="anonErr" style="margin:0;color:var(--bad)" hidden></p>
+      <p class="hint" style="margin:0">El plan Guion es gratis: hasta 5 guiones, con coescritura. <a href="/#planes" target="_blank" rel="noopener">Ver los planes</a></p>`,
+    foot: '<button class="btn" data-close>Seguir explorando</button>',
+    onClose: () => { ANON_GO = null; },
+  });
+  m.classList.add('anon-m');
+  const err = t => { const e = $('#anonErr', m); if (e) { e.textContent = t; e.hidden = !t; } };
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());   // público: el id de cliente de Google
+    const id = await loadGIS();
+    id.initialize({
+      client_id: cfg.googleClientId, ux_mode: 'popup', use_fedcm_for_prompt: true, context: 'signup',
+      callback: async resp => {
+        let ref = ''; try { ref = localStorage.getItem('fs_ref') || ''; } catch (e) { }
+        let r, j = {};
+        try {
+          r = await fetch('/api/auth/google', { method: 'POST', credentials: 'same-origin', headers: { 'X-FS': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential, ref, tz: TZ }) });
+          j = await r.json().catch(() => ({}));
+        } catch (e) { err('Sin conexión con el servidor. Revisa tu internet.'); return; }
+        if (!r.ok || !j.me) { err(j.error || 'No se pudo entrar.'); return; }
+        await anonIn(j);
+      },
+    });
+    const box = $('#anonGis', m); if (!box) return;
+    box.innerHTML = ''; box.style.colorScheme = 'light';
+    const dark = document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+    id.renderButton(box, { theme: dark ? 'filled_black' : 'outline', size: 'large', text: 'signup_with', shape: 'pill', locale: EN ? 'en' : 'es' });
+  } catch (e) {
+    const box = $('#anonGis', m); if (box) box.innerHTML = '<a class="btn primary" href="/entrar?next=/app/">Entrar con Google</a>';
+  }
+}
+/* entró: la app sigue como cualquier sesión, con el ejemplo y sus cambios en pantalla */
+async function anonIn(j) {
+  const go = ANON_GO; ANON_GO = null;   // (antes de cerrar la ventana, que lo olvida)
+  try { localStorage.removeItem('fs_ref'); } catch (e) { }
+  // otra cuenta usó antes este navegador: lo guardado aquí para ella se borra (como en reauthDialog)
+  const prev = ls.get('me', null); if (prev && prev.id && prev.id !== j.me.id) await clearLocalData();
+  APITEAM.anon = false;
+  // sin recargar por el idioma de la cuenta (langFromAccount): el ejemplo vive en la memoria de esta página
+  APITEAM.setMe(j.me, true); try { localStorage.setItem('filmspirit:me', JSON.stringify(j.me)); } catch (e) { }
+  const b = $('#anonBtn'); if (b) b.remove();
+  document.body.classList.remove('anon');
+  apiUrl(null);   // recargar ya no vuelve al ejemplo sin cuenta
+  closeModal();
+  toast(j.isNew ? '¡Listo! Ya tienes tu cuenta de FilmSpirit.' : 'Listo: entraste con tu cuenta.', 4000);
+  if (typeof refreshProjCount === 'function') refreshProjCount();
+  setSaveState();
+  if (go) setTimeout(go, 60);
+}
+
 /* ---------- invitaciones ---------- */
 function inviteTextApi(x) {
   const tabs = secListAll().filter(([s]) => x.perms && x.perms[s]).map(([s, n]) => `${n} (${x.perms[s] === 'editar' ? 'editar' : 'ver'})`).join(', ');
@@ -469,6 +547,7 @@ function noAccessDialog(pid, msg) {
 /* botón Compartir: el proyecto tiene que existir en el servidor */
 async function apiShare(anchor) {
   if (!P) return;
+  if (APITEAM.anon) return anonAsk('share');   // sin cuenta (lote AD)
   if (P._sample && !P._saved) return confirmBox('Compartir', 'Este es el proyecto de ejemplo. Para compartirlo, primero guárdalo como un proyecto tuyo.', 'Guardar como mi proyecto', adoptSample, false);
   if (P._blocked) return freeLimitNotice(P._kind);
   if (!P._shared) {

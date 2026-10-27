@@ -72,6 +72,9 @@ h1.rc{text-transform:lowercase}
 .hero-lead{margin:0;max-width:34em;font-size:clamp(17px,1.4vw,20px);line-height:1.5}
 .note{margin:0;max-width:44em;font-size:15px;line-height:1.5;background:rgba(33,33,33,.2);border-radius:6px;padding:10px 14px}
 .hero-hint{margin:4px 0 0;font-size:15px;line-height:1.5}
+/* (lote AD) explorar el proyecto de ejemplo, sin cuenta */
+.hero-ex{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:0}
+.hero-ex span{font-size:15px;line-height:1.4;opacity:.92}
 
 .sheet{position:relative;margin-top:clamp(20px,3vw,36px);min-height:560px;padding:clamp(36px,6vw,72px) clamp(18px,7vw,96px) 150px;background:var(--cream);color:var(--ink);border-radius:4px;box-shadow:0 28px 60px rgba(64,4,10,.42),0 2px 6px rgba(64,4,10,.22);font-family:var(--font-script);font-size:17px;line-height:1.45}
 .sheet-n{position:absolute;top:22px;right:28px;font-size:15px;color:var(--muted)}

@@ -5,6 +5,8 @@
 /* ---------- pestañas ---------- */
 const RENDER = {};
 function setTab(t) {
+  // (lote AD) Historia y Guion sin acceso (un enlace, una notificación): el guion se lee en el Guion rayado
+  if (typeof canSeeTab === 'function' && !canSeeTab(t) && (t === 'build' || t === 'script') && canSeeTab('lined')) t = 'lined';
   if (typeof canSeeTab === 'function' && !canSeeTab(t)) { toast('No tienes acceso a esa pestaña en este proyecto.'); return; }
   if (t !== 'animatic' && AN.playing) anPause();
   scriptModeFor(t);
@@ -306,6 +308,8 @@ function sampleBanner() {
 /* el ejemplo pasa a ser un proyecto guardado (con los dibujos hechos mientras se probaba) */
 async function adoptSample() {
   if (!P || !P._sample || P._saved) return;
+  // sin cuenta (el ejemplo desde la portada): primero la cuenta; al entrar, se guarda (cuenta.js · anonAsk)
+  if (Store.kind === 'api' && APITEAM.anon) return anonAsk('save', adoptSample);
   if (typeof autoKind === 'function' && autoKind()) P._kind = autoKind();
   if (!(await canCreateProject(false, P._kind))) return;
   // web con cuentas, como guion (plan Guion o sin lugar de producción): se avisa que solo se guarda el guion
