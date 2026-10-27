@@ -495,7 +495,7 @@ async function shareSave(Px) {
 }
 // cada imagen se guarda con su sección (frameSec, en areas.js): sin permiso de editarla, no se sube
 async function shareSaveFrame(pid, k, url) {
-  if (!canEditSec(frameSec(k))) { toast(`Solo lectura: las imágenes ${({ desglose: 'del desglose', plan: 'del scouting', llamado: 'de la hoja de llamado', gastos: 'de Gastos' })[frameSec(k)] || 'del storyboard'} no se guardan.`); return; }
+  if (!canEditSec(frameSec(k))) { toast(`Solo lectura: las imágenes ${({ desglose: 'del desglose', plan: 'del scouting', llamado: 'de la hoja de llamado', gastos: 'de Gastos', hoja: 'de la hoja de script' })[frameSec(k)] || 'del storyboard'} no se guardan.`); return; }
   await TIO().saveFrame(pid, k, url || null);
 }
 

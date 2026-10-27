@@ -202,6 +202,7 @@ function sanitizeProject(Px) {
     Su.takes[id] = L.filter(t => t && typeof t === 'object');
     for (const t of Su.takes[id]) { t.n = Math.max(0, Math.round(+t.n) || 0); if (!['ok', 'ng', 'bn'].includes(t.st)) t.st = 'ok'; }
   }
+  if (typeof supClean === 'function') supClean(Su);   // (lote AD) lo nuevo de la hoja de script (tab-sup.js)
   const K = Px.calendar;
   if (K && Array.isArray(K.tasks)) {
     // fechas AAAA-MM-DD: sin inicio válido la tarea no se puede dibujar; sin fin válido, termina el mismo día

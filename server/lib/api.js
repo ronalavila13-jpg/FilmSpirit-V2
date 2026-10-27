@@ -482,7 +482,7 @@ function makeApi(S, auth, live, cfg) {
     // fotos de Gastos (recibos, órdenes de compra, reembolsos): de Pro y Studio, y cada quien las de lo suyo
     if (ga && !gaPlanOk(p)) fail(403, GA_PLAN, 'plan_gastos');
     if (ga && !P.gaFrameEdit(gaCur(p.id) || {}, gaWho(r, u.id), k)) fail(403, 'No puedes cambiar esta foto: el gasto es de otra persona o ya se revisó.', 'no_edit');
-    if (!ga && !P.canEdit(r, sec)) fail(403, `No tienes permiso para guardar imágenes ${sec === 'desglose' ? (k.startsWith('ca~') ? 'del casting' : 'del desglose') : sec === 'plan' ? 'del scouting' : sec === 'llamado' ? 'de la hoja de llamado' : 'del storyboard'}.`, 'no_edit');
+    if (!ga && !P.canEdit(r, sec)) fail(403, `No tienes permiso para guardar imágenes ${sec === 'desglose' ? (k.startsWith('ca~') ? 'del casting' : 'del desglose') : sec === 'plan' ? 'del scouting' : sec === 'llamado' ? 'de la hoja de llamado' : sec === 'hoja' ? 'de la hoja de script' : 'del storyboard'}.`, 'no_edit');
     const ar = sec === 'desglose' ? P.areasOf(r) : null;
     if (ar) {
       const d = S.one("SELECT json FROM sections WHERE pid=? AND sec='desglose'", p.id);
@@ -496,8 +496,8 @@ function makeApi(S, auth, live, cfg) {
       if (del.changes) live.broadcast(p.id, { t: 'frame', k, v: 0, c: String(b.c || '') }, frameTo(p, k, sec));
       return sendJSON(res, 200, { v: 0 });
     }
-    // fotos del desglose, del casting, del scouting y del punto de encuentro: de Pro y Studio
-    if ((sec === 'desglose' || k.startsWith('lc~') || k.startsWith('cl~')) && !P.PLANS[ownerPlan(p)].photos) fail(403, `Las fotos ${k.startsWith('ca~') ? 'del casting' : k.startsWith('lc~') ? 'del scouting' : k.startsWith('cl~') ? 'del punto de encuentro' : 'en el desglose'} son parte de FilmSpirit Pro y Studio.`, 'plan_photos');
+    // fotos del desglose, del casting, del scouting, del punto de encuentro y de la hoja de script: de Pro y Studio
+    if ((sec === 'desglose' || sec === 'hoja' || k.startsWith('lc~') || k.startsWith('cl~')) && !P.PLANS[ownerPlan(p)].photos) fail(403, `Las fotos ${k.startsWith('ca~') ? 'del casting' : k.startsWith('lc~') ? 'del scouting' : k.startsWith('cl~') ? 'del punto de encuentro' : sec === 'hoja' ? 'de la hoja de script' : 'en el desglose'} son parte de FilmSpirit Pro y Studio.`, 'plan_photos');
     const m3 = k.startsWith('m3~');
     if (m3 && !P.PLANS[ownerPlan(p)].photos) fail(403, 'Los modelos 3D importados son de los planes Indie, Pro y Studio.', 'plan_photos');
     const mm = (m3 ? M3_RE : DATA_RE).exec(typeof b.url === 'string' ? b.url : '');
