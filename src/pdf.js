@@ -1157,8 +1157,13 @@ function pdfCallHead(doc, X, V) {
   const yh = yc + 51 + CLF.hero * .74;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.hero); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), xc, yh, { align: 'center' });
   // (lote W) el catering va tal cual lo escribieron (antes, en inglés, «Catering: …» se traducía entero y salía repetido)
-  const subl = [X.motor && trDone(tr(`Listos motor ${X.motor}`)), X.lunch && trDone(tr(`Almuerzo ${X.lunch}`)), X.dd.craft && trDone(tr('Catering') + ': ' + X.dd.craft.trim())].filter(Boolean);
-  if (subl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); doc.text(trDone(pdfSafe(subl.join('     '))), xc, yh + 16, { align: 'center' }); }
+  // (lote Y) como en la pantalla: cada etiqueta en gris y su hora (o lo escrito) en negrita, centrados en una línea
+  const subl = [['Listos motor', X.motor], ['Almuerzo', X.lunch], ['Catering', (X.dd.craft || '').trim()]].filter(([, v]) => v)
+    .map(([l, v]) => { const L = trDone(pdfSafe(trDone(tr(l)))) + ' ', V = pdfSafe(v); doc.setFontSize(CLF.ft); doc.setFont('helvetica', 'normal'); const wl = raw.getTextWidth(L); doc.setFont('helvetica', 'bold'); return { L, V, wl, w: wl + raw.getTextWidth(V) }; });
+  if (subl.length) {
+    let xx = xc - (subl.reduce((a, q) => a + q.w, 0) + 14 * (subl.length - 1)) / 2;
+    for (const q of subl) { doc.setFont('helvetica', 'normal'); doc.setTextColor(...K.c2); raw.text(q.L, xx, yh + 16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); raw.text(q.V, xx + q.wl, yh + 16); xx += q.w + 14; }
+  }
   yc = yh + (subl.length ? 24 : 10);
   // derecha: el clima, el punto de encuentro (o estacionamiento) y la locación con su mapa, cada uno con su ícono
   let yr = y0 - 5;
@@ -1168,6 +1173,20 @@ function pdfCallHead(doc, X, V) {
     for (const p of parts) {
       const fs = p.fs || CLF.bd;
       doc.setFont('helvetica', p.st || 'normal'); doc.setFontSize(fs); doc.setTextColor(...(p.col || INK));
+      // (lote Y) pares etiqueta y valor («Máx. 30°», «Amanecer 05:48»): la etiqueta en gris y el valor en negrita, uno al
+      // lado del otro como en la pantalla (si no entran, el siguiente baja)
+      if (p.pairs) {
+        let xx = x3 + 16;
+        p.pairs.forEach(([l, v]) => {
+          const L = trDone(pdfSafe(trDone(tr(l)))) + ' ', V = pdfSafe(v);
+          doc.setFont('helvetica', 'normal'); const wl = raw.getTextWidth(L); doc.setFont('helvetica', 'bold'); const wv = raw.getTextWidth(V);
+          if (xx > x3 + 16 && xx + wl + wv > x3 + w3) { xx = x3 + 16; yy += fs * 1.34; }
+          doc.setFont('helvetica', 'normal'); doc.setTextColor(...K.c2); raw.text(L, xx, yy);
+          doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK); raw.text(V, xx + wl, yy);
+          xx += wl + wv + 9;
+        });
+        yy += fs * 1.34; continue;
+      }
       // lo escrito por cada uno (p.raw) no se traduce
       const t = doc.splitTextToSize(trDone(p.raw ? pdfSafe(p.t) : pdfSafe(trDone(tr(p.t)))), w3 - 16).slice(0, p.max || 3); raw.text(t, x3 + 16, yy); yy += t.length * fs * 1.34;
       // los enlaces del punto de encuentro, por su nombre («Google Maps · Waze»), cada uno se toca
@@ -1185,9 +1204,9 @@ function pdfCallHead(doc, X, V) {
   };
   // (lote Y) el clima como en la pantalla: lo que se escribió en «Clima» (con «°» si es un número) y, debajo, en gris, la
   // máxima, la mínima y la humedad con su unidad pegada al número
-  const Dd = X.dd, wx = wxLine(Dd, '     '), wx0 = wxShow('wx', Dd.wx);
-  if (wx.length) row('wx', [wx0 ? { t: wx0, raw: true } : null, wx.slice(wx0 ? 1 : 0).length ? { t: wx.slice(wx0 ? 1 : 0).join('     '), fs: CLF.ft, col: K.c2, raw: true } : null].filter(Boolean));
-  if (Dd.sunrise || Dd.sunset) row('sun', [{ t: [Dd.sunrise && trDone(tr(`Amanecer ${Dd.sunrise}`)), Dd.sunset && trDone(tr(`Anochece ${Dd.sunset}`))].filter(Boolean).join('     '), fs: CLF.ft, col: K.c2, raw: true }]);
+  const Dd = X.dd, wx0 = wxShow('wx', Dd.wx), wxP = [['Máx.', wxShow('hi', Dd.hi)], ['Mín.', wxShow('lo', Dd.lo)], ['Hum.', wxShow('hum', Dd.hum)]].filter(([, v]) => v);
+  if (wx0 || wxP.length) row('wx', [wx0 ? { t: wx0, raw: true } : null, wxP.length ? { pairs: wxP, fs: CLF.ft } : null].filter(Boolean));
+  if (Dd.sunrise || Dd.sunset) row('sun', [{ pairs: [['Amanecer', Dd.sunrise], ['Anochece', Dd.sunset]].filter(([, v]) => v), fs: CLF.ft }]);
   // (lote W) el punto de encuentro entero, como en la pantalla: la dirección de citación, su referencia, los enlaces y las fotos
   const mt = X.meet, mAddr = (mt.addr || '').trim(), mNote = (mt.note || '').trim(), mLinks = (mt.links || []).map(safeUrl).filter(Boolean);
   const mPh = (mt.ph || []).filter(q => FRAMES[clPhKey(X.d.id, q.id)]);
@@ -1347,9 +1366,9 @@ function pdfCall(opts = {}) {
     const pb = [];
     if (X.cast.length) {
       pb.push(sep('Reparto', ''));
-      for (const { el } of X.cast) {
+      for (const { el, sc } of X.cast) {
         const Tl = callTalent(el.id), Z = (X.dd.cast || {})[el.id] || {};
-        pb.push([Tl.actor ? { content: pdfSafe(Tl.actor), styles: { fontStyle: 'bold' } } : pdfRich([{ t: TBC, col: K.c2 }]), pdfRich([{ segs: [...(D.castNum[el.id] ? [{ t: D.castNum[el.id] + '  ', st: 'bold', col: K.c2, tr: false }] : []), { t: titleCase(el.name), st: 'bold' }] }]),
+        pb.push([Tl.actor ? { content: pdfSafe(Tl.actor), styles: { fontStyle: 'bold' } } : pdfRich([{ t: TBC, col: K.c2 }]), pdfRich([{ segs: [...(D.castNum[el.id] ? [{ t: D.castNum[el.id] + '  ', st: 'bold', col: K.c2, tr: false }] : []), { t: titleCase(el.name), st: 'bold' }] }, sc && sc.length ? { t: `Esc. ${sc.join(', ')}`, fs: CLF.cap, col: K.c2 } : null]),
           tmc(Z.pu), tmc(Z.call || X.call, true), tmc(Z.ves), tmc(Z.mq), tmc(Z.ready), telMail(Tl.phone, Tl.email), { content: pdfSafe(Z.obs || ''), styles: { fontSize: CLF.ft } }]);
       }
       if (X.fig) pb.push([{ content: pdfSafe(`Figuración: ${X.fig}`), colSpan: NP, styles: { textColor: K.c2, fontSize: CLF.ft } }]);
