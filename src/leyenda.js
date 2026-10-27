@@ -347,7 +347,7 @@ function lgItems(tab) {
   const strips = () => fixed('plan', LG_STRIPS).map(x => ({ ...x, name: LG_STRIP_NAME[x.key] || x.name }));
   if (tab === 'plan') return { add: 'plan', list: [...strips(), ...fixed('plan', ['brk', 'ev']), ...hl('plan')] };
   if (tab === 'call') return { list: [...strips(), ...fixed('plan', ['brk', 'ev']), ...hl('plan').filter(x => lgHlUses('plan', x.key.slice(2))), ...fixed('call', ['note'])] };
-  if (tab === 'sup') return { list: fixed('plan', ['d', 'n']) };
+  if (tab === 'sup') return { list: strips() };   // (lote AD) la hoja de script también lleva el número de cada escena sobre su tira
   if (tab === 'cal') return { add: 'cal', list: [...fixed('cal', ['pre', 'rod', 'post', 'otro']), ...hl('cal')] };
   if (tab === 'breakdown' || tab === 'lined') {
     const used = new Set(Object.values(P.elements || {}).map(e => e && e.cat));
