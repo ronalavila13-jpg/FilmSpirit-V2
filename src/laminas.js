@@ -13,9 +13,9 @@ const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB'
 const lamEditable = box => !UI.readOnly && (typeof canEditArea !== 'function' || canEditArea(box));
 const CAM_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.2h2.6l1.2-1.8h4.4l1.2 1.8H14v7.6H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8.9" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
 /* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP de unos 170 kB (imagenes.js);
-   un PNG transparente queda sobre blanco, como en el papel */
-async function compressPhoto(file) {
-  const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }));
+   un PNG transparente queda sobre blanco, como en el papel. top: otro tope (la hoja de script: 200 kB) */
+async function compressPhoto(file, top) {
+  const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }), top ? { top } : {});
   return { ...r, before: file.size, after: imgBytes(r.url) };
 }
 /* ---------- fotos que se ven al instante ----------
@@ -33,7 +33,8 @@ const photoErrText = err => err && err.code === 'quota_exceeded' ? 'se llenó el
   : err && err.message && err.code !== 'offline' ? err.message : 'inténtalo de nuevo.';
 /* se borró una foto que todavía no termina de subir: true si estaba pendiente (photosAdd la borra en el servidor) */
 function photoCancel(k) { const it = PHOTO_PEND.get(k); if (!it) return false; it.cancel = true; return true; }
-/* o: { keyOf(id) → clave en FRAMES, add({ id, w, h }) y drop(id) en los datos, paint() para volver a pintar }.
+/* o: { keyOf(id) → clave en FRAMES, add({ id, w, h }) y drop(id) en los datos, paint() para volver a pintar, top (el
+   tope de cada foto, si no es el de siempre) }.
    Devuelve cuántas se agregaron (las subidas siguen en PHOTO_UP) */
 async function photosAdd(files, o) {
   if (!proGate('photos')) return { n: 0 };
@@ -88,7 +89,7 @@ async function photosAdd(files, o) {
   try {
     for (const f of list) {
       let r;
-      try { r = await compressPhoto(f); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
+      try { r = await compressPhoto(f, o.top); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
       if (P !== Px || stop) break;
       const id = uid('f'), k = o.keyOf(id);
       if (o.add({ id, w: r.w, h: r.h }) === false) continue;     // el elemento ya no está

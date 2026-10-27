@@ -90,7 +90,7 @@ test('piezas: «del plan» marca la hora calculada; ‹ › sin a dónde ir qued
 });
 
 /* ---------- las 14 pestañas: cabecera nueva y sin relleno ---------- */
-const HEADS = { call: 'cl-hd', sup: 'sup-hd0', breakdown: 'bd-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
+const HEADS = { call: 'cl-hd', sup: 'hs-hd', breakdown: 'bd-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
 const html = {};
 for (const t of Object.keys(HEADS).concat(['script', 'animatic'])) html[t] = A.show(t);
 test('las 14 pestañas tienen su cabecera nueva', () => {

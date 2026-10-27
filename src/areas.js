@@ -61,9 +61,10 @@ function permCanEdit(who, sec) {
 const permAreas = who => !who.admin && who.perms && who.perms.desglose === 'editar' && Array.isArray(who.perms.areas) ? who.perms.areas : null;
 // las fotos del desglose («bd~…») y las del casting («ca~…») viajan con el desglose; las del scouting («lc~…»), con
 // el stripboard; las del punto de encuentro («cl~…»), con la hoja de llamado; las de los recibos y órdenes de
-// compra («ga~…»), con Gastos (cada persona las suyas: gaFrameOk); el resto, con el storyboard
-const frameSec = k => /^(bd|ca)~/.test(String(k)) ? 'desglose' : String(k).startsWith('lc~') ? 'plan' : String(k).startsWith('cl~') ? 'llamado' : String(k).startsWith('ga~') ? 'gastos' : 'storyboard';
-const FRAME_SECS = ['storyboard', 'desglose', 'plan', 'llamado'];
+// compra («ga~…»), con Gastos (cada persona las suyas: gaFrameOk); (lote AD) las de continuidad y las de la hoja de
+// papel llena («sp~…»), con la hoja de script; el resto, con el storyboard
+const frameSec = k => /^(bd|ca)~/.test(String(k)) ? 'desglose' : String(k).startsWith('lc~') ? 'plan' : String(k).startsWith('cl~') ? 'llamado' : String(k).startsWith('ga~') ? 'gastos' : String(k).startsWith('sp~') ? 'hoja' : 'storyboard';
+const FRAME_SECS = ['storyboard', 'desglose', 'plan', 'llamado', 'hoja'];
 
 /* ---------- planes de la web con cuentas ----------
    Los números de siempre. En el servidor se pueden cambiar con variables de entorno (server/lib/perm.js); la app usa
