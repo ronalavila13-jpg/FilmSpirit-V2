@@ -5,7 +5,7 @@
    ============================================================ */
 'use strict';
 const path = require('node:path');
-const { SECS, SEC_DEPS, PRODUCER_ROLES, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
+const { SECS, SEC_DEPS, PRODUCER_ROLES, seesScriptStage, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
   bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
   GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit } = require(path.join(__dirname, '..', 'areas.js'));
 
@@ -93,17 +93,20 @@ function jsonDepth(str) {
 }
 const canonJ = v => Array.isArray(v) ? '[' + v.map(canonJ).join(',') + ']'
   : v && typeof v === 'object' ? '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canonJ(v[k])).join(',') + '}' : JSON.stringify(v);
-/* lo que una persona ve de las notas: solo las pegadas a pestañas que puede leer */
-function notesView(json, role) {
+/* (lote AD) una nota pegada a la pestaña Historia (o a algo de ella): solo para quien ve la etapa Guion (histHidden) */
+const noteOnHist = on => !!on && (on.tab === 'build' || (on.t === 'tab' && on.id === 'build'));
+/* lo que una persona ve de las notas: solo las pegadas a pestañas que puede leer. hist: sin la etapa Guion (histHidden),
+   tampoco las de Historia */
+function notesView(json, role, hist) {
   const read = readSet(role), out = {};
-  for (const [id, n] of Object.entries(notesOf(json))) if (n && n.on && read.has(n.on.sec)) out[id] = n;
+  for (const [id, n] of Object.entries(notesOf(json))) if (n && n.on && read.has(n.on.sec) && !(hist && noteOnHist(n.on))) out[id] = n;
   return JSON.stringify({ notes: out });
 }
 /* guardar las notas de una persona sobre las vigentes: lo que no ve queda igual; de lo que ve, solo cambia lo
    suyo y el «resuelta». Devuelve el JSON completo que queda guardado. */
-function notesMerge(curJson, val, user, role, t) {
+function notesMerge(curJson, val, user, role, t, hist) {
   const cur = notesOf(curJson), inc = notesOf(val), read = readSet(role), out = {};
-  const vis = n => n && n.on && read.has(n.on.sec);
+  const vis = n => n && n.on && read.has(n.on.sec) && !(hist && noteOnHist(n.on));
   for (const [id, n] of Object.entries(cur)) {
     if (!vis(n)) { out[id] = n; continue; }
     const nw = inc[id];
@@ -124,7 +127,7 @@ function notesMerge(curJson, val, user, role, t) {
   for (const [id, nw] of Object.entries(inc)) {
     if (id in cur || count >= MAX_NOTES || !NOTE_ID.test(id) || !nw || typeof nw !== 'object') continue;
     const on = cleanOn(nw.on), text = cleanText(nw.text, MAX_NOTE_TEXT);
-    if (!on || !read.has(on.sec) || !text.trim()) continue;
+    if (!on || !read.has(on.sec) || (hist && noteOnHist(on)) || !text.trim()) continue;
     const ts = typeof nw.ts === 'number' && Math.abs(nw.ts - t) < 600e3 ? Math.round(nw.ts) : t;
     const n = { id, on, by: user.id, name: user.name, ts, text };
     if (nw.re != null) { if (!NOTE_ID.test(String(nw.re))) continue; n.re = String(nw.re); }
@@ -161,8 +164,29 @@ const activeLimit = (plan, kind) => { const L = PLANS[plan]; return kind === 'gu
 const peopleLimit = (plan, kind) => kind === 'guion' ? PLANS[plan].writers : PLANS[plan].members;
 // en un guion solo existen el guion y las notas
 const SCRIPT_SECS = ['guion', 'notas'];
+/* (lote AD) la etapa Guion (Historia y Guion) de un proyecto de producción la ven el cargo «Guion», producción y quien
+   lo administra (areas.js · seesScriptStage). A los demás no se les envía el material de Historia (build, dentro de la
+   sección del guion) ni las notas pegadas a esa pestaña; cuando guardan el guion (los datos del proyecto, o el texto si
+   producción los autorizó a revisar el guion cerrado), lo de Historia queda como estaba. En un guion no corre */
+const histHidden = (p, role) => kindOf(p) !== 'guion' && !!role && !seesScriptStage(role);
+const parseObj = s => { try { const v = typeof s === 'string' ? JSON.parse(s) : s; return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch (e) { return null; } };
+/* la sección del guion como la recibe quien no ve Historia (si no tiene «build», tal cual) */
+function guionView(json, hide) {
+  if (!hide || typeof json !== 'string' || !json.includes('"build"')) return json;
+  const v = parseObj(json); if (!v || !('build' in v)) return json;
+  delete v.build;
+  return JSON.stringify(v);
+}
+/* lo que guarda quien no ve Historia: lo suyo, con la Historia vigente (lo que mande en «build» no cuenta) */
+function guionKeepHist(curJson, val) {
+  const cur = parseObj(curJson), out = { ...val };
+  delete out.build;
+  if (cur && cur.build !== undefined) out.build = cur.build;
+  return out;
+}
 
 module.exports = {
   jsonDepth, MAX_DEPTH, SECS, SEC_DEPS, PRODUCER_ROLES, ALLP, cleanPerms, cleanRole, readSet, canEdit, areasOf, frameSec, PLANS, TIER, PLAN_NAME, isPaidPlan, planOf, KINDS, kindOf, activeLimit, peopleLimit, SCRIPT_SECS, bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
   NOTES, DATA_SECS, canReadSec, canEditData, notesView, notesMerge, notesOf, canonJ, cleanText,
+  histHidden, guionView, guionKeepHist, noteOnHist,
   GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit };

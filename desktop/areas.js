@@ -26,7 +26,13 @@ const SEC_DEPS = {
 // el presupuesto es solo para producción: quien administra el proyecto o quien tenga uno de estos cargos
 const PRODUCER_ROLES = ['Producción', 'Producción ejecutiva', 'Jefatura de producción'];
 const isProducer = role => PRODUCER_ROLES.includes(role);
-const ALLP = Object.fromEntries(SECS.map(s => [s, 'editar']));
+/* (lote AD) la etapa Guion (Historia y Guion) de un proyecto de producción: la ven el cargo «Guion», los de producción y
+   quien administra el proyecto. Los demás leen el guion en el Guion rayado, el Desglose y las otras pestañas; en la web
+   con cuentas el material de Historia (build) ni siquiera les llega (server/lib/perm.js · histHidden). En un guion
+   (coescritura) no corre: ahí todos escriben */
+const SCRIPT_STAGE_ROLES = ['Guion', ...PRODUCER_ROLES];
+const seesScriptStage = who => !!who && (!!who.admin || SCRIPT_STAGE_ROLES.includes(who.role));
+const ALLP =Object.fromEntries(SECS.map(s => [s, 'editar']));
 /* los permisos guardables: «ver» o «editar» por sección y, con el desglose para editar, sus áreas (solo las de la
    hoja: no «__proto__», «constructor»… que existen en cualquier objeto) */
 function cleanPerms(p) {
@@ -438,7 +444,7 @@ const LOCK_MSG = {
   lock_log: 'El registro del guion cerrado no se puede borrar ni cambiar.',
 };
 if (typeof module !== 'undefined') module.exports = {
-  SECS, SEC_DEPS, PRODUCER_ROLES, isProducer, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, FRAME_SECS,
+  SECS, SEC_DEPS, PRODUCER_ROLES, isProducer, SCRIPT_STAGE_ROLES, seesScriptStage, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, FRAME_SECS,
   PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
   GASTOS, GA_SECS, GA_ROLE_SECS, GA_PAY, GA_KIND, gaRole, gaSeesAll, gaAreaSecs, gaClean, gaView, gaCan, gaFilter, gaFrameItem, gaFrameOk, gaFrameEdit,
   BD_AREAS, bdAreaOfCat, bdCanon, bdFilter, bdViolates, scriptLockCheck, lockPerson, LOCK_MSG };

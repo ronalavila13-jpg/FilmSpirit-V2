@@ -388,7 +388,9 @@ function createServer(over) {
     if (p === '/healthz') return sendText(res, 200, 'ok');
     // la app pide sesión; sin ella, a la portada para entrar con Google
     if (p === '/app') return redirect(res, '/app/' + url.search);
-    const toApp = () => auth.current(req) ? serveFile(req, res, '/app/index.html') : redirect(res, '/entrar?next=' + encodeURIComponent('/app/' + url.search));
+    // (lote AD) «Explorar con un proyecto de ejemplo» (/app/?ejemplo=1): la app también sin sesión, solo con el ejemplo en
+    // la memoria del navegador. Es la misma página de siempre (sin datos de nadie): todo lo que lee o guarda pide sesión
+    const toApp = () => auth.current(req) || url.searchParams.get('ejemplo') === '1' ? serveFile(req, res, '/app/index.html') : redirect(res, '/entrar?next=' + encodeURIComponent('/app/' + url.search));
     const toAdmin = () => {
       const u = auth.current(req);
       if (!u) return redirect(res, '/entrar?next=' + encodeURIComponent('/admin'));
