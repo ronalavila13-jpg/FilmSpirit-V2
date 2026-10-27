@@ -145,7 +145,7 @@ function bEstHTML(ed) {
   const beatHTML = ({ k, i, act, it, lost }) => {
     const [, name, hint, usual] = B_BEATS[i], b = B.beats[k] || {}, d = b.d || '', has = !!d.trim(), at = it ? pos.get(it.id) : null;
     const go = it ? (it.s ? `<button class="btn ghost sm b-beat-go" data-act="b-beat-go" data-k="${ea(k)}" title="Abre la escena en el Guion">Ver en el guion</button>` : `<button class="btn ghost sm b-beat-go" data-act="b-beat-go" data-k="${ea(k)}" title="Muestra la escena en la Escaleta">Ver en la escaleta</button>`) : '';
-    return `<li class="b-beat${has ? ' has' : ''}${it ? ' on' : ''}" data-beat="${ea(k)}">
+    return `<li class="b-beat${has ? ' has' : ''}" data-beat="${ea(k)}">
       <span class="b-beat-dot" aria-hidden="true"></span>
       <div class="b-beat-c">
         <div class="b-beat-h"><b class="b-beat-n">${esc(name)}</b><span class="b-beat-u">${esc(bUsual(usual))}</span>${at != null ? `<span class="b-beat-at tnum" title="Dónde cae la escena unida, según el largo de las escenas escritas">al ${at} %</span>` : ''}</div>
@@ -155,13 +155,13 @@ function bEstHTML(ed) {
           <label class="b-beat-l b-beat-sc"><span>Escena</span><select data-bind="b-beat" data-k="${ea(k)}" data-f="on" ${ed ? '' : 'disabled'}>${scOpts(it ? it.id : '')}</select></label>
           ${go}
         </div>
-        ${lost ? `<p class="hint b-beat-lost">La escena que tenía unida ya no está en la escaleta.</p>` : ''}
+        ${lost ? `<p class="hint b-beat-lost">La escena que tenía unida ya no está en la escaleta.${ed ? ` <button class="linkbtn" data-act="b-beat-free" data-k="${ea(k)}">Soltarla</button>` : ''}</p>` : ''}
       </div>
     </li>`;
   };
   const acts = by.map((L, ai) => {
     const S = secs[ai], e8 = S.reduce((a, it) => a + (it.s ? D.metrics.eighths[it.s.idx] || 0 : 0), 0);
-    return `<section class="b-tl-act" data-act-i="${ai}" style="--ak:${ai % 2 ? 62 : 34}%">
+    return `<section class="b-tl-act" data-act-i="${ai}">
       <header class="b-tl-ah"><span class="b-tl-mk" aria-hidden="true">${esc(B_ROMAN[ai] || String(ai + 1))}</span><b data-no-tr>${esc(bActName(B.acts[ai], ai))}</b><span class="hint tnum">${S.length} ${S.length === 1 ? 'escena' : 'escenas'}${e8 ? ` · ${fmtEighths(e8)} págs.` : ''}</span></header>
       <ol class="b-tl-list">${L.map(beatHTML).join('') || '<li class="b-tl-none hint">Ningún punto clave en este acto.</li>'}</ol>
     </section>`;
@@ -214,6 +214,7 @@ Object.assign(ACT, {
     B.refs = B.refs.filter(r => r.id !== id); changed('data'); render();
     toastUndo('Referencia quitada.');
   },
+  'b-beat-free': b => { const bt = bBeat(b.dataset.k); if (!bt) return; delete bt.on; changed('data'); render(); },
   'b-beat-go': b => {
     const p = bBeatPlace(b.dataset.k, bItems()); if (!p.it) return;
     if (p.it.s) { bOpenScene(p.it.s.key); return; }
@@ -228,7 +229,12 @@ Object.assign(BIND, {
     if (f === 'kind' && !B_REF_K.some(x => x[0] === el.value)) return;
     r[f] = el.value; changed('data');
     if (el.tagName === 'TEXTAREA') bAuto(el);
-    if (f === 'u' && ev === 'change') render();   // el «Abrir» del enlace
+    // el «Abrir» del enlace, al día sin volver a dibujar (el foco sigue donde iba)
+    if (f === 'u' && ev === 'change') {
+      const box = el.closest('.b-ref-u'), u = safeUrl(r.u); let a = box && $('a', box);
+      if (box && u) { if (!a) { a = document.createElement('a'); a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = tr('Abrir'); box.appendChild(a); } a.href = u; }
+      else if (a) a.remove();
+    }
   },
   'b-beat': (el, ev) => {
     const k = el.dataset.k, f = el.dataset.f; if (!B_BEATS.some(x => x[0] === k)) return;
@@ -247,6 +253,8 @@ Object.assign(BIND, {
       if (it) { b.on = it.id; b.act = it.eff; } else delete b.on;
     }
     changed('data'); render();
+    // el punto puede haber cambiado de acto: el foco vuelve a su lista
+    requestAnimationFrame(() => { const s = $(`#view [data-beat="${CSS.escape(k)}"] select[data-f="${CSS.escape(f)}"]`); if (s && !s.disabled) s.focus({ preventScroll: true }); });
   },
 });
 HELP.build.splice(1, 0, ['Premisa y mundo', 'El tema, la premisa (qué dice la historia), el tono y el género; las referencias (películas, series, libros, imágenes: cada una con una nota y, si quieres, su enlace); el mundo (época, lugares y sus reglas) y las notas de investigación. La lista de la izquierda lleva a cada parte y cuenta sus palabras.']);

@@ -1762,6 +1762,7 @@
 "Muestra la escena en la Escaleta": "Shows the scene in the Step Outline",
 "Ver en la escaleta": "Show in step outline",
 "La escena que tenía unida ya no está en la escaleta.": "The scene it was linked to is no longer in the step outline.",
+"Soltarla": "Unlink it",
 "Ningún punto clave en este acto.": "No key beats in this act.",
 "Los actos son los de la Escaleta: ahí se agregan, se quitan y se les cambia el nombre. Un punto unido a una escena va en el acto de esa escena.": "The acts are the Step Outline's: add, remove and rename them there. A beat linked to a scene goes in that scene's act.",
 "{0} de {1} puntos clave": "{0} of {1} key beats",
