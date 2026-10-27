@@ -52,9 +52,14 @@ const sclone = o => o === undefined ? undefined : JSON.parse(JSON.stringify(o));
 const omitK = (o, ks) => { const r = { ...o }; for (const k of ks) delete r[k]; return r; };
 
 /* ---------- qué datos del proyecto van en cada sección ---------- */
+/* (lote AD) en la web, a quien no ve la etapa Guion no le llega la Historia (el servidor la recorta: perm.js · histHidden).
+   Tampoco viaja en lo que guarda ni cuenta al comparar: la que tiene es la vacía que arma normalizeProject, y si contara,
+   cada cambio que llega del equipo dejaría el guion «distinto» y se volvería a guardar (o a deshacer) sin parar. El
+   servidor, además, guarda siempre la Historia que tenía (guionKeepHist) */
+const histOff = Px => API() && !!SHARE && SHARE.pid === Px.id && SHARE.kind !== 'guion' && !seesScriptStage({ admin: SHARE.admin, role: SHARE.me && SHARE.me.role });
 function secGet(Px, s) {
   switch (s) {
-    case 'guion': return { meta: omitK(Px.meta, ['aspect', 'hair', 'sensor']), paras: Px.paras, ...(Px.build ? { build: Px.build } : {}) };
+    case 'guion': return { meta: omitK(Px.meta, ['aspect', 'hair', 'sensor']), paras: Px.paras, ...(Px.build && !histOff(Px) ? { build: Px.build } : {}) };
     case 'desglose': return { elements: Object.fromEntries(Object.entries(Px.elements).map(([k, e]) => [k, omitK(e, ['look'])])), tags: Px.tags, scenes: Px.scenes, ...(Px.casting ? { casting: Px.casting } : {}), ...(Px.catCol && Object.keys(Px.catCol).length ? { catCol: Px.catCol } : {}) };
     case 'storyboard': return {
       shots: Object.fromEntries(Object.entries(Px.shots).map(([k, sh]) => [k, omitK(sh, ['done', 'dur'])])),
