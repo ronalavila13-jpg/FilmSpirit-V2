@@ -330,9 +330,10 @@ function bindGantt(R, sh) {
     let G = null, raf = 0;
     sc.addEventListener('touchstart', e => {
       if (e.touches.length !== 2) { G = null; return; }
+      if (e.cancelable) e.preventDefault();   // el segundo dedo: en el iPhone, el navegador no hace su zoom de página
       const [a, b] = e.touches, dx = Math.abs(a.clientX - b.clientX), dy = Math.abs(a.clientY - b.clientY);
       G = { h: dx >= dy, d0: Math.max(24, dx >= dy ? dx : dy), cw0: cwNow(), rh0: calRh() };
-    }, { passive: true });
+    }, { passive: false });
     sc.addEventListener('touchmove', e => {
       if (!G || e.touches.length !== 2) return;
       e.preventDefault();
@@ -341,6 +342,7 @@ function bindGantt(R, sh) {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (!G) return;
+        barsHold();   // la barra de arriba no se esconde por el gesto (tab-script.js)
         if (G.h) { const r = sc.getBoundingClientRect(); calZoomLive(G.cw0 * k, Math.max(0, mx - r.left - calLabW())); G.moved = 'w'; }
         else { setRh(G.rh0 * k); G.moved = 'h'; }
       });
@@ -352,7 +354,7 @@ function bindGantt(R, sh) {
       if (m === 'w') calZoomDone(); else if (m === 'h') ls.set('calRh', UI.calRh);
     };
     sc.addEventListener('touchend', end); sc.addEventListener('touchcancel', end);
-    for (const ev of ['gesturestart', 'gesturechange']) sc.addEventListener(ev, e => e.preventDefault());
+    for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) sc.addEventListener(ev, e => e.preventDefault());
   }
   const dayAt = (tl, x) => { const i = Math.floor((x - tl.getBoundingClientRect().left) / cwNow()); return R.list[clamp(i, 0, R.n - 1)]; };
   cal.addEventListener('dblclick', e => {

@@ -248,7 +248,8 @@ input[type=radio]{border-radius:50%}   /* el anillo de foco, redondo como el con
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-block:10px;padding-inline:20px;border-bottom:var(--l1) solid var(--line-2);background:var(--chrome)}
 .bar .grow{flex:1}
 .scroller{flex:1;min-height:0;overflow:auto;position:relative}
-#scroller{touch-action:pan-x pan-y}   /* con dos dedos acerca la app, no el navegador */
+#scroller,#edScroll{touch-action:pan-x pan-y;overscroll-behavior:contain}   /* con dos dedos acerca la app, no el navegador; al llegar al borde, la página entera no rebota */
+.pz-sp{position:absolute;width:1px;height:1px;pointer-events:none;visibility:hidden}   /* tab-script.js · bindPinch */
 .pad{padding-block:20px;padding-inline:20px}
 .only-narrow{display:none}
 .only-mid{display:none}
@@ -312,6 +313,10 @@ input[type=radio]{border-radius:50%}   /* el anillo de foco, redondo como el con
 
 /* ---------- guion: páginas ---------- */
 .pages{display:grid;justify-content:center;gap:22px;padding-block:22px;padding-inline:12px;font-size:var(--fs,13px)}
+/* la hoja se desplaza de lado solo hasta su borde: las capas de anotaciones (100 em) y de notas que pasan la hoja no
+   agrandan lo que se desplaza; con zoom, la franja de las hojas crece con ellas y se recorre entera */
+.pages:not(.av-pages){width:max-content;min-width:100%}
+.pages{overflow:clip}
 .page{position:relative;width:51em;height:66em;background:var(--page);color:var(--page-ink);box-shadow:var(--page-shadow);font-family:var(--font-script);font-size:1em;line-height:1}
 .page .lines{position:absolute;left:0;right:0;top:6em;padding-left:9em}
 .ln{height:1em;line-height:1;white-space:pre;padding-left:calc(var(--ind,0) * .6em);position:relative}
@@ -2847,7 +2852,7 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .cal-new .cal-tl{min-height:30px;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--cw) - 1px),color-mix(in srgb,var(--line) 60%,transparent) calc(var(--cw) - 1px) var(--cw))}
 .cal-new:hover .cal-tl{background-color:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
 .cal-nseg{font-size:var(--fs-1);font-weight:700;color:var(--muted);background:var(--fill);border-radius:2px;padding:0 6px;margin-left:4px}
-.cal-sc{touch-action:pan-x pan-y}
+.cal-sc{touch-action:pan-x pan-y;overscroll-behavior:contain}
 /* línea de la base de la tabla: arrastrarla cambia el alto de las filas (queda fija abajo si la tabla es más alta) */
 .cal-rz{position:sticky;left:0;bottom:0;z-index:7;width:var(--scw,100%);height:18px;margin-top:-9px;display:grid;place-items:center;cursor:ns-resize;touch-action:none;outline:none}
 .cal-rz::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:var(--line);transition:background .15s}
@@ -3726,15 +3731,15 @@ details.rv>summary:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .btn.icon{min-width:32px;padding-inline:8px;font-size:var(--fs-5)}
 #edScroll{background:var(--bg)}
-.ed-page{width:min(51em,100%);margin:22px auto 120px;background:var(--page);color:var(--page-ink);box-shadow:var(--page-shadow);font-family:var(--font-script);font-size:var(--fs,15px);line-height:1.35;padding:5em 4.5em 6em 7em;min-height:66em;position:relative}
+.ed-page{width:min(51em,100%);margin:22px auto 120px;background:var(--page);color:var(--page-ink);box-shadow:var(--page-shadow);font-family:var(--font-script);font-size:calc(var(--fs,15px) * var(--ez,1));line-height:1.35;padding:5em 4.5em 6em 7em;min-height:66em;position:relative}
 #edScroll{overflow-x:hidden;overscroll-behavior-x:none}   /* el guion se desplaza solo hacia arriba y abajo */
 /* teléfono: letra de 16 px (con menos, el iPhone agranda la página al tocar el texto y se sale por los lados);
    las sangrías van en porcentaje para que personaje y diálogo quepan en la pantalla */
 @media (max-width:720px){
-  .ed-page{padding:2.2em .9em 4em 2.1em;font-size:16px}
+  .ed-page{padding:2.2em .9em 4em 2.1em;font-size:calc(16px * var(--ez,1))}   /* --ez: el zoom del editor (tab-script.js · bindEdPinch) */
   .ed-page .ed-doc .t-c{margin-left:34%} .ed-page .ed-doc .t-p{margin-left:22%;margin-right:12%} .ed-page .ed-doc .t-d{margin-left:12%;margin-right:4%}
   .ed-page.nums .ep.t-h::before{left:-2.1em;width:1.8em} .ed-page.nums .ep.t-h::after{display:none}
-  .av-doc .ep,.av-doc .av-d{font-size:16px}
+  .av-doc .ep,.av-doc .av-d{font-size:calc(16px * var(--ez,1))}
 }
 /* iPhone y iPad: los campos de texto con letra menor a 16 px hacen que el sistema agrande la página al tocarlos */
 @supports (-webkit-touch-callout:none){ @media (pointer:coarse){
@@ -3762,7 +3767,7 @@ details.rv>summary:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)
 .ed-ac small{color:var(--muted);font-size:var(--fs-1);padding:4px 10px 2px}
 /* AV: video | audio · la hoja es papel también en modo oscuro: líneas y rellenos salen del color de la hoja */
 .av-doc,.av-page{--av-line:color-mix(in srgb,var(--page-ink) 13%,var(--page));--av-fill:color-mix(in srgb,var(--page-ink) 5%,var(--page));--av-muted:color-mix(in srgb,var(--page-ink) 48%,var(--page))}
-.av-doc{width:min(1100px,100%);margin:18px auto 120px;background:var(--page);color:var(--page-ink);box-shadow:var(--page-shadow);border-radius:var(--r-xs);font-size:var(--fs-4);overflow:hidden}
+.av-doc{width:min(1100px,100%);margin:18px auto 120px;background:var(--page);color:var(--page-ink);box-shadow:var(--page-shadow);border-radius:var(--r-xs);font-size:calc(var(--fs-4) * var(--ez,1));overflow:hidden}
 .av-head,.av-r,.av-rr{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) 62px 30px;align-items:stretch}
 .av-head{font-size:var(--fs-1);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--av-muted);border-bottom:var(--l1) solid var(--av-line)}
 .av-head span{padding:10px 10px}
@@ -3787,7 +3792,7 @@ details.rv>summary:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)
 .av-doc .ep:has(> br:only-child)::after,.av-doc .ep:empty::after{left:12px;right:12px;top:10px;white-space:normal;color:var(--av-muted)}
 /* teléfono: el video arriba y el audio debajo, con la duración a un lado; la hoja cabe a lo ancho */
 @media (max-width:640px){
-  .av-doc{margin:10px auto 100px;font-size:var(--fs-4)}
+  .av-doc{margin:10px auto 100px;font-size:calc(var(--fs-4) * var(--ez,1))}
   .av-doc .av-head{display:none}
   .av-r{grid-template-columns:24px minmax(0,1fr) 50px 26px}
   .av-r>.av-n{grid-column:1;grid-row:1/span 2;padding-inline:2px}
@@ -3806,7 +3811,7 @@ details.rv>summary:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)
 }
 /* AV en la vista de rayado */
 .pages.av-pages{justify-content:stretch}
-.av-page{width:min(1100px,100%);height:auto;margin-inline:auto;font-size:var(--fs-3);line-height:1.4}
+.av-page{width:min(1100px,100%);height:auto;margin-inline:auto;font-size:calc(var(--fs-3) * var(--pz,1));line-height:1.4}
 .av-page .av-head{grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) 54px}
 .av-rr{grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) 54px;border-bottom:var(--l1) solid var(--av-line)}
 .av-rr .ln,.av-rh .ln{height:auto;white-space:pre-wrap;padding:9px 12px;line-height:1.4;min-width:0;overflow-wrap:anywhere}
@@ -5415,7 +5420,7 @@ svg.tip-i{width:16px;height:16px;flex:none;background:none;color:var(--muted);ma
 
 /* 8 · guion en el teléfono: página más angosta y letra un 23 % más grande, con el mismo formato */
 @media (max-width:560px){
-  .pages:not(.av-pages){--fs:calc((100vw - 24px) / 39.5) !important}
+  .pages:not(.av-pages){--fs:calc((100vw - 24px) / 39.5 * var(--pz,1)) !important}   /* --pz: el zoom (tab-script.js · fitPages) */
   .pages:not(.av-pages) .page{width:39.5em}
   .pages:not(.av-pages) .page .lines{padding-left:2.5em}
   .pages:not(.av-pages) .page .scn{left:0 !important;right:auto !important;width:2em}
