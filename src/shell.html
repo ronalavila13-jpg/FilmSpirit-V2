@@ -3036,7 +3036,9 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .pelo-it{display:grid;justify-items:center;gap:3px;border:0;background:none;border-radius:var(--r-xs);padding:5px 2px 4px;cursor:pointer;color:var(--muted);font-size:10.5px;line-height:1.15;min-width:0}
 .pelo-it:hover{background:var(--fill);color:var(--ink)}
 .pelo-it img{width:54px;height:54px;border-radius:4px;background:#EEF0F2;display:block}
-.pelo-it span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pelo-it span{max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-align:center;hyphens:auto;overflow-wrap:break-word}
+.pelo-all{grid-column:1/-1;justify-self:start;font-size:var(--fs-2);padding:4px 6px}
+.pelo-it[hidden]{display:none}
 .pelo-it[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent)}
 .pelo-it[disabled]{cursor:default}
 .sw.sw-tone{background:linear-gradient(135deg,var(--sw) 0 50%,color-mix(in srgb,var(--sw) 60%,#fff) 50% 100%)}

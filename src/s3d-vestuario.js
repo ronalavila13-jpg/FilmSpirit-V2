@@ -206,6 +206,34 @@ function vestSkirt(acc, tp, K) {
   geo.setIndex(idx);
   return geo;
 }
+/* ---------- gorra, gorro, sombrero y cascos: por encima del pelo ----------
+   La copa sigue la forma del cráneo (la misma medida que usan los peinados, peloHead) separada `gap`: el pelo aplastado
+   que queda debajo. Termina en un borde que va sobre la frente y baja un poco hacia la nuca (`drop`), como una gorra
+   real. El peinado que se ve con la pieza puesta aplasta lo que queda por encima de ese borde dentro de la copa
+   (peloHatSquash en s3d-pelo.js): el pelo asoma solo por debajo (costados, nuca y espalda) y nada atraviesa la copa.
+   up y drop, en metros para una cabeza adulta (se escalan con la de cada cuerpo); shell: grosor de la copa; flare:
+   cuánto se abre hacia el borde y crown: cuánto más alta queda la coronilla (cascos: no van pegados a la cabeza) */
+const VEST_HAT = {
+  gorra: { up: .05, drop: .03, gap: .01, shell: .004 },
+  gorro: { up: .036, drop: .03, gap: .011, shell: .005 },
+  sombrero: { up: .054, drop: .008, gap: .011, shell: .004 },
+  casco: { up: .05, drop: .02, gap: .016, shell: .005, flare: .007, crown: .016 },
+  casco_mil: { up: .034, drop: .03, gap: .016, shell: .006, flare: .012, crown: .008 },
+};
+const VEST_HATF = new WeakMap();
+/* el borde de la pieza en ese cuerpo: line(a) = elevación del borde (grados, como en peloHead) en cada azimut */
+function vestHatFit(tp, piece) {
+  const K = VEST_HAT[piece]; if (!K || !tp || typeof peloHead !== 'function') return null;
+  let box = VEST_HATF.get(tp); if (!box) VEST_HATF.set(tp, box = {});
+  if (box[piece]) return box[piece];
+  const H = peloHead(tp), sc = H.hs / .11, N = 72, E = new Float32Array(N + 1);
+  const yB = a => H.ye + (K.up - K.drop * (1 - Math.cos(peloDeg(a))) / 2) * sc;
+  for (let i = 0; i <= N; i++) { const a = -180 + 360 * i / N; E[i] = peloEAtY(H, a, yB(a), K.gap, false); }
+  const line = a => { let f = (a + 180) / 360 * N; f = ((f % N) + N) % N; const i = Math.floor(f), t = f - i; return E[i] * (1 - t) + E[i + 1] * t; };
+  return (box[piece] = { piece, H, K, gap: K.gap, sc, line });
+}
+/* la pieza de la cabeza que lleva puesta (la que va por encima del pelo), o null */
+const vestHatOf = look => { for (const a of (look && look.acc) || []) if (a && !a.hide && a.preset && VEST_HAT[a.preset] && ACC_PARTS[a.part]) return a.preset; return null; };
 /* piezas a la medida de la cabeza (o del pecho, la corbata), en el marco de su hueso */
 function vestPiece(acc, tp, V) {
   const T = THREE, L = vestLand(tp), H = L.head, part = ACC_PARTS[V.part], bh = tp.bones[tp.idx[part.bone]].h;
@@ -217,38 +245,93 @@ function vestPiece(acc, tp, V) {
   const rd = (z1 - z0) / 2, cz = (z1 + z0) / 2;
   const G = [];
   const add = (geo, col = 1, f) => { if (f) f(geo); G.push([geo, col]); return geo; };
-  const cap = (th, gx, gy, gz, y, z = cz) => add(new T.SphereGeometry(1, 30, 14, 0, Math.PI * 2, 0, th), 1, g => { g.scale(rh + gx, top - y + gy, rd + gz); g.translate(0, y, z); });
+  // piezas sobre el pelo: copa, borde y alas siguen el borde de la pieza en este cuerpo
+  const F = vestHatFit(tp, V.piece), K = F && F.K, sc = F ? F.sc : 1;
+  const hp = (a, e, off) => peloP(F.H, a, e, off, false);
+  const mesh = (P, I) => { const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals(); return g; };
+  // la copa: del borde a la coronilla, a `off` del cráneo (más fl junto al borde: los cascos se abren)
+  const domeOff = (off, s) => off + (K.flare || 0) * (1 - s) * (1 - s) + (K.crown || 0) * s * s;
+  const dome = (off, NA = 44, NR = 14) => {
+    const P = [], I = [];
+    for (let j = 0; j < NR; j++) { const s = j / NR; for (let i = 0; i < NA; i++) { const a = -180 + 360 * i / NA, e0 = F.line(a); P.push(...hp(a, e0 + (90 - e0) * s, domeOff(off, s))); } }
+    P.push(...hp(0, 90, domeOff(off, 1)));
+    for (let j = 0; j < NR - 1; j++) for (let i = 0; i < NA; i++) { const i2 = (i + 1) % NA, a = j * NA + i, b = j * NA + i2; I.push(a, b, b + NA, a, b + NA, a + NA); }
+    for (let i = 0; i < NA; i++) I.push((NR - 1) * NA + i, (NR - 1) * NA + (i + 1) % NA, NR * NA);
+    return mesh(P, I);
+  };
+  // un aro a lo largo del borde: el corte (puntos en función del azimut) se une con el del azimut siguiente
+  const loft = (sec, NA = 48) => {
+    const P = [], I = []; let n = 0;
+    for (let i = 0; i < NA; i++) { const S = sec(-180 + 360 * i / NA); n = S.length; for (const p of S) P.push(...p); }
+    for (let i = 0; i < NA; i++) { const i2 = (i + 1) % NA; for (let k = 0; k < n - 1; k++) { const a = i * n + k, b = i2 * n + k; I.push(a, b, b + 1, a, b + 1, a + 1); } }
+    return mesh(P, I);
+  };
+  // hacia afuera, horizontal, desde el eje de la cabeza
+  const outH = p => { const x = p[0] - F.H.C[0], z = p[2] - F.H.C[2], l = Math.hypot(x, z) || 1; return [x / l, 0, z / l]; };
+  const shift = (p, d, k) => [p[0] + d[0] * k, p[1] + d[1] * k, p[2] + d[2] * k];
   switch (V.piece) {
     case 'gorro': {
-      cap(Math.PI * .5, .012, .03, .012, brow - .012);
-      add(new T.TorusGeometry(1, .07, 8, 32), 1, g => { g.rotateX(Math.PI / 2); g.scale(rh + .018, .38, rd + .018); g.translate(0, brow, cz); });
-      add(new T.SphereGeometry(.022, 10, 8), 1, g => g.translate(0, top + .045, cz - .005));
+      const o = K.gap + K.shell;
+      add(dome(o));
+      // el doblez de abajo: más grueso, sobre el borde
+      add(loft(a => { const e = F.line(a); return [hp(a, e - .6, K.gap + .002), hp(a, e - .3, o + .007), hp(a, e + 6, o + .009), hp(a, e + 13, o + .007), hp(a, e + 15, o)]; }), .9);
+      const tp0 = hp(0, 90, o);
+      add(new T.SphereGeometry(.024 * sc, 12, 9), 1, g => g.translate(tp0[0], tp0[1] + .018 * sc, tp0[2] - .004));
       break;
     }
     case 'gorra': {
-      cap(Math.PI * .5, .01, .014, .01, brow);
-      add(new T.SphereGeometry(.009, 8, 6), 1, g => g.translate(0, top + .015, cz));
-      const sh = new T.Shape(), bw = rh * 1.05, bl = rd * .85; sh.moveTo(-bw, 0); sh.bezierCurveTo(-bw, bl * .9, bw, bl * .9, bw, 0); sh.closePath();
-      add(new T.ExtrudeGeometry(sh, { depth: .007, bevelEnabled: false, curveSegments: 14 }), 1, g => { g.rotateX(Math.PI / 2); g.rotateX(.12); g.translate(0, brow + .004, cz + rd * .8); });
+      const o = K.gap + K.shell;
+      add(dome(o));
+      const tp0 = hp(0, 90, o);
+      add(new T.SphereGeometry(.008 * sc, 8, 6), 1, g => g.translate(tp0[0], tp0[1] + .002, tp0[2]));
+      // la visera sale del borde sobre la frente: su raíz es el borde de la copa (de un costado al otro) y se alarga
+      // hacia adelante, más al centro; un poco inclinada hacia abajo y curvada a los lados
+      const NU = 20, NV = 6, L0 = .08 * sc, th = .006, P = [], I = [];
+      const pt = (u, v) => { const a = u * 66, b = hp(a, F.line(a), o - .001), d = L0 * Math.pow(Math.max(0, 1 - u * u), .62) * v; return [b[0] + Math.sin(peloDeg(a)) * d * .26, b[1] - d * (.18 + .5 * u * u), b[2] + d]; };
+      for (const side of [0, 1]) for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const p = pt(-1 + 2 * i / NU, j / NV); P.push(p[0], p[1] - side * th, p[2]); }
+      const row = NU + 1, bot = row * (NV + 1);
+      for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) {
+        const a = j * row + i, b = a + 1, c = a + row + 1, d = a + row;
+        I.push(a, c, b, a, d, c);                         // arriba
+        I.push(bot + a, bot + b, bot + c, bot + a, bot + c, bot + d);   // abajo
+      }
+      // canto de adelante y raíz (dentro de la copa)
+      for (let i = 0; i < NU; i++) { const t = NV * row + i; I.push(t, bot + t, bot + t + 1, t, bot + t + 1, t + 1); I.push(i, i + 1, bot + i + 1, i, bot + i + 1, bot + i); }
+      add(mesh(P, I), .96);
       break;
     }
     case 'sombrero': {
-      const r0 = rh + .014, k = (rd + .014) / r0;
-      add(new T.LatheGeometry([[0, .118], [r0 * .7, .125], [r0 * .88, .118], [r0 * .93, .095], [r0 * .98, .03], [r0, 0]].map(([x, y]) => new T.Vector2(x, y)).reverse(), 30), 1, g => { g.scale(1, 1, k); g.translate(0, brow + .006, cz); });
-      add(new T.CylinderGeometry(r0 + .07, r0 + .075, .012, 40), 1, g => { g.scale(1, 1, k * 1.04); g.translate(0, brow + .008, cz); });
-      add(new T.CylinderGeometry(r0 * .985 + .003, r0 + .003, .03, 30), .32, g => { g.scale(1, 1, k); g.translate(0, brow + .03, cz); });
+      // la copa encierra la cabeza con el pelo aplastado: su base es el contorno a la altura del borde
+      const o = K.gap + K.shell, yb = F.H.ye + K.up * sc;
+      let rx = 0, rz = 0, z0b = 9, z1b = -9;
+      for (let a = -180; a < 180; a += 6) { const p = hp(a, F.line(a), o); rx = Math.max(rx, Math.abs(p[0])); z0b = Math.min(z0b, p[2]); z1b = Math.max(z1b, p[2]); }
+      const czb = (z0b + z1b) / 2; rz = (z1b - z0b) / 2;
+      const r0 = rx + .004, k = rz / rx, ht = Math.max(.118 * sc, hp(0, 90, o)[1] - yb + .014), hk = ht / .118;
+      add(new T.LatheGeometry([[0, .118], [r0 * .7, .125], [r0 * .88, .118], [r0 * .93, .095], [r0 * .98, .03], [r0, 0]].map(([x, y]) => new T.Vector2(x, y * hk)).reverse(), 30), 1, g => { g.scale(1, 1, k); g.translate(0, yb - .004, czb); });
+      add(new T.CylinderGeometry(r0 + .07 * sc, r0 + .075 * sc, .012, 40), 1, g => { g.scale(1, 1, k * 1.04); g.translate(0, yb - .002, czb); });
+      add(new T.CylinderGeometry(r0 * .985 + .003, r0 + .003, .03 * hk, 30), .32, g => { g.scale(1, 1, k); g.translate(0, yb + .02 * hk, czb); });
       break;
     }
     case 'casco': {
-      cap(Math.PI * .5, .03, .035, .03, brow + .006);
-      add(new T.CylinderGeometry(1, 1, .012, 34), 1, g => { g.scale(rh + .055, 1, rd + .07); g.translate(0, brow + .008, cz + .015); });
-      add(rbox(.032, .03, (rd + .03) * 1.6, .01).clone(), 1, g => { g.translate(0, top + .03, cz); });
+      const o = K.gap + K.shell;
+      add(dome(o));
+      // el ala: sale del borde, más ancha adelante
+      add(loft(a => { const e = F.line(a), b = hp(a, e, domeOff(o, 0) - .002), d = outH(b), w = (.022 + .034 * Math.max(0, Math.cos(peloDeg(a)))) * sc; return [shift(b, [0, -1, 0], .01), shift(shift(b, d, w), [0, -1, 0], .008), shift(shift(b, d, w), [0, 1, 0], .002), shift(b, [0, 1, 0], .004)]; }), 1);
+      // la cresta: de la frente a la nuca por encima de la copa
+      const NS = 24, rP = [], rI = [], ra = q => { const ph = 40 + 100 * q / NS, a = ph <= 90 ? 0 : 180, e = ph <= 90 ? ph : 180 - ph, s = (e - F.line(a)) / (90 - F.line(a)); return [a, e, s]; };
+      for (let q = 0; q <= NS; q++) {
+        const [a, e, s2] = ra(q), b = hp(a, e, domeOff(o, s2) - .003), n = peloNorm(peloAdd(b, F.H.C, -1)), h = .012 * Math.min(1, Math.sin(Math.PI * q / NS) * 3);
+        for (const [x, u] of [[-1, 0], [-1, 1], [1, 1], [1, 0]]) rP.push(b[0] + x * .016 + n[0] * h * u, b[1] + n[1] * h * u, b[2] + n[2] * h * u);
+      }
+      for (let q = 0; q < NS; q++) for (let k = 0; k < 3; k++) { const a = q * 4 + k, b = a + 4; rI.push(a, a + 1, b + 1, a, b + 1, b); }
+      add(mesh(rP, rI));
       break;
     }
     case 'casco_mil': {
-      const yc = brow + .004, sy = top - yc + .045, th = Math.PI * .56, ry = yc + sy * Math.cos(th), k = Math.sin(th);
-      cap(th, .034, .045, .036, yc, cz - .006);
-      add(new T.TorusGeometry(1, .045, 6, 32), 1, g => { g.rotateX(Math.PI / 2); g.scale((rh + .034) * k + .002, .4, (rd + .036) * k + .002); g.translate(0, ry, cz - .006); });
+      const o = K.gap + K.shell;
+      add(dome(o));
+      // el canto redondeado del borde
+      add(loft(a => { const e = F.line(a), b = hp(a, e, domeOff(o, 0)), d = peloNorm(peloAdd(b, F.H.C, -1)); const r = .008; return [0, 1, 2, 3, 4, 5, 6].map(q => { const t = q / 6 * Math.PI * 2; return shift(shift(b, d, r * .4 + Math.cos(t) * r * .7), [0, 1, 0], Math.sin(t) * r); }); }), 1);
       break;
     }
     case 'lentes': case 'lentes_sol': {

@@ -2015,10 +2015,11 @@ function openShotEditor(id, isNew, from2d, waited) {
   function setLook(ob, f, v, quiet) {
     const bound = ob.el && P.elements[ob.el];
     if (!bound) { if (!E.gesture) snapshot(); E.custom = true; }
-    const tgt = bound ? P.elements[ob.el] : ob;
+    const tgt = bound ? P.elements[ob.el] : ob, prevBody = f === 'body' ? lookOf(ob).body : null;
     const lk = tgt.look = { ...(tgt.look || {}), [f]: v };
     if (f === 'body') {
       const B = S3_BODY[v];
+      if (lk.acc && prevBody !== v) lk.acc = accFitStamp(lk.acc, prevBody);   // la ropa dibujada se acomoda al cuerpo nuevo
       lk.hairStyle = B.hair; if (!bound || !lk.hairSet || B.faceless) lk.hair = B.hc;
       // el extra lleva su piel gris; al volver a un cuerpo con rostro, piel natural
       if (B.faceless) lk.skin = B.skin;

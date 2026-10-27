@@ -293,7 +293,7 @@ function peloBuilder(H) {
   // TT: a qué altura del mechón está cada vértice (0 raíz … 1 punta; -1 el casquete) y LK los mechones: para revisarlos
   let tNow = -1;
   // tn: dirección de la hebra (para el brillo a lo largo del pelo); va: [sombra entre capas 0..1, tono propio del mechón -1..1]
-  const v = (p, ol = 1, uv = null, n = null, tn = null, va = null) => { if (tNow > .2 && !noCol) { p = p.slice(); peloKeepOut(H, p, .0015); } if (envOn) p = peloEnvelope(H, p); P.push(p[0], p[1], p[2]); OL.push(ol); TT.push(tNow); UV.push(uv ? uv[0] : 0, uv ? uv[1] : 0); NR.push(n ? n[0] : 0, n ? n[1] : 1, n ? n[2] : 0); TN.push(tn ? tn[0] : 0, tn ? tn[1] : -1, tn ? tn[2] : 0); VA.push(va ? va[0] : 1, va ? va[1] : 0); return P.length / 3 - 1; };
+  const v = (p, ol = 1, uv = null, n = null, tn = null, va = null) => { if (tNow > .2 && !noCol) { p = p.slice(); peloKeepOut(H, p, .0015); } if (envOn && !H.big) p = peloEnvelope(H, p); P.push(p[0], p[1], p[2]); OL.push(ol); TT.push(tNow); UV.push(uv ? uv[0] : 0, uv ? uv[1] : 0); NR.push(n ? n[0] : 0, n ? n[1] : 1, n ? n[2] : 0); TN.push(tn ? tn[0] : 0, tn ? tn[1] : -1, tn ? tn[2] : 0); VA.push(va ? va[0] : 1, va ? va[1] : 0); return P.length / 3 - 1; };
   const rndT = peloRnd(1337);
   const rndC = peloRnd(4711);
   let noCol = false, envOn = true;
@@ -338,9 +338,10 @@ function peloBuilder(H) {
       const needle = PELO_MASS ? Math.pow(Math.max(0, 1 - Math.pow(tq, 3.2)), .55) : Math.pow(Math.max(0, 1 - Math.pow(tq, 2.5)), 1.25);
       const prof = (PELO_MASS ? Math.pow(1 - tq * .55, .8) : Math.pow(1 - tq, o.tip || .9)) * needle * (1 + (o.belly == null ? .3 : o.belly) * Math.sin(Math.PI * Math.min(1, t * 1.6)));
       // grosor: fino en la raíz (queda dentro del casquete), lleno a un tercio y afinándose hacia la punta
-      const th = (t < .3 ? .35 + .65 * t / .3 : 1 - .55 * (t - .3) / .7) * Math.pow(Math.max(0, 1 - tq * tq), 1.2);
+      // (o.rope: cuerda pareja, como las rastas)
+      const th = (o.rope ? Math.min(1, .5 + t * 5) : t < .3 ? .35 + .65 * t / .3 : 1 - .55 * (t - .3) / .7) * Math.pow(Math.max(0, 1 - tq * tq), 1.2);
       const ol = t < .72 ? 1 : Math.max(.08, Math.pow(1 - (t - .72) / .28, 1.2));
-      const ww = w * prof * .5, hh = h * th, cv = (o.curve == null ? .1 : o.curve) * ww * 2;
+      const bump = o.bumps && t > .12 ? 1 + .28 * Math.sin(t * Math.PI * 2 * o.bumps) : 1, ww = w * prof * .5 * bump, hh = h * th * bump, cv = (o.curve == null ? .1 : o.curve) * ww * 2;
       const tw = o.twist ? o.twist * t : 0, cs = Math.cos(tw), sn = Math.sin(tw);
       const Sx = [S[0] * cs + out[0] * sn, S[1] * cs + out[1] * sn, S[2] * cs + out[2] * sn], Ox = [out[0] * cs - S[0] * sn, out[1] * cs - S[1] * sn, out[2] * cs - S[2] * sn];
       rings.push([
@@ -520,7 +521,7 @@ function peloSides(H, B, o) {
       const tip = peloAtY(H, a - s * (o.inward || 3), tipY, .009, true);
       ctrl = [root, m0, m1, tip];
     }
-    B.lock(ctrl, (o.w || .036) * (.9 + rnd() * .2), o.h || .011, { twist: s * .12, flat: o.flat || 0, tip: o.tipK || .9, wm: 1.05 });
+    B.lock(ctrl, (o.w || .036) * (.9 + rnd() * .2), o.h || .011, { twist: s * .12, flat: o.flat || 0, tip: o.tipK || .9, wm: o.wm || 1.05, bumps: o.bumps, rope: o.rope });
   }
 }
 /* borde del pelo: mechones cortos pegados a la cabeza a lo largo del nacimiento (patillas, sienes, nuca). Nacen
@@ -562,13 +563,14 @@ function peloLayer(H, B, o) {
     const ctrl = [root];
     if (tipY < H.yNeck - .01) {
       // pelo largo: baja por la cabeza hasta la nuca y cae por detrás de la espalda
-      for (const e of [40, 10, -18]) ctrl.push(peloP(H, aa, e, H.vol(aa, e) + d, true));
+      for (const e of [40, 10, -18]) if (e < e0 - 6) ctrl.push(peloP(H, aa, e, H.vol(aa, e) + d, true));
       const nape = peloP(H, aa, -36, H.vol(aa, -36) + d + .006, true); ctrl.push(nape);
-      const steps = Math.max(2, Math.round((nape[1] - tipY) / .08));
+      const steps = Math.max(2, Math.round((nape[1] - tipY) / (o.wave ? .045 : .08)));
       for (let k = 1; k <= steps; k++) {
         const y = nape[1] + (tipY - nape[1]) * k / steps, bk = peloBack(H, y), f = k / steps;
-        const x = nape[0] * (1 + (o.spread || .35) * f) + Math.sign(nape[0] || 1) * .004 * k, bz = peloBody(H, x, y).b;
-        ctrl.push([x, y, Math.min(nape[2] - .01 * f, (bz < 8 ? bz : bk.z) - .02)]);
+        const wv = o.wave ? o.wave * Math.sin(k * 1.7 + i * 1.7) * Math.min(1, f * 2.5) : 0;
+        const x = nape[0] * (1 + (o.spread || .35) * f) + Math.sign(nape[0] || 1) * .004 * k + wv, bz = peloBody(H, x, y).b;
+        ctrl.push([x, y, Math.min(nape[2] - .01 * f, (bz < 8 ? bz : bk.z) - .02) - Math.abs(wv) * .5]);
       }
       hang.push({ ctrl, w, tw: (rnd() - .5) * .3 });
       continue;
@@ -607,7 +609,7 @@ function peloLayer(H, B, o) {
       h.ctrl[L - 1] = [tip[0], tip[1], tip[2] - .001 * j];
       if (L > 3) h.ctrl[L - 2] = peloMix(h.ctrl[L - 2], pre, .55);
       if (L > 4) h.ctrl[L - 3] = peloMix(h.ctrl[L - 3], avg(3), .25);
-      B.lock(h.ctrl, h.w, o.h || .012, { twist: h.tw, flat: o.flat == null ? .5 : o.flat, tip: .75, belly: .1, wm: o.wm });
+      B.lock(h.ctrl, h.w, o.h || .012, { twist: h.tw, flat: o.flat == null ? .5 : o.flat, tip: .75, belly: .1, wm: o.wm, bumps: o.bumps, rope: o.rope });
     });
   }
 }
@@ -623,7 +625,7 @@ function peloSpikes(H, B, o) {
     // la punta sigue la caída del pelo (hacia abajo por la cabeza) y se despega hacia afuera
     const down = peloNorm(peloAdd(peloP(H, a, e - 12, 0), peloP(H, a, e, 0), -1));
     const tip = peloAdd(peloAdd(peloAdd(mid, out, len * .5), down, len), [0, 1, 0], len * (o.up == null ? .05 : o.up));
-    B.lock([root, mid, peloMix(mid, tip, .55), tip], (o.w || .036) * (.8 + rnd() * .4), o.h || .013, { twist: (rnd() - .5) * .6, belly: .3, curve: .25, free: 1 });
+    B.lock([root, mid, peloMix(mid, tip, .55), tip], (o.w || .036) * (.8 + rnd() * .4), o.h || .013, { twist: (rnd() - .5) * .6, belly: .3, curve: .25, free: 1, noEnv: o.noEnv });
   }
 }
 /* manojo (cola de caballo, coletas): sale de un punto y cae hacia `tipY` */
@@ -655,8 +657,73 @@ function peloTie(B, base, dir, r = .016) {
   for (let k = 0; k < 12; k++) B.lock([ring(k), peloMix(ring(k), ring(k + 1), .5), ring(k + 1)], .014, .007, { tip: .05, belly: 0, n: 3, curve: 0, free: 1, noEnv: 1 });
 }
 
+/* rizos: filas de ganchos cortos alrededor de la cabeza, de la línea del pelo (más e0 grados) a la coronilla (e1).
+   k: tamaño del rizo; lift(a, e): cuánto se separan del cráneo (afro: mucho); skip(a, e): dónde no van */
+function peloCurls(H, B, line, o) {
+  const rnd = peloRnd(o.seed || 51), rows = o.rows || 6, k = o.k || 1, lf = o.lift || (() => 0), e1 = o.e1 || 82;
+  for (let row = 0; row < rows; row++) {
+    const n = Math.max(4, peloN(Math.round((o.n || 16) - row * (o.dn == null ? 2 : o.dn)), .8));
+    for (let i = 0; i < n; i++) {
+      const a = -180 + 360 * (i + (row % 2) * .5 + (rnd() - .5) * .3) / n, lo = line(a) + (o.e0 == null ? 4 : o.e0), e = lo + (e1 - lo) * row / Math.max(1, rows - 1) + (rnd() - .5) * 4;
+      if (o.skip && o.skip(a, e)) continue;
+      const L = lf(a, e), s = rnd() < .5 ? 1 : -1;   // el gancho se enrosca hacia un lado u otro
+      const p0 = peloP(H, a, e + 6 * k, .008 * k + L * .8), p1 = peloP(H, a + s * 7 * k, e + k, .025 * k + L), p2 = peloP(H, a + s * 11 * k, e - 5 * k, .021 * k + L), p3 = peloP(H, a + s * 8 * k, e - 9 * k, .011 * k + L * .9);
+      B.lock([p0, p1, p2, p3], (o.w || .03) * (.85 + rnd() * .3), o.h || .009, { belly: .55, tip: .6, free: 1, noEnv: o.noEnv });
+    }
+  }
+}
+/* moño: mechones enrollados alrededor de un centro c (sale hacia `out`), de radio r */
+function peloBun(H, B, c, out, r = .036, n = 8) {
+  const u = peloNorm(peloCross(out, Math.abs(out[1]) > .9 ? [1, 0, 0] : [0, 1, 0])), w = peloCross(out, u);
+  for (let k = 0; k < n; k++) {
+    const ph = k / n * Math.PI * 2;
+    const sk = r / .036, pt = (t, rr) => peloAdd(peloAdd(peloAdd(c, u, Math.cos(ph + t) * rr), w, Math.sin(ph + t) * rr), out, .014 * sk * Math.sin(t * 1.2));   // (con r = .036, el moño de siempre)
+    B.lock([pt(0, r * .45), pt(1.1, r), pt(2.3, r * .98), pt(3.4, r * .6)], .038 * sk, .016 * sk, { belly: .5, tip: .55, free: 1, noEnv: 1 });
+  }
+}
+/* trenza: a lo largo de la línea `path` (de la raíz a la punta), mechones cortos que se cruzan de un lado al otro;
+   termina en un lazo y un mechoncito suelto */
+function peloBraid(B, path, w, o = {}) {
+  const acc = [0]; for (let i = 1; i < path.length; i++) acc.push(acc[i - 1] + Math.hypot(...[0, 1, 2].map(j => path[i][j] - path[i - 1][j])));
+  const Lt = acc[acc.length - 1], at = d => { d = Math.max(0, Math.min(Lt, d)); let i = 1; while (i < acc.length - 1 && acc[i] < d) i++; const t = (d - acc[i - 1]) / Math.max(1e-6, acc[i] - acc[i - 1]); return peloMix(path[i - 1], path[i], t); };
+  const side = d => { const a = at(d - .01), b = at(d + .01), t = peloNorm(peloAdd(b, a, -1)), out = o.out || [0, 0, -1]; return peloNorm(peloCross(t, out)); };
+  const step = w * .62, K = Math.max(3, Math.round(Lt / step));
+  for (let k = 0; k < K; k++) {
+    const d0 = k * Lt / K, d1 = (k + 1.55) * Lt / K, s = k % 2 ? 1 : -1, ww = w * (1 - .3 * k / K);
+    const p0 = peloAdd(at(d0), side(d0), s * ww * .42), p2 = peloAdd(at(d1), side(d1), -s * ww * .18), pm = peloAdd(peloMix(p0, p2, .5), side(d0), s * ww * .1);
+    B.lock([p0, pm, p2], ww * .95, ww * .5, { belly: .6, tip: .45, curve: .2, free: 1, noEnv: 1 });
+  }
+  const end = at(Lt), dir = peloNorm(peloAdd(end, at(Lt - .02), -1));
+  peloTie(B, end, dir, w * .3);
+  for (const q of [-1, 0, 1]) B.lock([end, peloAdd(peloAdd(end, dir, .025), side(Lt), q * w * .25), peloAdd(peloAdd(end, dir, .05), side(Lt), q * w * .4)], w * .5, w * .25, { free: 1, noEnv: 1, tip: .7 });
+}
+
+/* peinado hacia atrás: mechones de la frente a la nuca por encima de la coronilla (pegados) y los costados hacia atrás.
+   lf: cuánto se separan del cráneo; back: elevación de las puntas en la nuca */
+function peloSlick(H, B, line, o) {
+  const m = (a, e) => e >= line(a); m.line = line;
+  B.cap(m, () => o.lf * .9, { k: 1 });
+  const rnd = peloRnd(o.seed || 211), n = peloN(o.n || 11, .7);
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1) - .5, a = u * 116 + (rnd() - .5) * 4, lf = o.lf;
+    B.lock([peloP(H, a * .9, line(a) + 2, -.004), peloP(H, a, line(a) + 13, lf), peloP(H, a * .8, 60, lf * 1.05), peloP(H, a * .5, 84, lf), peloP(H, 180 - a * .5, 70, lf * .95), peloP(H, 180 - a * .7, 40, lf * .85), peloP(H, 180 - a * .8, o.back + (rnd() - .5) * 6, lf * .6)],
+      .056 * (.9 + rnd() * .2), .012, { twist: (rnd() - .5) * .2, flat: .3, wm: 1.2 });
+  }
+  for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
+    const e = 24 - k * 13;
+    B.lock([peloP(H, s * 52, e + 4, -.003), peloP(H, s * 78, e, o.lf * .8, true), peloP(H, s * 118, e - 5, o.lf * .8, true), peloP(H, s * 158, e - 12, o.lf * .6, true)], .045, .01, { twist: s * .1, flat: .3, wm: 1.1 });
+  }
+}
+
 /* ---------- el catálogo ---------- */
-function peloBuild(H, key) {
+function peloBuild(H, key, hat) {
+  H.hat = hat || null; H.big = false;
+  try { return peloBuild0(H, key); } finally { H.hat = null; H.big = false; }
+}
+/* con gorra, gorro, sombrero o casco (H.hat): la cola, las coletas y los moños nacen debajo del borde (salen por debajo
+   de la pieza, como en la realidad) en vez de quedar aplastados dentro de la copa */
+const peloUnder = (H, a, e, m = 10) => H.hat ? Math.min(e, H.hat.line(a) - m) : e;
+function peloBuild0(H, key) {
   const B = peloBuilder(H), hs = H.hs;
   const std = peloLine(H), inMask = (line, top = 91) => { const f = (a, e) => e >= line(a) && e <= top; f.line = line; return f; };
   // volumen: separación del pelo respecto del cráneo (más en la coronilla, menos hacia la nuca); casquete y mechones la usan
@@ -750,7 +817,7 @@ function peloBuild(H, key) {
     }
     case 'cola': {
       B.cap(inMask(std), vol(.008, .006));
-      const base = peloP(H, 180, 24, .014), dir = peloNorm([0, .2, -1]);
+      const base = peloP(H, 180, peloUnder(H, 180, 24), .014), dir = peloNorm([0, .2, -1]);
       peloLayer(H, B, { n: 16, a0: 58, a1: 302, eRoot: 78, tips: [[0, .15], [180, .15]], tipVar: .02, h: .006, wk: 1.6, seed: 71 });
       peloBangs(H, B, { line: std, n: 8, tip: .3, mid: .06, seed: 73 });
       peloSides(H, B, { a: 64, len: .5, w: .026 });
@@ -763,7 +830,7 @@ function peloBuild(H, key) {
       peloBangs(H, B, { line: std, n: 8, tip: .24, mid: .06, seed: 81 });
       peloLayer(H, B, { n: 14, a0: 115, a1: 245, tips: [[110, -.3], [180, -.45]], seed: 83 });
       for (const s of [-1, 1]) {
-        const base = peloP(H, s * 116, 30, .014), dir = peloNorm([s * .8, .35, -.45]);
+        const base = peloP(H, s * 116, peloUnder(H, s * 116, 30), .014), dir = peloNorm([s * .8, .35, -.45]);
         peloTie(B, base, dir, .016);
         peloTail(H, B, base, dir, H.ye - hs * 2.1, { n: 8, side: s, w: .032, h: .011, seed: 85 + s });
       }
@@ -776,11 +843,168 @@ function peloBuild(H, key) {
       peloBangs(H, B, { line: std, n: 6, a0: -55, a1: 55, tip: .3, mid: .05, w: 2.1, sweep: 10, seed: 93 });
       peloSides(H, B, { a: 66, len: .35, w: .022 });
       // el moño: mechones enrollados alrededor de un centro, atrás y arriba
-      const c = peloP(H, 180, 44, .042), out = peloNorm(peloAdd(c, H.C, -1)), u = peloNorm(peloCross(out, [0, 1, 0])), w = peloCross(out, u);
-      for (let k = 0; k < 8; k++) {
-        const ph = k / 8 * Math.PI * 2, r = .036;
-        const pt = (t, rr) => peloAdd(peloAdd(peloAdd(c, u, Math.cos(ph + t) * rr), w, Math.sin(ph + t) * rr), out, .014 * Math.sin(t * 1.2));
-        B.lock([pt(0, r * .45), pt(1.1, r), pt(2.3, r * .98), pt(3.4, r * .6)], .038, .016, { belly: .5, tip: .55, free: 1, noEnv: 1 });
+      const c = peloP(H, 180, peloUnder(H, 180, 44, 16), .042), o0 = peloAdd(c, H.C, -1);
+      if (H.hat) o0[1] = Math.max(o0[1], 0) + .02;   // bajo la pieza, el moño (en la nuca) mira hacia atrás, no hacia abajo
+      peloBun(H, B, c, peloNorm(o0), .036, 8);
+      break;
+    }
+    // ---- lote AD: más peinados (cada uno, con los cuerpos a los que le va, en S3_PELO) ----
+    case 'tupe': {
+      B.cap(inMask(std), vol(.01, .008));
+      peloLayer(H, B, { n: 14, a0: 52, a1: 308, eRoot: 70, tips: [[50, .22], [90, .08], [135, -.25], [180, -.45]], tipVar: .08, flick: .004, h: .009, seed: 201 });
+      // el copete: nace en la frente, sube unos centímetros y se va hacia atrás por encima de la cabeza
+      const rnd = peloRnd(203), eF = std(0), n = peloN(9, .7);
+      for (let i = 0; i < n; i++) {
+        const u = i / (n - 1) - .5, a = u * 84 + (rnd() - .5) * 4, hi = (1 - Math.abs(u) * 1.2) * hs / .11;
+        B.lock([peloP(H, a * .9, eF + 2, -.004), peloP(H, a, eF + 9, .02 + .02 * hi), peloP(H, a * .85, eF + 26, .026 + .012 * hi), peloP(H, a * .6, 62, .016), peloP(H, a * .45, 78, .008)],
+          .052 * (.9 + rnd() * .2), .016, { twist: (rnd() - .5) * .3, belly: .4, noEnv: 1 });
+      }
+      peloTrim(H, B, std, { noTemple: true });
+      break;
+    }
+    case 'atras': peloSlick(H, B, std, { lf: .011, back: 10, seed: 211 }); peloTrim(H, B, std, { noTemple: true }); break;
+    case 'canas': { const ln = peloLine(H, { front: 7, temple: -7 }); peloSlick(H, B, ln, { lf: .007, back: 2, n: 9, seed: 215 }); peloTrim(H, B, ln, { noTemple: true }); break; }
+    case 'cresta': {
+      B.cap(inMask(peloLine(H, { front: 2 })), () => .0034, { k: 1 });   // los costados, rapados
+      // de la frente a la nuca, una fila de puntas paradas (más altas al medio)
+      const rnd = peloRnd(221), n = peloN(12, .85), f0 = std(0) + 3, f1 = 172;
+      const at = f => f <= 90 ? [0, f] : [180, 180 - f];
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1), f = f0 + (f1 - f0) * t, [a, e] = at(f), [a2, e2] = at(f + 6);
+        const root = peloP(H, a, e, -.003), nrm = peloNorm(peloAdd(root, H.C, -1)), back = peloNorm(peloAdd(peloP(H, a2, e2), peloP(H, a, e), -1));
+        const len = (.042 + .028 * Math.sin(Math.PI * Math.min(1, t * 1.15))) * hs / .11 * (.9 + rnd() * .2);
+        const tip = peloAdd(peloAdd(root, nrm, len), back, len * .35);
+        B.lock([root, peloAdd(peloMix(root, tip, .5), back, -len * .08), tip], .05, .017, { belly: .35, curve: .15, free: 1, noEnv: 1, twist: (rnd() - .5) * .3 });
+      }
+      break;
+    }
+    case 'rizado': {
+      B.cap(inMask(std), vol(.013, .012));
+      peloCurls(H, B, std, { rows: 6, n: 19, dn: 2, k: .72, w: .024, h: .008, e0: 3, seed: 231 });
+      peloTrim(H, B, std);
+      break;
+    }
+    case 'afro': case 'rulos': {
+      H.big = true;   // la masa pasa el límite de volumen de los demás peinados
+      const afro = key === 'afro', C2 = [H.C[0], H.C[1] + hs * (afro ? .2 : .25), H.C[2] - hs * .08];
+      // la superficie: una esfera algo más alta y atrás que el cráneo; nace fina en la línea del pelo y se infla
+      let rho = 0; for (let a = -180; a < 180; a += 15) for (let e = 0; e <= 90; e += 15) { const p = peloP(H, a, e); rho = Math.max(rho, Math.hypot(p[0] - C2[0], p[1] - C2[1], p[2] - C2[2])); }
+      rho += (afro ? .05 : .016) * hs / .11;
+      const fade = (a, e) => .25 + .75 * Math.max(0, Math.min(1, (e - std(a)) / (afro ? 18 : 12)));
+      const out = !afro ? (a, e) => (.008 + .014 * Math.max(0, Math.sin(peloDeg(e)))) * hs / .11 * fade(a, e)
+        : (a, e) => { const d = peloDir(a, e), q = peloAdd(C2, H.C, -1), b = peloDot(d, q), t = b + Math.sqrt(Math.max(0, b * b - peloDot(q, q) + rho * rho)); return Math.max(.006, t - peloR(H, a, e)) * fade(a, e); };
+      B.cap(inMask(std), (a, e) => out(a, e) * .75, { k: 1 });
+      peloCurls(H, B, std, afro ? { rows: 7, n: 22, dn: 2, k: 1.05, lift: (a, e) => out(a, e) * .8, w: .036, h: .012, e0: 2, noEnv: 1, seed: 241 }
+        : { rows: 6, n: 20, dn: 2, k: .8, lift: (a, e) => out(a, e) * .7, w: .03, h: .01, e0: 1, noEnv: 1, seed: 341 });
+      break;
+    }
+    case 'rastas': {
+      B.cap(inMask(std), vol(.01, .008));
+      const R = { tipVar: .3, w: .019, h: .013, flat: .9, clump: 99, spread: .5, wm: .85, bumps: 8, rope: 1 };
+      peloLayer(H, B, { ...R, n: 20, a0: 58, a1: 302, eRoot: 82, tips: [[60, -1.9], [120, -2.4], [180, -2.6]], seed: 251 });
+      peloLayer(H, B, { ...R, n: 16, a0: 74, a1: 286, eRoot: 54, tips: [[70, -1.8], [180, -2.4]], seed: 253 });
+      peloLayer(H, B, { ...R, n: 10, a0: 98, a1: 262, eRoot: 26, tips: [[90, -1.7], [180, -2.2]], seed: 255 });
+      peloSides(H, B, { a: 62, n: 3, da: 9, len: 1.9, w: .019, h: .013, flat: .9, tipK: .4, wm: .85, bumps: 8, rope: 1 });
+      break;
+    }
+    case 'mono_alto': case 'mono_bajo': {
+      const alto = key === 'mono_alto';
+      B.cap(inMask(std), vol(.008, .005));
+      peloLayer(H, B, { n: 18, a0: 50, a1: 310, eRoot: 84, tips: alto ? [[0, .45], [180, .4]] : [[0, .3], [90, -.05], [180, -.3]], tipVar: .02, h: .006, wk: 1.6, seed: 351 });
+      peloBangs(H, B, { line: std, n: 6, a0: -55, a1: 55, tip: .38, mid: .04, w: 2.1, sweep: alto ? 0 : 14, eRoot: 70, seed: 353 });
+      peloSides(H, B, { a: 66, len: .3, w: .022 });
+      const r = (alto ? .038 : .033) * hs / .11, c = peloP(H, 180, peloUnder(H, 180, alto ? 64 : -12, alto ? 16 : 8), r * .78), o0 = peloAdd(c, H.C, -1);
+      if (!alto || H.hat) o0[1] = Math.max(o0[1], 0) * .3 + .02;
+      const dir = peloNorm(o0);
+      peloTie(B, peloAdd(c, dir, -r * .45), dir, r * .45);
+      peloBun(H, B, c, dir, r, 8); peloBun(H, B, peloAdd(c, dir, r * .4), dir, r * .62, 6);
+      break;
+    }
+    case 'bob': {
+      B.cap(inMask(std), vol(.016, .012));
+      // raya al costado: el flequillo largo se va hacia un lado y cae junto a la cara
+      peloBangs(H, B, { line: std, n: 7, a0: -30, a1: 70, sweep: -30, conv: .25, rootShift: 26, eRoot: 62, tips: [[0, .2], [34, .12], [56, -.3], [76, -.75], [100, -.9]], ragged: .15, hook: 2, bow: .012, seed: 261 });
+      peloSides(H, B, { a: 70, n: 2, da: 12, len: 1, w: .05, inward: 2, flat: .45, tipK: .5 });
+      peloLayer(H, B, { n: 20, a0: 64, a1: 296, tips: [[60, -1], [180, -.94]], tipVar: .015, curl: .007, flat: .55, clump: 9, seed: 263 });
+      break;
+    }
+    case 'pixie': {
+      B.cap(inMask(std), vol(.014, .014));
+      peloBangs(H, B, { line: std, n: 7, a0: -40, a1: 66, sweep: -30, conv: .25, rootShift: 20, eRoot: 64, tips: [[0, .24], [40, .02], [70, -.2]], ragged: .7, hook: 5, bow: .012, seed: 271 });
+      peloLayer(H, B, { n: 16, a0: 40, a1: 320, tips: [[40, .12], [80, -.02], [110, -.2], [180, -.42]], tipVar: .14, flick: .01, seed: 273 });
+      peloTrim(H, B, std, { fem: true });
+      break;
+    }
+    case 'trenza': case 'trenzas': {
+      const una = key === 'trenza';
+      B.cap(inMask(std), vol(.009, .006));
+      peloLayer(H, B, { n: 18, a0: 46, a1: 314, eRoot: 84, tips: una ? [[0, .2], [120, -.3], [180, -.42]] : [[40, .2], [100, -.2], [140, -.4], [180, -.3]], tipVar: .02, h: .007, wk: 1.7, seed: 281 });
+      peloBangs(H, B, { line: std, n: 6, a0: -50, a1: 50, tip: .32, mid: .05, w: 2.1, sweep: una ? 8 : 0, seed: 283 });
+      peloSides(H, B, { a: 64, len: .45, w: .024 });
+      // la trenza (o las dos): de la nuca, por detrás de la espalda
+      for (const s of una ? [0] : [-1, 1]) {
+        const a = una ? 180 : s * 128, base = peloP(H, a, peloUnder(H, a, una ? -16 : -22, 8), .012), path = [base];
+        for (let y = base[1] - .03; y > H.ye - hs * (una ? 3.3 : 2.5); y -= .035) {
+          const prev = path[path.length - 1], x = s ? s * Math.max(Math.abs(base[0]) * .8, peloBack(H, y).sx * .45) : 0, bz = peloBody(H, x, y).b;
+          path.push([x, y, Math.min(prev[2] - .002, (bz < 8 ? bz : peloBack(H, y).z) - .018)]);
+        }
+        peloBraid(B, path, (una ? .042 : .034) * hs / .11);
+      }
+      break;
+    }
+    case 'media_cola': {
+      B.cap(inMask(std), vol(.013, .01));
+      // abajo, suelto y largo; arriba, recogido hacia atrás en una colita
+      peloLayer(H, B, { n: 16, a0: 96, a1: 264, eRoot: 30, tips: [[100, -2.2], [180, -2.7]], tipVar: .15, h: .012, wk: 2.6, clump: 5, seed: 291 });
+      peloSides(H, B, { a: 74, n: 2, da: 14, len: 1.9, w: .046, inward: -2, h: .012, flat: .4, tipK: .7 });
+      peloLayer(H, B, { n: 16, a0: 50, a1: 310, eRoot: 80, tips: [[0, .25], [90, .12], [180, .22]], tipVar: .02, h: .007, wk: 1.7, seed: 293 });
+      peloBangs(H, B, { line: std, n: 6, a0: -48, a1: 48, tip: .36, mid: .06, w: 2.1, seed: 295 });
+      const base = peloP(H, 180, peloUnder(H, 180, 38), .014), dir = peloNorm([0, .15, -1]);
+      peloTie(B, base, dir, .016);
+      peloTail(H, B, base, dir, H.ye - hs * 1.3, { n: 7, w: .03, h: .011, seed: 297 });
+      break;
+    }
+    case 'rizos': {
+      B.cap(inMask(std), vol(.02, .014));
+      // rizos sueltos arriba (sin el tope de volumen: el contorno se ve rizado)
+      peloCurls(H, B, std, { rows: 5, n: 17, dn: 2, k: .95, e0: 2, w: .03, noEnv: 1, seed: 301 });
+      const W = { tipVar: .2, h: .013, wave: .032, spread: .6, eRoot: 22 };
+      peloLayer(H, B, { ...W, n: 18, a0: 96, a1: 264, tips: [[100, -2.2], [180, -2.6]], wk: 2.6, clump: 9, seed: 303 });
+      peloLayer(H, B, { ...W, n: 7, a0: 62, a1: 96, eRoot: 8, tips: [[60, -1.8], [100, -2.1]], w: .05, clump: 4, seed: 304 });
+      peloLayer(H, B, { ...W, n: 7, a0: 264, a1: 298, eRoot: 8, tips: [[60, -1.8], [100, -2.1]], w: .05, clump: 4, seed: 305 });
+      break;
+    }
+    case 'tazon': {
+      B.cap(inMask(std), vol(.017, .012));
+      peloBangs(H, B, { line: std, n: 10, a0: -74, a1: 74, tip: .3, mid: 0, ragged: .15, hook: 0, bow: .012, spread: 1.04, w: 2.1, seed: 311 });
+      peloLayer(H, B, { n: 18, a0: 68, a1: 292, tips: [[70, .12], [110, -.04], [180, -.14]], tipVar: .02, curl: .007, clump: 9, seed: 313 });
+      break;
+    }
+    case 'puntas': {
+      B.cap(inMask(std), vol(.01, .01));
+      peloLayer(H, B, { n: 14, a0: 60, a1: 300, tips: [[60, .12], [100, 0], [180, -.35]], tipVar: .1, flick: .01, h: .009, seed: 321 });
+      peloSpikes(H, B, { n: 24, a0: -160, a1: 160, e: 56, eVar: 40, len: .042, up: 1, w: .034, noEnv: 1, seed: 323 });
+      // sobre la frente, puntas paradas hacia arriba
+      const rnd = peloRnd(325), n = peloN(7, .7);
+      for (let i = 0; i < n; i++) {
+        const a = -55 + 110 * i / (n - 1) + (rnd() - .5) * 6, root = peloP(H, a * .8, std(a) + 8, -.003), nrm = peloNorm(peloAdd(root, H.C, -1)), L = .05 * (.85 + rnd() * .3) * hs / .11;
+        const tip = peloAdd(peloAdd(root, [0, 1, 0], L * .8), nrm, L * .5);
+        B.lock([root, peloAdd(peloMix(root, tip, .5), nrm, .006), tip], .04, .015, { belly: .3, curve: .25, free: 1, noEnv: 1, twist: (rnd() - .5) * .5 });
+      }
+      peloTrim(H, B, std);
+      break;
+    }
+    case 'chongitos': {
+      B.cap(inMask(std), vol(.008, .005));
+      peloLayer(H, B, { n: 16, a0: 50, a1: 310, eRoot: 82, tips: [[0, .22], [180, .15]], tipVar: .02, h: .006, wk: 1.6, seed: 331 });
+      peloBangs(H, B, { line: std, n: 7, tip: .3, mid: .06, seed: 333 });
+      peloSides(H, B, { a: 64, len: .4, w: .024 });
+      // dos moñitos arriba, a los lados (con una pieza en la cabeza, salen por debajo, atrás)
+      for (const s of [-1, 1]) {
+        const a = s * (H.hat ? 124 : 58), c = peloP(H, a, peloUnder(H, a, 58, 12), .03), o0 = peloAdd(c, H.C, -1); o0[1] += .03;
+        const dir = peloNorm(o0);
+        peloTie(B, peloAdd(c, dir, -.014), dir, .013);
+        peloBun(H, B, c, dir, .029, 7);
       }
       break;
     }
@@ -788,14 +1012,31 @@ function peloBuild(H, key) {
   }
   return B;
 }
-/* geometría con piel del peinado para un cuerpo (se arma una vez y se comparte entre figuras) */
-function peloGeo(tp, key) {
+/* bajo una gorra, un gorro, un sombrero o un casco (F: el borde de la pieza, vestHatFit): lo que queda por encima del
+   borde se aplasta contra el cráneo, dentro de la copa (a F.gap, menos un margen para el contorno); debajo del borde el
+   tope se abre de a poco (el pelo sale de la pieza y cae como siempre: costados, nuca, espalda). Mismo cráneo que la
+   copa: nada atraviesa la pieza con ningún peinado ni cuerpo */
+function peloHatSquash(H, B, F) {
+  const P = B.P, C = H.C, lim = F.gap - .0035;
+  for (let i = 0; i < P.length; i += 3) {
+    const dx = P[i] - C[0], dy = P[i + 1] - C[1], dz = P[i + 2] - C[2], r = Math.hypot(dx, dy, dz); if (r < 1e-5) continue;
+    const a = Math.atan2(dx, dz) * 180 / Math.PI, e = Math.asin(Math.max(-1, Math.min(1, dy / r))) * 180 / Math.PI, eL = F.line(a);
+    let R = peloR(H, a, e) + lim;
+    if (e < eL) R += peloDeg(eL - e) * r * 1.5;
+    if (r > R) { const k = R / r; P[i] = C[0] + dx * k; P[i + 1] = C[1] + dy * k; P[i + 2] = C[2] + dz * k; }
+  }
+}
+/* geometría con piel del peinado para un cuerpo (se arma una vez y se comparte entre figuras); hat: la pieza de la
+   cabeza que lleva (la misma figura con y sin gorra son dos peinados en la caché) */
+function peloGeo(tp, key, hat) {
   let box = PELO_GEO.get(tp); if (!box) PELO_GEO.set(tp, box = new Map());
-  const ck = (PELO_CARDS ? '' : PELO_MASS ? 'M:' : 'm:') + key;
+  const F = hat && typeof vestHatFit === 'function' ? vestHatFit(tp, hat) : null;
+  const ck = (PELO_CARDS ? '' : PELO_MASS ? 'M:' : 'm:') + key + (F ? '~' + hat : '');
   if (box.has(ck)) return box.get(ck);
   let geo = null;
   try {
-    const H = peloHead(tp), B = peloBuild(H, key);
+    const H = peloHead(tp), B = peloBuild(H, key, F);
+    if (B && F) peloHatSquash(H, B, F);
     if (B && (B.I.length || B.IC.length)) {
       const T = THREE; geo = new T.BufferGeometry();
       const P = new Float32Array(B.P), nv = P.length / 3;
@@ -917,18 +1158,20 @@ function peloOutline(A) {
   m.customProgramCacheKey = () => 'fig3d-outline-pelo2';
   return (A.mats.peloOl = m);
 }
-/* el peinado en una figura: reemplaza los peinados que traía el maniquí y arma los nuevos cuando se eligen */
-function peloWear(A, key) {
+/* el peinado en una figura: reemplaza los peinados que traía el maniquí y arma los nuevos cuando se eligen (hat: la
+   gorra, el gorro, el sombrero o el casco que lleva puesto, que aplasta el pelo de arriba) */
+function peloWear(A, key, hat) {
   const M = A.meshes, mode = peloSync();
   if (A.peloMode !== mode) { A.peloMode = mode; A.peloInit = false; }   // cambió la manera de dibujarlo: se rehace
   if (!A.peloInit) {
     A.peloInit = true;
     for (const k of Object.keys(M)) if (k.startsWith('pelo_')) { const g = M[k].g; if (g.parent) g.parent.remove(g); delete M[k]; }
   }
-  if (key && key !== 'ninguno' && !M['pelo_' + key]) {
-    const geo = peloGeo(A.fig, key);
+  const mk = key && key !== 'ninguno' ? 'pelo_' + key + (hat ? '~' + hat : '') : '';
+  if (mk && !M[mk]) {
+    const geo = peloGeo(A.fig, key, hat);
     if (geo) {
-      const T = THREE, g = new T.Group(); g.name = 'pelo_' + key;
+      const T = THREE, g = new T.Group(); g.name = mk;
       if (!A.mats.pelo) A.mats.pelo = fig3dInflate(new T.MeshToonMaterial({ color: '#B9B2A7', gradientMap: fig3dGradientSoft() }), A.infl, 'fig3d-toon-m');
       const ident = new T.Matrix4();
       if (PELO_CARDS) {
@@ -946,27 +1189,30 @@ function peloWear(A, key) {
         const mm = geo.cards && mk(geo.cards, A.mats.peloCard, true);
         if (mm) { const D = peloShadowMats(tx.cards); mm.customDepthMaterial = D.depth; mm.customDistanceMaterial = D.dist; }
         A.body.add(g);
-        M['pelo_' + key] = { g, m: mm || g.children[0], o: null, morphs: null };
+        M[mk] = { g, m: mm || g.children[0], o: null, morphs: null };
       } else {
         const m = new T.SkinnedMesh(geo, A.mats.pelo), o = new T.SkinnedMesh(geo, peloOutline(A));
         for (const x of [m, o]) { x.bind(A.skeleton, ident); x.frustumCulled = false; x.boundingSphere = new T.Sphere(new T.Vector3(0, .9, 0), 2.4); }
         m.castShadow = m.receiveShadow = true;
         g.add(o); g.add(m); A.body.add(g);
-        M['pelo_' + key] = { g, m, o, morphs: null };
+        M[mk] = { g, m, o, morphs: null };
       }
     }
   }
-  for (const k in M) if (k.startsWith('pelo_')) M[k].g.visible = k === 'pelo_' + key;
+  for (const k in M) if (k.startsWith('pelo_')) M[k].g.visible = k === mk;
 }
 
 /* ---------- elegir peinado: miniaturas 3D de cada uno (con el cuerpo, el tono y el color del personaje) ---------- */
 const PELO_THUMBS = new Map();
 let PELO_Q = [], PELO_RUN = false;
-const peloThumbKey = (look, st) => [typeof fig3dBody === 'function' ? fig3dBody(look.body || 'hombre') : look.body, look.tono || '', look.peloColor || '', st, peloSync()].join('|');
+/* «Canas hacia atrás» es canoso salvo que se elija otro color (en la figura y en su miniatura) */
+const PELO_CANAS = '#D9D5CE';
+const peloColorOf = look => look.peloColor || (look.pelo === 'canas' ? PELO_CANAS : '');
+const peloThumbKey = (look, st) => [typeof fig3dBody === 'function' ? fig3dBody(look.body || 'hombre') : look.body, look.tono || '', peloColorOf({ peloColor: look.peloColor, pelo: st }), st, peloSync()].join('|');
 function peloThumb(look, st) {
   const k = peloThumbKey(look, st);
   if (PELO_THUMBS.has(k)) return PELO_THUMBS.get(k);
-  if (!PELO_Q.some(q => q.k === k)) PELO_Q.push({ k, pel: st, look: { body: look.body, tono: look.tono, peloColor: look.peloColor, pelo: st } });
+  if (!PELO_Q.some(q => q.k === k)) PELO_Q.push({ k, pel: st, look: { body: look.body, tono: look.tono, peloColor: peloColorOf({ peloColor: look.peloColor, pelo: st }), pelo: st } });
   peloPump();
   return '';
 }
@@ -1018,11 +1264,28 @@ function peloPump() {
   };
   requestAnimationFrame(step);
 }
-/* cuadrícula de peinados (attr: el atributo de los botones, p. ej. data-fk="pelo") */
+/* cuadrícula de peinados (attr: el atributo de los botones, p. ej. data-fk="pelo"). Primero los que le van a ese tipo
+   de cuerpo (y el que lleva, aunque no le vaya); el resto, detrás de «Ver todos» (sus miniaturas se dibujan al abrirlo) */
+let PELO_ALL = false;
+const PELO_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function peloPicker(look, attr, dis = '') {
-  const cur = look.pelo || 'ninguno';
-  return `<div class="pelo-grid" role="group" aria-label="Peinado">${S3_PELO.map(([k, n]) => { const u = peloThumb(look, k); return `<button class="pelo-it" ${attr} data-v="${k}" aria-pressed="${ea(k === cur)}" title="${n}" ${dis}><img data-pthumb="${esc(peloThumbKey(look, k))}" src="${ea(u || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')}" alt=""><span>${n}</span></button>`; }).join('')}</div>`;
+  const cur = look.pelo || 'ninguno', body = look.body || 'hombre';
+  const fit = S3_PELO.filter(([k]) => k === cur || peloFits(k, body)), rest = S3_PELO.filter(r => !fit.includes(r));
+  const it = ([k, n], more) => { const u = more && !PELO_ALL ? '' : peloThumb(look, k); return `<button class="pelo-it${more ? ' pelo-x' : ''}" ${attr} data-v="${k}" aria-pressed="${ea(k === cur)}" title="${n}" ${dis}${more && !PELO_ALL ? ' hidden' : ''}><img data-pthumb="${esc(peloThumbKey(look, k))}" src="${ea(u || PELO_GIF)}" alt=""><span>${n}</span></button>`; };
+  const tog = rest.length ? `<button type="button" class="linkbtn pelo-all" aria-expanded="${ea(PELO_ALL)}">${PELO_ALL ? 'Ver menos' : `Ver todos (${S3_PELO.length})`}</button>` : '';
+  return `<div class="pelo-grid" role="group" aria-label="Peinado" data-pl="${ea(JSON.stringify({ body: look.body, tono: look.tono, peloColor: look.peloColor }))}">${fit.map(r => it(r)).join('')}${tog}${rest.map(r => it(r, true)).join('')}</div>`;
 }
+/* «Ver todos» / «Ver menos»: se queda abierto mientras dure la sesión (el panel se vuelve a dibujar al elegir) */
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('.pelo-all'), G = b && b.closest('.pelo-grid'); if (!G) return;
+  PELO_ALL = !PELO_ALL;
+  b.setAttribute('aria-expanded', PELO_ALL); b.textContent = PELO_ALL ? 'Ver menos' : `Ver todos (${S3_PELO.length})`;
+  let lk = {}; try { lk = JSON.parse(G.dataset.pl || '{}'); } catch (err) { /* sin datos: el cuerpo de siempre */ }
+  for (const x of G.querySelectorAll('.pelo-x')) {
+    x.hidden = !PELO_ALL;
+    const im = x.querySelector('img'); if (PELO_ALL && im && im.src === PELO_GIF) { const u = peloThumb(lk, x.dataset.v); if (u) im.src = u; }
+  }
+});
 /* colores de pelo (el primero: el tono del maniquí, más oscuro) */
 function peloColors(look, attr, dis = '') {
   const cur = (look.peloColor || '').toLowerCase(), tone = (FIG3D_TONOS[look.tono] || look.tono || FIG3D_TONOS.neutro);
