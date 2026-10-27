@@ -656,7 +656,14 @@ function peloTie(B, base, dir, r = .016) {
 }
 
 /* ---------- el catálogo ---------- */
-function peloBuild(H, key) {
+function peloBuild(H, key, hat) {
+  H.hat = hat || null;
+  try { return peloBuild0(H, key); } finally { H.hat = null; }
+}
+/* con gorra, gorro, sombrero o casco (H.hat): la cola, las coletas y los moños nacen debajo del borde (salen por debajo
+   de la pieza, como en la realidad) en vez de quedar aplastados dentro de la copa */
+const peloUnder = (H, a, e, m = 10) => H.hat ? Math.min(e, H.hat.line(a) - m) : e;
+function peloBuild0(H, key) {
   const B = peloBuilder(H), hs = H.hs;
   const std = peloLine(H), inMask = (line, top = 91) => { const f = (a, e) => e >= line(a) && e <= top; f.line = line; return f; };
   // volumen: separación del pelo respecto del cráneo (más en la coronilla, menos hacia la nuca); casquete y mechones la usan
@@ -750,7 +757,7 @@ function peloBuild(H, key) {
     }
     case 'cola': {
       B.cap(inMask(std), vol(.008, .006));
-      const base = peloP(H, 180, 24, .014), dir = peloNorm([0, .2, -1]);
+      const base = peloP(H, 180, peloUnder(H, 180, 24), .014), dir = peloNorm([0, .2, -1]);
       peloLayer(H, B, { n: 16, a0: 58, a1: 302, eRoot: 78, tips: [[0, .15], [180, .15]], tipVar: .02, h: .006, wk: 1.6, seed: 71 });
       peloBangs(H, B, { line: std, n: 8, tip: .3, mid: .06, seed: 73 });
       peloSides(H, B, { a: 64, len: .5, w: .026 });
@@ -763,7 +770,7 @@ function peloBuild(H, key) {
       peloBangs(H, B, { line: std, n: 8, tip: .24, mid: .06, seed: 81 });
       peloLayer(H, B, { n: 14, a0: 115, a1: 245, tips: [[110, -.3], [180, -.45]], seed: 83 });
       for (const s of [-1, 1]) {
-        const base = peloP(H, s * 116, 30, .014), dir = peloNorm([s * .8, .35, -.45]);
+        const base = peloP(H, s * 116, peloUnder(H, s * 116, 30), .014), dir = peloNorm([s * .8, .35, -.45]);
         peloTie(B, base, dir, .016);
         peloTail(H, B, base, dir, H.ye - hs * 2.1, { n: 8, side: s, w: .032, h: .011, seed: 85 + s });
       }
@@ -776,7 +783,9 @@ function peloBuild(H, key) {
       peloBangs(H, B, { line: std, n: 6, a0: -55, a1: 55, tip: .3, mid: .05, w: 2.1, sweep: 10, seed: 93 });
       peloSides(H, B, { a: 66, len: .35, w: .022 });
       // el moño: mechones enrollados alrededor de un centro, atrás y arriba
-      const c = peloP(H, 180, 44, .042), out = peloNorm(peloAdd(c, H.C, -1)), u = peloNorm(peloCross(out, [0, 1, 0])), w = peloCross(out, u);
+      const c = peloP(H, 180, peloUnder(H, 180, 44, 16), .042), o0 = peloAdd(c, H.C, -1);
+      if (H.hat) o0[1] = Math.max(o0[1], 0) + .02;   // bajo la pieza, el moño (en la nuca) mira hacia atrás, no hacia abajo
+      const out = peloNorm(o0), u = peloNorm(peloCross(out, [0, 1, 0])), w = peloCross(out, u);
       for (let k = 0; k < 8; k++) {
         const ph = k / 8 * Math.PI * 2, r = .036;
         const pt = (t, rr) => peloAdd(peloAdd(peloAdd(c, u, Math.cos(ph + t) * rr), w, Math.sin(ph + t) * rr), out, .014 * Math.sin(t * 1.2));
@@ -788,14 +797,31 @@ function peloBuild(H, key) {
   }
   return B;
 }
-/* geometría con piel del peinado para un cuerpo (se arma una vez y se comparte entre figuras) */
-function peloGeo(tp, key) {
+/* bajo una gorra, un gorro, un sombrero o un casco (F: el borde de la pieza, vestHatFit): lo que queda por encima del
+   borde se aplasta contra el cráneo, dentro de la copa (a F.gap, menos un margen para el contorno); debajo del borde el
+   tope se abre de a poco (el pelo sale de la pieza y cae como siempre: costados, nuca, espalda). Mismo cráneo que la
+   copa: nada atraviesa la pieza con ningún peinado ni cuerpo */
+function peloHatSquash(H, B, F) {
+  const P = B.P, C = H.C, lim = F.gap - .0035;
+  for (let i = 0; i < P.length; i += 3) {
+    const dx = P[i] - C[0], dy = P[i + 1] - C[1], dz = P[i + 2] - C[2], r = Math.hypot(dx, dy, dz); if (r < 1e-5) continue;
+    const a = Math.atan2(dx, dz) * 180 / Math.PI, e = Math.asin(Math.max(-1, Math.min(1, dy / r))) * 180 / Math.PI, eL = F.line(a);
+    let R = peloR(H, a, e) + lim;
+    if (e < eL) R += peloDeg(eL - e) * r * 1.5;
+    if (r > R) { const k = R / r; P[i] = C[0] + dx * k; P[i + 1] = C[1] + dy * k; P[i + 2] = C[2] + dz * k; }
+  }
+}
+/* geometría con piel del peinado para un cuerpo (se arma una vez y se comparte entre figuras); hat: la pieza de la
+   cabeza que lleva (la misma figura con y sin gorra son dos peinados en la caché) */
+function peloGeo(tp, key, hat) {
   let box = PELO_GEO.get(tp); if (!box) PELO_GEO.set(tp, box = new Map());
-  const ck = (PELO_CARDS ? '' : PELO_MASS ? 'M:' : 'm:') + key;
+  const F = hat && typeof vestHatFit === 'function' ? vestHatFit(tp, hat) : null;
+  const ck = (PELO_CARDS ? '' : PELO_MASS ? 'M:' : 'm:') + key + (F ? '~' + hat : '');
   if (box.has(ck)) return box.get(ck);
   let geo = null;
   try {
-    const H = peloHead(tp), B = peloBuild(H, key);
+    const H = peloHead(tp), B = peloBuild(H, key, F);
+    if (B && F) peloHatSquash(H, B, F);
     if (B && (B.I.length || B.IC.length)) {
       const T = THREE; geo = new T.BufferGeometry();
       const P = new Float32Array(B.P), nv = P.length / 3;
@@ -917,18 +943,20 @@ function peloOutline(A) {
   m.customProgramCacheKey = () => 'fig3d-outline-pelo2';
   return (A.mats.peloOl = m);
 }
-/* el peinado en una figura: reemplaza los peinados que traía el maniquí y arma los nuevos cuando se eligen */
-function peloWear(A, key) {
+/* el peinado en una figura: reemplaza los peinados que traía el maniquí y arma los nuevos cuando se eligen (hat: la
+   gorra, el gorro, el sombrero o el casco que lleva puesto, que aplasta el pelo de arriba) */
+function peloWear(A, key, hat) {
   const M = A.meshes, mode = peloSync();
   if (A.peloMode !== mode) { A.peloMode = mode; A.peloInit = false; }   // cambió la manera de dibujarlo: se rehace
   if (!A.peloInit) {
     A.peloInit = true;
     for (const k of Object.keys(M)) if (k.startsWith('pelo_')) { const g = M[k].g; if (g.parent) g.parent.remove(g); delete M[k]; }
   }
-  if (key && key !== 'ninguno' && !M['pelo_' + key]) {
-    const geo = peloGeo(A.fig, key);
+  const mk = key && key !== 'ninguno' ? 'pelo_' + key + (hat ? '~' + hat : '') : '';
+  if (mk && !M[mk]) {
+    const geo = peloGeo(A.fig, key, hat);
     if (geo) {
-      const T = THREE, g = new T.Group(); g.name = 'pelo_' + key;
+      const T = THREE, g = new T.Group(); g.name = mk;
       if (!A.mats.pelo) A.mats.pelo = fig3dInflate(new T.MeshToonMaterial({ color: '#B9B2A7', gradientMap: fig3dGradientSoft() }), A.infl, 'fig3d-toon-m');
       const ident = new T.Matrix4();
       if (PELO_CARDS) {
@@ -946,17 +974,17 @@ function peloWear(A, key) {
         const mm = geo.cards && mk(geo.cards, A.mats.peloCard, true);
         if (mm) { const D = peloShadowMats(tx.cards); mm.customDepthMaterial = D.depth; mm.customDistanceMaterial = D.dist; }
         A.body.add(g);
-        M['pelo_' + key] = { g, m: mm || g.children[0], o: null, morphs: null };
+        M[mk] = { g, m: mm || g.children[0], o: null, morphs: null };
       } else {
         const m = new T.SkinnedMesh(geo, A.mats.pelo), o = new T.SkinnedMesh(geo, peloOutline(A));
         for (const x of [m, o]) { x.bind(A.skeleton, ident); x.frustumCulled = false; x.boundingSphere = new T.Sphere(new T.Vector3(0, .9, 0), 2.4); }
         m.castShadow = m.receiveShadow = true;
         g.add(o); g.add(m); A.body.add(g);
-        M['pelo_' + key] = { g, m, o, morphs: null };
+        M[mk] = { g, m, o, morphs: null };
       }
     }
   }
-  for (const k in M) if (k.startsWith('pelo_')) M[k].g.visible = k === 'pelo_' + key;
+  for (const k in M) if (k.startsWith('pelo_')) M[k].g.visible = k === mk;
 }
 
 /* ---------- elegir peinado: miniaturas 3D de cada uno (con el cuerpo, el tono y el color del personaje) ---------- */

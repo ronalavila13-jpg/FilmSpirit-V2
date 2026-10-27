@@ -272,7 +272,7 @@ function fig3dColors(A, look) {
     const base = new T.Color(FIG3D_TONOS[look.tono] || look.tono || FIG3D_TONOS.neutro);
     if (C.piel) C.piel.color.copy(base);
     // peinados estilo anime (s3d-pelo.js); el color del pelo es el tono del maniquí, salvo que se elija otro
-    if (typeof peloWear === 'function') peloWear(A, look.pelo || 'ninguno');
+    if (typeof peloWear === 'function') peloWear(A, look.pelo || 'ninguno', typeof vestHatOf === 'function' ? vestHatOf(look) : null);
     else { const M = A.meshes, hs = 'pelo_' + (look.pelo || 'ninguno'); for (const k in M) if (k.startsWith('pelo_')) M[k].g.visible = k === hs; }
     const hc = look.peloColor ? new THREE.Color(look.peloColor) : base.clone().multiplyScalar(.62);   // sin color elegido: el tono, más oscuro (se lee el peinado)
     if (C.pelo) C.pelo.color.copy(hc);
