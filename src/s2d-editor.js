@@ -1183,8 +1183,11 @@ async function openShot2D(id, isNew) {
     if (c3) { const g = c3.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c3.width, c3.height); const bg = bgOf(F, plateOf(F)); if (bg) g.drawImage(bg, 0, 0, c3.width, c3.height); }
   }
   const setLive = (el, txt) => { const o = el.parentElement.querySelector('output'); if (o) o.textContent = txt; el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%'); };
-  let objBefore = null, docBefore = null, docVer = -1;
-  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); docVer = E.ver; } });
+  let objBefore = null, docBefore = null, docVer = -1, kbdRange = null;
+  // (lote AB) un deslizador movido con las flechas del teclado recupera el foco después de rearmarse el panel; con el
+  // mouse no (así las letras de las herramientas siguen funcionando)
+  $o('#s2In').addEventListener('keydown', e => { if (e.target.matches('input[type=range]')) kbdRange = e.target.dataset.k; });
+  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); docVer = E.ver; kbdRange = null; } });
   $o('#s2In').addEventListener('input', e => {
     const el = e.target, k = el.dataset.k; if (!k) return;
     const v = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
@@ -1221,8 +1224,8 @@ async function openShot2D(id, isNew) {
       if (o && E.text === o) placeText();
       insp(); req(); return;
     }
-    // (lote AB) el panel se vuelve a armar: el deslizador recupera el foco, así las flechas del teclado siguen
-    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k)) { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); if (document.activeElement === document.body) { const i = $o(`#s2In input[data-k="${k}"]`); if (i) i.focus(); } return; }
+    // (lote AB) el panel se vuelve a armar: si se movió con el teclado, el deslizador recupera el foco (las flechas siguen)
+    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k)) { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); if (kbdRange === k) { const i = $o(`#s2In input[data-k="${k}"]`); if (i) i.focus(); } kbdRange = null; return; }
     if (k === 'ly-sh') { toggleShared(actL(), v); return; }
     // una imagen detrás de las figuras (de fondo) o encima de la escena 3D
     if (k === 'ly-back') { structural(() => { const L = actL(); if (v && L.kind === 'image') L.back = true; else delete L.back; }); ensureBG(); return; }
