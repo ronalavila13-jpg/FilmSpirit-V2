@@ -3365,6 +3365,68 @@ a.cl-maps{color:var(--ink)}   /* botones, no enlaces azules */
 @keyframes cl-flash{0%,60%{background:color-mix(in srgb,var(--warn) 30%,transparent)}100%{background:transparent}}
 .cl-flash{animation:cl-flash 1.6s ease-out}
 @media (prefers-reduced-motion:reduce){.cl-flash{animation:none;outline:2px solid var(--warn)}}
+/* ---------- (lote Y) la hoja de llamado al estilo Apple, con la misma estructura ----------
+   Una sola escala de letras (etiqueta 11,5 · nota 12,5 · texto 13,5 · sección 17 · fecha 19 · título 26 · llamado 56),
+   tres tonos de gris derivados de la tinta (texto, secundario y etiqueta), líneas finas en vez de reglas gruesas, las
+   etiquetas en minúsculas (no en MAYÚSCULAS espaciadas), márgenes parejos y los números alineados. El PDF usa la misma
+   escala, los mismos tonos y las mismas líneas (pdf.js, pdfCall) */
+.cs.cl{
+  --cl-2:color-mix(in srgb,var(--ink) 66%,var(--surface));
+  --cl-3:color-mix(in srgb,var(--ink) 52%,var(--surface));
+  --cl-sep:color-mix(in srgb,var(--ink) 13%,var(--surface));
+  --cl-sep2:color-mix(in srgb,var(--ink) 7%,var(--surface));
+  --cl-fill:color-mix(in srgb,var(--ink) 5%,var(--surface));
+  --cl-cap:11.5px; --cl-ft:12.5px; --cl-bd:13.5px; --cl-h3:17px; --cl-h2:19px; --cl-h1:26px; --cl-hero:56px; --cl-px:40px;
+  --muted:var(--cl-2)
+}
+.cs.cl :is(input,textarea){border-radius:6px}
+/* sin cursivas: los ejemplos de los campos vacíos y las ayudas, en gris y derechos */
+.cs.cl :is(input,textarea)::placeholder,.cs.cl :is(.hint,.cl-dim,.cs-none){font-style:normal}
+/* los campos de las columnas de la cabecera y del pie empiezan donde empieza su etiqueta (el relleno queda afuera) */
+.cs.cl :is(.cl-mp,.cl-fh>div,.cl-fr>div)>:is(input,textarea),.cs.cl .cl-uw:not(.on)>input,.cs.cl .cl-mp .cl-link-in{margin-left:-6px;padding-inline:6px;width:calc(100% + 6px)}
+.cs.cl .cl-uw.on{margin-left:-6px}
+.cs.cl :is(.cl-mp,.cl-fh>div,.cl-fr>div)>input[data-miss]{padding-left:22px}
+.cs.cl .cl-uw.on>input{padding-left:6px}
+.cs.cl :is(.cl-c1,.cl-c3){gap:16px;font-size:var(--cl-bd)}
+/* las etiquetas: chicas, en minúsculas y en el gris más claro */
+/* al centro: el proyecto, la jornada, la fecha y el llamado general, la cifra más grande de la hoja */
+.cs.cl .cl-big .hd-tag{font-size:var(--cl-cap);font-weight:600;color:var(--cl-2);background:var(--cl-fill);border-radius:999px;padding:2px 9px}
+/* a la derecha: el clima, el punto de encuentro y la locación, cada uno con su ícono */
+/* (lote Y) el clima con su unidad pegada al número: «30°», «10%»; en Clima, un número solo es la temperatura */
+.cs.cl .cl-u{display:inline-flex;align-items:baseline;min-width:0;border-radius:6px}
+.cs.cl .cl-u>i{display:none;font-style:normal;color:var(--ink)}
+.cs.cl .cl-temp .cl-u>i{font-weight:650}
+.cs.cl .cl-u.on>i{display:inline;padding-right:5px;margin-left:-1px}
+.cs.cl .cl-u.on>input{border-right-width:0 !important}
+.cs.cl .cl-u.on>input{width:auto !important;min-width:1ch;padding-right:0 !important;text-align:left !important;field-sizing:content}
+.cs.cl .cl-u.on:hover,.cs.cl .cl-u.on:focus-within{background:var(--fill)}
+.cs.cl .cl-u.on>input:is(:hover,:focus){background:transparent}
+.cs.cl .cl-uw:not(.on){display:flex}
+.cs.cl .cl-uw:not(.on)>input{flex:1 1 auto}
+.cs.cl .cl-uw.on{justify-self:start}
+/* la nota para el equipo y la utilería especial */
+/* las secciones: el título y una regla fina de tinta debajo */
+.cs.cl .cl-sec>header .hint{font-size:var(--cl-ft);color:var(--cl-2)}
+/* las tablas: títulos chicos en minúsculas, filas con aire y separadas por una línea fina */
+.cs.cl :is(.cl-list,.cl-tbl) thead tr:last-child th{border-bottom:1px solid var(--cl-sep);padding-bottom:7px}
+.cs.cl :is(.cl-lie,.cl-ldn){font-size:var(--cl-ft);font-weight:600}
+/* los planos de cada escena: una línea más clara, sin el recuadro del número */
+.cs.cl .cl-pc .cl-code{border:0;background:none;padding:0;min-width:0;font-size:var(--cl-ft);font-weight:650;color:var(--ink)}
+.cs.cl .cl-shd b{font-weight:650}
+.cs.cl :is(.cl-shd>span,.cl-shset){color:var(--cl-2)}
+.cs.cl .cl-th{border-radius:4px}
+/* las personas, la movilidad y los proveedores */
+/* el pie: el centro de salud y los canales de radio */
+.cs.cl :is(.cl-fh,.cl-fr)>.ic{width:18px;height:18px;color:var(--cl-3)}
+/* (lote Z) cada escena del cronograma y del avance a todo color, como su tira en el plan de rodaje: usa las mismas reglas
+   que las tiras del plan (el fondo, la línea, los grises y la letra clara sobre un color oscuro, en la apariencia clara y
+   en la oscura: «.cs.cl .cl-lsc» junto a «.prow.sc»). Aquí, los grises de la hoja salen de los de la tira */
+.cs.cl .cl-lsc{--cl-2:var(--muted);--cl-3:var(--faint)}
+@media (max-width:760px){
+  .cs.cl{--cl-px:16px;--cl-hero:46px;--cl-h1:22px;--cl-h2:17px;--cl-h3:16px}
+  .cs.cl :is(.cl-list,.cl-ptbl,.cl-vtbl) tr{border-top-color:var(--cl-sep)}
+  .cs.cl .cl-lsh{border-top-color:var(--cl-sep2)}
+}
 /* el aviso arriba del menú Exportar */
 .xmenu .xnote{display:flex;gap:8px;align-items:flex-start;margin:0 0 4px;padding:8px 10px;background:var(--warn-soft);font-size:var(--fs-2);line-height:1.45;max-width:340px}
 .xmenu .xnote .ic{width:16px;height:16px;flex:none;color:var(--warn-text);margin-top:1px}
@@ -5399,23 +5461,23 @@ label:has(>.file-in:focus-visible){outline:2px solid var(--accent);outline-offse
    clara, las tiras del plan y las cabeceras de escena de la hoja de script van en su color entero de día o de noche,
    como un stripboard; en la oscura, con el velo de siempre (no deslumbran de noche). */
 :root[data-tone="light"] :is(.prow.sc,.prow.ev.hl)::before{display:none}
-:root[data-tone="light"] :is(.prow.sc,.prow.ev.hl){background:var(--rc)}
+:root[data-tone="light"] :is(.prow.sc,.prow.ev.hl),:root[data-tone="light"] .cs.cl .cl-lsc>td{background:var(--rc)}
 :root[data-tone="light"] .prow.sc[data-dn="d"]{background:var(--strip-d)}
 :root[data-tone="light"] .prow.sc[data-dn="n"]{background:var(--strip-n)}
-:root[data-tone="light"] .prow.sc{border-top-color:color-mix(in oklab,var(--ink) 28%,transparent)}
+:root[data-tone="light"] .prow.sc,:root[data-tone="light"] .cs.cl .cl-lsc>td{border-top-color:color-mix(in oklab,var(--ink) 28%,transparent)}
 /* (lote U) en la apariencia oscura, las cinco tiras con un velo más fuerte para que se distingan (la letra sigue clara) */
-:root[data-tone="dark"] .prow.sc{background:color-mix(in srgb,var(--rc,var(--surface)) 21%,var(--surface))}
-:root[data-tone="dark"] .prow.sc[data-strip="di"]{background:color-mix(in srgb,#FFFFFF 10%,var(--surface))}
+:root[data-tone="dark"] .prow.sc,:root[data-tone="dark"] .cs.cl .cl-lsc>td{background:color-mix(in srgb,var(--rc,var(--surface)) 21%,var(--surface))}
+:root[data-tone="dark"] .prow.sc[data-strip="di"],:root[data-tone="dark"] .cs.cl .cl-lsc[data-strip="di"]>td{background:color-mix(in srgb,#FFFFFF 10%,var(--surface))}
 :root[data-tone="light"] .supsc[data-dn="d"]>header{background:var(--strip-d);border-bottom:0}
 :root[data-tone="light"] .supsc[data-dn="n"]>header{background:var(--strip-n);border-bottom:0}
 /* sobre el color entero, los textos secundarios salen de la tinta (no de un gris que se pierde) */
 /* (los textos secundarios toman un poco del color de la tira: no quedan grises sobre el color, y se leen a 4,5:1 o más) */
-:root[data-tone="light"] :is(.prow.sc,.prow.ev.hl,.supsc[data-dn]>header){--muted:color-mix(in oklab,var(--ink) 84%,var(--rc,var(--strip-d)));--faint:color-mix(in oklab,var(--ink) 74%,var(--rc,var(--strip-d)));--ph:color-mix(in oklab,var(--ink) 78%,var(--rc,var(--strip-d)))}
+:root[data-tone="light"] :is(.prow.sc,.prow.ev.hl,.supsc[data-dn]>header),:root[data-tone="light"] .cs.cl .cl-lsc{--muted:color-mix(in oklab,var(--ink) 84%,var(--rc,var(--strip-d)));--faint:color-mix(in oklab,var(--ink) 74%,var(--rc,var(--strip-d)));--ph:color-mix(in oklab,var(--ink) 78%,var(--rc,var(--strip-d)))}
 :root[data-tone="light"] :is(.prow.sc[data-dn="d"],.supsc[data-dn="d"]>header){--muted:color-mix(in oklab,var(--ink) 84%,var(--strip-d));--faint:color-mix(in oklab,var(--ink) 74%,var(--strip-d));--ph:color-mix(in oklab,var(--ink) 78%,var(--strip-d))}
 :root[data-tone="light"] :is(.prow.sc[data-dn="n"],.supsc[data-dn="n"]>header){--muted:color-mix(in oklab,var(--ink) 84%,var(--strip-n));--faint:color-mix(in oklab,var(--ink) 74%,var(--strip-n));--ph:color-mix(in oklab,var(--ink) 78%,var(--strip-n))}
 /* sobre un color oscuro de la leyenda, la letra clara */
-:root[data-tone="light"] :is(.prow.dk,.supsc.dk>header){--ink:#F4F4F4;--muted:#E2E2E2;color:#F4F4F4}
-:root[data-tone="light"] .prow.dk :is(input,select,textarea){color:#F4F4F4}
+:root[data-tone="light"] :is(.prow.dk,.supsc.dk>header),:root[data-tone="light"] .cs.cl .cl-lsc.dk{--ink:#F4F4F4;--muted:#E2E2E2;color:#F4F4F4}
+:root[data-tone="light"] .prow.dk :is(input,select,textarea),:root[data-tone="light"] .cs.cl .cl-lsc.dk :is(input,select){color:#F4F4F4}
 
 /* ============ el teléfono en el set (octubre de 2026, tercera entrega) ============ */
 /* hoja de script: la cabecera de la jornada se pliega en una línea (tarjeta · sonido · llamado) y se abre al tocarla */
@@ -5806,75 +5868,6 @@ details.sec .tbl td,details.sec .tbl th{padding-inline:10px}
 details.sec .tbl td.num,details.sec .tbl th.num{text-align:right}
 details.sec .tbl td.num input{display:block;margin-left:auto}
 .cl .cl-note textarea{text-align:center}
-/* ---------- (lote Y) la hoja de llamado al estilo Apple, con la misma estructura ----------
-   Una sola escala de letras (etiqueta 11,5 · nota 12,5 · texto 13,5 · sección 17 · fecha 19 · título 26 · llamado 56),
-   tres tonos de gris derivados de la tinta (texto, secundario y etiqueta), líneas finas en vez de reglas gruesas, las
-   etiquetas en minúsculas (no en MAYÚSCULAS espaciadas), márgenes parejos y los números alineados. El PDF usa la misma
-   escala, los mismos tonos y las mismas líneas (pdf.js, pdfCall) */
-.cs.cl{
-  --cl-2:color-mix(in srgb,var(--ink) 66%,var(--surface));
-  --cl-3:color-mix(in srgb,var(--ink) 52%,var(--surface));
-  --cl-sep:color-mix(in srgb,var(--ink) 13%,var(--surface));
-  --cl-sep2:color-mix(in srgb,var(--ink) 7%,var(--surface));
-  --cl-fill:color-mix(in srgb,var(--ink) 5%,var(--surface));
-  --cl-cap:11.5px; --cl-ft:12.5px; --cl-bd:13.5px; --cl-h3:17px; --cl-h2:19px; --cl-h1:26px; --cl-hero:56px; --cl-px:40px;
-  --muted:var(--cl-2)
-}
-.cs.cl :is(input,textarea){border-radius:6px}
-/* sin cursivas: los ejemplos de los campos vacíos y las ayudas, en gris y derechos */
-.cs.cl :is(input,textarea)::placeholder,.cs.cl :is(.hint,.cl-dim,.cs-none){font-style:normal}
-/* los campos de las columnas de la cabecera y del pie empiezan donde empieza su etiqueta (el relleno queda afuera) */
-.cs.cl :is(.cl-mp,.cl-fh>div,.cl-fr>div)>:is(input,textarea),.cs.cl .cl-uw:not(.on)>input,.cs.cl .cl-mp .cl-link-in{margin-left:-6px;padding-inline:6px;width:calc(100% + 6px)}
-.cs.cl .cl-uw.on{margin-left:-6px}
-.cs.cl :is(.cl-mp,.cl-fh>div,.cl-fr>div)>input[data-miss]{padding-left:22px}
-.cs.cl .cl-uw.on>input{padding-left:6px}
-.cs.cl :is(.cl-c1,.cl-c3){gap:16px;font-size:var(--cl-bd)}
-/* las etiquetas: chicas, en minúsculas y en el gris más claro */
-/* al centro: el proyecto, la jornada, la fecha y el llamado general, la cifra más grande de la hoja */
-.cs.cl .cl-big .hd-tag{font-size:var(--cl-cap);font-weight:600;color:var(--cl-2);background:var(--cl-fill);border-radius:999px;padding:2px 9px}
-/* a la derecha: el clima, el punto de encuentro y la locación, cada uno con su ícono */
-/* (lote Y) el clima con su unidad pegada al número: «30°», «10%»; en Clima, un número solo es la temperatura */
-.cs.cl .cl-u{display:inline-flex;align-items:baseline;min-width:0;border-radius:6px}
-.cs.cl .cl-u>i{display:none;font-style:normal;color:var(--ink)}
-.cs.cl .cl-temp .cl-u>i{font-weight:650}
-.cs.cl .cl-u.on>i{display:inline;padding-right:5px;margin-left:-1px}
-.cs.cl .cl-u.on>input{border-right-width:0 !important}
-.cs.cl .cl-u.on>input{width:auto !important;min-width:1ch;padding-right:0 !important;text-align:left !important;field-sizing:content}
-.cs.cl .cl-u.on:hover,.cs.cl .cl-u.on:focus-within{background:var(--fill)}
-.cs.cl .cl-u.on>input:is(:hover,:focus){background:transparent}
-.cs.cl .cl-uw:not(.on){display:flex}
-.cs.cl .cl-uw:not(.on)>input{flex:1 1 auto}
-.cs.cl .cl-uw.on{justify-self:start}
-/* la nota para el equipo y la utilería especial */
-/* las secciones: el título y una regla fina de tinta debajo */
-.cs.cl .cl-sec>header .hint{font-size:var(--cl-ft);color:var(--cl-2)}
-/* las tablas: títulos chicos en minúsculas, filas con aire y separadas por una línea fina */
-.cs.cl :is(.cl-list,.cl-tbl) thead tr:last-child th{border-bottom:1px solid var(--cl-sep);padding-bottom:7px}
-.cs.cl :is(.cl-lie,.cl-ldn){font-size:var(--cl-ft);font-weight:600}
-/* los planos de cada escena: una línea más clara, sin el recuadro del número */
-.cs.cl .cl-pc .cl-code{border:0;background:none;padding:0;min-width:0;font-size:var(--cl-ft);font-weight:650;color:var(--ink)}
-.cs.cl .cl-shd b{font-weight:650}
-.cs.cl :is(.cl-shd>span,.cl-shset){color:var(--cl-2)}
-.cs.cl .cl-th{border-radius:4px}
-/* las personas, la movilidad y los proveedores */
-/* el pie: el centro de salud y los canales de radio */
-.cs.cl :is(.cl-fh,.cl-fr)>.ic{width:18px;height:18px;color:var(--cl-3)}
-/* (lote Z) cada escena del cronograma y del avance a todo color, como su tira en el plan de rodaje (o el color con que se
-   resaltó); los planos de debajo siguen en blanco con su franja. Sobre el color, los grises salen de la tinta mezclada con
-   la tira (se leen) y sobre un color oscuro la letra es clara. En la apariencia oscura, con el velo del stripboard */
-.cs.cl .cl-lsc>td{background:var(--rc)}
-.cs.cl .cl-lsc{--cl-2:color-mix(in oklab,var(--ink) 80%,var(--rc));--cl-3:color-mix(in oklab,var(--ink) 70%,var(--rc));--muted:var(--cl-2)}
-.cs.cl .cl-lsc>td{border-top-color:color-mix(in oklab,var(--ink) 18%,var(--rc))}
-:root:not([data-tone="dark"]) .cs.cl .cl-lsc.dk{--ink:#F4F4F4;--cl-2:#E4E4E4;--cl-3:#D6D6D6;--muted:#E4E4E4;color:#F4F4F4}
-:root:not([data-tone="dark"]) .cs.cl .cl-lsc.dk :is(input,select){color:#F4F4F4}
-:root[data-tone="dark"] .cs.cl .cl-lsc>td{background:color-mix(in srgb,var(--rc) 21%,var(--surface));border-top-color:var(--cl-sep)}
-:root[data-tone="dark"] .cs.cl .cl-lsc[data-strip="di"]>td{background:color-mix(in srgb,#FFFFFF 10%,var(--surface))}
-:root[data-tone="dark"] .cs.cl .cl-lsc{--cl-2:color-mix(in srgb,var(--ink) 74%,var(--surface));--cl-3:color-mix(in srgb,var(--ink) 62%,var(--surface))}
-@media (max-width:760px){
-  .cs.cl{--cl-px:16px;--cl-hero:46px;--cl-h1:22px;--cl-h2:17px;--cl-h3:16px}
-  .cs.cl :is(.cl-list,.cl-ptbl,.cl-vtbl) tr{border-top-color:var(--cl-sep)}
-  .cs.cl .cl-lsh{border-top-color:var(--cl-sep2)}
-}
 </style>
 
 <div id="app">
