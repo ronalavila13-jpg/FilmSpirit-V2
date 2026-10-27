@@ -967,7 +967,7 @@ function peloBuild0(H, key) {
     case 'rizos': {
       B.cap(inMask(std), vol(.02, .014));
       // rizos sueltos arriba (sin el tope de volumen: el contorno se ve rizado)
-      peloCurls(H, B, std, { rows: 6, n: 18, dn: 2, k: .9, e0: 2, w: .03, noEnv: 1, seed: 301 });
+      peloCurls(H, B, std, { rows: 5, n: 17, dn: 2, k: .95, e0: 2, w: .03, noEnv: 1, seed: 301 });
       const W = { tipVar: .2, h: .013, wave: .032, spread: .6, eRoot: 22 };
       peloLayer(H, B, { ...W, n: 18, a0: 96, a1: 264, tips: [[100, -2.2], [180, -2.6]], wk: 2.6, clump: 9, seed: 303 });
       peloLayer(H, B, { ...W, n: 7, a0: 62, a1: 96, eRoot: 8, tips: [[60, -1.8], [100, -2.1]], w: .05, clump: 4, seed: 304 });
@@ -1205,11 +1205,14 @@ function peloWear(A, key, hat) {
 /* ---------- elegir peinado: miniaturas 3D de cada uno (con el cuerpo, el tono y el color del personaje) ---------- */
 const PELO_THUMBS = new Map();
 let PELO_Q = [], PELO_RUN = false;
-const peloThumbKey = (look, st) => [typeof fig3dBody === 'function' ? fig3dBody(look.body || 'hombre') : look.body, look.tono || '', look.peloColor || '', st, peloSync()].join('|');
+/* «Canas hacia atrás» es canoso salvo que se elija otro color (en la figura y en su miniatura) */
+const PELO_CANAS = '#D9D5CE';
+const peloColorOf = look => look.peloColor || (look.pelo === 'canas' ? PELO_CANAS : '');
+const peloThumbKey = (look, st) => [typeof fig3dBody === 'function' ? fig3dBody(look.body || 'hombre') : look.body, look.tono || '', peloColorOf({ peloColor: look.peloColor, pelo: st }), st, peloSync()].join('|');
 function peloThumb(look, st) {
   const k = peloThumbKey(look, st);
   if (PELO_THUMBS.has(k)) return PELO_THUMBS.get(k);
-  if (!PELO_Q.some(q => q.k === k)) PELO_Q.push({ k, pel: st, look: { body: look.body, tono: look.tono, peloColor: look.peloColor, pelo: st } });
+  if (!PELO_Q.some(q => q.k === k)) PELO_Q.push({ k, pel: st, look: { body: look.body, tono: look.tono, peloColor: peloColorOf({ peloColor: look.peloColor, pelo: st }), pelo: st } });
   peloPump();
   return '';
 }
@@ -1261,11 +1264,28 @@ function peloPump() {
   };
   requestAnimationFrame(step);
 }
-/* cuadrícula de peinados (attr: el atributo de los botones, p. ej. data-fk="pelo") */
+/* cuadrícula de peinados (attr: el atributo de los botones, p. ej. data-fk="pelo"). Primero los que le van a ese tipo
+   de cuerpo (y el que lleva, aunque no le vaya); el resto, detrás de «Ver todos» (sus miniaturas se dibujan al abrirlo) */
+let PELO_ALL = false;
+const PELO_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function peloPicker(look, attr, dis = '') {
-  const cur = look.pelo || 'ninguno';
-  return `<div class="pelo-grid" role="group" aria-label="Peinado">${S3_PELO.map(([k, n]) => { const u = peloThumb(look, k); return `<button class="pelo-it" ${attr} data-v="${k}" aria-pressed="${ea(k === cur)}" title="${n}" ${dis}><img data-pthumb="${esc(peloThumbKey(look, k))}" src="${ea(u || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')}" alt=""><span>${n}</span></button>`; }).join('')}</div>`;
+  const cur = look.pelo || 'ninguno', body = look.body || 'hombre';
+  const fit = S3_PELO.filter(([k]) => k === cur || peloFits(k, body)), rest = S3_PELO.filter(r => !fit.includes(r));
+  const it = ([k, n], more) => { const u = more && !PELO_ALL ? '' : peloThumb(look, k); return `<button class="pelo-it${more ? ' pelo-x' : ''}" ${attr} data-v="${k}" aria-pressed="${ea(k === cur)}" title="${n}" ${dis}${more && !PELO_ALL ? ' hidden' : ''}><img data-pthumb="${esc(peloThumbKey(look, k))}" src="${ea(u || PELO_GIF)}" alt=""><span>${n}</span></button>`; };
+  const tog = rest.length ? `<button type="button" class="linkbtn pelo-all" aria-expanded="${ea(PELO_ALL)}">${PELO_ALL ? 'Ver menos' : `Ver todos (${S3_PELO.length})`}</button>` : '';
+  return `<div class="pelo-grid" role="group" aria-label="Peinado" data-pl="${ea(JSON.stringify({ body: look.body, tono: look.tono, peloColor: look.peloColor }))}">${fit.map(r => it(r)).join('')}${tog}${rest.map(r => it(r, true)).join('')}</div>`;
 }
+/* «Ver todos» / «Ver menos»: se queda abierto mientras dure la sesión (el panel se vuelve a dibujar al elegir) */
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('.pelo-all'), G = b && b.closest('.pelo-grid'); if (!G) return;
+  PELO_ALL = !PELO_ALL;
+  b.setAttribute('aria-expanded', PELO_ALL); b.textContent = PELO_ALL ? 'Ver menos' : `Ver todos (${S3_PELO.length})`;
+  let lk = {}; try { lk = JSON.parse(G.dataset.pl || '{}'); } catch (err) { /* sin datos: el cuerpo de siempre */ }
+  for (const x of G.querySelectorAll('.pelo-x')) {
+    x.hidden = !PELO_ALL;
+    const im = x.querySelector('img'); if (PELO_ALL && im && im.src === PELO_GIF) { const u = peloThumb(lk, x.dataset.v); if (u) im.src = u; }
+  }
+});
 /* colores de pelo (el primero: el tono del maniquí, más oscuro) */
 function peloColors(look, attr, dis = '') {
   const cur = (look.peloColor || '').toLowerCase(), tone = (FIG3D_TONOS[look.tono] || look.tono || FIG3D_TONOS.neutro);

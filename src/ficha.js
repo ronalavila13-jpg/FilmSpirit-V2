@@ -187,9 +187,11 @@ function openFicha(id, done) {
       </div>`;
   };
   const set = (f, v) => {
+    const prevBody = f === 'body' ? lookOf({ kind: 'actor', el: id }).body : null;
     const lk = el.look = { ...(el.look || {}), [f]: v };
     if (f === 'body') {
       const B = S3_BODY[v];
+      if (lk.acc && prevBody !== v) lk.acc = accFitStamp(lk.acc, prevBody);   // la ropa dibujada se acomoda al cuerpo nuevo
       lk.hairStyle = B.hair; if (!lk.hairSet || B.faceless) lk.hair = B.hc;
       if (B.faceless) lk.skin = B.skin; else if (lk.skin === S3_BODY.extra.skin) lk.skin = S3_SKIN[2];
     }
