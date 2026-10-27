@@ -33,7 +33,8 @@ function zipDocs() {
     ['17_Hoja_de_script.pdf', 'sup', null, 'prodpdf', true],
   ];
 }
-const DOC_TAB = { argumento: 'build', bios: 'build', escaleta: 'build', scouting: 'scout', casting: 'casting', screenplay: 'script', script: 'script', breakdown: 'breakdown', storyboard: 'board', shotlist: 'board', animatic: 'animatic', plan: 'plan', calendar: 'cal', call: 'call', budget: 'budget', sup: 'sup' };
+// cada documento sale si se ve su pestaña; el guion y el rayado, con el Guion rayado (lote AD: lo ve todo el equipo)
+const DOC_TAB = { argumento: 'build', bios: 'build', escaleta: 'build', scouting: 'scout', casting: 'casting', screenplay: 'lined', script: 'lined', breakdown: 'breakdown', storyboard: 'board', shotlist: 'board', animatic: 'animatic', plan: 'plan', calendar: 'cal', call: 'call', budget: 'budget', sup: 'sup' };
 async function buildProjectZip(step) {
   const files = [], skipped = [], base = zipName(P.meta.title);
   const add = (name, data) => files.push([base + '/' + name, data]);

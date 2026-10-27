@@ -20,21 +20,44 @@ async function openProject(pid) {
   $('#view').innerHTML = '<div class="loading">Abriendo proyecto…</div>';
   let Pn = null;
   try { Pn = await Store.load(pid); } catch (e) { Pn = null; }
-  if (Pn && Pn.cancel) { if (P) render(); else setProject(buildSample()); return false; }
-  const ok = !!Pn;
-  if (!Pn) { toast('No se pudo abrir ese proyecto: puede que lo hayan borrado o que ya no tengas acceso. Búscalo en Proyectos.'); Pn = buildSample(); }
-  else {
-    Pn._saved = true;
-    if (Store.kind === 'desk' && !Pn._shared) DESK.pathOf(pid).then(p => { Pn._path = p; setSaveState(); }).catch(() => { });
-  }
+  if (Pn && Pn.cancel) { if (P) render(); else openSample(); return false; }
+  if (!Pn) { toast('No se pudo abrir ese proyecto: puede que lo hayan borrado o que ya no tengas acceso. Búscalo en Proyectos.'); openSample(); return false; }
+  Pn._saved = true;
+  if (Store.kind === 'desk' && !Pn._shared) DESK.pathOf(pid).then(p => { Pn._path = p; setSaveState(); }).catch(() => { });
   setProject(Pn);
-  return ok;
+  return true;
 }
+/* ---------- (lote AD) el proyecto de ejemplo «La última función» ----------
+   Uno solo por sesión: lo que cambias en él (y lo que dibujas) queda en la memoria mientras el programa siga abierto,
+   también al pasar a otro proyecto y volver; al cerrar o recargar la página se pierde (y el navegador avisa antes:
+   arranque.js · unsavedWork). No se guarda solo ni ocupa un lugar del plan; «Guardar como mi proyecto» (adoptSample) lo
+   convierte en un proyecto tuyo. Toda forma de abrir el ejemplo pasa por aquí: Inicio, Proyectos, la portada
+   (?ejemplo=1, también sin cuenta) y los botones «Explorar con un proyecto de ejemplo» */
+const SAMPLE_MEM = { P: null, frames: null };
+function openSample() {
+  const keep = SAMPLE_MEM.P && SAMPLE_MEM.P._sample && !SAMPLE_MEM.P._saved ? SAMPLE_MEM.P : null;
+  if (keep && P === keep) { homeHide(); render(); return P; }   // ya está abierto
+  const Pn = keep || buildSample();
+  if (!keep) SAMPLE_MEM.frames = null;
+  SAMPLE_MEM.P = Pn;
+  setProject(Pn);   // con sus dibujos, si ya se había abierto (setProject)
+  return Pn;
+}
+/* el ejemplo va primero en Inicio y en Proyectos, destacado: en la web con cuentas, el plan gratis y quien entra sin
+   cuenta. En los planes de pago queda el botón «Ejemplo» de siempre */
+const sampleFirst = () => Store.kind === 'api' && !!(APITEAM.anon || !APITEAM.me || APITEAM.me.plan === 'free');
+const SAMPLE_INVITE = 'Recorre todas las pestañas y juega con un proyecto completo: guion, desglose, storyboard, plan de rodaje y hoja de llamado';
+const sampleName = () => SAMPLE_TX[EN ? 'en' : 'es'].title;
+// ¿hay cambios en el ejemplo que se perderían al cerrar la página?
+const sampleTouched = () => !!(SAMPLE_MEM.P && SAMPLE_MEM.P._touched && SAMPLE_MEM.P._sample && !SAMPLE_MEM.P._saved);
 function setProject(Pn) {
   if (P && P !== Pn && dirty.size && !saving) flushSave();
+  // (lote AD) se sale del ejemplo: sus dibujos quedan en la memoria para cuando se vuelva (openSample)
+  if (P && P !== Pn && P === SAMPLE_MEM.P && P._sample && !P._saved) SAMPLE_MEM.frames = FRAMES;
   dirty.clear();
   P = Pn;
   FRAMES = {}; FRAMES_PID = null; FRIDX = null; FR_KNOWN = null; FR_USE.clear(); FR_FAIL.clear();
+  if (Pn === SAMPLE_MEM.P && Pn._sample && !Pn._saved && SAMPLE_MEM.frames) FRAMES = SAMPLE_MEM.frames;   // el ejemplo, con sus dibujos (lote AD)
   UI.scene = 0; UI.supDay = 0; UI.sbScene = '';
   normalizeProject(P);
   if (typeof SHARE !== 'undefined' && SHARE && (!P._shared || P.id !== SHARE.pid)) SHARE = null;
@@ -421,7 +444,7 @@ async function projectMenu(anchor) {
         try { await Store.remove(P.id); } catch (e) { toast(e.message || 'No se pudo salir del proyecto.'); return; }
         SHARE = null; toast('Saliste del proyecto.');
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (m === 'tdir') return DESK.team.openDir(P.id);
       if (m === 'backup') backupProject();
@@ -431,17 +454,17 @@ async function projectMenu(anchor) {
         try { await Store.remove(P.id); toast('Proyecto eliminado'); } catch (e) { toast('No se pudo eliminar. Revisa tu conexión y vuelve a intentarlo.'); return; }
         SHARE = null;
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (m === 'delete' && P._shared) return confirmBox('Quitar de mi lista', `«${esc(P.meta.title)}» desaparece de tu lista de proyectos. La carpeta compartida y el trabajo del equipo no se tocan; puedes volver a abrirla cuando quieras.`, 'Quitar', async () => {
         await Store.remove(P.id).catch(() => { }); SHARE = null;
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       }, false);
       if (m === 'delete') confirmBox(Store.kind === 'desk' ? 'Mover a la papelera' : 'Eliminar proyecto', Store.kind === 'desk' ? `El archivo de «${esc(P.meta.title)}» se moverá a la papelera de reciclaje. Podrás recuperarlo desde ahí.` : `Se eliminará «${esc(P.meta.title)}» con su desglose, planos, plan y presupuesto. No se puede deshacer.`, Store.kind === 'desk' ? 'Mover a la papelera' : 'Eliminar', async () => {
         try { await Store.remove(P.id); toast('Proyecto eliminado'); } catch (e) { toast('No se pudo eliminar. Revisa tu conexión y vuelve a intentarlo.'); return; }
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
     }));
 }
@@ -511,10 +534,16 @@ async function openMenu(anchor, tab) {
     const more = open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto: guardar .${ea(PROJ_EXT)}, ZIP, eliminar…" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : '';
     return `<div class="pj-row${ea(open ? ' on' : '')}" data-id="${esc(o.id)}"><button class="pj-open" data-open="${esc(o.id)}" ${open ? 'aria-current="true"' : ''}><span class="pj-t">${esc(o.title || 'Sin título')}</span><span class="pj-m">${open ? '<b>abierto</b>' + (meta(o) ? ' · ' : '') : ''}${meta(o)}</span></button>${more}${btn}</div>`;
   };
+  // (lote AD) el plan gratis y sin cuenta: el ejemplo, primero y destacado (no se borra ni se archiva: no está guardado)
+  const firstS = sampleFirst();
+  const sampleRow = () => {
+    const open = !!(P && P === SAMPLE_MEM.P && P._sample && !P._saved);
+    return `<div class="pj-list pj-samp"><div class="pj-row pj-sample${ea(open ? ' on' : '')}"><button class="pj-open" data-m="sample" ${open ? 'aria-current="true"' : ''}><span class="pj-t" data-no-tr>${esc(sampleName())}</span><span class="pj-m">${open ? '<b>abierto</b> · ' : ''}${esc(SAMPLE_INVITE)}</span></button>${open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : ''}</div></div>`;
+  };
   const html = () => {
     const A = act(), R = arc(), L = (cur === 'arc' ? R : A).filter(o => !q || deaccent(String(o.title || '')).toLowerCase().includes(deaccent(q).toLowerCase()));
     const me = Store.kind === 'api' && APITEAM.me ? APITEAM.me : null;   // al día (archivar lo cambia)
-    const lim = me && me.limits ? `<p class="pj-lim">${me.limits.projects ? `${me.own} de ${me.limits.projects} ${me.limits.projects === 1 ? 'proyecto de producción' : 'proyectos de producción'}${me.scripts ? ` · ${me.scripts} ${me.scripts === 1 ? 'guion' : 'guiones'}` : ''}` : `${me.scripts || 0} de ${me.limits.scripts} guiones activos`} de tu plan</p>` : '';
+    const lim = Store.kind === 'api' && APITEAM.anon ? '<p class="pj-lim"><span>Sin cuenta</span> · <button type="button" class="linkbtn" data-m="signup">Crea tu cuenta gratis</button></p>' : me && me.limits ? `<p class="pj-lim">${me.limits.projects ? `${me.own} de ${me.limits.projects} ${me.limits.projects === 1 ? 'proyecto de producción' : 'proyectos de producción'}${me.scripts ? ` · ${me.scripts} ${me.scripts === 1 ? 'guion' : 'guiones'}` : ''}` : `${me.scripts || 0} de ${me.limits.scripts} guiones activos`} de tu plan</p>` : '';
     const empty = err ? '<p class="pj-empty bad">No se pudo cargar la lista de proyectos. <button class="btn sm" data-m="retry">Reintentar</button></p>'
       : q ? `<p class="pj-empty">Ningún proyecto ${cur === 'arc' ? 'archivado ' : ''}con «${esc(q)}».</p>`
         : cur === 'arc' ? '<p class="pj-empty">No hay proyectos archivados. Archiva los que ya terminaste: salen de esta lista y se pueden recuperar cuando quieras.</p>'
@@ -525,9 +554,10 @@ async function openMenu(anchor, tab) {
         <button role="tab" data-tab="arc" aria-selected="${ea(cur === 'arc')}"><span>Archivados</span><i>${R.length}</i></button>
       </div>
       ${list.length > 6 ? `<label class="pj-q">${ICO.search}<input type="search" id="pjQ" placeholder="Buscar proyecto" value="${esc(q)}" autocomplete="off" aria-label="Buscar proyecto"></label>` : ''}
-      ${P && cur === 'act' && !q && !list.some(o => o.id === P.id) ? `<div class="pj-list pj-cur"><div class="pj-row on"><button class="pj-open" disabled><span class="pj-t">${esc(P.meta.title || 'Sin título')}</span><span class="pj-m"><b>abierto</b> · ${P._sample ? 'ejemplo, sin guardar' : 'sin guardar'}</span></button><button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button></div></div>` : ''}
+      ${firstS && cur === 'act' && (!q || deaccent(sampleName()).toLowerCase().includes(deaccent(q).toLowerCase())) ? sampleRow() : ''}
+      ${P && cur === 'act' && !q && !list.some(o => o.id === P.id) && !(firstS && P === SAMPLE_MEM.P) ? `<div class="pj-list pj-cur"><div class="pj-row on"><button class="pj-open" disabled><span class="pj-t">${esc(P.meta.title || 'Sin título')}</span><span class="pj-m"><b>abierto</b> · ${P._sample ? 'ejemplo, sin guardar' : 'sin guardar'}</span></button><button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button></div></div>` : ''}
       <div class="pj-list" role="tabpanel">${L.map(row).join('') || empty}</div>
-      <div class="pj-ft">${Store.kind !== 'mem' ? '<button class="btn sm ghost" data-m="home">Inicio</button>' : ''}<button class="btn sm" data-m="new">+ Nuevo</button><button class="btn sm ghost" data-m="file" title="Abrir un archivo de proyecto (.${ea(PROJ_EXT)})">Abrir archivo .${PROJ_EXT}</button><button class="btn sm ghost" data-m="sample">Ejemplo</button></div>`;
+      <div class="pj-ft">${Store.kind !== 'mem' ? '<button class="btn sm ghost" data-m="home">Inicio</button>' : ''}<button class="btn sm" data-m="new">+ Nuevo</button><button class="btn sm ghost" data-m="file" title="Abrir un archivo de proyecto (.${ea(PROJ_EXT)})">Abrir archivo .${PROJ_EXT}</button>${firstS ? '' : '<button class="btn sm ghost" data-m="sample">Ejemplo</button>'}</div>`;
   };
   const pp = popover(anchor, html(), p => {
     p.classList.add('pop-pj');
@@ -565,7 +595,8 @@ async function openMenu(anchor, tab) {
       if (b.dataset.m === 'home') return homeShow();
       if (b.dataset.m === 'new') return newMenu($('#newBtn'));
       if (b.dataset.m === 'file') return Store.kind === 'desk' ? deskMenu('open') : pickFile(PROJ_ACCEPT, 'restore');
-      if (b.dataset.m === 'sample') setProject(buildSample());
+      if (b.dataset.m === 'sample') openSample();
+      if (b.dataset.m === 'signup') anonAsk('');
       if (b.dataset.m === 'retry') openMenu(anchor, cur);
     });
     if (list.length > 6 && !matchMedia('(pointer:coarse)').matches) setTimeout(() => { const qi = $('#pjQ', p); if (qi && document.activeElement !== qi) qi.focus(); }, 30);

@@ -341,6 +341,7 @@ function phoneMenu(anchor) {
   const st = $('#saveState'), stTxt = st ? (st.title || st.textContent || '').trim() : '';
   const I = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const it = [];
+  if (API() && APITEAM.anon) it.push(['signup', I('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'), 'Crear cuenta gratis', 'Para guardar tus cambios y crear tus proyectos']);   // sin cuenta (lote AD)
   if (me) it.push(['acct', `<span class="pm-av">${me.picture ? `<img src="${ea(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || me.email || '?').trim()[0].toUpperCase())}</span>`, esc(me.name || 'Tu cuenta'), esc(me.email || '')]);
   if (why) it.push(['save', I('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'), 'No se guarda', 'Ver por qué y cómo guardarlo']);
   else if (stTxt && typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['', I('<path d="m5 12 4.5 4.5L19 7"/>'), esc(stTxt), '']);
@@ -360,6 +361,7 @@ function phoneMenu(anchor) {
         const k = b.dataset.pm, a = anchor.isConnected ? anchor : $('#moreBtn');
         setTimeout(() => {
           if (k === 'acct' && typeof accountMenu === 'function') accountMenu(a);
+          else if (k === 'signup') anonAsk('');
           else if (k === 'save') unsavedPop(a);
           else if (k === 'bk') backupProject();
           else if (k === 'proj') setTab('project');
@@ -450,7 +452,7 @@ function tabsPickSet(t, on) {
   const h = tabsHidden(); on ? h.delete(t) : h.add(t);
   ls.set('tabsHidden', [...h]);
   if (typeof P === 'undefined' || !P) return;
-  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab('script'); else { sharePaintTabs(); tabStripPaint(); }   // también la franja de arriba, sin esperar a otro repintado
+  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab(typeof baseTab === 'function' ? baseTab() : 'script'); else { sharePaintTabs(); tabStripPaint(); }   // también la franja de arriba, sin esperar a otro repintado
 }
 
 /* ---------- ayuda y soporte (el ícono junto a Compartir) ----------

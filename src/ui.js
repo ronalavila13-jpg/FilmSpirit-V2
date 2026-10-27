@@ -511,9 +511,12 @@ function setSaveState() {
 function unsavedPop(anchor) {
   const why = unsavedWhy(); if (!why) return;
   const fsp = `<button data-w="backup">Guardar .${PROJ_EXT}</button>`;
+  // (lote AD) los cambios del ejemplo duran mientras el programa siga abierto (proyectos.js · openSample); sin cuenta,
+  // guardar pide crear una (cuenta.js · anonAsk)
+  const anon = Store.kind === 'api' && APITEAM.anon;
   const body = why === 'sample' ? `<h5>Proyecto de ejemplo</h5>
-      <p class="hint uw-p">Prueba todo lo que quieras: los cambios del ejemplo no se guardan. Para quedarte con tu trabajo:</p>
-      <div class="menu"><button data-w="adopt">Guardar el ejemplo como mi proyecto</button><button data-w="import">Importar mi guion…</button><button data-w="blank">Empezar en blanco</button></div>`
+      <p class="hint uw-p">${anon ? 'Prueba todo lo que quieras: tus cambios duran mientras sigas en esta página. Para guardarlos, crea tu cuenta gratis:' : 'Prueba todo lo que quieras: tus cambios duran mientras sigas en el programa, pero no se guardan. Para quedarte con tu trabajo:'}</p>
+      <div class="menu"><button data-w="adopt">${anon ? 'Crear mi cuenta y guardar el ejemplo' : 'Guardar el ejemplo como mi proyecto'}</button><button data-w="import">Importar mi guion…</button><button data-w="blank">Empezar en blanco</button></div>`
     : why === 'mem' ? `<h5>Esta vista no puede guardar</h5>
       <p class="hint uw-p">Los cambios se pierden al cerrar. Guarda el proyecto como archivo .${PROJ_EXT} y ábrelo luego con «Abrir».</p>
       <div class="menu">${fsp}</div>`

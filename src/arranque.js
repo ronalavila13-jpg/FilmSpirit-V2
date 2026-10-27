@@ -52,7 +52,9 @@ async function boot() {
   if (listErr) setTimeout(() => problem('No se pudo cargar la lista de proyectos.', () => location.reload()), 400);
   // sin enlace ni archivo que abrir: Inicio, con los proyectos del último abierto al primero (inicio.js)
   const home = !first && !back && Store.kind !== 'mem' && (list.length || !listErr) && !(Store.kind === 'api' && PAGO_SID);
-  if (!first && Store.kind === 'api' && !PAGO_SID && await landingScene()) { /* la escena de la portada, abierta como guion nuevo */ }
+  // (lote AD) «Explorar con un proyecto de ejemplo» (la portada, /app/?ejemplo=1): el ejemplo, con o sin cuenta
+  if (!first && Store.kind === 'api' && typeof SAMPLE_ASK !== 'undefined' && SAMPLE_ASK) openSample();
+  else if (!first && Store.kind === 'api' && !PAGO_SID && await landingScene()) { /* la escena de la portada, abierta como guion nuevo */ }
   else if (home) { await homeShow(); }
   else if (pick) {
     const ok = await openProject(pick.id);
@@ -61,8 +63,8 @@ async function boot() {
     const alt = !ok && Store.kind === 'api' && first ? list.find(x => x.id === last) || list[0] : null;
     if (alt) await openProject(alt.id);
   }
-  else setProject(buildSample());
-  if (Store.kind === 'api') apiPaymentReturn();
+  else openSample();
+  if (Store.kind === 'api' && !APITEAM.anon) apiPaymentReturn();
   if (typeof deskReady === 'function') deskReady();
   setSaveState();
   addEventListener('resize', debounce(() => { if (UI.tab === 'lined' || UI.tab === 'script') fitPages(); }, 150));
@@ -95,6 +97,8 @@ async function landingScene() {
 }
 /* trabajo que se perdería al cerrar la pestaña */
 function unsavedWork() {
+  // el ejemplo: sus cambios viven en la memoria (proyectos.js · openSample), también si ahora está abierto otro proyecto
+  if (typeof sampleTouched === 'function' && sampleTouched()) return true;
   if (!P || UI.readOnly) return false;
   if (typeof PHOTO_UP !== 'undefined' && PHOTO_UP.size) return true;   // fotos que se están subiendo (laminas.js)
   if (modalDirty($('#modal')) || (typeof S2 !== 'undefined' && S2 && S2.dirty)) return true;

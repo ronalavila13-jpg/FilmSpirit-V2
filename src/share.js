@@ -216,7 +216,14 @@ function mergeSeq(b, l, r) {
 // Gastos: lo guarda (con sus reglas, que el servidor aplica) quien tiene algo que hacer ahí: ver gaCan en areas.js
 const canEditSec = (s, X = SHARE) => s === 'gastos' ? !!X && API() && !X.ro && gaCan(gaWhoOf(X)).receipt : !X || (!X.ro && (s === 'notas' || X.admin || (X.perms[s] === 'editar' && !X.unavailable.has(s)) || (s === 'guion' && API() && !X.unavailable.has(s) && typeof lockMine === 'function' && !!lockMine())));
 const canReadData = (s, X = SHARE) => s === 'notas' || (s === 'gastos' && API()) || X.read.has(s);
-const canSeeTab = t => t === 'gastos' ? typeof gsTabOk === 'function' && gsTabOk() : !SHARE || TAB2SEC[t] === 'guion' || SHARE.admin || (!!SHARE.perms[TAB2SEC[t]] && (TAB2SEC[t] !== 'presupuesto' || isProducer(SHARE.me && SHARE.me.role)));
+const canSeeTab = t => t === 'gastos' ? typeof gsTabOk === 'function' && gsTabOk() : t === 'build' || t === 'script' ? scriptStageOk(t) : !SHARE || TAB2SEC[t] === 'guion' || SHARE.admin || (!!SHARE.perms[TAB2SEC[t]] && (TAB2SEC[t] !== 'presupuesto' || isProducer(SHARE.me && SHARE.me.role)));
+/* (lote AD) la etapa Guion (Historia y Guion) en un proyecto de producción compartido: el cargo «Guion», producción y quien
+   lo administra (areas.js · seesScriptStage); en la web, el servidor ni siquiera envía la Historia a los demás. Quien
+   producción autorizó a revisar el guion cerrado ve la pestaña Guion mientras siga autorizado. En un guion (coescritura)
+   todos escriben. El resto lee el guion en el Guion rayado (baseTab) */
+const scriptStageOk = t => !SHARE || SHARE.kind === 'guion' || seesScriptStage({ admin: SHARE.admin, role: SHARE.me && SHARE.me.role }) || (t === 'script' && typeof lockMine === 'function' && !!lockMine());
+// la pestaña a la que se vuelve cuando la que se pidió no se puede ver (un enlace, una nota, una preferencia vieja)
+const baseTab = () => canSeeTab('script') ? 'script' : 'lined';
 // quién soy en el proyecto, para las reglas de Gastos (areas.js)
 // las pestañas con permiso, con Gastos en la web con cuentas (para los resúmenes de permisos)
 const secListAll = () => API() ? [...SEC_LIST, ['gastos', 'Gastos', 'gastos']] : SEC_LIST;
@@ -230,7 +237,12 @@ const canEditBdAll = () => canEditSec('desglose') && !myBdAreas();
 const areasText = a => !a ? 'Todas las áreas' : !a.length ? 'Ninguna área' : a.map(id => (SHEET.find(b => b.id === id) || { name: id }).name).join(', ');
 function sharePaintTabs() {
   $$('#tabs .tab').forEach(b => { b.hidden = !canSeeTab(b.dataset.tab); b.classList.toggle('kind-off', typeof isScriptKind === 'function' && isScriptKind() && !SCRIPT_TABS.has(b.dataset.tab)); });
-  if (!canSeeTab(UI.tab)) { UI.tab = 'script'; if (typeof paintTabSel === 'function') paintTabSel(); }
+  if (!canSeeTab(UI.tab)) {
+    UI.tab = baseTab(); if (typeof paintTabSel === 'function') paintTabSel();
+    // (lote AD) lo que estaba a la vista ya no se puede ver (p. ej. producción quitó la autorización para revisar el guion
+    // cerrado): se pinta la pestaña a la que se volvió
+    const v = $('#view'); if (P && v && v._tab && !canSeeTab(v._tab)) requestAnimationFrame(() => render());
+  }
   if (typeof applyTabPrefs === 'function') applyTabPrefs();
   let chip = $('#roChip');
   if (!chip) { chip = document.createElement('span'); chip.id = 'roChip'; chip.className = 'ro-chip'; $('#tabs').appendChild(chip); }
@@ -575,7 +587,7 @@ function shareInit() {
     if (!SHARE || SHARE.pid !== pid) return;
     const admin = SHARE.admin;
     SHARE = null;
-    setProject(buildSample()); sharePaintTabs();
+    openSample(); sharePaintTabs();
     if (why === 'deleted' && admin) return;
     modal({ title: why === 'deleted' ? 'Proyecto eliminado' : 'Acceso cerrado', body: `<p style="margin:0">${why === 'deleted' ? 'Producción eliminó este proyecto.' : `Producción ${DESK ? 'cambió o quitó tu acceso a este proyecto. Si sigues en el equipo, pídele tu nueva contraseña.' : 'quitó tu acceso a este proyecto.'}`}</p>`, foot: '<button class="btn primary" data-close>Entendido</button>' });
   });
@@ -861,14 +873,14 @@ function teamPanel(anchor) {
         try { await Store.remove(SHARE.pid); } catch (er) { toast(errText(er)); return; }
         SHARE = null; toast('Saliste del proyecto.');
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (t === 'out') {
         await flushSave();
         const pid = SHARE.pid;
         try { ls.del(`budpin:${pid}:${SHARE && SHARE.me ? SHARE.me.id : ''}`); } catch (er) { }   // al salir, el código del presupuesto de este equipo se borra
         await TIO().logout(pid);
-        SHARE = null; setProject(buildSample()); sharePaintTabs();
+        SHARE = null; openSample(); sharePaintTabs();
         toast(DESK ? 'Sesión cerrada.' : 'Saliste del proyecto.');
       }
     });
