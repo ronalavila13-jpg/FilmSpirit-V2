@@ -130,11 +130,13 @@
     const a = b.dataset.a;
     try {
       if (a === 'wl-notify') {
-        const n = (b.textContent.match(/\((\d+)\)/) || [])[1] || '';
-        if (!confirm(`Se enviará un correo a ${n ? n + ' personas' : 'las personas'} de la lista de espera que aún no lo recibieron, avisando que Studio abrió. Cada una lo recibe una sola vez. ¿Enviar ahora?`)) return;
+        const n = +((b.textContent.match(/\((\d+)\)/) || [])[1] || 0);
+        if (!confirm(`Se enviará un correo a ${n === 1 ? 'la persona' : n ? `las ${n} personas` : 'las personas'} de la lista de espera que aún no lo ${n === 1 ? 'recibió' : 'recibieron'}, avisando que Studio abrió. Cada una lo recibe una sola vez. ¿Enviar ahora?`)) return;
         b.disabled = true;
-        const r = await api('POST', '/api/admin/waitlist/notify', {});
-        toast(r.queued ? `Aviso en camino a ${r.queued} ${r.queued === 1 ? 'persona' : 'personas'}` : 'No había nadie sin avisar'); return show('espera');
+        try {
+          const r = await api('POST', '/api/admin/waitlist/notify', {});
+          toast(r.queued ? `Aviso en camino a ${r.queued} ${r.queued === 1 ? 'persona' : 'personas'}` : 'No había nadie sin avisar'); return show('espera');
+        } finally { b.disabled = false; }
       }
       if (b.closest('[data-id]')) {
         const id = b.closest('[data-id]').dataset.id;

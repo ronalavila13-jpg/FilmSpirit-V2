@@ -104,7 +104,8 @@ const smViewSeg = () => {
   const st = studioFeat('mapas'), on = UI.scView === 'map' && st;
   return hdSeg([{ label: 'Por lugar', attrs: 'data-act="sc-view" data-v="place"', on: !on },
     st ? { label: 'Mapa general', attrs: 'data-act="sc-view" data-v="map"', on }
-      : { label: `<span>Mapa general</span>${studioLockHTML('mapas')}`, attrs: 'data-act="st-ask" data-k="mapas" class="st-seg" title="Los mapas en Scouting son parte de FilmSpirit Studio."', on: false }], 'Vista');
+      // (el « · » escondido: en el teléfono el selector de vistas lee el texto, «Mapa general · Studio»)
+      : { label: `<span>Mapa general</span><span class="sr-only"> · </span>${studioLockHTML('mapas')}`, attrs: 'data-act="st-ask" data-k="mapas" class="st-seg" title="Los mapas en Scouting son parte de FilmSpirit Studio."', on: false }], 'Vista');
 };
 function smRender() {
   const v = $('#view'), ed = smEditable(), groups = smGroups();
