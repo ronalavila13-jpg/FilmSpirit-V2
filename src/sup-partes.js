@@ -173,12 +173,13 @@ function hsCont(doc, s, x0, x1, y, fill, draw = true) {
   // tiempo en pantalla y escena completa
   hsFont(doc, 'normal', 9);
   const plan = supFmt(supPlanSecs(s.key)), real = fill ? supFmt(supRealSecs(s.key)) : '';
-  const t = hsL('Tiempo en pantalla') + ' · ' + hsL('previsto') + ' ' + plan + ' · ' + hsL('real');
+  const t = hsL('Tiempo en pantalla') + ' · ' + hsL('previsto') + ' ' + plan + ' · ' + (EN ? 'actual' : 'real');
   hsTx(doc, t, x0 + 7.5, yy + 12);
   const lx = x0 + 7.5 + hsW(doc, t) + 4.5;
   hsLine(doc, lx, yy + 13.5, lx + 90, yy + 13.5, HS_L, .75);
   if (real) { hsFont(doc, 'bold', 8.5); hsTx(doc, real, lx + 3, yy + 12); }
-  hsOpts(doc, lx + 102, yy + 12, [['si', 'Escena completa']], fill && sceneDone(s.key) ? 'si' : '');
+  // (en inglés, «Escena completa» del diccionario es «la escena entera»: aquí, que quedó rodada)
+  hsOpts(doc, lx + 102, yy + 12, [['si', EN ? 'Scene complete' : 'Escena completa']], fill && sceneDone(s.key) ? 'si' : '');
   return h;
 }
 /* el pie de cada hoja (se pone al final, cuando ya se sabe cuántas son) */
@@ -305,7 +306,7 @@ function hsParte(doc, X, fill) {
   };
   y += 8;
   const yL = kv(hours, x0, cw, hsSec(doc, x0, y, 'Horarios'));
-  const yM = kv(mat, x0 + cw + 18, cw, hsSec(doc, x0 + cw + 18, y, 'Material'));
+  const yM = kv(mat, x0 + cw + 18, cw, hsSec(doc, x0 + cw + 18, y, EN ? trDone('Media') : 'Material'));
   // («Avance» y «Tiempo», en inglés, son otra cosa en el diccionario: aquí, el avance de la jornada y su tiempo)
   const yA = kv(prog, x0 + cw + 18, cw, hsSec(doc, x0 + cw + 18, yM + 16, EN ? trDone('Progress') : 'Avance'), true);
   y = Math.max(yL, yA) + (fill ? 16 : 22);

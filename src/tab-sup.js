@@ -24,7 +24,8 @@
    · roll (tarjeta en cámara), sroll (rollo de sonido), supervisor (quien hace script).
    Las fotos van en FRAMES['sp~<foto>'] y viajan con la hoja de script (areas.js · frameSec).
    ============================================================ */
-const TAKE_ST = { ng: 'NG', ok: 'OK', bn: 'Buena' };
+// (en inglés, «Buena» del diccionario es «Print (circled)»: en los botones y la tabla, «Print»)
+const TAKE_ST = { ng: 'NG', ok: 'OK', bn: EN ? trDone('Print') : 'Buena' };
 const SUP_TOP = 200 * 1024;     // las fotos de la hoja de script: WebP de unos 200 kB (en Safari, JPEG con el mismo tope)
 const supEd = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('hoja'));
 const supTakes = id => (P.sup.takes || {})[id] || [];
@@ -323,14 +324,14 @@ function supContHTML(X, s) {
   return `<div class="hs-cont">
     <div class="hs-cb"><h4>Continuidad</h4><div class="hs-kvs">${SUP_CONT.map(([f, lab]) => fld(f, lab)).join('')}
       <span class="hs-kl">Fotos</span>${supPhotosHTML((m.ph || []), ed, { k }, 'Continuidad de la escena ' + k)}</div></div>
-    <div class="hs-cb hs-tb"><h4>Tiempo en pantalla</h4><div class="hs-kvs">${tfld('plan', 'Previsto', supFmt(supPlanSecs(k)))}${tfld('screen', 'Rodado', '', '0:00')}${tfld('start', 'Inicio', '', 'Hora', 1)}${tfld('end', 'Fin', '', 'Hora', 1)}</div></div></div>`;
+    <div class="hs-cb hs-tb"><h4>Tiempo en pantalla</h4><div class="hs-kvs">${tfld('plan', 'Previsto', supFmt(supPlanSecs(k)))}${tfld('screen', EN ? trDone('Actual') : 'Rodado', '', '0:00')}${tfld('start', 'Inicio', '', 'Hora', 1)}${tfld('end', 'Fin', '', 'Hora', 1)}</div></div></div>`;
 }
 /* fotos (continuidad de una escena o de la hoja de papel de la jornada): miniaturas, abrir en grande, quitar y agregar.
    where: { k } escena o { day } jornada. cap: la cámara del celular (capture) */
 function supPhotosHTML(list, ed, where, label, o = {}) {
   const ph = list.filter(p => frameHas(spKey(p.id)) || FRAMES[spKey(p.id)]);
   const W = where.k != null ? `data-k="${ea(where.k)}"` : `data-day="${ea(where.day)}"`;
-  const th = ph.map((p, i) => { const u = FRAMES[spKey(p.id)]; return `<figure class="hs-th" data-sp="${ea(spKey(p.id))}">${u ? `<button type="button" class="hs-thb" data-act="sup-phview" ${W} data-v="${ea(p.id)}" aria-label="${ea(`Ver la foto ${i + 1}`)}"><img src="${ea(u)}" alt="${ea(`${label} · foto ${i + 1}`)}"></button>` : '<span class="hs-wait" aria-hidden="true"></span>'}<figcaption class="tnum">${i + 1}</figcaption>${ed ? `<button type="button" class="hs-thx" data-act="sup-phdel" ${W} data-v="${ea(p.id)}" aria-label="Quitar la foto" title="Quitar">${ICO.close}</button>` : ''}</figure>`; }).join('');
+  const th = ph.map((p, i) => { const u = FRAMES[spKey(p.id)]; return `<figure class="hs-th" data-sp="${ea(spKey(p.id))}">${u ? `<button type="button" class="hs-thb" data-act="sup-phview" ${W} data-v="${ea(p.id)}" aria-label="${ea(`Ver la foto ${i + 1}`)}"><img src="${ea(u)}" alt="${ea(`Foto ${i + 1}`)}"></button>` : '<span class="hs-wait" aria-hidden="true"></span>'}<figcaption class="tnum">${i + 1}</figcaption>${ed ? `<button type="button" class="hs-thx" data-act="sup-phdel" ${W} data-v="${ea(p.id)}" aria-label="Quitar la foto" title="Quitar">${ICO.close}</button>` : ''}</figure>`; }).join('');
   const add = !ed ? '' : planAllows('photos') ? `<label class="hs-phadd" title="${ea(o.title || 'Agregar fotos (se guardan en WebP de unos 200 kB)')}">${ICO.camera}<span>${esc(o.add || '+ Foto')}</span><input type="file" class="file-in" accept="image/jpeg,image/png,image/webp" ${o.cap ? 'capture="environment"' : 'multiple'} data-bind="sup-ph" ${W}></label>`
     : `<button type="button" class="hs-phadd" data-act="sup-pro">${ICO.camera}<span>${esc(o.add || '+ Foto')} <i class="pro-chip">PRO</i></span></button>`;
   return `<div class="hs-phs">${th}${add}${!th && !add ? '<span class="hs-kv ph">Sin fotos</span>' : ''}</div>`;
@@ -350,7 +351,7 @@ function supCamHTML(X) {
     ${supClockHTML(cur, t, snd, st)}
     ${ed ? supMarkHTML(cur, t) : ''}
     ${ed && t ? supNoteHTML(cur, t, ti) : t && t.note ? `<p class="hs-camd"><span class="hs-hl">Nota:</span> ${esc(t.note)}</p>` : ''}
-    ${ed ? `<div class="hs-go"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}" title="Marca este plano como rodado y pone en cámara el siguiente">Siguiente plano ›</button></div>` : ''}
+    ${ed ? `<div class="hs-go"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}" title="Marca este plano como rodado y pone en cámara el siguiente"><span>Siguiente plano</span> <span aria-hidden="true">›</span></button></div>` : ''}
     <div class="hs-next">${next ? `<span>Sigue:</span> <b>${esc(D.code[next.id])}</b>${supTech(next) ? ` · ${esc(supTech(next))}` : ''}` : '<span>Es el último plano sin rodar de la jornada.</span>'}</div></section>`;
 }
 function supClockHTML(cur, t, snd, st) {
@@ -363,7 +364,7 @@ function supMarkHTML(cur, t) {
   const on = k => t && !t.run && t.st === k;
   const b = (k, lab, ico = '') => `<button type="button" class="hs-mk ${k}" data-act="sup-mark" data-v="${k}" data-id="${ea(cur.id)}" aria-pressed="${on(k)}" ${t ? '' : 'disabled'}>${ico}<span>${lab}</span></button>`;
   const mos = t && isMos(takeSnd(cur.id, t));
-  return `<div class="hs-mks" role="group" aria-label="Estado de la toma">${b('bn', 'Buena', '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>')}${b('ok', 'OK')}${b('ng', 'NG')}</div>
+  return `<div class="hs-mks" role="group" aria-label="Estado de la toma">${b('bn', TAKE_ST.bn, '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>')}${b('ok', 'OK')}${b('ng', 'NG')}</div>
     <div class="hs-mosr"><button type="button" class="hs-tog" data-act="sup-mos-take" data-id="${ea(cur.id)}" aria-pressed="${!!mos}" ${t && !supMos(cur.id) ? '' : 'disabled'} title="Esta toma, sin sonido">MOS</button>
       <label class="hs-sw" title="Todas las tomas del plano, sin sonido"><input type="checkbox" data-bind="sup-mos-shot" data-id="${ea(cur.id)}" ${supMos(cur.id) ? 'checked' : ''}><span>Plano MOS</span></label></div>`;
 }
@@ -375,7 +376,8 @@ function supNoteHTML(cur, t, ti) {
 function supDaySideHTML(X) {
   const { dm, dayKey, ed } = X;
   if (!dm) return '';
-  const inc = supIncs(dm.inc);
+  // la incidencia recién agregada vive en pantalla (con su hora) hasta que se le escribe algo
+  const inc = supIncs(dm.inc).concat(SUPINC.has(dayKey) ? [{ t: SUPINC.get(dayKey), x: '' }] : []);
   const incHTML = inc.length ? `<div class="hs-incs">${inc.map((x, i) => ed ? `<div class="hs-inc"><input type="text" inputmode="numeric" class="tm hs-inct" maxlength="8" value="${esc(x.t)}" placeholder="Hora" data-bind="sup-inc" data-f="t" data-n="${i}" data-id="${ea(dayKey)}" aria-label="Hora de la incidencia"><textarea class="hs-incx hs-grow" rows="1" data-bind="sup-inc" data-f="x" data-n="${i}" data-id="${ea(dayKey)}" placeholder="Demora y su causa, accidente, falla de equipo…" aria-label="Incidencia">${esc(x.x)}</textarea></div>`
     : `<div class="hs-inc"><span class="hs-inct tnum">${esc(x.t)}</span><span>${esc(x.x)}</span></div>`).join('')}</div>` : '<p class="hs-hint">Demoras y su causa, accidentes, fallas de equipo.</p>';
   const notes = ed ? `<textarea class="hs-notes hs-grow" rows="2" data-bind="sup-dayf" data-f="notes" data-id="${ea(dayKey)}" placeholder="Cambios de plan, material grabado, pendientes para mañana" aria-label="Notas de la jornada">${esc(dm.notes || '')}</textarea>`
@@ -386,7 +388,8 @@ function supDaySideHTML(X) {
       <p class="hs-hint">Fotos de las hojas llenadas a mano, como respaldo. «Carga rápida» pasa sus tomas al programa.</p>${supPhotosHTML(dm.ph || [], ed, { day: dayKey }, 'Hoja de script en papel', { add: '+ Foto de la hoja', title: 'Fotos de las hojas llenas, como respaldo (no se lee la letra)' })}</section>`;
 }
 /* las incidencias: una por línea, «HH:MM texto» (las de antes, sin hora, quedan como texto) */
-const supIncs = s => String(s || '').split('\n').filter(l => l.trim()).map(l => { const m = /^\s*(\d{1,2}:\d{2})\s+([\s\S]*)$/.exec(l); return m ? { t: m[1], x: m[2] } : { t: '', x: l.trim() }; });
+const SUPINC = new Map();   // jornada → la hora de la incidencia recién agregada (sin texto todavía)
+const supIncs = s => String(s || '').split('\n').filter(l => l.trim()).map(l => { const m = /^\s*(\d{1,2}:\d{2})(?:\s+([\s\S]*))?$/.exec(l); return m ? { t: m[1], x: (m[2] || '').trim() } : { t: '', x: l.trim() }; });
 const supIncJoin = L => L.map(x => [x.t, x.x].filter(Boolean).join(' ')).filter(Boolean).join('\n');
 
 /* ---------- celular ---------- */
@@ -441,7 +444,7 @@ function supDockHTML(X) {
   const { cur, ed } = X;
   if (!ed || !cur) return '';
   const takes = supTakes(cur.id);
-  return `<div class="hs-dock" role="group" aria-label="Plano en rodaje"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}">Siguiente plano ›</button></div>`;
+  return `<div class="hs-dock" role="group" aria-label="Plano en rodaje"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}"><span>Siguiente plano</span> <span aria-hidden="true">›</span></button></div>`;
 }
 
 /* ---------- el cronómetro ---------- */
@@ -622,10 +625,7 @@ Object.assign(ACT, {
   'sup-inc-add': () => {
     const X = supCtx(); if (!X.dayKey) return;
     const dm = P.sup.day[X.dayKey] = P.sup.day[X.dayKey] || {};
-    const L = supIncs(dm.inc); L.push({ t: nowHM(), x: '' });
-    // la línea nueva vive en pantalla hasta que se escribe (una línea sin texto no se guarda)
-    SUPINC.set(X.dayKey, L.length - 1);
-    dm.inc = supIncJoin(L);
+    SUPINC.set(X.dayKey, nowHM());   // no se guarda hasta que tenga texto
     render();
     requestAnimationFrame(() => { const f = $$('#view .hs-incx').pop(); if (f) f.focus(); });
   },
@@ -667,7 +667,6 @@ Object.assign(ACT, {
   'sup-np': b => addShotBelow(b.dataset.id, false),
   'sup-pu': b => addShotBelow(b.dataset.id, true),
 });
-const SUPINC = new Map();   // jornada → la incidencia recién agregada (sin texto todavía)
 /* plano MOS: todas sus tomas, sin sonido (lo heredan al mostrarse; lo anotado en cada toma no se pierde) */
 function supMosShot(id, on) {
   const M = P.sup.mos = P.sup.mos || {};
@@ -697,11 +696,19 @@ Object.assign(BIND, {
   'sup-inc': (el, ev) => {
     if (el.classList.contains('tm')) { if (ev !== 'change') return; el.value = normHM(el.value); }
     const k = el.dataset.id, dm = P.sup.day[k] = P.sup.day[k] || {}, L = supIncs(dm.inc), i = +el.dataset.n;
-    // la recién agregada todavía no tiene texto: no está en dm.inc (supIncs salta las líneas vacías)
-    while (L.length <= i) L.push({ t: '', x: '' });
+    if (i >= L.length) {
+      // la recién agregada: su hora queda en pantalla hasta que tenga texto
+      if (el.dataset.f === 't') { SUPINC.set(k, el.value); return; }
+      if (!el.value.trim()) return;
+      L.push({ t: SUPINC.get(k) || '', x: '' }); SUPINC.delete(k);
+    }
     L[i][el.dataset.f] = el.dataset.f === 'x' ? el.value.replace(/\n+/g, ' ') : el.value;
+    // una incidencia que quedó sin texto se quita al salir del campo
+    const gone = ev === 'change' && el.dataset.f === 'x' && !L[i].x.trim();
+    if (gone) L.splice(i, 1);
     dm.inc = supIncJoin(L);
     changed('data');
+    if (gone) { render(); return; }
     if (el.classList.contains('hs-grow')) supGrow(el);
   },
   'sup-tnote': el => { const t = supTakes(el.dataset.id)[+el.dataset.n]; if (!t) return; t.note = el.value; changed('data'); },
@@ -731,7 +738,7 @@ function supQuick() {
   const F = [['P', 'Plano', '2.1'], ['T', 'Toma', '1'], ['E', 'Estado', 'B, OK o NG'], ['H', 'Hora', '--:--'], ['D', 'Dur.', '0:42'], ['C', 'Cám.', 'A001'], ['S', 'Son.', 'S001 o MOS'], ['N', 'Notas', 'Nota']];
   const m = modal({
     title: 'Carga rápida', wide: true,
-    body: `<p class="hint" style="margin:0">Pasa al programa una hoja llenada a mano: una toma por fila. <b>Intro</b> guarda la fila y abre la siguiente con el mismo plano, la toma que sigue y el mismo material. Estado: <b>B</b> (buena), <b>OK</b> o <b>NG</b>. Un plano con toma buena queda rodado.</p>
+    body: `<p class="hint sq-hint">Pasa al programa una hoja llenada a mano, una toma por fila: Intro guarda la fila y abre la siguiente con el mismo plano, la toma que sigue y el mismo material. Estado: B (buena), OK o NG. Un plano con toma buena queda rodado.</p>
       ${sheet.length ? `<div class="sq-ph">${sheet.map((p, i) => `<button type="button" class="hs-thb" data-sqv="${i}" aria-label="${ea(`Ver la foto de la hoja ${i + 1}`)}">${FRAMES[spKey(p.id)] ? `<img src="${ea(FRAMES[spKey(p.id)])}" alt="">` : '<span class="hs-wait"></span>'}</button>`).join('')}<span class="hint">Fotos de la hoja de esta jornada</span></div>` : ''}
       <div class="sq" role="table" aria-label="Tomas"><div class="sq-r sq-h" role="row">${F.map(f => `<span role="columnheader">${f[1]}</span>`).join('')}<span></span></div>
         <div id="sqDone"></div>

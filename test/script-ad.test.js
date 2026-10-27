@@ -9,7 +9,7 @@ const A = require('../src/areas.js');
 
 const c = { Math, JSON, String, Object, Array, Date, isFinite, parseFloat, Number, RegExp };
 vm.createContext(c);
-vm.runInContext(`var P = { sup: { takes: {}, sc: {}, day: {} }, shots: {} }; var D = { metrics: { eighths: [] } }; var scenePages = k => k === '1' ? 3 : 4;
+vm.runInContext(`var EN = false, trDone = s => s; var P = { sup: { takes: {}, sc: {}, day: {} }, shots: {} }; var D = { metrics: { eighths: [] } }; var scenePages = k => k === '1' ? 3 : 4;
   var hmToMin = v => { const m = /^(\\d{1,2}):(\\d{2})$/.exec(String(v || '')); return m ? +m[1] * 60 + +m[2] : null; };
   var normHM = v => String(v || '').trim();`, c);
 const T = 'tab-sup.js';
@@ -70,6 +70,7 @@ test('las incidencias: una por línea con su hora; las de antes (sin hora) queda
   assert.deepStrictEqual(J(L), [{ t: '08:10', x: '12 min de demora: el mototaxi' }, { t: '', x: 'Lluvia toda la mañana' }]);
   assert.strictEqual(c.supIncJoin(L), '08:10 12 min de demora: el mototaxi\nLluvia toda la mañana');
   assert.strictEqual(c.supIncJoin([{ t: '09:00', x: '' }, { t: '', x: '' }]), '09:00');
+  assert.deepStrictEqual(J(c.supIncs('09:00')), [{ t: '09:00', x: '' }], 'la recién agregada: solo su hora');
 });
 test('la primera y la última toma con hora; la duración de la jornada pasa la medianoche', () => {
   c.P.sup.takes = { s1: [{ t: '10:05' }, { t: '' }], s2: [{ t: '07:52' }, { t: '13:40' }] };
