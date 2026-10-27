@@ -105,7 +105,7 @@ Primero en **modo de prueba**, luego en producción.
    ```
    y `sudo systemctl restart filmspirit`. La clave secreta es obligatoria: sin ella el servidor rechaza los avisos de
    Mercado Pago (por seguridad) y las suscripciones se activan recién en el repaso de cada hora.
-5. Prueba con la cuenta de comprador de prueba: botón de tu cuenta › **Ver planes** › Pro › Perú · soles › Continuar a Mercado Pago. Al volver, la app debe decir «¡Ya tienes FilmSpirit Pro!». En el panel, pestaña **Suscripciones**, la verás activa.
+5. Prueba con la cuenta de comprador de prueba: botón de tu cuenta › **Ver planes de suscripción** › Pro › Perú · soles › Continuar a Mercado Pago. Al volver, la app debe decir «¡Ya tienes FilmSpirit Pro!». En el panel, pestaña **Suscripciones**, la verás activa.
 6. **Producción:** activa las credenciales de producción (Mercado Pago pide los datos de tu negocio), reemplaza el Access Token por el de producción y reinicia. La URL del webhook es la misma (en el modo productivo).
 
 > El correo que la persona escribe en «Correo de tu cuenta de Mercado Pago» debe ser el de la cuenta con la que pagará; por eso la app lo pregunta.
