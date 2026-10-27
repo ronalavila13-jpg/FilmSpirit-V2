@@ -1315,7 +1315,7 @@ function pdfCall(opts = {}) {
         return;
       }
       if (r.ev) { const ef = mixc(pdfHl(r.it) || LIGHT, PDF_WHITE, .7), st = { fillColor: ef, textColor: inkOn(ef) }; blocks.push([[{ content: pdfSafe(r.t0 || r.t || ''), styles: { ...st, fontStyle: 'bold' } }, pdfRich([{ segs: [{ t: r.name, st: 'bold' }, ...(r.det ? [{ t: '   ' + r.det, col: mutedOn(ef), tr: false }] : [])] }], { ...st, colSpan: 4 })]]); return; }
-      const col = pdfHl(r.it) || rgb(stripColor(r.s)), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
+      const col = rgb(r.col), syn = synopsisOf(r.s, CALL_SYN), cl = castLine(r.s), bar = barOfRGB(col);
       // (lote Z) la fila de la escena a todo color, como su tira en el plan de rodaje (los planos de debajo, en blanco)
       const SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS }, ink = inkOn(col), mut = mutedOn(col);
       const rows = [[{ ...pdfRich([{ t: r.code, st: 'bold', fs: CLF.h3, tr: false, col: ink }, (r.t0 || r.t) ? sub(r.t0 || r.t, ink, false, 'bold') : null], { ...SC, cellPadding: { ...PS, left: 10, right: 4 } }), _bar: bar },
@@ -1352,7 +1352,7 @@ function pdfCall(opts = {}) {
     if (A) {
       y = pdfSec(doc, y - 4, trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), { ...CL_SEC, right: [A.call ? `Llamado general ${A.call}` : 'Llamado por confirmar', A.locs.join(', ')].filter(Boolean).join('  ·  '), need: 70 });
       // (lote Z) cada escena del avance a todo color, como en el cronograma
-      const ab = A.rows.map(r => { const col = pdfHl(r.it) || rgb(lgCol('plan', r.strip)), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
+      const ab = A.rows.map(r => { const col = rgb(r.col), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
         return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: 10, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
           pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd, col: inkOn(col) }, r.syn ? sub(r.syn, mutedOn(col)) : null], SC), { content: r.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(r.cast.join(', ')), styles: { ...SC, fontStyle: 'bold' } }, { content: fmtEighths(r.e8), styles: { ...SC, halign: 'right', fontStyle: 'bold' } }]; });
       if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);

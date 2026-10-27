@@ -293,6 +293,9 @@ function shotRetime(o) {
 /* el cronograma de la hoja: escenas (con sus planos si el storyboard los tiene) y eventos, con sus horas.
    Las horas de las escenas son las del plan (escritas o estimadas); cada plano toma una parte igual de su escena,
    salvo los que tienen su hora escrita en la hoja (shotOffsets) */
+/* (lote AC) el color de una escena en la hoja, una sola vez: el de su resaltado o el de su tira (como en el plan de
+   rodaje); strip dice cuál ('hl' o la tira). Lo usan la pantalla, el PDF y el Excel */
+const callRowColor = (it, s) => { const hc = hlc(it); return { col: hc || stripColor(s), strip: hc ? 'hl' : stripKey(s) }; };
 function callSched(d) {
   const dd = peekDay(d.id), T = planDayTimes(d, dd.at, dd.dur);
   const base = callRows(d), seen = new Set();
@@ -311,6 +314,7 @@ function callSched(d) {
       });
       if (P0) Object.assign(o, { sStart: x.start, sDur: x.dur });
       o.set = titleCase(r.s.locBase || '');
+      Object.assign(o, callRowColor(r.it, r.s));
       o.props = r.desc && r.desc.includes('Utilería y arte: ') ? r.desc.slice(r.desc.indexOf('Utilería y arte: ') + 17) : '';
     }
     return o;
@@ -396,7 +400,7 @@ function callAdvance(n, cd) {
   const { days, dates } = cd || callDays(), d = days[n + 1]; if (!d) return null;
   const rows = d.rows.map(i => P.schedule.items[i]).filter(it => it && it.k).map(it => {
     const s = sceneOfKey(it.k); if (!s) return null;
-    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: synopsisOf(s, CALL_SYN) || '', dn: DN_LAB[stripDN(s)], strip: stripKey(s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
+    return { it, s, code: rowCode(it), ie: ieLab(s), set: setOf(s), syn: synopsisOf(s, CALL_SYN) || '', dn: DN_LAB[stripDN(s)], ...callRowColor(it, s), cast: sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean), e8: partEighths(it) };
   }).filter(Boolean);
   return { n: n + 2, date: dates[n + 1], call: peekDay(d.id).crewCall || callDefaults(d).crewCall, locs: callLocs(d).map(x => x[0]), rows,
     e8: rows.reduce((a, r) => a + r.e8, 0), cast: callCast(d).map(({ el }) => ({ n: D.castNum[el.id] || '', name: titleCase(el.name) })) };
@@ -514,9 +518,9 @@ RENDER.call = function () {
   const lrow = (r, j) => {
     if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}<b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
     if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><b>${esc(r.name)}</b>${r.det ? `<span data-no-tr>${esc(r.det)}</span>` : ''}</td></tr>`; }
-    const col = hlc(r.it) || stripColor(r.s), dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s, CALL_SYN);
+    const col = r.col, dn = DN_LAB[stripDN(r.s)], syn = synopsisOf(r.s, CALL_SYN);
     // (lote Z) la escena a todo color, como su tira en el plan de rodaje (con letra clara sobre un color oscuro)
-    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}${ea(lgDark(col))}" data-strip="${ea(hlc(r.it) ? 'hl' : stripKey(r.s))}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
+    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}${ea(lgDark(col))}" data-strip="${ea(r.strip)}" style="--rc:${ea(col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span>${rowTime(r)}</td><td class="cl-lie">${esc(ieLab(r.s))}</td>
       <td class="cl-lsd"><b>${esc(setOf(r.s))}${r.it.sp ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(ieLab(r.s))} · ${esc(dn)}</span>${syn ? `<span class="cl-syn">${esc(syn)}</span>` : ''}${castLine(r.s) ? `<span class="cl-lc">${esc(castLine(r.s))}${r.fig ? ` · Fig. ${esc(String(r.fig))}` : ''}</span>` : ''}</td>
       <td class="cl-ldn">${esc(dn)}</td><td class="cl-lpg tnum">${esc(r.pages)}</td></tr>`
       + (r.shots || []).map(x => shotRow(r, x, col)).join('');
@@ -529,7 +533,7 @@ RENDER.call = function () {
   // 4. el avance: la jornada siguiente (o «Fin de rodaje»)
   const A = callAdvance(n);
   const advHTML = `<section class="cl-sec cl-adv"><header><h3>${A ? `Avance · Jornada ${A.n}${A.date ? ' · ' + esc(advDate(A)) : ''}` : 'Avance de la jornada siguiente'}</h3>${A ? `<span class="hint">${A.call ? `Llamado general <b class="tnum">${esc(A.call)}</b>` : 'Llamado por confirmar'}${A.locs.length ? ` · <span>${esc(A.locs.join(', '))}</span>` : ''}</span>${days.length > 1 ? `<button type="button" class="linkbtn" data-act="cl-day" data-d="${n + 1}">Ver su hoja ›</button>` : ''}` : ''}</header>
-    ${A ? `<table class="cl-list cl-advt"><thead><tr><th>Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Reparto</th><th>Págs.</th></tr></thead><tbody>${A.rows.map(r => `<tr class="cl-lsc${ea(lgDark(hlc(r.it) || lgCol('plan', r.strip)))}" data-strip="${ea(hlc(r.it) ? 'hl' : r.strip)}" style="--rc:${ea(hlc(r.it) || lgCol('plan', r.strip))}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span></td><td class="cl-lie">${esc(r.ie)}</td><td class="cl-lsd"><b>${esc(r.set)}</b><span class="m-only">${esc(r.ie)} · ${esc(r.dn)}</span>${r.syn ? `<span class="cl-syn">${esc(r.syn)}</span>` : ''}</td><td class="cl-ldn">${esc(r.dn)}</td><td class="cl-lcn tnum">${esc(r.cast.join(', '))}</td><td class="cl-lpg tnum">${esc(fmtEighths(r.e8))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Jornada sin escenas.</td></tr>'}</tbody></table>
+    ${A ? `<table class="cl-list cl-advt"><thead><tr><th>Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Reparto</th><th>Págs.</th></tr></thead><tbody>${A.rows.map(r => `<tr class="cl-lsc${ea(lgDark(r.col))}" data-strip="${ea(r.strip)}" style="--rc:${ea(r.col)}"><td class="cl-ln"><span class="cl-sn tnum">${esc(r.code)}</span></td><td class="cl-lie">${esc(r.ie)}</td><td class="cl-lsd"><b>${esc(r.set)}</b><span class="m-only">${esc(r.ie)} · ${esc(r.dn)}</span>${r.syn ? `<span class="cl-syn">${esc(r.syn)}</span>` : ''}</td><td class="cl-ldn">${esc(r.dn)}</td><td class="cl-lcn tnum">${esc(r.cast.join(', '))}</td><td class="cl-lpg tnum">${esc(fmtEighths(r.e8))}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Jornada sin escenas.</td></tr>'}</tbody></table>
     <p class="cl-tot"><span>Total: <b class="tnum">${esc(fmtEighths(A.e8))} págs.</b></span>${A.cast.length ? `<span>Reparto: <span>${esc(A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '))}</span></span>` : ''}</p>` : '<p class="cl-fin">Fin de rodaje</p>'}</section>`;
   // 5. una sola tabla de personas: primero el reparto, luego el equipo por área (el nombre del área separa, fino, con su
   // citación). (lote W) Con las columnas de antes: recojo, llamado, vestuario, maquillaje, listos, teléfono (y el correo
@@ -972,7 +976,7 @@ function callSheetXLSX(X) {
   if (X.sched.byShot) row([{ v: 'Plano · hora', s: { ...H, fill: T.fill2 } }, { v: 'Descripción', s: { ...H, fill: T.fill2 } }, { v: 'Acción', cs: 4, s: { ...H, fill: T.fill2 } }, { v: 'Lente', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Sonido', s: { ...H, fill: T.fill2, h: 'center' } }, { v: 'Personajes', cs: 2, s: { ...H, fill: T.fill2 } }]);
   for (const r of [...X.sched.rows, ...X.sched.close]) {
     if (r.ev) { const ef = hlc(r.it) || T.ev, ge = { fill: isMove(r) ? '#DDEFFC' : ef, line: L, color: lgInk(ef) === '#FFFFFF' && !isMove(r) ? '#FFFFFF' : '#222222' }; row([{ v: span(r), s: { ...ge, bold: true } }, { v: r.name + (r.det ? ' · ' + r.det : ''), cs: NC - 1, s: { ...ge, bold: true } }]); continue; }
-    const fc = hlc(r.it) || stripColor(r.s), f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
+    const fc = r.col, f = { fill: fc, line: L, ...(lgDark(fc) ? { color: '#F4F4F4' } : {}) };   // la tira estándar, como en el plan
     row([{ v: `${r.code}${r.t0 || r.t ? '  ' + (r.t0 || r.t) : ''}`, s: { ...f, bold: true } }, { v: `${ieLab(r.s)} · ${DN_LAB[stripDN(r.s)]}`, s: { ...f, bold: true } },
       { v: [setOf(r.s) + (r.it.sp ? ` (parte ${r.it.sp})` : ''), synopsisOf(r.s, CALL_SYN), castLine(r.s) + (r.fig ? ` · Fig. ${r.fig}` : '')].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.pages, s: { ...f, bold: true, h: 'right' } }]);
     for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { bold: true } }, { v: [x.size, ...x.det].filter(Boolean).join(' · ') }, { v: x.act + (r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4 }, { v: x.lens, s: CC }, { v: x.snd || '', s: CC }, { v: x.cast.join(', '), cs: 2 }]);
@@ -983,7 +987,7 @@ function callSheetXLSX(X) {
   band(A ? trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') : 'FIN DE RODAJE');
   if (A) {
     row([{ v: 'Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 5, s: H }, { v: 'Reparto', cs: 2, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
-    for (const r of A.rows) { const fc = hlc(r.it) || lgCol('plan', r.strip); row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}` }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5 }, { v: r.cast.join(', '), cs: 2 }, { v: fmtEighths(r.e8), s: { h: 'right', bold: true } }]); }
+    for (const r of A.rows) { const fc = r.col; row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}` }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5 }, { v: r.cast.join(', '), cs: 2 }, { v: fmtEighths(r.e8), s: { h: 'right', bold: true } }]); }
     row([{ v: `Total ${fmtEighths(A.e8)} págs.` + (A.cast.length ? ' · Reparto: ' + A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') : ''), cs: NC, s: { h: 'right', ...MU } }]);
   }
   // 5. las personas: el reparto y el equipo por área (con su citación), con los horarios
