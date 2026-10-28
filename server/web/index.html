@@ -7,83 +7,139 @@
 <meta property="og:title" content="{{t.meta_title}}">
 <meta property="og:description" content="{{t.og_desc}}">
 <meta property="og:image" content="__BASE_URL__/portada/og.png">
-<meta name="theme-color" content="#CE0C1C">
+<meta name="theme-color" content="#FFBE0B">
 __HREFLANG__
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" href="/marca/FilmSpiritRecorte-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/sitio.css">
 <link rel="stylesheet" href="/portada.css">
 
-<!-- Portada (diseño «Inicio, escritorio», manual de marca 2026): cabecera y portada en el rojo de la marca, con una hoja
-     de guion que se escribe sola y después se puede editar; escribir y producir; planes en filas, con la comparación y las
-     condiciones; preguntas; cierre y pie en negro. Titulares en FilmSpirit Recorte, textos en Archivo, guion en Courier Prime. -->
+<!-- Portada · versión 2 (PDF «FilmSpirit · versión 2», octubre de 2026): cabecera y portada en amarillo, con la hoja de
+     guion que se escribe sola y después se edita (portada.js); la franja negra del proyecto de ejemplo; escribir y
+     producir en cuatro tarjetas; el guion rayado, el storyboard y el plan con sus piezas; los planes en tarjetas, la
+     comparación y las condiciones; preguntas; cierre y pie en negro. Titulares en Familjen Grotesk, textos en Archivo,
+     guion en Courier Prime. Los textos son los de server/i18n (cinco idiomas). -->
 <a class="skip" href="#principal">{{t.skip}}</a>
 <header class="top">
   <div class="wrap top-in">
     <a href="/" class="top-logo" aria-label="FilmSpirit">__LOGO__</a>
     <nav class="top-nav" aria-label="{{t.nav_label}}">
-      <!-- (lote AF) el proyecto de ejemplo, también desde la barra de arriba -->
       <a class="top-link wide-only" href="/app/?ejemplo=1" data-sample>{{t.nav_example}}</a>
       <a class="top-link wide-only" href="#planes">{{t.nav_plans}}</a>
-      <a class="top-link wide-only" href="/entrar" data-login data-guest>{{t.log_in}}</a>
-      <a class="btn cream top-btn" href="/entrar" data-login data-open="{{t.open_app}}" data-short="{{t.sign_in}}"><span class="wide-only">{{t.free_cta}}</span><span class="narrow-only">{{t.sign_in}}</span></a>
+      <a class="top-link wide-only" href="#preguntas">{{t.nav_faq}}</a>
     </nav>
+    <span class="grow"></span>
+    <a class="top-link" href="/entrar" data-login data-guest>{{t.sign_in}}</a>
+    <a class="btn dark top-btn" href="/entrar" data-login data-open="{{t.open_app}}"><span class="wide-only">{{t.free_cta}}</span><span class="narrow-only">{{t.free_price}}</span></a>
   </div>
 </header>
 
 <main id="principal">
   <!-- ============ portada: titular y la hoja de guion ============ -->
   <section class="hero" id="inicio" aria-labelledby="heroH">
-    <div class="hero-in">
-      <h1 id="heroH" class="rc">{{t.hero_h1}}</h1>
-      <p class="hero-lead">{{t.h_lead}}</p>
-      <p class="note" id="refNote" hidden data-tpl="{{t.ref_note}}"></p>
-      <p class="note" id="goneNote" hidden>{{t.acct_gone}}</p>
-      <p class="sr-only" id="sheetHelp">{{t.ed_sr}}</p>
-      <div class="sheet" id="sheet" role="region" aria-label="{{t.ed_label}}" aria-describedby="sheetHelp" data-title="{{t.ed_title}}">
-        <span class="sheet-n" aria-hidden="true">1.</span>
-        <p class="ln tr">FADE IN:</p>
-        <div class="sheet-lines" id="sheetLines">
-          <p class="ln" data-t="h">{{t.ed_s1}}</p>
-          <p class="ln" data-t="a">{{t.ed_s2}}</p>
-          <p class="ln" data-t="c">{{t.ed_s3}}</p>
-          <p class="ln" data-t="d">{{t.ed_s4}}</p>
-        </div>
-        <div class="sheet-bar">
-          <div class="pills" role="group" aria-label="{{t.ed_types}}" id="sheetTypes">
-            <button type="button" data-t="h" aria-pressed="false" data-aria="{{t.ed_h_aria}}" data-ph="{{t.ed_h_ph}}">{{t.ed_h}}</button>
-            <button type="button" data-t="a" aria-pressed="false" data-aria="{{t.ed_a}}" data-ph="{{t.ed_a_ph}}">{{t.ed_a}}</button>
-            <button type="button" data-t="c" aria-pressed="false" data-aria="{{t.ed_c}}" data-ph="{{t.ed_c_ph}}">{{t.ed_c}}</button>
-            <button type="button" data-t="d" aria-pressed="false" data-aria="{{t.ed_d}}" data-ph="{{t.ed_d_ph}}">{{t.ed_d}}</button>
-          </div>
-          <a class="btn red pill" href="/entrar" data-login data-save>{{t.ed_save}}</a>
-        </div>
+    <div class="wrap hero-in">
+      <div class="hero-l">
+        <h1 id="heroH">{{t.hero_h1}}</h1>
+        <p class="hero-lead">{{t.h_lead}}</p>
+        <p class="note" id="refNote" hidden data-tpl="{{t.ref_note}}"></p>
+        <p class="note" id="goneNote" hidden>{{t.acct_gone}}</p>
+        <div class="hero-ctas"><a class="btn dark big" href="/entrar" data-login>{{t.cta_google}}</a></div>
+        <p class="hero-free">{{t.hero_free}}</p>
       </div>
-      <p class="hero-hint">{{t.ed_hint}}</p>
-      <!-- (lote AD) el proyecto de ejemplo, también sin cuenta: la app lo abre con ?ejemplo=1 (con sesión, igual).
-           (lote AF) En su propia franja, debajo de la hoja: entre el texto y la hoja confundía -->
-      <div class="hero-ex" role="group" aria-labelledby="exQ">
-        <p class="hero-ex-q" id="exQ">{{t.ex_q}}</p>
-        <a class="btn cream big" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a>
-        <span>{{t.ex_note}}</span>
+      <div class="hero-r">
+        <p class="sr-only" id="sheetHelp">{{t.ed_sr}}</p>
+        <div class="sheet" id="sheet" role="region" aria-label="{{t.ed_label}}" aria-describedby="sheetHelp" data-title="{{t.ed_title}}">
+          <div class="sheet-h"><span class="eyebrow">{{t.ed_label}}</span><b>{{t.ed_title}}</b></div>
+          <div class="sheet-page">
+            <div class="sheet-lines" id="sheetLines">
+              <p class="ln" data-t="h">{{t.ed_s1}}</p>
+              <p class="ln" data-t="a">{{t.ed_s2}}</p>
+              <p class="ln" data-t="c">{{t.ed_s3}}</p>
+              <p class="ln" data-t="d">{{t.ed_s4}}</p>
+            </div>
+          </div>
+          <div class="sheet-bar">
+            <div class="seg" role="group" aria-label="{{t.ed_types}}" id="sheetTypes">
+              <button type="button" data-t="h" aria-pressed="false" data-aria="{{t.ed_h_aria}}" data-ph="{{t.ed_h_ph}}">{{t.ed_h}}</button>
+              <button type="button" data-t="a" aria-pressed="false" data-aria="{{t.ed_a}}" data-ph="{{t.ed_a_ph}}">{{t.ed_a}}</button>
+              <button type="button" data-t="c" aria-pressed="false" data-aria="{{t.ed_c}}" data-ph="{{t.ed_c_ph}}">{{t.ed_c}}</button>
+              <button type="button" data-t="d" aria-pressed="false" data-aria="{{t.ed_d}}" data-ph="{{t.ed_d_ph}}">{{t.ed_d}}</button>
+            </div>
+            <a class="btn yellow" href="/entrar" data-login data-save>{{t.ed_save}}</a>
+          </div>
+          <p class="sheet-hint">{{t.ed_hint}}</p>
+        </div>
       </div>
     </div>
   </section>
 
+  <!-- ============ el proyecto de ejemplo, sin cuenta ============ -->
+  <section class="band" aria-labelledby="exQ">
+    <div class="wrap band-in">
+      <div><h2 id="exQ">{{t.ex_q}}</h2><p>{{t.ex_note}}</p></div>
+      <a class="btn yellow big" href="/app/?ejemplo=1" data-sample><span>{{t.ex_cta}}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg></a>
+    </div>
+  </section>
+
   <!-- ============ escribir y producir ============ -->
-  <section class="sec paper" aria-labelledby="t-prod">
-    <div class="wrap split">
-      <div class="split-h">
-        <h2 id="t-prod" class="rc">{{t.p_h2}}</h2>
-        <p class="sub">{{t.p_sub}}</p>
-      </div>
+  <section class="sec" aria-labelledby="t-prod">
+    <div class="wrap">
+      <h2 id="t-prod" class="h2">{{t.p_h2}}</h2>
+      <p class="sub">{{t.p_sub}}</p>
       <div class="feats">
-        <div class="feat"><h3 class="rc">{{t.p1_h}}</h3><p>{{t.p1_p}}</p></div>
-        <div class="feat"><h3 class="rc">{{t.p2_h}}</h3><p>{{t.p2_p}}</p></div>
-        <div class="feat"><h3 class="rc">{{t.p3_h}}</h3><p>{{t.p3_p}}</p></div>
-        <div class="feat"><h3 class="rc">{{t.p4_h}}</h3><p>{{t.p4_p}}</p></div>
+        <div class="feat"><header><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path class="c" d="M7 4h13l5 5v19H7z"/><path class="b" d="M5 6h13l5 5v17H5z"/><path class="k" d="M9 13h9M9 17h9M9 21h6"/><path class="a" d="m19 26 7-7 3 3-7 7h-3z"/></svg><span class="badge y">{{t.p1_b}}</span></header><h3>{{t.p1_h}}</h3><p>{{t.p1_p}}</p></div>
+        <div class="feat"><header><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="r" x="5" y="6" width="17" height="21" rx="1.4" transform="rotate(-6 13.5 16.5)"/><circle class="b" cx="13" cy="14" r="4.4"/><path class="b" d="M5.4 27c.8-4.6 3.9-7.4 7.6-7.4s6.8 2.8 7.6 7.4z"/><path class="kk" d="m24.6 3.4 1.2 2.6 2.8.3-2.1 1.9.6 2.8-2.5-1.4-2.5 1.4.6-2.8-2.1-1.9 2.8-.3z"/></svg><span class="badge">{{t.p2_b}}</span></header><h3>{{t.p2_h}}</h3><p>{{t.p2_s}}</p></div>
+        <div class="feat"><header><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><path class="r" d="M3 22.5 10 20l6 2.6 6-2.6 7 2.5V29l-7-2.5-6 2.6-6-2.6L3 29z"/><path class="b" d="M16 3a7 7 0 0 0-7 7c0 5.2 7 12 7 12s7-6.8 7-12a7 7 0 0 0-7-7z"/><circle class="r" cx="16" cy="10" r="2.6"/></svg><span class="badge">{{t.p3_b}}</span></header><h3>{{t.p3_h}}</h3><p>{{t.p3_s}}</p></div>
+        <div class="feat"><header><svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="r" x="7" y="5" width="21" height="14" rx="1.4" transform="rotate(-7 17.5 12)"/><rect class="b" x="4" y="9" width="24" height="17" rx="1.6"/><circle class="k2" cx="10.5" cy="16" r="2.6"/><path class="k" d="M16 14.5h8M16 18.5h6M7.5 22h6"/></svg><span class="badge k">{{t.p4_b}}</span></header><h3>{{t.p4_h}}</h3><p>{{t.p4_s}}</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ el guion rayado, el storyboard y el plan ============ -->
+  <section class="sec gray" aria-labelledby="t-t1">
+    <div class="wrap duo">
+      <div class="duo-t">
+        <p class="eyebrow"><i style="--c:var(--g0)"></i>{{t.t1_eye}}</p>
+        <h2 id="t-t1" class="h3">{{t.t1_h}}</h2>
+        <p class="p">{{t.t1_p}}</p>
+        <ul class="ticks"><li>{{t.t1_a}}</li><li>{{t.t1_b}}</li><li>{{t.t1_c}}</li></ul>
+      </div>
+      <div class="card rayado" aria-hidden="true">
+        <p class="sc">{{t.ray_h}}</p>
+        <p>{{h.ray_p1}}</p>
+        <p>{{h.ray_p2}}</p>
+        <div class="chips"><span><i style="--c:#212121"></i>{{t.ray_c1}} · 3</span><span><i style="--c:#F08A24"></i>{{t.ray_c2}} · 5</span><span><i style="--c:#857A6F"></i>{{t.ray_c3}} · 2</span><span><i style="--c:#5C5852"></i>{{t.ray_c4}} · 1</span></div>
+      </div>
+    </div>
+    <div class="wrap duo rev" aria-labelledby="t-t2">
+      <div class="frames" aria-hidden="true">
+        <figure><img src="/portada/sb-12.webp" alt="" width="540" height="304" loading="lazy"><figcaption><b>1.2</b><span class="sz">PE</span>Ana, Tito</figcaption></figure>
+        <figure><img src="/portada/sb-13.webp" alt="" width="540" height="304" loading="lazy"><figcaption><b>1.3</b><span class="sz">PM</span>Tito</figcaption></figure>
+        <figure><img src="/portada/sb-51.webp" alt="" width="540" height="304" loading="lazy"><figcaption><b>5.1</b><span class="sz">PP</span>Ana</figcaption></figure>
+        <figure><img src="/portada/sb-71.webp" alt="" width="540" height="304" loading="lazy"><figcaption><b>7.1</b><span class="sz">PG</span>Ana</figcaption></figure>
+      </div>
+      <div class="duo-t">
+        <p class="eyebrow"><i style="--c:var(--g2)"></i>{{t.t2_eye}}</p>
+        <h2 id="t-t2" class="h3">{{t.t2_h}}</h2>
+        <p class="p">{{t.t2_p}}</p>
+        <ul class="ticks"><li>{{t.t2_a}}</li><li>{{t.t2_b}}</li><li>{{t.t2_c}}</li></ul>
+      </div>
+    </div>
+    <div class="wrap duo" aria-labelledby="t-t3">
+      <div class="duo-t">
+        <p class="eyebrow"><i style="--c:var(--g4)"></i>{{t.t3_eye}}</p>
+        <h2 id="t-t3" class="h3">{{t.t3_h}}</h2>
+        <p class="p">{{t.t3_p}}</p>
+        <ul class="ticks"><li>{{t.t3_a}}</li><li>{{t.t3_b}}</li><li>{{t.t3_c}}</li></ul>
+      </div>
+      <div class="plan" aria-hidden="true">
+        <p class="plan-d">{{t.pm_day}}</p>
+        <div class="strip d"><b>1</b><span>EXT</span><span class="set">{{t.pm_s1}}</span><span>5/8</span></div>
+        <div class="strip"><b>2</b><span>INT</span><span class="set">{{t.pm_s2}}</span><span>6/8</span></div>
+        <div class="strip end"><b>{{t.pm_end}}</b><span>{{t.pm_end_n}}</span></div>
+        <div class="strip n"><b>5</b><span>INT</span><span class="set">{{t.pm_s5}}</span><span>3/8</span></div>
+        <div class="callc"><span>{{t.pm_call}}</span><b>07:00</b><small>{{t.pm_call_sub}}</small></div>
       </div>
     </div>
   </section>
@@ -91,101 +147,102 @@ __HREFLANG__
   __TESTIMONIO__
 
   <!-- ============ planes ============ -->
-  <!-- Guion (gratis), Indie, Pro y Studio (PLANES-Y-PRECIOS.md). data-founder: precio de fundador vigente.
-       (lote AD) Sin prueba gratis y con Studio a la venta: ya no hay lista de espera -->
-  <section class="sec sand" id="planes" data-founder="__FOUNDER__" aria-labelledby="t-planes">
+  <!-- Guion (gratis), Indie, Pro y Studio (PLANES-Y-PRECIOS.md). data-founder: precio de fundador vigente -->
+  <section class="sec" id="planes" data-founder="__FOUNDER__" aria-labelledby="t-planes">
     <div class="wrap">
       <div class="plans-h">
         <div>
-          <h2 id="t-planes" class="rc">{{t.pl_h2}}</h2>
+          <h2 id="t-planes" class="h2 big">{{t.pl_h2}}</h2>
           <p class="sub">{{t.pl_sub}}</p>
         </div>
-        <div class="pills region-pick" role="group" aria-label="{{t.region_label}}">
-          <button type="button" data-region="pe">{{t.region_pe}}</button>
-          <button type="button" data-region="intl">{{t.region_intl}}</button>
+        <div class="region"><span>{{t.region_label}}</span>
+          <div class="seg region-pick" role="group" aria-label="{{t.region_label}}">
+            <button type="button" data-region="pe">{{t.region_pe}}</button>
+            <button type="button" data-region="intl">{{t.region_intl}}</button>
+          </div>
         </div>
       </div>
-      <ul class="rows">
-        <li class="row">
-          <div class="row-n"><h3 class="rc">{{t.p_free}}</h3></div>
-          <p class="row-d">{{t.row_free}}</p>
-          <p class="row-p"><b>{{t.free_price}}</b><span>{{t.forever}}</span></p>
-          <div class="row-a"><a class="btn red" href="/entrar" data-login>{{t.free_cta}}</a></div>
-        </li>
-        <li class="row">
-          <div class="row-n"><h3 class="rc">Indie</h3></div>
-          <p class="row-d">{{t.row_in}}</p>
-          <p class="row-p"><b><span class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_IN_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_IN_Y__ {{t.per_year}}">{{t.or}} __P_IN_Y__ {{t.per_year}}</span></p>
-          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.in_cta}}</a></div>
-        </li>
-        <li class="row">
-          <div class="row-n"><h3 class="rc">Pro</h3></div>
-          <div class="row-d"><p>{{t.row_pro}}</p><p class="fnd"><span data-only="pe">{{t.fnd_pe}}</span><span data-only="intl">{{t.fnd_intl}}</span></p></div>
-          <p class="row-p"><b><span class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_PRO_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_PRO_Y__ {{t.per_year}}">{{t.or}} __P_PRO_Y__ {{t.per_year}}</span></p>
-          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.pro_cta}}</a></div>
-        </li>
-        <li class="row studio">
-          <div class="row-n"><h3 class="rc">Studio</h3></div>
-          <p class="row-d">{{t.row_st}}</p>
-          <p class="row-p"><b><span class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</span> {{t.per_month}}</b><span class="pr" data-pe="{{t.or}} __PE_ST_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_ST_Y__ {{t.per_year}}">{{t.or}} __P_ST_Y__ {{t.per_year}}</span></p>
-          <div class="row-a"><a class="lnk" href="/entrar" data-login>{{t.st_cta}}</a></div>
-        </li>
-      </ul>
+      <div class="plans">
+        <article class="pc">
+          <h3>{{t.p_free}}</h3>
+          <p class="pc-d">{{t.row_free}}</p>
+          <p class="pc-p"><b>{{t.free_price}}</b><span>{{t.forever}}</span></p>
+          <a class="btn line big" href="/entrar" data-login>{{t.free_cta}}</a>
+          <ul><li>{{h.free_1}}</li><li>{{h.free_2}}</li><li>{{h.free_3}}</li><li>{{h.free_4}}</li><li class="no">{{h.free_5}}</li></ul>
+        </article>
+        <article class="pc">
+          <h3>Indie</h3>
+          <p class="pc-d">{{t.row_in}}</p>
+          <p class="pc-p"><b class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</b><span>{{t.per_month}} <span class="pr" data-pe="{{t.or}} __PE_IN_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_IN_Y__ {{t.per_year}}">{{t.or}} __P_IN_Y__ {{t.per_year}}</span></span></p>
+          <a class="btn line big" href="/entrar" data-login>{{t.in_cta}}</a>
+          <ul><li>{{h.in_1}}</li><li>{{h.in_2}}</li><li>{{h.in_3}}</li><li>{{h.in_4}}</li><li class="no">{{h.in_5}}</li></ul>
+        </article>
+        <article class="pc dark">
+          <h3>Pro <span class="badge y">{{t.pro_tag}}</span></h3>
+          <p class="pc-d">{{t.row_pro}}</p>
+          <p class="pc-p"><b class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</b><span>{{t.per_month}} <span class="pr" data-pe="{{t.or}} __PE_PRO_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_PRO_Y__ {{t.per_year}}">{{t.or}} __P_PRO_Y__ {{t.per_year}}</span></span></p>
+          <p class="fnd"><span data-only="pe">{{t.fnd_pe}}</span><span data-only="intl">{{t.fnd_intl}}</span></p>
+          <a class="btn yellow big" href="/entrar" data-login>{{t.pro_cta}}</a>
+          <ul><li>{{h.pro_1}}</li><li>{{h.pro_2}}</li><li>{{h.pro_3}}</li><li>{{h.pro_4}}</li></ul>
+        </article>
+        <article class="pc">
+          <h3>Studio</h3>
+          <p class="pc-d">{{t.row_st}}</p>
+          <p class="pc-p"><b class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</b><span>{{t.per_month}} <span class="pr" data-pe="{{t.or}} __PE_ST_Y__ {{t.per_year}}" data-intl="{{t.or}} __US_ST_Y__ {{t.per_year}}">{{t.or}} __P_ST_Y__ {{t.per_year}}</span></span></p>
+          <a class="btn line big" href="/entrar" data-login>{{t.st_cta}}</a>
+          <ul><li>{{h.st_1}}</li><li>{{h.st_2}}</li><li>{{h.st_3}}</li><li>{{h.st_4}}</li></ul>
+        </article>
+      </div>
       <p class="pay-note"><span data-only="pe">{{t.pay_pe}}</span><span data-only="intl">{{t.pay_intl}}</span></p>
 
-      <div class="more">
-        <details id="comparar">
-          <summary>{{t.cmp_h}}</summary>
-          <div class="cmp-wrap"><table class="cmp">
-            <thead><tr><th></th><th>{{t.p_free}}</th><th>Indie</th><th>Pro</th><th>Studio</th></tr></thead>
-            <tbody>
-              <tr><th scope="row">{{t.cmp_price}}</th><td>{{t.free_price}}</td><td class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</td><td class="pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</td><td class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</td></tr>
-              <tr><th scope="row">{{t.cmp_scripts}}</th><td>5</td><td>{{t.cmp_unl}}</td><td>{{t.cmp_unl}}</td><td>{{t.cmp_unl}}</td></tr>
-              <tr><th scope="row">{{t.cmp_cowrite}}</th><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td></tr>
-              <tr><th scope="row">{{t.cmp_active}}</th><td class="n">—</td><td>2</td><td>7</td><td>20</td></tr>
-              <tr><th scope="row">{{t.cmp_archived}}</th><td class="n">—</td><td>20</td><td>60</td><td>200</td></tr>
-              <tr><th scope="row">{{t.cmp_people}}</th><td class="n">—</td><td>{{t.cmp_solo}}</td><td>30</td><td>60</td></tr>
-              <tr><th scope="row">{{t.cmp_space}}</th><td>{{t.cmp_text}}</td><td>5 GB</td><td>20 GB</td><td>100 GB</td></tr>
-              <tr class="sep"><th scope="row">{{t.cmp_editor}}</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_spdf}}</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_prod}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_board}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_photos}}</th><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_team}}</th><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td></tr>
-              <tr><th scope="row">{{t.cmp_scout}}</th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
-            </tbody>
-          </table></div>
-        </details>
-        <details id="condiciones">
-          <summary>{{t.cond_h}}</summary>
-          <ul class="cond">
-            <li>{{t.cond_sample}}</li>
-            <li class="fnd-li"><span data-only="pe">{{t.cond_fnd_pe}}</span><span data-only="intl">{{t.cond_fnd_intl}}</span></li>
-            <li>{{t.cond_year}}</li>
-            <li>{{h.cond_renew}}</li>
-            <li>{{t.cond_down}}</li>
-            <li>{{t.cond_invite}}</li>
-            <li>{{t.cond_studio}}</li>
-          </ul>
-        </details>
-      </div>
+      <h3 class="h4" id="comparar">{{t.cmp_h}}</h3>
+      <div class="cmp-wrap"><table class="cmp">
+        <thead><tr><th></th><th>{{t.p_free}}</th><th>Indie</th><th class="pro">Pro</th><th>Studio</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">{{t.cmp_price}}</th><td>{{t.free_price}}</td><td class="pr" data-pe="__PE_IN_M__" data-intl="__US_IN_M__">__P_IN_M__</td><td class="pro pr" data-pe="__PE_PRO_M__" data-intl="__US_PRO_M__">__P_PRO_M__</td><td class="pr" data-pe="__PE_ST_M__" data-intl="__US_ST_M__">__P_ST_M__</td></tr>
+          <tr><th scope="row">{{t.cmp_scripts}}</th><td>5</td><td>{{t.cmp_unl}}</td><td class="pro">{{t.cmp_unl}}</td><td>{{t.cmp_unl}}</td></tr>
+          <tr><th scope="row">{{t.cmp_cowrite}}</th><td>{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td><td class="pro">{{t.cmp_4p}}</td><td>{{t.cmp_4p}}</td></tr>
+          <tr><th scope="row">{{t.cmp_active}}</th><td class="n">—</td><td>2</td><td class="pro">7</td><td>20</td></tr>
+          <tr><th scope="row">{{t.cmp_archived}}</th><td class="n">—</td><td>20</td><td class="pro">60</td><td>200</td></tr>
+          <tr><th scope="row">{{t.cmp_people}}</th><td class="n">—</td><td>{{t.cmp_solo}}</td><td class="pro">30</td><td>60</td></tr>
+          <tr><th scope="row">{{t.cmp_space}}</th><td>{{t.cmp_text}}</td><td>5 GB</td><td class="pro">20 GB</td><td>100 GB</td></tr>
+          <tr><th scope="row">{{t.cmp_editor}}</th><td class="y">✓</td><td class="y">✓</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_spdf}}</th><td class="y">✓</td><td class="y">✓</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_prod}}</th><td class="n">—</td><td class="y">✓</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_board}}</th><td class="n">—</td><td class="y">✓</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_photos}}</th><td class="n">—</td><td class="y">✓</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_team}}</th><td class="n">—</td><td class="n">—</td><td class="pro y">✓</td><td class="y">✓</td></tr>
+          <tr><th scope="row">{{t.cmp_scout}}</th><td class="n">—</td><td class="n">—</td><td class="pro n">—</td><td class="y">✓</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3 class="h4" id="condiciones">{{t.cond_h}}</h3>
+      <ul class="cond">
+        <li>{{t.cond_sample}}</li>
+        <li class="fnd-li"><span data-only="pe">{{t.cond_fnd_pe}}</span><span data-only="intl">{{t.cond_fnd_intl}}</span></li>
+        <li>{{t.cond_year}}</li>
+        <li>{{h.cond_renew}}</li>
+        <li>{{t.cond_down}}</li>
+        <li>{{t.cond_invite}}</li>
+        <li>{{t.cond_studio}}</li>
+      </ul>
     </div>
   </section>
 
   <!-- ============ preguntas ============ -->
-  <section class="sec paper" id="preguntas" aria-labelledby="t-faq">
-    <div class="wrap split">
-      <div class="split-h"><h2 id="t-faq" class="rc">{{t.faq_h2}}</h2></div>
+  <section class="sec gray" id="preguntas" aria-labelledby="t-faq">
+    <div class="wrap faq-w">
+      <div class="faq-h"><h2 id="t-faq" class="h2 big">{{t.faq_h2}}</h2><p>{{h.faq_more}}</p></div>
       <div class="faq">
-        <details><summary>{{t.q1}}</summary><p>{{t.a1}}</p></details>
-        <details><summary>{{t.q2}}</summary><p>{{t.a2}}</p></details>
-        <details><summary>{{t.q3}}</summary><p>{{t.a3}}</p></details>
-        <details><summary>{{t.q4}}</summary><p>{{t.a4}}</p></details>
-        <details><summary>{{t.q5}}</summary><p>{{t.a5}}</p></details>
-        <details><summary>{{t.q6}}</summary><p>{{t.a6}}</p></details>
-        <details><summary>{{t.q7}}</summary><p>{{t.a7}}</p></details>
-        <details><summary>{{t.q8}}</summary><p>{{t.a8}}</p></details>
-        <details><summary>{{t.q9}}</summary><p>{{t.a9}}</p></details>
+        <details open><summary>{{t.q1}}<i aria-hidden="true"></i></summary><p>{{t.a1}}</p></details>
+        <details><summary>{{t.q2}}<i aria-hidden="true"></i></summary><p>{{t.a2}}</p></details>
+        <details><summary>{{t.q3}}<i aria-hidden="true"></i></summary><p>{{t.a3}}</p></details>
+        <details><summary>{{t.q4}}<i aria-hidden="true"></i></summary><p>{{t.a4}}</p></details>
+        <details><summary>{{t.q5}}<i aria-hidden="true"></i></summary><p>{{t.a5}}</p></details>
+        <details><summary>{{t.q6}}<i aria-hidden="true"></i></summary><p>{{t.a6}}</p></details>
+        <details><summary>{{t.q7}}<i aria-hidden="true"></i></summary><p>{{t.a7}}</p></details>
+        <details><summary>{{t.q8}}<i aria-hidden="true"></i></summary><p>{{t.a8}}</p></details>
+        <details><summary>{{t.q9}}<i aria-hidden="true"></i></summary><p>{{t.a9}}</p></details>
       </div>
     </div>
   </section>
@@ -194,21 +251,21 @@ __HREFLANG__
 <!-- ============ cierre y pie, en negro ============ -->
 <div class="night">
   <section class="wrap last" aria-labelledby="t-last">
-    <h2 id="t-last" class="rc">{{t.last_h2}}</h2>
+    <h2 id="t-last">{{t.last_h2}}</h2>
     <div class="last-ctas">
-      <a class="btn cream big" href="#inicio" data-write>{{t.last_cta}}</a>
-      <a class="btn line big" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a>
+      <a class="btn yellow big" href="#inicio" data-write>{{t.last_cta}}</a>
+      <a class="btn ghost-w big" href="/app/?ejemplo=1" data-sample>{{t.ex_cta}}</a>
     </div>
   </section>
-  <footer class="wrap foot">
-    <div class="foot-a">
-      <span class="foot-logo">__LOGO__</span>
-      <nav aria-label="{{t.legal_label}}"><a href="#planes">{{t.nav_plans}}</a><a href="/entrar" data-login>{{t.log_in}}</a><a href="/terminos">{{t.terms}}</a><a href="/privacidad">{{t.privacy}}</a><a href="/reembolsos">{{t.refunds}}</a><a href="/reclamaciones">{{t.complaints}}</a><a href="/licencias.txt">{{t.licenses}}</a></nav>
-    </div>
-    <div class="foot-b">
-      <p>© 2026 __EMPRESA_PIE__ · Trujillo, Perú · {{t.contact}}: <span class="sel">__CONTACTO__</span></p>
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <div class="foot-a">
+        <span class="foot-logo">__LOGO__</span>
+        <p>© 2026 __EMPRESA_PIE__ · Trujillo, Perú</p>
+        <a href="mailto:__CONTACTO__">{{t.contact}}</a>
+      </div>
+      <nav class="foot-l" aria-label="{{t.legal_label}}"><a href="/terminos">{{t.terms}}</a><a href="/privacidad">{{t.privacy}}</a><a href="/reembolsos">{{t.refunds}}</a><a href="/reclamaciones">{{t.complaints}}</a><a href="/licencias.txt">{{t.licenses}}</a></nav>
       <nav class="langs" aria-label="{{t.lang_label}}">__LANG_LINKS__</nav>
-      <p class="fade" aria-hidden="true">FADE OUT.</p>
     </div>
   </footer>
 </div>

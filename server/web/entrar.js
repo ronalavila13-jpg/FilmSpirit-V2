@@ -41,7 +41,8 @@
     if (!cid || cid.startsWith('__')) { gb.innerHTML = ''; const s = document.createElement('span'); s.className = 'hint'; s.textContent = msg('cfg'); gb.appendChild(s); return; }
     google.accounts.id.initialize({ client_id: cid, callback: onCredential, ux_mode: 'popup', context: 'signin', use_fedcm_for_prompt: true, itp_support: true });
     gb.innerHTML = '';
-    google.accounts.id.renderButton(gb, { theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'filled_black' : 'outline', size: 'large', text: 'continue_with', shape: 'pill', locale: lang, width: 300 });
+    // versión 2: el botón rectangular, a lo ancho de la columna (Google lo deja en 400 px como máximo)
+    google.accounts.id.renderButton(gb, { theme: 'outline', size: 'large', text: 'continue_with', shape: 'rectangular', logo_alignment: 'center', locale: lang, width: Math.max(240, Math.min(400, gb.clientWidth || 400)) });
     google.accounts.id.prompt();
   }
   let tries = 0;

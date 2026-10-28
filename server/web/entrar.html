@@ -1,31 +1,53 @@
 <!doctype html>
-<html lang="__LANG__">
+<html lang="__LANG__" data-theme="light">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{t.e_title}}</title>
 <meta name="description" content="{{t.e_desc}}">
 <meta name="google-client-id" content="__GOOGLE_CLIENT_ID__">
+<meta name="theme-color" content="#FFBE0B">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/sitio.css">
-<main class="signin">
-  <div class="signin-card">
-    <a href="/" aria-label="FilmSpirit">__LOGO__</a>
-    <div style="display:grid;gap:8px">
+<!-- Entrar · versión 2 (PDF «FilmSpirit · versión 2»): a la izquierda, entrar con Google, el proyecto de ejemplo sin
+     cuenta y lo que incluye la cuenta gratuita; a la derecha, en amarillo, del guion al set con una viñeta, el llamado
+     y la escena, y las cinco etapas. En el celular, el amarillo arriba con la viñeta y el resto debajo. -->
+<main class="lg">
+  <section class="lg-l">
+    <header class="lg-top">
+      <a href="/" class="lg-logo" aria-label="FilmSpirit">__LOGO__</a>
+      <details class="lg-lang">
+        <summary aria-label="{{t.lang_label}}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z"/></svg><span class="wide">{{t.lang_self}}</span><span class="code">__LANG__</span></summary>
+        <nav class="langs" aria-label="{{t.lang_label}}">__LANG_LINKS__</nav>
+      </details>
+    </header>
+    <div class="lg-body">
       <h1>{{t.e_h1}}</h1>
-      <p class="hint">{{t.e_hint}}</p>
+      <p class="lg-hint">{{t.e_hint}}</p>
+      <div class="gbtn" id="gbtn"><span class="hint">{{t.e_loading}}</span></div>
+      <p class="signin-err" id="err" hidden data-cfg="{{t.e_err_cfg}}" data-gsi="{{t.e_err_gsi}}" data-login="{{t.e_err_login}}" data-net="{{t.e_err_net}}" data-reauth="{{t.e_reauth}}"></p>
+      <a class="lg-try" href="/app/?ejemplo=1">
+        <span class="wide"><b>{{t.ex_q}}</b><span>{{t.e_try}}</span></span>
+        <span class="narrow"><b>{{t.e_try_q_m}}</b> {{t.e_try_m}}</span>
+        <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/></svg></i>
+      </a>
+      <div class="lg-free" aria-label="{{t.e_slate_label}}">
+        <p class="eyebrow">{{t.e_slate_label}}</p>
+        <ol><li>{{t.e_s1}}</li><li>{{t.e_s2}}</li><li>{{t.e_s3}}</li></ol>
+      </div>
     </div>
-    <div class="gbtn" id="gbtn"><span class="hint">{{t.e_loading}}</span></div>
-    <p class="signin-err" id="err" hidden data-cfg="{{t.e_err_cfg}}" data-gsi="{{t.e_err_gsi}}" data-login="{{t.e_err_login}}" data-net="{{t.e_err_net}}" data-reauth="{{t.e_reauth}}"></p>
-    <div class="slate" aria-label="{{t.e_slate_label}}">
-      <b>{{t.sc}} 1</b><span>{{t.e_s1}}</span>
-      <b>{{t.sc}} 2</b><span>{{t.e_s2}}</span>
-      <b>{{t.sc}} 3</b><span>{{t.e_s3}}</span>
+    <p class="lg-foot">{{h.e_foot}}</p>
+  </section>
+  <aside class="lg-r" aria-hidden="true">
+    <h2>{{t.e_right}}</h2>
+    <div class="lg-ill">
+      <figure class="lg-shot"><img src="/portada/sb-12.webp" alt="" width="540" height="304"><figcaption><b>1.2</b><span class="sz">PE</span>35 mm · Ana, Tito</figcaption></figure>
+      <div class="lg-call"><span class="wide">{{t.ill_call}}</span><span class="narrow">{{t.ill_call_m}}</span><b>07:00</b><small>{{t.ill_day}}</small></div>
+      <div class="lg-sc"><p class="h">{{t.ill_scene}}</p><p>{{t.ill_action}}</p></div>
     </div>
-    <p class="signin-foot">{{h.e_foot}}</p>
-    <nav class="langs" aria-label="{{t.lang_label}}">__LANG_LINKS__</nav>
-  </div>
+    <ol class="lg-stg"><li><small>01</small>{{t.stg_1}}</li><li><small>02</small>{{t.stg_2}}</li><li><small>03</small>{{t.stg_3}}</li><li><small>04</small>{{t.stg_4}}</li><li><small>05</small>{{t.stg_5}}</li></ol>
+  </aside>
 </main>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="/entrar.js" defer></script>
