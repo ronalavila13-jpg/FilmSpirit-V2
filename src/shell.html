@@ -6241,6 +6241,206 @@ details.sec .tbl td,details.sec .tbl th{padding-inline:10px}
 details.sec .tbl td.num,details.sec .tbl th.num{text-align:right}
 details.sec .tbl td.num input{display:block;margin-left:auto}
 .cl .cl-note textarea{text-align:center}
+/* ============ (lote AH) la hoja de llamado en cuadros, como una planilla ============
+   Toda la información dentro de cuadros con líneas negras completas y bien visibles (en la apariencia oscura, de la
+   tinta clara): la cabecera encerrada entera, cada dato en su celda; cada bloque con el título en una banda gris; las
+   tablas con líneas entre filas y columnas; las escenas con el color de su tira dentro de la rejilla. Lo que no es de
+   la hoja (el estado, «Hora por plano», «+ Fila», lo quitado con su ↺) va fuera de los cuadros. El PDF, igual
+   (pdf-llamado.js) */
+.cs.cl{--cl-ln:var(--ink);--cl-lw:1px;--cl-bw:1.5px;--cl-band:color-mix(in srgb,var(--ink) 9%,var(--surface));--cl-hf:color-mix(in srgb,var(--ink) 3.5%,var(--surface))}
+.cs.cl .cl-doc{gap:12px;padding:22px var(--cl-px) 30px}
+.cs.cl .cl-doc>.cl-hd{gap:10px}
+.cs.cl .cl-acts{border-bottom:0;padding-bottom:0}
+.cs.cl .cl-box{border:var(--cl-bw) solid var(--cl-ln);background:var(--surface);min-width:0;overflow:hidden}
+.cs.cl .cl-bh{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;padding:5px 10px;min-height:32px;background:var(--cl-band);border-bottom:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-bh h3{margin:0;font:650 var(--cl-bd)/1.3 var(--font-ui);letter-spacing:0;color:var(--ink)}
+.cs.cl .cl-bh .hint{font-size:var(--cl-ft);color:var(--cl-2)}
+.cs.cl .cl-bh :is(.linkbtn,.cs-add){margin:0 0 0 auto}
+.cs.cl .cl-bh .cs-add{width:24px;height:24px}
+.cs.cl .cl-bb{padding:8px 10px}
+/* las tablas: una línea entre cada fila y cada columna; el borde de afuera es el del cuadro */
+.cs.cl .cl-g{border-collapse:collapse;border-style:hidden;width:100%}
+.cs.cl .cl-g :is(th,td){border:var(--cl-lw) solid var(--cl-ln)}
+:root[data-tone] .cs.cl .cl-g tr>:is(td,th){border-color:var(--cl-ln)}
+.cs.cl .cl-g thead th{background:var(--cl-hf);color:var(--cl-2);padding:6px 8px 5px;vertical-align:bottom}
+.cs.cl .cl-g thead tr:last-child th{border-bottom:var(--cl-lw) solid var(--cl-ln);padding-bottom:5px}
+.cs.cl .cl-list td{padding:7px 8px}
+.cs.cl .cl-g tr.cl-lsh td{padding-block:5px}
+.cs.cl .cl-lsc .cl-ln,.cs.cl .cl-lsh .cl-ln{box-shadow:inset 4px 0 0 color-mix(in srgb,var(--rc) 85%,var(--ink));padding-left:12px}
+.cs.cl .cl-lsc.cl-free .cl-ln{box-shadow:none;padding-left:8px}
+.cs.cl .cl-lsh.cl-free .cl-ln{box-shadow:none}
+/* la cabecera: tres columnas, cada dato en su celda; la última celda de cada columna llega hasta abajo */
+.cs.cl .cl-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);gap:0;align-items:stretch}
+.cs.cl :is(.cl-c1,.cl-c2,.cl-c3){display:flex;flex-direction:column;gap:0;min-width:0;padding:0;border:0;font-size:var(--cl-bd)}
+.cs.cl :is(.cl-c2,.cl-c3){border-left:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-cell{padding:8px 12px;border-top:var(--cl-lw) solid var(--cl-ln);min-width:0;margin:0}
+.cs.cl .cl-cell:first-child{border-top:0}
+.cs.cl .cl-cell:last-child{flex:1 1 auto}
+.cs.cl .cl-cell.cl-kc,.cs.cl .cl-cell.cl-ir{align-content:start}
+.cs.cl .cl-c2>.cl-cell{display:grid;justify-items:center;align-content:start;text-align:center;gap:3px}
+.cs.cl .cl-kc{gap:1px}
+.cs.cl .cl-coc{display:grid;gap:6px;align-content:start}
+.cs.cl .cl-tt0 .cl-jn{gap:2px 6px}
+.cs.cl .cl-fname{width:auto;min-width:12ch;max-width:100%;field-sizing:content;text-align:center;font-weight:650;color:var(--ink);padding:1px 6px}
+.cs.cl .cl-date{margin:0}
+.cs.cl .cl-dateb{border:0;background:none;font:600 var(--cl-h2)/1.25 var(--font-ui);letter-spacing:-.012em;color:var(--ink);padding:2px 8px;border-radius:6px}
+.cs.cl button.cl-dateb{cursor:pointer}
+.cs.cl button.cl-dateb:hover{background:var(--fill)}
+.cs.cl .cl-dateb.miss{color:var(--warn-text)}
+.cs.cl .cl-own{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 10px;font-size:var(--cl-ft)}
+.cs.cl .cl-own .hd-tag{font-size:var(--cl-cap);font-weight:600;color:var(--warn-text);background:var(--warn-soft);border-radius:999px;padding:1px 8px}
+.cs.cl .cl-callg{margin:0;padding-block:6px 8px}
+.cs.cl .cl-c2>.cl-times{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0;gap:0;justify-items:stretch}
+.cs.cl .cl-tc{display:grid;justify-items:center;align-content:start;gap:1px;padding:6px 3px 7px;min-width:0}
+.cs.cl .cl-tc+.cl-tc{border-left:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-tc .cl-kl{white-space:nowrap}
+.cs.cl .cl-tc input.tm{width:62px;max-width:100%;text-align:center;font-weight:700;font-size:var(--cl-h3);color:var(--ink);padding:1px 2px}
+.cs.cl .cl-tc input.tm.hd-auto::placeholder{color:var(--ink)}
+.cs.cl .cl-tc input.tm:not(:disabled){border:1px solid transparent;border-radius:var(--r-xs)}
+.cs.cl .cl-tc input.tm:not(:disabled):hover{border-color:color-mix(in srgb,var(--ink) 38%,transparent)}
+.cs.cl .cl-sub{display:flex;justify-content:center;margin:0}
+.cs.cl .cl-sum{margin:0;align-content:end}
+.cs.cl .cl-c3 .cl-ir{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px}
+.cs.cl .cl-c3>.cl-cell>.cl-irb{width:100%}
+.cs.cl .cl-wx{gap:4px}
+.cs.cl .cl-irl>div{display:grid;gap:1px;min-width:0}
+.cs.cl .cl-irl input{padding-block:2px}
+.cs.cl .cl-lname{font-weight:650}
+.cs.cl .cl-laddr{font-size:var(--cl-ft)}
+.cs.cl .cl-irl input.hd-auto::placeholder{color:var(--ink)}
+.cs.cl .cl-irl input:is(.cl-lname,.cl-laddr){margin-left:-6px;padding-inline:6px;width:calc(100% + 6px)}
+.cs.cl .cl-irl input.cl-laddr[data-miss]{padding-left:22px}
+/* los jefes de área: una rejilla de celdas (cargo, nombre y teléfono) */
+.cs.cl .cl-hg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin:0 -1px -1px 0}
+.cs.cl .cl-hc{display:grid;gap:1px;align-content:start;padding:7px 10px;border-right:var(--cl-lw) solid var(--cl-ln);border-bottom:var(--cl-lw) solid var(--cl-ln);min-width:0}
+.cs.cl .cl-hc b{font-weight:650}
+/* la nota para el equipo, en su cuadro amarillo */
+.cs.cl .cl-box.cl-note{background:color-mix(in srgb,var(--lg-note,#FFE9A0) 30%,var(--surface));border-radius:0;padding:0;width:auto}
+.cs.cl .cl-note .cl-bh{background:color-mix(in srgb,var(--lg-note,#FFE9A0) 70%,var(--surface))}
+.cs.cl .cl-note .cl-bh h3{text-align:left}
+.cs.cl .cl-note textarea{display:block;text-align:left;padding:8px 12px;font-size:var(--cl-bd);border-radius:0}
+:root[data-tone="dark"] .cs.cl .cl-box.cl-note{background:color-mix(in srgb,var(--lg-note,#FFE9A0) 10%,var(--surface))}
+:root[data-tone="dark"] .cs.cl .cl-note .cl-bh{background:color-mix(in srgb,var(--lg-note,#FFE9A0) 22%,var(--surface))}
+/* lo que va fuera de los cuadros: las casillas y los enlaces sobre una tabla, y lo quitado con su ↺ debajo */
+.cs.cl .cl-tools{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:var(--cl-ft);color:var(--cl-2);margin:2px 0 -6px}
+.cs.cl .cl-tools .cl-opt{margin:0}
+.cs.cl .cl-tools .linkbtn{font-size:var(--cl-ft);font-weight:600}
+.cs.cl .cl-chg{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink)}
+.cs.cl .cl-chg::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.cs.cl .cl-gone,.cs.cl .cs-out,.cs.cl .cs-folds,.cs.cl>.cl-doc>.cs-none{margin:0}
+.cs.cl .cs-folds{border-top:0;padding-top:0}
+/* lo que se escribe en la hoja sobre lo del stripboard: parece texto; lo cambiado se nota apenas (puntos debajo) */
+.cs.cl .cl-in{display:block;width:100%;min-width:0;padding:1px 4px;margin:0 -4px;width:calc(100% + 8px);font:inherit;color:inherit;background:transparent;border:1px solid transparent;border-radius:var(--r-xs)}
+.cs.cl .cl-ta{resize:none;field-sizing:content;overflow:hidden;line-height:1.4;min-height:0}
+.cs.cl .cl-in:not(:disabled):hover{background:color-mix(in srgb,var(--surface) 55%,transparent);border-color:color-mix(in srgb,var(--ink) 25%,transparent)}
+.cs.cl .cl-in:focus{background:var(--surface);border-color:var(--accent);color:var(--ink)}
+.cs.cl :is(.cl-in,select).ov,.cs.cl span.ov,.cs.cl input.ov{text-decoration:underline dotted color-mix(in srgb,var(--accent) 85%,transparent);text-decoration-thickness:1.5px;text-underline-offset:3px}
+.cs.cl select.cl-snd.ov{box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--accent) 70%,transparent)}
+.cs.cl .cl-in::placeholder{color:var(--ph)}
+.cs.cl .cl-code-in{font:700 var(--cl-h3)/1.15 var(--font-ui);font-variant-numeric:tabular-nums;padding-inline:2px;margin-inline:-2px;width:calc(100% + 4px)}
+.cs.cl .cl-lsh .cl-code-in{font-size:var(--cl-ft)}
+.cs.cl .cl-setin{font-weight:650;text-transform:uppercase;letter-spacing:.005em}
+.cs.cl .cl-synin{font-size:var(--cl-ft);color:var(--cl-2);margin-top:1px}
+.cs.cl .cl-synin:focus{color:var(--ink)}
+.cs.cl .cl-castin{font-size:var(--cl-ft);font-weight:600;margin-top:2px}
+.cs.cl .cl-sm{font-size:var(--cl-ft);font-weight:600}
+.cs.cl .cl-r{text-align:right}
+.cs.cl .cl-lsd .cl-part{display:block;font-style:normal;font-size:var(--cl-ft);color:var(--cl-2);margin-top:-1px}
+.cs.cl .cl-evb{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.cs.cl .cl-evb .cl-in{width:auto;flex:1 1 160px;margin:0}
+.cs.cl .cl-evn{font-weight:700;flex:0 1 220px !important}
+.cs.cl .cl-mvb .cl-in{width:auto;flex:0 1 200px;margin:0}
+.cs.cl .cl-th0{display:block;width:72px;aspect-ratio:16/9;border-radius:4px;background:var(--fill)}
+.cs.cl .cl-shm .cl-in{margin:0;width:100%}
+/* el wrap al final del cronograma */
+.cs.cl .cl-g tr.cl-lend td{border-top:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-endt input.tm{margin-left:0}
+/* el avance: el título de cada jornada en la banda de su tabla */
+.cs.cl .cl-g th.cl-advh{background:var(--cl-band);color:var(--ink);text-align:left;padding:5px 10px;font-size:var(--cl-bd)}
+.cs.cl .cl-advhd{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px}
+.cs.cl .cl-advhd b{font-weight:650}
+.cs.cl .cl-advhd .hint{font-weight:500;font-size:var(--cl-ft);color:var(--cl-2)}
+.cs.cl .cl-advhd .linkbtn{font-size:var(--cl-ft);font-weight:600}
+.cs.cl .cl-advhd .cs-x{opacity:.8;width:24px;height:24px}
+.cs.cl .cl-adv .cl-advt+.cl-advt{border-top:var(--cl-bw) solid var(--cl-ln)}
+.cs.cl .cl-g tr.cl-advtot td{text-align:right;font-size:var(--cl-ft);color:var(--cl-2);padding:5px 10px}
+.cs.cl .cl-g tr.cl-advtot td>span+span{margin-left:18px}
+.cs.cl .cl-g tr.cl-advtot b{color:var(--ink)}
+.cs.cl .cl-adv .cl-fin{padding:10px}
+/* los talentos y el equipo técnico, cada uno en su cuadro; el área, una fila gris con su citación */
+.cs.cl .cl-ptbl td{padding:3px 6px;vertical-align:middle}
+.cs.cl .cl-g tr.cl-sep td{background:var(--cl-band);padding:4px 8px !important;font-size:var(--cl-ft);font-weight:650;color:var(--ink)}
+.cs.cl .cl-eqt th:nth-child(1){width:21%}.cs.cl .cl-eqt th:nth-child(2){width:21%}.cs.cl .cl-eqt th:nth-child(3){width:72px;text-align:center}.cs.cl .cl-eqt th:nth-child(4){width:15%}.cs.cl .cl-eqt th:nth-child(5){width:19%}.cs.cl .cl-eqt th:nth-child(6){width:auto}.cs.cl .cl-eqt th:nth-child(7){width:34px}
+.cs.cl .cl-eqt td.cl-tt{text-align:center}
+.cs.cl .cl-eqt th:is(:nth-child(4),:nth-child(5),:nth-child(6)){text-align:left}
+.cs.cl .cl-talt th:nth-child(2){width:16%}
+.cs.cl .cl-ptbl td.cl-px{text-align:center;padding:0}
+.cs.cl .cl-ptbl tr.cl-free{background:color-mix(in srgb,var(--accent) 3%,var(--surface))}
+/* las filas libres no tienen tira: sus ejemplos en el gris de siempre */
+:root[data-tone] .cs.cl tr.cl-free{--ph:color-mix(in srgb,var(--ink) 38%,var(--surface));--muted:var(--cl-2);--faint:var(--cl-3)}
+.cs.cl .cl-ptbl .cl-pj .cl-in{display:inline-block}
+.cs.cl .cl-ptbl .cl-in{margin:0;width:100%;padding:4px 8px}
+.cs.cl .cl-ptbl .cl-pn .cl-in{font-weight:600}
+.cs.cl .cl-ptbl .cl-pr .cl-in{color:var(--muted)}
+.cs.cl .cl-jefe{display:block;padding:0 8px;font-size:var(--cl-cap);font-weight:600;color:var(--accent-text)}
+/* lo demás, al final: la utilería especial, el punto de encuentro, la movilidad, el centro de salud y la radio */
+.cs.cl .cl-utl textarea{margin:0;width:100%}
+.cs.cl .cl-utl .cl-util{margin:0;color:var(--ink)}
+.cs.cl .cl-mp2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}
+.cs.cl .cl-meet .cl-mp{gap:4px}
+.cs.cl .cl-meet .cl-mp>:is(input,textarea),.cs.cl .cl-meet .cl-link-in{margin-left:-6px;padding-inline:6px;width:calc(100% + 6px)}
+.cs.cl .cl-meet .cl-addr{font-size:var(--cl-bd);font-weight:650}
+.cs.cl .cl-mov .cl-veh{padding:8px 10px;border-top:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-mov .cl-bh+.cl-veh,.cs.cl .cl-mov datalist+.cl-veh{border-top:0}
+.cs.cl .cl-mov .cs-none,.cs.cl .cl-mov .cl-free{margin:8px 10px}
+.cs.cl .cl-hr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+.cs.cl .cl-hr>:is(.cl-fh,.cl-fr){padding:8px 10px}
+.cs.cl .cl-hr>.cl-fr{border-left:var(--cl-lw) solid var(--cl-ln)}
+.cs.cl .cl-hr .cl-fh>div{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:0 6px}
+.cs.cl .cl-hr .cl-fh :is(.cl-kl,input[data-f="addr"]){grid-column:1/-1}
+.cs.cl .cl-hr .cl-fh input[data-f="name"]{font-weight:650}
+.cs.cl .cl-hr .cl-fh input.hd-auto::placeholder{color:var(--ink)}
+/* el menú de la fecha: «Solo esta hoja» o «Correr esta jornada y las siguientes» */
+.pop .menu.cl-dscope{display:grid;gap:4px;max-width:320px}
+.pop .menu.cl-dscope button{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;text-align:left;white-space:normal;padding:8px 10px;height:auto}
+.pop .menu.cl-dscope button:not(:disabled):hover{background:var(--fill)}
+.cl-dscope button b{font-weight:650}
+.cl-dscope button small{color:var(--muted);font-weight:400;line-height:1.35}
+.cl-dscope button:disabled small{color:var(--muted)}
+/* el storyboard y el guion técnico: el plano quitado en una hoja de llamado */
+.pcut{display:block;font-size:var(--fs-1);font-weight:650;color:var(--bad);line-height:1.3}
+.pcell.cut .fr,.pcell.cut .fr-ab{opacity:.5}
+.badge.cut{background:var(--bad-soft);color:var(--bad);letter-spacing:0}
+@media (max-width:760px){
+  .cs.cl .cl-doc{padding:12px var(--cl-px) 20px;gap:10px}
+  .cs.cl .cl-top{grid-template-columns:minmax(0,1fr)}
+  .cs.cl .cl-c2{order:-1;border-left:0;border-bottom:var(--cl-lw) solid var(--cl-ln);padding:0}
+  .cs.cl .cl-c3{border-left:0;border-top:var(--cl-lw) solid var(--cl-ln)}
+  .cs.cl .cl-times{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cs.cl .cl-tc:nth-child(3){border-left:0}
+  .cs.cl .cl-tc:nth-child(n+3){border-top:var(--cl-lw) solid var(--cl-ln)}
+  /* en el teléfono las tablas son filas en una cuadrícula: la línea negra va entre filas */
+  .cs.cl .cl-g :is(th,td),:root[data-tone] .cs.cl .cl-g tr>:is(td,th){border:0}
+  .cs.cl .cl-g tbody>tr{border-top:var(--cl-lw) solid var(--cl-ln)}
+  .cs.cl .cl-g tbody>tr:first-child{border-top:0}
+  .cs.cl .cl-list tr.cl-advtot td{grid-column:1/-1}
+  .cs.cl .cl-list thead{display:block}
+  .cs.cl .cl-list thead tr:not(:has(.cl-advh)){display:none}
+  .cs.cl .cl-list thead tr:has(.cl-advh){display:block}
+  .cs.cl .cl-list thead th.cl-advh{display:block;width:auto;border:0;border-bottom:var(--cl-lw) solid var(--cl-ln)}
+  /* lo que se escribe en el cronograma: las páginas y lo del plano, a su medida (el texto de la escena, a lo ancho) */
+  .cs.cl .cl-list td.cl-lpg .cl-in{width:4.2em;margin:0}
+  .cs.cl .cl-list td.cl-ln .cl-code-in{width:3.4em}
+  .cs.cl .cl-shm>span:empty{display:none}
+  .cs.cl .cl-shm .cl-in{width:7em;margin:0}
+  .cs.cl .cl-shm .cl-shc .cl-in{width:9em}
+  .cs.cl .cl-ptbl td.cl-pm{order:5;flex:1 1 45%}
+  .cs.cl .cl-hr{grid-template-columns:minmax(0,1fr)}
+  .cs.cl .cl-hr>.cl-fr{border-left:0;border-top:var(--cl-lw) solid var(--cl-ln)}
+  .cs.cl .cl-mp2{grid-template-columns:minmax(0,1fr)}
+  .cs.cl .cl-hg{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cs.cl .cl-tools{margin-bottom:-4px}
+}
 </style>
 
 <div id="app">

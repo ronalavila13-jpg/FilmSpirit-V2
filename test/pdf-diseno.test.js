@@ -108,25 +108,32 @@ const exportAll = run(`(async () => { const r = {}; UI.supDay = 0;
   });
   // (lote W) la cabecera es la del lote U: la jornada («Jornada 1 de 2») y la fecha al centro, con el llamado general
   // en grande debajo de su etiqueta chica; ya no hay «Día de rodaje». (lote Y) Las etiquetas van en minúsculas, como en
-  // la pantalla (antes, en MAYÚSCULAS espaciadas)
+  // la pantalla (antes, en MAYÚSCULAS espaciadas). (lote AH) La jornada va con «Hoja de llamado» y la versión
+  // («Hoja de llamado · Jornada 1 de 2 · v1») y ya no hay título «Cronograma» (lo pidió Ronald): la cabecera va antes
+  // de la tabla
   test('hoja de llamado: lo que falta para el equipo dice «Por confirmar» y la jornada, la fecha y el llamado van arriba', () => {
     const t = out.call.seen.map(x => x.t), txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t);
     assert.ok(t.includes('Por confirmar'), 'sin «Por confirmar»');
-    const j = txt.findIndex(x => /^Jornada \d+ de \d+/.test(x)), l = txt.indexOf('Llamado general'), c = txt.indexOf('Cronograma');
-    assert.ok(j >= 0 && l > j && c > l, 'sin la cabecera (jornada, llamado general) antes del cronograma');
+    const j = txt.findIndex(x => /Jornada \d+ de \d+/.test(x)), l = txt.indexOf('Llamado general');
+    assert.ok(j >= 0 && l > j, 'sin la cabecera (jornada, llamado general)');
     assert.ok(/^\d{2}:\d{2}$/.test(txt[l + 1] || ''), 'el llamado general no va debajo de su etiqueta');
+    assert.ok(!t.includes('Cronograma'), 'queda el título «Cronograma»');
   });
   // (lote W) desde el lote U el reparto y el equipo van en una sola tabla, «Personas»; «REPARTO» y los nombres de las
-  // áreas son separadores chicos dentro de la tabla (en versalitas, como en pantalla), no títulos de sección
+  // áreas son separadores chicos dentro de la tabla (en versalitas, como en pantalla), no títulos de sección.
+  // (lote AH) Cada bloque en su cuadro, con su título en la banda de arriba: «Talentos» y «Equipo técnico» por separado
+  // (primero los talentos); ya no hay «Personas» ni «Proveedores»
   test('los títulos de sección van en minúscula normal (no en MAYÚSCULAS)', () => {
-    const txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t);
-    for (const s of ['Cronograma', 'Personas']) assert.ok(txt.includes(s), s);
-    assert.ok(txt.some(x => /^Avance/.test(x)), 'Avance');
-    assert.ok(!txt.some(x => /^(CRONOGRAMA|PERSONAS|AVANCE|MOVILIDAD|PROVEEDORES)\b/.test(x)), 'quedan títulos en mayúsculas');
+    const t = out.call.seen.map(x => x.t);
+    const ti = t.findIndex(x => /^Talentos\b/.test(x)), eq = t.findIndex(x => /^Equipo técnico\b/.test(x));
+    assert.ok(ti >= 0 && eq > ti, 'Talentos y, después, Equipo técnico');
+    assert.ok(t.some(x => /^Avance/.test(x)), 'Avance');
+    assert.ok(!t.some(x => /^(Personas|Proveedores)$/.test(x)), 'quedan «Personas» o «Proveedores»');
+    assert.ok(!t.some(x => /^(CRONOGRAMA|PERSONAS|AVANCE|MOVILIDAD|PROVEEDORES|TALENTOS)\b/.test(x)), 'quedan títulos en mayúsculas');
   });
   // (lote W) la hoja nueva con los datos de antes, sin repetir: los planos van dentro del cronograma (ya no hay un
   // «Cronograma por plano» al final) y los horarios del reparto, en la tabla de personas
-  test('hoja de llamado: los planos van en el cronograma y los horarios en «Personas», sin una segunda parte', () => {
+  test('hoja de llamado: los planos van en el cronograma y los horarios en «Talentos», sin una segunda parte', () => {
     const txt = out.call.seen.filter(x => x.k === 'text').map(x => x.t), cells = out.call.seen.filter(x => x.k === 'cell').map(x => x.t);
     assert.ok(!txt.includes('Cronograma por plano') && !txt.includes('Reparto · horarios'), 'queda la segunda parte');
     assert.ok(!txt.includes('Hecha con'), 'queda «Hecha con FilmSpirit»');

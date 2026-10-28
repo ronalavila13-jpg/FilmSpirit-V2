@@ -818,13 +818,13 @@ function pdfShotlist() {
   let y = docHeader(doc, 'Guion técnico', Object.keys(P.shots).length + ' planos');
   const allK = D.sc.scenes.map(s => s.key), keys = PDF_SEL && PDF_SEL.sc ? pdfKeys(allK) : UI.sbScene ? [UI.sbScene] : allK;
   y = pdfLegend(doc, y, lgDocItems('shotlist', pdfPlanUsed(keys.map(k => ({ k }))))) + 4;
-  const blocks = [];
+  const blocks = [], cuts = typeof callShotCuts === 'function' ? callShotCuts() : {};   // (lote AH) quitados en una hoja de llamado
   for (const k of keys) {
     const s = sceneOfKey(k), shots = D.shotsBy[k] || [], f = stripRGB(s);
     // (lote K) la escena: el número en su cuadro, el encabezado en negrita y las páginas en gris
     const rows = [[{ ...pdfRich([{ segs: [{ t: s.heading, st: 'bold' }, { t: `   ${fmtEighths(D.metrics.eighths[s.idx])} págs.`, col: mutedOn(f) }] }], { colSpan: 10, fillColor: f, textColor: inkOn(f) }), _badge: k }]];
     for (const sh of shots) rows.push([D.code[sh.id], sh.size || '', pdfSafe(sh.angle || ''), pdfSafe(sh.move || ''), (sh.lens ? (lensB(sh) ? 'A ' : '') + sh.lens + ' mm' : '') + (lensB(sh) ? '\nB ' + lensB(sh) + ' mm' : ''), pdfSafe(sh.support || ''), sh.dur ? sh.dur + ' s' : '',
-      pdfSafe((sh.chars || []).map(id => P.elements[id] && P.elements[id].name).filter(Boolean).join(', ')), pdfSafe(sh.desc || shotTextExcerpt(sh, 120)), sh.done ? 'Rodado' : '']);
+      pdfSafe((sh.chars || []).map(id => P.elements[id] && P.elements[id].name).filter(Boolean).join(', ')), pdfSafe(sh.desc || shotTextExcerpt(sh, 120)), sh.done ? 'Rodado' : cuts[sh.id] ? callCutLabel(cuts[sh.id]) : '']);
     if (!shots.length) rows.push([{ content: 'Sin planos', colSpan: 10, styles: { textColor: MUTED, fontSize: PF.small } }]);
     blocks.push(rows);
   }
