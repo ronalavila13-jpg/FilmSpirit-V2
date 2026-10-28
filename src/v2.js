@@ -103,13 +103,32 @@ const V2_ICO = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   cal: '<rect x="4" y="5.5" width="16" height="14" rx="1.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
   prev: '<path d="m14.5 6-6 6 6 6"/>', next: '<path d="m9.5 6 6 6-6 6"/>',
+  dots: '<circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
 };
 const v2I = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${V2_ICO[k]}</svg>`;
 const V2_ACTS = {};
 const v2Hist = () => `<button type="button" class="v2-btn ic" data-v2a="hist" title="Historial de cambios" aria-label="Historial de cambios">${v2I('hist')}</button>`;
 const v2Share = () => `<button type="button" class="v2-btn" data-v2a="share">Compartir</button>`;
 const v2Export = (label = 'Exportar', ic = 'down') => `<button type="button" class="v2-btn y" data-v2a="export" aria-haspopup="menu">${v2I(ic)}<span>${esc(label)}</span></button>`;
+/* las herramientas que la v1 tenía al final de la barra de cada pestaña (las propias, Ajustes y Ayuda): en la v2, «⋯» en la
+   cabecera (y en el teléfono, en el «⋯» de arriba). Así no se pierde nada de lo que los proyectos ya usan. */
+function v2ToolItems(tab = UI.tab) {
+  const it = [];
+  try { for (const x of (TOOLS_EXTRA[tab] && TOOLS_EXTRA[tab]()) || []) it.push([x[0], x[1], a => x[2](a)]); } catch (e) { }
+  if (typeof SETTINGS !== 'undefined' && SETTINGS[tab]) it.push([ICO.gear, 'Ajustes', a => ACT.settings(a)]);
+  if (typeof HELP !== 'undefined' && HELP[tab]) it.push([ICO.help, 'Ayuda', a => ACT.help(a)]);
+  return it;
+}
+const v2More = () => typeof UI !== 'undefined' && v2ToolItems().length ? `<button type="button" class="v2-btn ic" data-v2a="more" aria-haspopup="menu" title="Ajustes y herramientas de esta pestaña" aria-label="Ajustes y herramientas de esta pestaña">${v2I('dots')}</button>` : '';
+function v2MoreMenu(b) {
+  const it = v2ToolItems();
+  popover(b, `<div class="menu">${it.map((x, j) => `<button type="button" data-j="${j}">${x[0]} ${x[1]}</button>`).join('')}</div>`, p => p.addEventListener('click', e => {
+    const x = e.target.closest('[data-j]'); if (!x) return; closePop();
+    setTimeout(() => it[+x.dataset.j][2](b.isConnected ? b : $('.v2-acts [data-v2a="more"]') || $('#moreBtn') || b), 0);
+  }));
+}
 const V2_DO = {
+  more: b => v2MoreMenu(b),
   hist: () => { if (typeof histPanelToggle === 'function') histPanelToggle(); },
   share: b => { if (typeof shareProject === 'function') shareProject(b); },
   export: b => { if (typeof ACT !== 'undefined' && ACT.export && EXPORTS[UI.tab]) ACT.export(b); },
@@ -122,7 +141,7 @@ function v2Acts() {
     a.addEventListener('click', e => { const b = e.target.closest('[data-v2a]'); if (!b || b.disabled) return; const f = V2_DO[b.dataset.v2a]; if (f) f(b, e); });
   }
   const tab = UI.tab, f = V2_ACTS[tab];
-  const html = f ? f() : v2Hist() + v2Share() + (typeof EXPORTS !== 'undefined' && EXPORTS[tab] ? v2Export() : '');
+  const html = v2More() + (f ? f() : v2Hist() + v2Share() + (typeof EXPORTS !== 'undefined' && EXPORTS[tab] ? v2Export() : ''));
   if (a._html !== html) { a.innerHTML = html; a._html = html; }
 }
 /* debajo del nombre del proyecto: cuántas escenas y páginas tiene */
@@ -177,9 +196,85 @@ function v2Foot() {
     + (ppl.length > 2 ? `<span class="v2-av">+${ppl.length - 2}</span>` : '');
   f.innerHTML = `<span class="v2-avs">${avs}</span><span class="v2-pp">${ppl.length === 1 ? '1 persona' : ppl.length + ' personas'}</span>`;
 }
+/* ---------- el teléfono: el «⋯» de cada pestaña y las hojas que suben desde abajo ----------
+   V2_MMORE[pestaña] = () => [[clave, ícono, título, detalle]]: van arriba del menú «⋯» de la v1 (phoneMenu);
+   V2_MDO[clave](botón) hace lo suyo. V2_SHEET[clave] = { tab, title, html(), cls, after(caja), closeOn: [acciones] }:
+   una ventana con piezas de la v1 (sus data-act y data-bind funcionan) que se repinta con la vista. */
+const V2_MMORE = {}, V2_MDO = {}, V2_SHEET = {};
+{
+  const _pm = phoneMenu;
+  phoneMenu = function (anchor) {
+    const r = _pm.apply(this, arguments);
+    const on = V2.on && !document.body.classList.contains('home') && typeof P !== 'undefined' && P;
+    const m = on && $('#pop .pm-menu');
+    if (m) {
+      const T = v2ToolItems(), own = V2_MMORE[UI.tab] ? V2_MMORE[UI.tab]() : [];
+      // los botones de la cabecera (en el teléfono no se ven): Exportar, Compartir, la vista elegida…
+      const seen = new Set(own.map(x => deaccent(String(x[2])).toLowerCase()));
+      const A = $$('.topbar .v2-acts [data-v2a]').filter(b => !['more', 'hist'].includes(b.dataset.v2a) && !b.disabled && b.getAttribute('aria-pressed') !== 'true').map(b => {
+        const g = b.closest('.v2-seg'), t = (b.textContent || '').trim() || b.getAttribute('aria-label') || b.title || '';
+        return { b, n: g ? `${g.getAttribute('aria-label') || 'Vista'}: ${t}` : t, i: b.querySelector('svg') ? b.querySelector('svg').outerHTML : v2I('next') };
+      }).filter(x => x.n && !seen.has(deaccent(x.n).toLowerCase()));
+      const L = [...own, ...A.map((x, j) => ['act' + j, x.i, esc(x.n), '']), ...T.map((x, j) => ['tool' + j, x[0], x[1], ''])];
+      if (!L.length) return r;
+      T.forEach((x, j) => { V2_MDO['tool' + j] = x[2]; });
+      A.forEach((x, j) => { V2_MDO['act' + j] = a => v2RunAct(x.b, a); });
+      m.insertAdjacentHTML('afterbegin', L.map(([k, i, n, h]) => `<button type="button" data-v2m="${ea(k)}">${/^</.test(i) ? i : v2I(i)}<b>${/^(tool|act)\d/.test(k) ? n : esc(n)}</b>${h ? `<small>${esc(h)}</small>` : ''}</button>`).join('') + '<hr class="v2-pmhr">');
+      m.addEventListener('click', e => {
+        const b = e.target.closest('[data-v2m]'); if (!b) return;
+        e.stopPropagation(); closePop();
+        const a = anchor && anchor.isConnected ? anchor : $('#moreBtn');
+        setTimeout(() => V2_MDO[b.dataset.v2m] && V2_MDO[b.dataset.v2m](a), 0);
+      });
+      const p = $('#pop'); if (p && anchor && anchor.getBoundingClientRect) popPlace(p, anchor.getBoundingClientRect());   // creció: cabe de nuevo en la pantalla
+    }
+    return r;
+  };
+}
+/* un botón de la cabecera, desde el «⋯» del teléfono: lo que abra cuelga del «⋯» (que lleva sus datos un momento) */
+function v2RunAct(b, a) {
+  const f = V2_DO[b.dataset.v2a]; if (!f) return;
+  const keep = {};
+  for (const [k, v] of Object.entries(b.dataset)) { keep[k] = a.dataset[k]; a.dataset[k] = v; }
+  try { f(a); } finally { setTimeout(() => { for (const [k, v] of Object.entries(keep)) { if (v === undefined) delete a.dataset[k]; else a.dataset[k] = v; } }, 0); }
+}
+/* una lista para elegir (jornada, escena…): [[valor, nombre, detalle, elegido]] */
+function v2PickMenu(anchor, items, pick) {
+  popover(anchor, `<div class="menu v2-tabmenu">${items.map(([v, n, m, on]) => `<button type="button" data-v="${ea(v)}"${on ? ' aria-current="page"' : ''}>${esc(n)}${m ? ` <small>${esc(m)}</small>` : ''}</button>`).join('')}</div>`,
+    p => p.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; closePop(); pick(b.dataset.v); }));
+}
+function v2Sheet(k) {
+  const d = V2_SHEET[k]; if (!d) return;
+  const m = modal({ title: typeof d.title === 'function' ? d.title() : d.title, body: `<div class="v2-sh ${ea(d.cls || '')}" data-v2sheet="${ea(k)}"></div>` });
+  m.classList.add('v2-sheet');
+  const box = $('.v2-sh', m);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b || !box.contains(b)) return;
+    const f = ACT[b.dataset.act]; if (!f) return;
+    e.preventDefault(); const act = b.dataset.act; f(b, e);
+    if ((d.closeOn || []).includes(act)) closeModal();
+  });
+  box.addEventListener('input', e => { const el = e.target.closest('[data-bind]'); if (el && BIND[el.dataset.bind]) BIND[el.dataset.bind](el, 'input'); });
+  box.addEventListener('change', e => { const el = e.target.closest('[data-bind]'); if (el && BIND[el.dataset.bind]) BIND[el.dataset.bind](el, 'change'); });
+  v2SheetPaint(box);
+  return m;
+}
+function v2SheetPaint(box) {
+  const d = V2_SHEET[box.dataset.v2sheet]; if (!d || UI.tab !== d.tab) return;
+  box.innerHTML = d.html();
+  if (d.after) d.after(box);
+}
+/* después de pintar la vista: la hoja abierta muestra lo nuevo (si no se está escribiendo en ella) */
+function v2SheetRepaint() {
+  const box = $('#modal .v2-sh'); if (!box) return;
+  const d = V2_SHEET[box.dataset.v2sheet];
+  if (!d || UI.tab !== d.tab) { closeModal(); return; }
+  if (box.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  v2SheetPaint(box);
+}
 {
   const _pts = paintTabSel;
   paintTabSel = function () { const r = _pts.apply(this, arguments); v2Paint(); return r; };
   const _render = render;
-  render = function () { const r = _render.apply(this, arguments); v2Paint(); return r; };
+  render = function () { const r = _render.apply(this, arguments); v2Paint(); v2SheetRepaint(); return r; };
 }

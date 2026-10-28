@@ -142,7 +142,6 @@ RENDER.sup = (orig => function () {
   SUPV.dir = 0;
   supAfter(v);
   v2SupSwipe(v);
-  v2SheetRepaint();
 })(RENDER.sup);
 V2_ACTS.sup = () => {
   const X = supCtx();
@@ -205,86 +204,42 @@ Object.assign(ACT, {
   };
 }
 
-/* ---------- el «⋯» del teléfono: lo de la v1 que no está en la pantalla del PDF ---------- */
-const V2_MMORE = {
-  sup: () => {
-    const X = supCtx(), s = X.cur && sceneOfKey(X.cur.sc);
-    const day = X.n >= 0 ? `Jornada ${X.n + 1}${X.dates[X.n] ? ' · ' + v2ShortDay(X.dates[X.n]) : ''}` : X.n === -2 ? 'Sin programar' : 'Todas las escenas';
-    return [
-      ['supday', 'cal', 'Jornada', day],
-      ['supall', 'list', 'Todas las escenas', 'Toca un plano para ponerlo en cámara'],
-      s ? ['supcont', 'cont', `Continuidad · escena ${s.key}`, 'Vestuario, utilería, fotos y tiempo'] : null,
-      X.dm ? ['supjday', 'clock', 'La jornada', 'Horarios, incidencias y notas'] : null,
-      X.ed && X.cur ? ['supadd', 'plus', '+ Toma', 'Deja lista la toma que sigue, sin grabar'] : null,
-      X.ed && X.dayKey ? ['supquick', 'bolt', 'Carga rápida', 'Pasar una hoja llenada a mano'] : null,
-      X.dayKey ? ['supparte', 'print', 'Parte diario', 'Resumen para producción (PDF)'] : null,
-    ].filter(Boolean);
-  },
+/* ---------- el «⋯» del teléfono: lo de la v1 que no está en la pantalla del PDF (v2.js arma el menú y las hojas) ---------- */
+V2_MMORE.sup = () => {
+  const X = supCtx(), s = X.cur && sceneOfKey(X.cur.sc);
+  const day = X.n >= 0 ? `Jornada ${X.n + 1}${X.dates[X.n] ? ' · ' + v2ShortDay(X.dates[X.n]) : ''}` : X.n === -2 ? 'Sin programar' : 'Todas las escenas';
+  return [
+    ['supday', 'cal', 'Jornada', day],
+    ['supall', 'list', 'Todas las escenas', 'Toca un plano para ponerlo en cámara'],
+    s ? ['supcont', 'cont', `Continuidad · escena ${s.key}`, 'Vestuario, utilería, fotos y tiempo'] : null,
+    X.dm ? ['supjday', 'clock', 'La jornada', 'Horarios, incidencias y notas'] : null,
+    X.ed && X.cur ? ['supadd', 'plus', '+ Toma', 'Deja lista la toma que sigue, sin grabar'] : null,
+    X.ed && X.dayKey ? ['supquick', 'bolt', 'Carga rápida', 'Pasar una hoja llenada a mano'] : null,
+    X.dayKey ? ['supparte', 'print', 'Parte diario', 'Resumen para producción (PDF)'] : null,
+  ].filter(Boolean);
 };
-const V2_MDO = {
+Object.assign(V2_MDO, {
   supday: a => {
     const X = supCtx();
     const it = X.days.map((d, j) => [j, `Jornada ${j + 1}${X.dates[j] ? ' · ' + v2ShortDay(X.dates[j]) : ''}`, `${d.keys.length} esc.`]);
     if (X.bank.length) it.push([-2, 'Sin programar', `${X.bank.length} esc.`]);
     it.push([-1, 'Todas las escenas', '']);
-    popover(a, `<div class="menu v2-tabmenu">${it.map(([j, n, m]) => `<button type="button" data-d="${j}"${UI.supDay === j ? ' aria-current="page"' : ''}>${esc(n)}${m ? ` <small>${esc(m)}</small>` : ''}</button>`).join('')}</div>`,
-      p => p.addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (!b) return; closePop(); UI.supDay = +b.dataset.d; if (UI.supDay >= 0) UI.callDay = UI.supDay; render(); }));
+    v2PickMenu(a, it.map(([j, n, m]) => [j, n, m, UI.supDay === j]), j => { UI.supDay = +j; if (UI.supDay >= 0) UI.callDay = UI.supDay; render(); });
   },
-  supall: () => v2Sheet('all'),
-  supcont: () => v2Sheet('cont'),
-  supjday: () => v2Sheet('jday'),
+  supall: () => v2Sheet('supall'),
+  supcont: () => v2Sheet('supcont'),
+  supjday: () => v2Sheet('supjday'),
   supadd: () => { const X = supCtx(); if (X.cur) supTakeAdd(X.cur.id); },
   supquick: () => supQuick(),
   supparte: a => exportPDF('parte', a),
-};
-{
-  const _pm = phoneMenu;
-  phoneMenu = function (anchor) {
-    const r = _pm.apply(this, arguments);
-    const f = V2.on && !document.body.classList.contains('home') && typeof P !== 'undefined' && P && V2_MMORE[UI.tab];
-    const m = f && $('#pop .pm-menu');
-    if (m) {
-      m.insertAdjacentHTML('afterbegin', f().map(([k, i, n, h]) => `<button type="button" data-v2m="${ea(k)}">${v2I(i)}<b>${esc(n)}</b>${h ? `<small>${esc(h)}</small>` : ''}</button>`).join('') + '<hr class="v2-pmhr">');
-      m.addEventListener('click', e => {
-        const b = e.target.closest('[data-v2m]'); if (!b) return;
-        e.stopPropagation(); closePop();
-        const a = anchor && anchor.isConnected ? anchor : $('#moreBtn');
-        setTimeout(() => V2_MDO[b.dataset.v2m] && V2_MDO[b.dataset.v2m](a), 0);
-      });
-      const p = $('#pop'); if (p && anchor && anchor.getBoundingClientRect) popPlace(p, anchor.getBoundingClientRect());   // creció: cabe de nuevo en la pantalla
-    }
-    return r;
-  };
-}
-
-/* ---------- las hojas del teléfono (una ventana con piezas de la v1): se repintan con la vista ---------- */
-const V2_SHEET = {
-  all: ['Todas las escenas', X => supMAllHTML(X)],
-  cont: ['Continuidad', X => { const s = X.cur && sceneOfKey(X.cur.sc); return s ? `<p class="v2-hssc">${esc(s.key)}. ${esc(s.heading)}</p>` + supContHTML(X, s) + (X.ed ? `<div class="hs-tfoot"><button type="button" class="hs-pill" data-act="sup-wild" data-k="${ea(s.key)}">+ Wild / ambiente</button></div>` : '') : '<p class="v2-mut">No hay un plano en cámara.</p>'; }],
-  jday: ['La jornada', X => X.dm ? `<div class="v2-hsrolls">${v2SupRolls(X)}</div>${v2SupHours(X)}${supDaySideHTML(X)}` : ''],
-};
-function v2Sheet(k) {
-  const d = V2_SHEET[k]; if (!d) return;
-  const m = modal({ title: d[0], body: `<div class="hs hs-m v2-hssh" data-v2sheet="${ea(k)}"></div>` });
-  m.classList.add('v2-sheet');
-  const box = $('.v2-hssh', m);
-  box.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b || !box.contains(b)) return; const f = ACT[b.dataset.act]; if (f) { e.preventDefault(); f(b, e); if (b.dataset.act === 'sup-cam') closeModal(); } });
-  box.addEventListener('input', e => { const el = e.target.closest('[data-bind]'); if (el && BIND[el.dataset.bind]) BIND[el.dataset.bind](el, 'input'); });
-  box.addEventListener('change', e => { const el = e.target.closest('[data-bind]'); if (el && BIND[el.dataset.bind]) BIND[el.dataset.bind](el, 'change'); });
-  v2SheetPaint(box);
-}
-function v2SheetPaint(box) {
-  const d = V2_SHEET[box.dataset.v2sheet]; if (!d || UI.tab !== 'sup') return;
-  const X = supCtx();
-  box.innerHTML = d[1](X);
+});
+const v2SupSheetAfter = box => {
   $$('textarea.hs-grow', box).forEach(supGrow);
   const keys = $$('[data-sp]', box).map(x => x.dataset.sp);
   if (keys.length) candFramesNeed(keys, 'sup');
-}
-/* después de pintar la vista: la hoja abierta muestra lo nuevo (si no se está escribiendo en ella) */
-function v2SheetRepaint() {
-  const box = $('#modal .v2-hssh'); if (!box) return;
-  if (UI.tab !== 'sup') { closeModal(); return; }
-  if (box.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
-  v2SheetPaint(box);
-}
+};
+Object.assign(V2_SHEET, {
+  supall: { tab: 'sup', title: 'Todas las escenas', cls: 'hs hs-m v2-hssh', closeOn: ['sup-cam'], after: v2SupSheetAfter, html: () => supMAllHTML(supCtx()) },
+  supcont: { tab: 'sup', title: 'Continuidad', cls: 'hs hs-m v2-hssh', after: v2SupSheetAfter, html: () => { const X = supCtx(), s = X.cur && sceneOfKey(X.cur.sc); return s ? `<p class="v2-hssc">${esc(s.key)}. ${esc(s.heading)}</p>` + supContHTML(X, s) + (X.ed ? `<div class="hs-tfoot"><button type="button" class="hs-pill" data-act="sup-wild" data-k="${ea(s.key)}">+ Wild / ambiente</button></div>` : '') : '<p class="v2-mut">No hay un plano en cámara.</p>'; } },
+  supjday: { tab: 'sup', title: 'La jornada', cls: 'hs hs-m v2-hssh', after: v2SupSheetAfter, html: () => { const X = supCtx(); return X.dm ? `<div class="v2-hsrolls">${v2SupRolls(X)}</div>${v2SupHours(X)}${supDaySideHTML(X)}` : ''; } },
+});

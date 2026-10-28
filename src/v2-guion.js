@@ -106,8 +106,9 @@ const v2GuionRender = function () {
       <div class="v2-edscroll" id="edScroll" data-keep="scripted"><div id="edHost">${editorHTML()}</div></div>
     </section>
     <aside class="v2-col v2-side" id="v2Side">${v2GuionSide()}</aside>
-  </div>`;
-  bindView(); bindEditorDoc(); bindEdPinch();
+  </div>
+  <aside class="insp rev v2-insp" id="insp" aria-label="Revisión del guion">${reviewHTML()}</aside>`;
+  bindView(); bindEditorDoc(); bindEdPinch(); bindReview();
   v2GuionBind();
   v2EdCaret();
   v2EdBadges();
@@ -206,3 +207,24 @@ function v2GuionBind() {
     return r;
   };
 }
+
+/* el teléfono: las escenas y la escena con sus notas, en el «⋯» de la cabecera */
+V2_MMORE.script = () => { const s = D.sc.scenes[UI.scene] || D.sc.scenes[0]; return P.paras.length ? [['gscenes', 'list', 'Escenas', `${D.sc.scenes.length} ${D.sc.scenes.length === 1 ? 'escena' : 'escenas'} · ${D.pages.length} ${D.pages.length === 1 ? 'pág.' : 'págs.'}`], s ? ['gside', 'note', `Escena ${s.key} y sus notas`, 'Locación, momento, personajes y notas'] : null].filter(Boolean) : []; };
+Object.assign(V2_MDO, { gscenes: () => v2Sheet('gscenes'), gside: () => v2Sheet('gside') });
+Object.assign(V2_SHEET, {
+  gscenes: { tab: 'script', title: 'Escenas', closeOn: ['ed-goto'], html: () => `<ul class="v2-sclist">${v2SceneCards('ed-goto')}</ul>` },
+  gside: { tab: 'script', title: 'Escena', html: v2GuionSide, after: box => {
+    if (box._v2g) return; box._v2g = true;
+    box.addEventListener('keydown', e => {
+      const ta = e.target.closest && e.target.closest('#v2Reply');
+      if (!ta || e.key !== 'Enter' || e.shiftKey) return;
+      e.preventDefault();
+      const tx = ta.value.trim(); if (!tx) return;
+      const s = D.sc.byKey[ta.dataset.sc]; if (!s) return;
+      const roots = v2SceneNotes(s), last = roots[roots.length - 1];
+      ta.value = '';
+      if (last) noteAdd(last.on, tx, last.id); else noteAdd({ t: 'scene', id: s.key, sec: 'guion', tab: 'lined', label: 'Escena ' + s.key }, tx);
+      setTimeout(() => v2SheetPaint(box), 0);
+    });
+  } },
+});

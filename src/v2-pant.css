@@ -748,3 +748,100 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
 .v2-hmlinks{display:grid;gap:4px}
 .v2-hmsheet .v2-hnotes>h3{display:none}
 .v2-hmsheet>.v2-card{border-radius:3px}
+.v2-sh{display:grid;gap:12px}
+
+/* ============ EL CELULAR: las pantallas del PDF de computadora, apiladas a lo ancho (≤ 760 px) ============ */
+@media (max-width:760px){
+  .v2-pg{padding:4px 16px 40px}
+  .v2-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 16px}
+  .v2-kpis .v2-kpi{width:auto;height:auto;min-height:92px;padding:12px 14px 12px}
+  .v2-kpis .v2-kpi>b{font-size:22px;line-height:26px}
+  .v2-kpi.cast{grid-column:1/-1;min-height:0}
+  /* guion: solo la hoja (las escenas y la escena con sus notas, en el «⋯») */
+  .v2-g3{display:flex;flex-direction:column;padding:0;height:100%}
+  .v2-g3>.v2-scenes,.v2-g3>.v2-side{display:none}
+  .v2-g3>.v2-ed{flex:1;min-height:0}
+  .v2-types{align-self:stretch;flex:none;display:flex;margin:2px 12px 0;overflow-x:auto;scrollbar-width:none}
+  .v2-types::-webkit-scrollbar{display:none}
+  .v2-types>button{flex:none;padding:0 11px}
+  .v2-pinfo{margin:8px 16px 8px}
+  .v2-edscroll{padding:0 10px 40px}
+  .v2-ed #edHost .ed-page{padding:30px 14px 40px 26px;font-size:12px;line-height:15.5px;--fs:12px}
+  .v2-ed #edHost .ed-page::before{top:10px;right:12px;font-size:11px}
+  .v2-ed .ed-doc .ep{margin-top:14px}
+  .v2-ed .ed-doc .t-h{margin-top:22px;margin-left:0;padding-right:0}
+  .v2-ed .ed-doc .t-c{margin-left:12ch;margin-top:14px}
+  .v2-ed .ed-doc .t-p{margin-left:8ch;margin-right:4ch}
+  .v2-ed .ed-doc .t-d{margin-left:5ch;margin-right:3ch}
+  .v2-ed .ed-page.nums .ep.t-h::before{left:-22px}
+  /* plan: las tiras como tarjetas (escena, I/E, momento y páginas; la locación; el reparto y el tiempo) */
+  :root[data-v2][data-tab="plan"] #view .scroller.pad{padding:4px 16px 40px}
+  .v2-tiras{flex-wrap:wrap;height:auto;gap:8px 12px;margin:0 0 14px}
+  .v2-tiras h2{width:100%}
+  .v2-tiras .v2-hint{display:none}
+  :root[data-v2][data-tab="plan"] #board .v2-plh{display:none}
+  :root[data-v2][data-tab="plan"] #board .v2-pst{flex-wrap:wrap;gap:2px 10px}
+  :root[data-v2][data-tab="plan"] #board .v2-prow,:root[data-v2][data-tab="plan"] #board .v2-prow.noth{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"pe pi pm pc pg" "ps ps ps ps ps" "pr pr pr pr pt";gap:6px 10px;padding:10px 12px}
+  .v2-prow .v2-pc{grid-area:pc;justify-self:end}.v2-prow .v2-pe{grid-area:pe}.v2-prow .v2-pi{grid-area:pi}.v2-prow .v2-pm{grid-area:pm}
+  .v2-prow .v2-ps{grid-area:ps;padding-right:0 !important}.v2-prow .v2-ppg{grid-area:pg;text-align:right}.v2-prow .v2-pr{grid-area:pr;font-size:13px !important}.v2-prow .v2-pt{grid-area:pt;width:72px}
+  .v2-prow .v2-pt input.dur{text-align:right}
+  .v2-prow .v2-shot{margin-top:-2px}
+  /* desglose */
+  .v2-strip{grid-template-columns:repeat(2,minmax(0,1fr));height:auto}
+  .v2-strip>div{padding:12px 14px}
+  .v2-strip>div:first-child{grid-column:1/-1}
+  .v2-strip>div:nth-child(2){border-left:0}
+  .v2-strip>div:nth-child(n+2){border-top:1px solid var(--line)}
+  .v2-strip b{white-space:normal}
+  .v2-bdgrid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .v2-bdtx{padding:18px 14px 20px}
+  .v2-bdlines{font-size:12px;line-height:19px}
+  .v2-bdlines .ln.t-c{padding-left:12ch}
+  .v2-bdlines .ln.t-d{padding-left:5ch;max-width:none}
+  .v2-bdlines .ln.t-p{padding-left:8ch;max-width:none}
+  .v2-bdcards{grid-template-columns:minmax(0,1fr)}
+  .v2-tbl{overflow-x:auto}
+  .v2-tbl table{min-width:640px}
+  /* presupuesto */
+  .v2-bkpis .v2-kpi{width:auto;height:auto;padding:14px 14px 12px}
+  .v2-bkpis .v2-kpi>b{font-size:22px;line-height:26px;margin-top:4px}
+  .v2-bgrid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .v2-bdet{overflow-x:auto}
+  .v2-bdet header{flex-wrap:wrap;height:auto;padding:14px;gap:8px 12px}
+  .v2-btbl{min-width:640px}
+  /* storyboard: dos columnas; el plano elegido, en una hoja */
+  .v2-sbfil{flex-wrap:wrap;height:auto;gap:6px}
+  .v2-sbst{width:100%;margin-top:4px}
+  .v2-sbwrap{grid-template-columns:minmax(0,1fr)}
+  .v2-sbwrap>.v2-sbp{display:none}
+  .v2-sbgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .v2-sbb{min-height:0;padding:6px 6px 10px}
+  .v2-sbc.on .v2-sbb{padding:5px 5px 9px}
+  .v2-sbm{flex-wrap:wrap;gap:5px}
+  .v2-sheet .v2-sbp{position:static;border:0;padding:0}
+  /* hoja de llamado */
+  .v2-cl{max-width:none}
+  .v2-cltabs{flex-wrap:wrap}
+  .v2-clsheet{padding:14px 12px 18px}
+  .v2-cltop{flex-wrap:wrap}
+  .v2-clhead{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto}
+  .v2-clh1{grid-column:1/-1;padding:16px 16px 6px}
+  .v2-clh1 h2{font-size:22px;line-height:26px}
+  .v2-clcall{padding:14px 16px}
+  .v2-clcall b,.v2-clbig{font-size:38px;line-height:42px}
+  .v2-clends>div{padding:10px 14px}
+  .v2-clloc{flex-wrap:wrap;padding:10px 14px;gap:8px}
+  .v2-clloc .v2-btn.k{margin-left:0}
+  .v2-cltbl{overflow-x:auto}
+  .v2-cltbl table{min-width:660px}
+  .v2-clboxes{grid-template-columns:minmax(0,1fr)}
+  .v2-cladvl{grid-template-columns:minmax(0,1fr)}
+  .v2-cladv header{flex-wrap:wrap}
+}
+/* la revisión del guion de la v1 (resumen, carátula, buscar y reemplazar, revisiones, guion final): un panel a la derecha */
+#view>.insp.v2-insp{display:none;position:fixed;z-index:40;right:0;top:0;bottom:0;width:min(380px,100vw);box-sizing:border-box;border-left:1px solid var(--line);background:var(--surface);box-shadow:-12px 0 32px rgba(0,0,0,.12);overflow:auto}
+#view>.insp.v2-insp.open{display:flex}
+#view>.insp.v2-insp .drawer-close{display:inline-flex}
+#view>.insp.v2-insp .rv-top h2{font:700 18px/24px var(--v2-disp)}
+.v2-sheet .v2-sbp header h2{display:none}
+.v2-sheet .v2-sbp header:not(:has(.v2-done)){display:none}

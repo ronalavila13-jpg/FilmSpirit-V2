@@ -94,8 +94,12 @@ function v2SbBind() {
   v.addEventListener('click', e => {
     if (UI.tab !== 'board') return;
     const f = e.target.closest('[data-v2sc]'); if (f && f.closest('.v2-sbfil')) { UI.sbScene = f.dataset.v2sc; render(); return; }
-    const p = e.target.closest('[data-v2pick]'); if (p) { UI.v2Shot = p.dataset.v2pick; const old = $('.v2-sbc.on', v); if (old) old.classList.remove('on'); p.closest('.v2-sbc').classList.add('on'); const pn = $('.v2-sbp', v); if (pn) { pn.outerHTML = v2SbPanel(P.shots[UI.v2Shot]); hydrateThumbs(); } }
+    const p = e.target.closest('[data-v2pick]'); if (p && PHONE()) { UI.v2Shot = p.dataset.v2pick; v2Sheet('sbshot'); return; }
+    if (p) { UI.v2Shot = p.dataset.v2pick; const old = $('.v2-sbc.on', v); if (old) old.classList.remove('on'); p.closest('.v2-sbc').classList.add('on'); const pn = $('.v2-sbp', v); if (pn) { pn.outerHTML = v2SbPanel(P.shots[UI.v2Shot]); hydrateThumbs(); } }
   });
   v.addEventListener('dblclick', e => { const p = e.target.closest('[data-v2pick]'); if (p && UI.tab === 'board' && !UI.readOnly) openShot(p.dataset.v2pick); });
   v.addEventListener('contextmenu', e => { const c = e.target.closest('.v2-sbc'); if (!c || UI.tab !== 'board' || UI.readOnly) return; e.preventDefault(); sbMoreMenu(c, P.shots[c.dataset.sid]); });
 }
+
+/* el teléfono: el plano elegido sube en una hoja (sus datos, sus notas y «Editar en 3D») */
+V2_SHEET.sbshot = { tab: 'board', title: () => { const sh = v2SbShot(); return sh ? 'Plano ' + D.code[sh.id] : 'Plano'; }, closeOn: ['shot'], html: () => v2SbPanel(v2SbShot()), after: () => { if (typeof hydrateThumbs === 'function') hydrateThumbs(); } };
