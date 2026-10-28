@@ -231,10 +231,130 @@ test('al azar (600 historias): nunca se traba, deshacer en orden inverso es exac
       for (let i = states.length - 2; i >= 0; i--) { assert.ok(run('histUndo')(run('HIST.undo').at(-1).id)); assert.strictEqual(JSON.stringify(c.P.list), states[i], 'prueba ' + trial); }
     } else {
       // en cualquier orden permitido: siempre queda uno que se puede, y al final está todo lo del comienzo
-      while (run('HIST.undo').length) { const U = run('HIST.undo').slice(); const ok = U.sort(() => rnd() - .5).some(s => run('histUndo')(s.id)); assert.ok(ok, 'trabado en la prueba ' + trial); }
+      // y cada deshacer seguido de rehacer (y de nuevo deshacer) deja exactamente el mismo orden
+      while (run('HIST.undo').length) {
+        const U = run('HIST.undo').slice().sort(() => rnd() - .5), before = JSON.stringify(c.P.list);
+        const s = U.find(x => run('histUndo')(x.id)); assert.ok(s, 'trabado en la prueba ' + trial);
+        const after = JSON.stringify(c.P.list);
+        assert.ok(run('histRedo')(s.id)); assert.strictEqual(JSON.stringify(c.P.list), before, 'deshacer y rehacer, prueba ' + trial);
+        assert.ok(run('histUndo')(s.id)); assert.strictEqual(JSON.stringify(c.P.list), after, 'y deshacer otra vez, prueba ' + trial);
+      }
       assert.strictEqual(ids(c.P.list), ids(JSON.parse(start)), 'los mismos elementos con sus valores');
     }
   }
+});
+
+test('al azar en el plan (400 historias): deshacer y rehacer enseguida dejan el mismo orden, sin filas de más ni de menos', () => {
+  let seed = 11; const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }, ri = n => Math.floor(rnd() * n);
+  const key = x => x.k || 'D' + x.d;
+  for (let trial = 0; trial < 400; trial++) {
+    c.P = { id: 'p', schedule: { items: [{ k: '1' }, { k: '2' }, { d: '1' }, { k: '3' }, { k: '4' }, { d: '2' }, { k: '5' }, { k: '6' }, { d: '3' }, { k: '7' }] } }; run('histReset()');
+    for (let k = 3 + ri(6); k > 0; k--) {
+      const I = c.P.schedule.items;
+      if (rnd() < .8) { const [x] = I.splice(ri(I.length), 1); I.splice(ri(I.length + 1), 0, x); } else I.splice(ri(I.length + 1), 0, { d: 'n' + trial + '-' + k });
+      run('histSoon()'); run('histCapture()');
+      if (rnd() < .5 && run('HIST.undo').length) {
+        const U = run('HIST.undo'), s = U[ri(U.length)], before = JSON.stringify(c.P.schedule.items);
+        if (run('histUndo')(s.id)) {
+          const n = c.P.schedule.items.length;
+          assert.ok(run('histRedo')(s.id), 'rehacer enseguida, prueba ' + trial);
+          assert.strictEqual(JSON.stringify(c.P.schedule.items), before, 'el mismo orden, prueba ' + trial);
+          assert.ok(n >= 10 && new Set(c.P.schedule.items.map(key)).size === c.P.schedule.items.length, 'sin filas de más');
+        } else assert.strictEqual(JSON.stringify(c.P.schedule.items), before, 'bloqueado: no cambia nada');
+      }
+    }
+  }
+});
+
+/* ---------- (lote AH, revisión) lo que no se puede deshacer suelto ---------- */
+// un guion chico con dos marcas y dos planos, para lo que depende del texto
+const projTxt = () => ({ id: 'p', meta: {}, paras: [{ t: 'h', x: 'INT. CASA' }, { t: 'a', x: 'Ana toma la LINTERNA.' }, { t: 'a', x: 'Tito saca el REVOLVER.' }, { t: 'a', x: 'Fin.' }],
+  elements: { e1: { id: 'e1', cat: 'props', name: 'LINTERNA' }, e2: { id: 'e2', cat: 'props', name: 'REVOLVER' } },
+  tags: [{ id: 't1', el: 'e1', p: 1, s: 12, e: 20 }, { id: 't2', el: 'e2', p: 2, s: 13, e: 21 }],
+  shots: { s1: { id: 's1', sc: '1', p0: 1, p1: 1, ord: 0 }, s2: { id: 's2', sc: '1', p0: 2, p1: 2, ord: 1 } } });
+const insertPara = P => { P.paras.splice(1, 0, { t: 'a', x: 'Llueve.' }); for (const t of P.tags) if (t.p >= 1) t.p++; for (const x of Object.values(P.shots)) { if (x.p0 >= 1) x.p0++; if (x.p1 >= 1) x.p1++; } };
+test('una marca quitada no vuelve sobre otro texto: si el guion cambió después (al escribir), no se deshace', () => {
+  fresh(); c.P = projTxt(); run('histReset()');
+  const s1 = step('breakdown', P => { P.tags = P.tags.filter(t => t.id !== 't1'); }, 'Quitar la marca «Linterna»');
+  c.UI.scriptEdit = true; step('script', insertPara); c.UI.scriptEdit = false;
+  c.UI.tab = 'breakdown';
+  assert.strictEqual(run('histUndo')(), false);
+  assert.ok(/No se puede deshacer «Quitar la marca «Linterna»»: el guion cambió después/.test(c.TOASTS.pop()));
+  assert.ok(!c.P.tags.some(t => t.id === 't1'), 'la marca no vuelve sobre «Llueve.»');
+  assert.strictEqual(run('histBlock')(s1, true).why, 'txt');
+});
+test('…ni si el cambio del guion llegó del equipo; y un plano eliminado tampoco vuelve sobre otro tramo', () => {
+  fresh(); c.P = projTxt(); run('histReset()');
+  step('breakdown', P => { P.tags = P.tags.filter(t => t.id !== 't1'); });
+  const s2 = step('board', P => { delete P.shots.s2; }, 'Eliminar el plano 1.2');
+  insertPara(c.P); run('histRemote()');
+  c.UI.tab = 'breakdown'; assert.strictEqual(run('histUndo')(), false);
+  c.UI.tab = 'board'; assert.strictEqual(run('histUndo')(s2.id), false);
+  assert.ok(/el guion cambió después/.test(c.TOASTS.pop()));
+  assert.ok(!c.P.shots.s2);
+});
+test('lo que solo quita lugares del texto sí se deshace (agregar una marca), y con el mismo texto todo vuelve', () => {
+  fresh(); c.P = projTxt(); run('histReset()');
+  const add = step('lined', P => { P.tags.push({ id: 't3', el: 'e1', p: 3, s: 0, e: 3 }); });
+  const del = step('breakdown', P => { P.tags = P.tags.filter(t => t.id !== 't2'); });
+  step('lined', P => { P.paras[3].x = 'Fin de todo.'; });   // el texto cambia (sin correr marcas)
+  assert.strictEqual(run('histUndo')(add.id), true, 'quitar la marca agregada no pone nada sobre el texto');
+  assert.strictEqual(run('histUndo')(del.id), false, 'devolver la quitada, sí');
+  c.P.paras[3].x = 'Fin.'; run('histRemote()');   // el texto vuelve a ser el mismo
+  assert.strictEqual(run('histUndo')(del.id), true);
+  assert.ok(c.P.tags.some(t => t.id === 't2'));
+});
+test('deshacer la primera marca de un elemento no deja huérfanas las de después', () => {
+  fresh(); c.P = { id: 'p', meta: {}, paras: projTxt().paras, elements: {}, tags: [] }; run('histReset()');
+  const s1 = step('breakdown', P => { P.elements.e9 = { id: 'e9', cat: 'props', name: 'TERMO' }; P.tags.push({ id: 't9', el: 'e9', p: 1, s: 0, e: 3 }); });
+  const s2 = step('breakdown', P => { P.tags.push({ id: 't10', el: 'e9', p: 3, s: 0, e: 3 }); });
+  assert.strictEqual(run('histUndo')(s1.id), false);
+  const t = c.TOASTS.pop();
+  assert.ok(/No se puede deshacer ««Termo» \(atrezzo\) en la escena 1»: todavía se usa en lo que hiciste después \(«Termo» \(atrezzo\) en la escena 2\)/.test(t), t);
+  assert.ok(c.P.elements.e9 && c.P.tags.length === 2, 'no se tocó nada');
+  assert.strictEqual(run('histBlock')(s1, true).why, 'ref');
+  assert.strictEqual(run('histUndo')(s2.id), true);
+  assert.strictEqual(run('histUndo')(s1.id), true);
+  assert.deepStrictEqual(J(c.P.elements), {}); assert.deepStrictEqual(J(c.P.tags), []);
+});
+test('rehacer un borrado tampoco deja huérfano lo que lo usa ahora; ni deshacer una jornada que tiene datos en la hoja', () => {
+  fresh();
+  const s1 = step('breakdown', P => { delete P.elements.e1; P.tags = []; });
+  run('histUndo')(s1.id);
+  step('breakdown', P => { P.tags.push({ id: 't5', el: 'e1', p: 1, s: 0, e: 3 }); });
+  assert.strictEqual(run('histRedo')(s1.id), false);
+  assert.ok(/No se puede rehacer/.test(c.TOASTS.pop()) && c.P.elements.e1);
+  // una jornada nueva y después su llamado: la jornada no se quita mientras la hoja de llamado la use
+  const j = step('plan', P => { P.schedule.items.splice(1, 0, { d: 'dn1' }); });
+  step('call', P => { P.call.days.dn1 = { crewCall: '06:00' }; });
+  c.UI.tab = 'plan';
+  assert.strictEqual(run('histUndo')(j.id), false);
+  assert.ok(/todavía se usa en lo que hiciste después \(Jornada 1: llamado/.test(c.TOASTS.pop()));
+});
+test('el plan: deshacer un movimiento no deja la escena en otra jornada', () => {
+  fresh();
+  const days = () => { const o = []; let cur = []; for (const it of c.P.schedule.items) { if (it.d) { o.push(cur.join(',')); cur = []; } else cur.push(it.k); } o.push(cur.join(',')); return o.join(' | '); };
+  const a = step('plan', P => moveItem(P.schedule.items, '4', 'd1'));      // la 4 a la jornada 1
+  step('plan', P => moveItem(P.schedule.items, '3', 'd1'));                // la 3, que era su vecina, también
+  assert.strictEqual(days(), '1,2,4,3 |  | 5');
+  // su vecino de después (el cierre de la jornada 2) sigue ahí: vuelve a la jornada 2, no detrás de la 3
+  assert.strictEqual(run('histUndo')(a.id), true);
+  assert.strictEqual(days(), '1,2,3 | 4 | 5');
+  // deshacer y rehacer enseguida: exactamente el mismo orden
+  const before = JSON.stringify(c.P.schedule.items);
+  assert.ok(run('histRedo')(a.id)); assert.strictEqual(days(), '1,2,4,3 |  | 5');
+  assert.ok(run('histUndo')(a.id)); assert.strictEqual(JSON.stringify(c.P.schedule.items), before);
+});
+test('el plan: si ni el vecino de antes ni el de después siguen en su jornada, es un choque', () => {
+  fresh();
+  const a = step('plan', P => moveItem(P.schedule.items, '4', 'd1'));
+  step('plan', P => moveItem(P.schedule.items, '3', 'd1'));
+  step('plan', P => { P.schedule.items = P.schedule.items.filter(x => x.d !== 'd2'); }, 'Unir jornadas');
+  const before = JSON.stringify(c.P.schedule.items);
+  assert.strictEqual(run('histUndo')(a.id), false);
+  assert.strictEqual(JSON.stringify(c.P.schedule.items), before);
+  assert.ok(/No se puede deshacer «Escena 4 a la jornada 1»: lo que tenía al lado cambió después \(Unir jornadas\)/.test(c.TOASTS.pop()));
+  assert.strictEqual(run('histBlock')(a, true).why, 'pos');
 });
 
 /* ---------- rehacer ---------- */
@@ -307,7 +427,7 @@ test('las versiones enviadas de la hoja de llamado no se des-envían al deshacer
 test('las imágenes que guarda un paso vuelven al deshacer y se van al rehacer', () => {
   fresh();
   c.FRAMES.f1 = 'data:1';
-  run("histNote('Eliminar el plano', { f1: 'data:1' }, 'board')"); delete c.FRAMES.f1; delete c.P.elements.e1; run('histSoon()');
+  run("histNote('Eliminar el plano', { f1: 'data:1' }, 'board')"); delete c.FRAMES.f1; delete c.P.elements.e1; c.P.tags = []; run('histSoon()');
   const st = run('histCapture()');
   assert.strictEqual(st.label, 'Eliminar el plano');
   c.UI.tab = 'board';
