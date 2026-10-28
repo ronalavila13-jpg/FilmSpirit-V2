@@ -6042,29 +6042,29 @@ label:has(>.file-in:focus-visible){outline:2px solid var(--accent);outline-offse
 /* «Grafito» (Personalización › Color de las etapas), sin color: el dibujo de Suaves con las barras y los acentos de todas
    las etapas y pestañas en grises. (lote W) Lo que es de la marca queda en su color: el logotipo, los íconos de las etapas
    (también el de la elegida, entero sobre su placa gris: ver «la barra de las etapas») y los de las pestañas, en la franja,
-   en el menú de cada etapa y en «Ir a…», como ya estaban. Los colores del oficio (tiras, categorías, avisos) no cambian */
-:root[data-secn] #tabs .stg[data-g]{--sg-sol:#2A2A2A;--sg-sol-ink:#FFFFFF;--sg-pt:#EFEFEF;--sg-pt-c:#5A5A5A}
+   en el menú de cada etapa y en «Ir a…», como ya estaban. Los colores del oficio (tiras, categorías, avisos) no cambian.
+   (lote AI) La barra de las etapas y su menú no cambian con Grafito: cada etapa en su color y la elegida con la placa
+   entera de su color y el ícono a una tinta, como en Vivos (ver «la etapa elegida» y «la barra de las etapas») */
 :root[data-secn][data-tab]{--sx-sol:#2A2A2A;--sx-sol-ink:#FFFFFF;--sx-tab:#4A4A4A;--sx-tab-ink:#FFFFFF;--sx-pt:#F4F4F4;--sx-pt-deep:#2A2A2A;--sx-pt-mid:#E8E8E8;--sx-pt-c:#6A6A6A;--sx-pt-bar:#F5F5F5}
-:root[data-secn] :is([data-tabgo],.stg-m .tab[data-tab]){--ti-sol:#4A4A4A;--ti-sol-ink:#FFFFFF;--ti-pt:#E8E8E8;--ti-pt-c:#6A6A6A}
-:root[data-secn][data-tone="dark"] #tabs .stg[data-g]{--sg-sol:#3D3D3D;--sg-sol-ink:#FFFFFF;--sg-pt:#262626;--sg-pt-c:#B0B0B0}
+:root[data-secn] [data-tabgo]{--ti-sol:#4A4A4A;--ti-sol-ink:#FFFFFF;--ti-pt:#E8E8E8;--ti-pt-c:#6A6A6A}
 :root[data-secn][data-tone="dark"][data-tab]{--sx-sol:#3D3D3D;--sx-sol-ink:#FFFFFF;--sx-tab:#555555;--sx-tab-ink:#FFFFFF;--sx-pt:#242424;--sx-pt-deep:#C8C8C8;--sx-pt-mid:#353535;--sx-pt-c:#A8A8A8;--sx-pt-bar:#262626}
-:root[data-secn][data-tone="dark"] :is([data-tabgo],.stg-m .tab[data-tab]){--ti-sol:#555555;--ti-sol-ink:#FFFFFF;--ti-pt:#353535;--ti-pt-c:#A8A8A8}
+:root[data-secn][data-tone="dark"] [data-tabgo]{--ti-sol:#555555;--ti-sol-ink:#FFFFFF;--ti-pt:#353535;--ti-pt-c:#A8A8A8}
 /* la etapa elegida en la barra de la izquierda: Sólidos, una baldosa de su color con el nombre y el ícono en su tinta;
    Pastel, su velo y una raya de su color. (!important: le gana a las reglas viejas del modo oscuro) */
 @media (min-width:761px){
   #tabs .stg:not(.on) .stg-h:hover{background:color-mix(in srgb,var(--sg-sol) 9%,transparent) !important}
-  :root:not([data-sec="pastel"]) #tabs .stg.on .stg-h{background:var(--sg-sol) !important}
-  :root:not([data-sec="pastel"]) #tabs .stg.on .stg-h .stg-n{color:var(--sg-sol-ink) !important}
-  :root:not([data-sec="pastel"]) #tabs .stg.on .stg-h::after{display:none !important}
-  :root:not([data-sec="pastel"]) #tabs .stg.on .stg-h svg.lf{--d:var(--sg-sol-ink);--m:color-mix(in srgb,var(--sg-sol-ink) 78%,var(--sg-sol));--l:color-mix(in srgb,var(--sg-sol-ink) 42%,var(--sg-sol));--x:color-mix(in srgb,var(--sg-sol-ink) 42%,var(--sg-sol));--ld:var(--sg-sol-ink);--k:var(--sg-sol);filter:none !important;opacity:1 !important}
-  :root[data-sec="pastel"] #tabs .stg:not(.on) .stg-h:hover{background:var(--sg-pt) !important}
-  :root[data-sec="pastel"] #tabs .stg.on .stg-h{background:var(--sg-pt) !important}
-  :root[data-sec="pastel"] #tabs .stg.on .stg-h::after{background:var(--sg-pt-c) !important}
+  :root:is(:not([data-sec="pastel"]),[data-secn]) #tabs .stg.on .stg-h{background:var(--sg-sol) !important}
+  :root:is(:not([data-sec="pastel"]),[data-secn]) #tabs .stg.on .stg-h .stg-n{color:var(--sg-sol-ink) !important}
+  :root:is(:not([data-sec="pastel"]),[data-secn]) #tabs .stg.on .stg-h::after{display:none !important}
+  :root:is(:not([data-sec="pastel"]),[data-secn]) #tabs .stg.on .stg-h svg.lf{--d:var(--sg-sol-ink);--m:color-mix(in srgb,var(--sg-sol-ink) 78%,var(--sg-sol));--l:color-mix(in srgb,var(--sg-sol-ink) 42%,var(--sg-sol));--x:color-mix(in srgb,var(--sg-sol-ink) 42%,var(--sg-sol));--ld:var(--sg-sol-ink);--k:var(--sg-sol);filter:none !important;opacity:1 !important}
+  :root[data-sec="pastel"]:not([data-secn]) #tabs .stg:not(.on) .stg-h:hover{background:var(--sg-pt) !important}
+  :root[data-sec="pastel"]:not([data-secn]) #tabs .stg.on .stg-h{background:var(--sg-pt) !important}
+  :root[data-sec="pastel"]:not([data-secn]) #tabs .stg.on .stg-h::after{background:var(--sg-pt-c) !important}
 }
 /* en el teléfono, la raya de la etapa elegida (arriba) en su color */
 @media (max-width:760px){
   .topbar #tabs .stg.on .stg-h::after{background:var(--sg-sol) !important}
-  :root[data-sec="pastel"] .topbar #tabs .stg.on .stg-h::after{background:var(--sg-pt-c) !important}
+  :root[data-sec="pastel"]:not([data-secn]) .topbar #tabs .stg.on .stg-h::after{background:var(--sg-pt-c) !important}
 }
 /* la franja de pestañas, al estilo Apple: Sólidos (Vivos), el color de la etapa entero y las pestañas como texto sobre él;
    la elegida, una tarjeta blanca levantada con esquinas de 2 px. Pastel (Suaves): el velo de la etapa y la elegida igual */
@@ -6100,9 +6100,9 @@ body{--tab:var(--sx-tab,#8A8A8A);--tab-tint:var(--sx-pt-bar,#F2F2F2);--tab-sel:v
 #tabs .stg-m .stg-mt{color:color-mix(in oklab,var(--sg-sol) 62%,var(--ink))}
 #tabs .stg-m .tab:hover{background:color-mix(in srgb,var(--ti-sol) 9%,var(--surface))}
 #tabs .stg-m .tab[aria-selected="true"]{background:color-mix(in srgb,var(--ti-sol) 13%,var(--surface));box-shadow:inset 3px 0 0 var(--ti-sol)}
-:root[data-sec="pastel"] #tabs .stg-m .stg-mt{color:color-mix(in oklab,var(--sg-pt-c) 70%,var(--ink))}
-:root[data-sec="pastel"] #tabs .stg-m .tab:hover{background:color-mix(in srgb,var(--ti-pt) 55%,var(--surface))}
-:root[data-sec="pastel"] #tabs .stg-m .tab[aria-selected="true"]{background:var(--ti-pt);box-shadow:inset 3px 0 0 var(--ti-pt-c)}
+:root[data-sec="pastel"]:not([data-secn]) #tabs .stg-m .stg-mt{color:color-mix(in oklab,var(--sg-pt-c) 70%,var(--ink))}
+:root[data-sec="pastel"]:not([data-secn]) #tabs .stg-m .tab:hover{background:color-mix(in srgb,var(--ti-pt) 55%,var(--surface))}
+:root[data-sec="pastel"]:not([data-secn]) #tabs .stg-m .tab[aria-selected="true"]{background:var(--ti-pt);box-shadow:inset 3px 0 0 var(--ti-pt-c)}
 
 /* el panel de una ventana recibe el foco al abrirse (para el lector de pantalla): sin el contorno rojo, que parecía un error */
 .dlg:focus,.dlg:focus-visible{outline:none}
@@ -6228,12 +6228,12 @@ svg.lf .fu{fill:var(--fs-oxido)} svg.lf .fw{fill:#FFFFFF} svg.lf .fk{fill:var(--
 
 /* ---------- la barra de las etapas ---------- */
 /* en reposo, cada ícono en sus colores (sin el gris de antes); al elegirla, la placa de su color y el ícono a una tinta.
-   (lote W) En Grafito la placa es gris: el ícono va entero, en sus colores de marca, como en reposo */
+   (lote W) En Grafito la placa era gris con el ícono entero; (lote AI) ahora Grafito no toca esta barra: igual que en Vivos */
 #tabs .stg:not(.on) .stg-h svg.lf{filter:none !important;opacity:1}
 @media (min-width:761px){
-  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .mi{fill:var(--sg-sol-ink)}
-  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .mk{fill:var(--sg-sol)}
-  :root:not([data-secn]) #tabs .stg.on .stg-h svg.lf .sep{stroke:var(--sg-sol);stroke-width:7;paint-order:stroke}
+  :root #tabs .stg.on .stg-h svg.lf .mi{fill:var(--sg-sol-ink)}
+  :root #tabs .stg.on .stg-h svg.lf .mk{fill:var(--sg-sol)}
+  :root #tabs .stg.on .stg-h svg.lf .sep{stroke:var(--sg-sol);stroke-width:7;paint-order:stroke}
   #tabs .stg-h,#tabs .stg-h:hover,#tabs .stg.open .stg-h{border-radius:4px}
   #tabs .stg-h svg.lf{width:34px;height:34px}
   #tabs .stg:not(.on) .stg-h:hover{background:var(--fill) !important}
