@@ -60,3 +60,20 @@ con las escenas 1 y 2, tiempos, equipo y reparto). Solo el ejemplo; en inglés, 
 
 Igual que la v1: `sh build.sh server` y `node server/make.js` en la VPS (con los maniquíes 3D en
 `src/s3d-figuras-datos.js`).
+
+**Los maniquíes 3D** (`src/s3d-figuras-datos.js`, unos 3 MB) no van en git. Se rehacen de una de estas dos formas:
+
+- Desde la VPS ya instalada: `python3 tools/maniquies.py <carpeta instalada>/public/app/fig`.
+- Desde cero, con MakeHuman (MPFB2, CC0) y `numpy`, en unos 40 segundos:
+
+  ```sh
+  git clone --depth 1 --filter=blob:none --sparse https://github.com/makehumancommunity/mpfb2 ../mpfb2
+  (cd ../mpfb2 && git sparse-checkout set src/mpfb/data/3dobjs src/mpfb/data/targets src/mpfb/data/rigs/standard)
+  cd fig3d && MPFB_DATA=../../mpfb2/src/mpfb/data python3 maniqui.py "" ../src/s3d-figuras-datos.js
+  ```
+
+  Sale siempre el mismo archivo (sha1 `f8183ed8…`). En la tabla `FIG3D_DATA` de `app.js` quedan
+  `hombre.gz?v=4f976345f2`, `mujer.gz?v=22cabc5ff8`, `anciano.gz?v=94544b5e6c`, `anciana.gz?v=63bbf67243`,
+  `nino.gz?v=b31faee097` y `nina.gz?v=3fc7321c02`. Si el `app.js` publicado tiene esos mismos códigos, son los mismos
+  maniquíes.
+- Si al actualizar la versión nueva llega sin maniquíes, `deploy/actualizar.sh` conserva los que ya están instalados.
