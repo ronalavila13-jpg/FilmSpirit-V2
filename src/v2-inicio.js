@@ -166,7 +166,7 @@ function v2HomeMain(H) {
     <h1 class="v2-hhi">Hola${name ? ', ' + esc(v2First(name)) : ''}</h1>
     ${hello ? `<p class="v2-hsum">${esc(hello)}</p>` : ''}
     <div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2><div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div></div>
-    ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: { shots: [0, 0], days: [0, 0] }, team: [] }) : ''}
+    ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: v2SampleProg().prog, next: v2SampleProg().next, team: [] }) : ''}
     ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>` : !H.own.length ? `<div class="v2-hempty"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button>${feat ? `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>` : ''}</div>` : ''}
     <div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="file">Importar .fdx o .fountain</button></div>
     <div class="v2-hscripts">${scripts.length ? scripts.map(o => v2ScriptThumb(o, H.sum(o))).join('') : sample ? v2ScriptThumb(sample, { script: v2SampleScript(), draft: 'Versión de muestra' }) : ''}</div>
@@ -254,11 +254,28 @@ function v2HomePList(H) {
     return L.map(o => v2HomePCard(o, H.sum(o), (o.invited ? 'Invitación de ' : 'de ') + (o.owner || 'otra persona'), null)).join('');
   }
   let L = homeSort(H.projects.filter(o => match(o) && !H.arch(o)));
-  if (!L.length) return sample && !q ? v2HomePFeat(sample, { stage: 'r', kind: 'Cortometraje', prog: { shots: [0, 0] } })
+  if (!L.length) return sample && !q ? v2HomePFeat(sample, { stage: 'r', kind: 'Cortometraje', prog: v2SampleProg().prog })
     + `<div class="v2-hmnew"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button></div>` : '<p class="v2-mut v2-hmempty">No hay proyectos con ese nombre.</p>';
   const feat = L.find(o => H.sum(o).stage === 'r') || L[0];
   L = L.filter(o => o !== feat);
   return v2HomePFeat(feat, H.sum(feat)) + L.map(o => { const s = H.sum(o); return v2HomePCard(o, s, s.kind || 'Proyecto', v2HomeProg(o, s)[2]); }).join('');
+}
+/* el avance del ejemplo (planos rodados, jornadas y la próxima), sacado del ejemplo mismo para no mostrar «0 de 0»;
+   se arma una sola vez por día */
+let V2_SPROG = null;
+function v2SampleProg() {
+  const day = v2Iso(v2Day0());
+  if (V2_SPROG && V2_SPROG.day === day) return V2_SPROG;
+  let prog = { shots: [0, 0], days: [0, 0] }, next = null;
+  try {
+    const Pn = buildSample(), sc = computeScenes(Pn.paras), shots = Object.values(Pn.shots || {});
+    const days = scheduleDays(Pn, sc).days, dates = shootDates(Pn, days.length), t0 = v2Day0();
+    const ds = days.map((d, i) => ({ d, date: dates[i] })).filter(o => o.d.keys.length);
+    const past = ds.filter(o => o.date && o.date < t0).length, nx = ds.find(o => o.date && o.date >= t0);
+    prog = { shots: [shots.filter(s => s.done).length, shots.length], days: [past, ds.length] };
+    if (nx) next = { date: v2Iso(nx.date) };
+  } catch (e) { console.warn('ejemplo:', e); }
+  return (V2_SPROG = { day, prog, next });
 }
 function v2HomePhone(H) {
   const name = v2HomeName(), now = new Date(), seg = V2H.mseg || 'proj';

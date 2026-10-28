@@ -734,7 +734,7 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
 .v2-hmempty{padding:8px 2px}
 .v2-hmnew{display:flex;gap:8px;flex-wrap:wrap}
 /* la barra de abajo */
-.v2-hmnav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);align-items:start;height:83px;box-sizing:border-box;padding:10px 7.5px 0;border-top:1px solid var(--v2k-e7e7e5);background:#fff}
+.v2-hmnav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);align-items:start;height:83px;box-sizing:border-box;padding:10px 7.5px 0;border-top:1px solid var(--v2k-e7e7e5);background:var(--surface)}
 .v2-hmnav>button{display:grid;justify-items:center;align-content:start;gap:6px;height:52px;padding:0;border:0;background:none;font:400 11.5px/1 var(--font-ui);color:var(--v2k-5e5e5a);cursor:pointer}
 .v2-hmnav>button svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .v2-hmnav>button[aria-current="page"]{color:var(--ink);font-weight:700}
