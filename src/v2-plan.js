@@ -86,7 +86,7 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
     const sk = stripKey(s), hc = hlc(it), col = hc || V2_STRIP[sk][1];
     const syn = synopsisOf(s);
     const th = planCols().thumb;
-    const est = fmtDur(rowEstDur(it));
+    const est = v2Hours(rowEstDur(it));   // «1 h 30 min», como el PDF (parseDur lo entiende igual)
     return `<div class="prow sc v2-prow${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${th ? '' : ' noth'}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}" data-strip="${ea(hc ? 'hl' : sk)}" style="--v2rc:${ea(col)}">
       ${th ? `<span class="v2-pc"><span class="v2-shot">${esc(v2FirstShot(it.k))}</span></span>` : ''}
       <span class="v2-pe tnum">${esc(rowCode(it))}</span>
@@ -95,7 +95,7 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
       <span class="v2-ps"><b>${esc(setOf(s))}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b>${syn ? `<small>${esc(syn)}</small>` : ''}</span>
       <span class="v2-ppg tnum">${esc(fmtEighths(partEighths(it)))}</span>
       <span class="v2-pr">${esc(castText(s))}</span>
-      <span class="v2-pt"><input type="text" class="dur" maxlength="10" value="${esc(it.dur ? fmtDur(num(it.dur)) : '')}" placeholder="${esc(est)}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo aproximado" ${dis}></span>
+      <span class="v2-pt"><input type="text" class="dur" maxlength="10" value="${esc(it.dur ? v2Hours(num(it.dur)) : '')}" placeholder="${esc(est)}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo aproximado" ${dis}></span>
     </div>`;
   };
   planBreakHTML = function (d, n, dates, ed) {

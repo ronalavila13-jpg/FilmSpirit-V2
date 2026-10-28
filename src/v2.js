@@ -183,6 +183,7 @@ function v2Ago(ts) {
 function v2People(p) {
   const seen = new Set(), out = [];
   const add = n => { n = String(n || '').trim(); if (!n || seen.has(n.toLowerCase())) return; seen.add(n.toLowerCase()); out.push(n); };
+  try { [...(p.meta.producers || []), ...(p.meta.directors || [])].forEach(x => add(typeof x === 'string' ? x : x && x.name)); } catch (e) { }   // producción y dirección, primero
   try { (p.team || []).forEach(m => add(m.name || m.email)); } catch (e) { }
   try { (p.call && p.call.crew || []).forEach(c => add(c.name)); } catch (e) { }
   return out;

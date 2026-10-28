@@ -41,7 +41,7 @@ function v2CallHead(X) {
       </div>
       <div class="v2-clloc">${v2I('pin')}<b>${esc(L.name || 'Sin locación')}</b>
         ${callEditable() ? `<span class="v2-claddr${L.addr ? '' : ' miss'}"><i class="v2-dot"></i><input type="text" data-bind="cl-loc" data-f="addr" value="${esc((X.dd.loc || {}).addr || '')}" placeholder="${esc(L.pAddr || '[Dirección de la locación]')}" aria-label="Dirección de la locación"></span>` : `<span>${esc(L.addr || '')}</span>`}
-        ${L.url ? `<a class="v2-btn k sm" href="${esc(L.url)}" target="_blank" rel="noopener">Ver mapa ${v2I('ext')}</a>` : ''}</div>
+        ${L.url || L.name ? `<a class="v2-btn k sm" href="${esc(L.url || 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(L.name))}" target="_blank" rel="noopener">Ver mapa ${v2I('ext')}</a>` : ''}</div>
     </div>`;
 }
 function v2CallScenes(X) {
@@ -69,13 +69,17 @@ function v2CallTalent(X) {
       <td>${tin(r, 'actor', r.actor, 'Actor o actriz')}</td><td class="c-t"><b>${tin(r, 'call', r.call || X.call, 'Llamado', 1)}</b></td><td class="c-t">${tin(r, 'mq', r.mq, 'Maquillaje', 1)}</td><td class="c-t">${tin(r, 'ready', r.ready, 'En set', 1)}</td><td class="c-ph">${tin(r, 'phone', r.phone, 'Teléfono')}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
+const V2_AREA = { 'Equipo de dirección': 'Dirección', 'Cámara': 'Fotografía' };
 function v2CallCrew(X) {
   const heads = new Set((X.heads || []).map(h => h.k));
-  const rows = X.crew.flatMap(([area, list]) => list.map(r => ({ area, r })));
+  // las áreas con los nombres del PDF: Dirección (la directora y su equipo), Producción, Fotografía… y Continuidad al final
+  const area = (a, r) => /script|continuidad/i.test(r.role || '') ? 'Continuidad' : /^direct|^direcci[oó]n$/i.test(r.role || '') && a === 'Producción' ? 'Dirección' : V2_AREA[a] || a;
+  const ord = a => a === 'Dirección' ? 0 : a === 'Continuidad' ? 2 : 1;
+  const rows = X.crew.flatMap(([a, list]) => list.map(r => ({ area: area(a, r), r }))).map((x, i) => ({ ...x, i })).sort((p, q) => ord(p.area) - ord(q.area) || p.i - q.i);
   if (!rows.length) return '';
   return `<h3 class="v2-clh">Equipo técnico <small>Jefes de área con su teléfono</small></h3>
     <div class="v2-cltbl"><table><thead><tr><th class="c-a">Área</th><th class="c-g">Cargo</th><th>Nombre</th><th class="c-t">Llamado</th><th class="c-ph">Teléfono</th></tr></thead><tbody>
-    ${rows.map(({ area, r }) => `<tr><td class="c-a">${esc(area)}</td><td class="c-g"><b>${esc(r.role || '')}</b>${heads.has(r.k) || (X.keyCrew || []).some(k => k.k === r.k) ? ' <span class="v2-jefe">Jefe/a</span>' : ''}</td><td>${esc(r.name || '')}</td><td class="c-t"><b>${esc(r.call || '')}</b></td><td class="c-ph">${esc(r.phone || '—')}</td></tr>`).join('')}
+    ${rows.map(({ area, r }) => `<tr><td class="c-a">${esc(area)}</td><td class="c-g"><b>${esc(r.role || '')}</b>${heads.has(r.k) || (r.head === true) ? ' <span class="v2-jefe">Jefe/a</span>' : ''}</td><td>${esc(r.name || '')}</td><td class="c-t"><b>${esc(r.call || '')}</b></td><td class="c-ph">${esc(r.phone || '—')}</td></tr>`).join('')}
     </tbody></table></div>`;
 }
 function v2CallBoxes(X) {

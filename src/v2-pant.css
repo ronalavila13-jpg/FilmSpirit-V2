@@ -342,7 +342,7 @@ img.v2-cllogo{max-width:160px;object-fit:contain;object-position:left}
 .v2-clh{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font:700 17px/22px var(--v2-disp);color:var(--ink)}
 .v2-clh small{font:400 12.5px/1 var(--font-ui);color:var(--muted)}
 .v2-cltbl{border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:0 0 24px}
-.v2-cltbl table{width:100%;border-collapse:collapse}
+.v2-cltbl table{width:100%;border-collapse:collapse;table-layout:fixed}
 .v2-cltbl th{height:36px;padding:0 12px;background:#F4F4F2;text-align:left;font:600 12px/1 var(--font-ui);color:var(--ink);border-bottom:1px solid var(--line)}
 .v2-cltbl td{padding:11px 12px;vertical-align:top;font:400 13px/18px var(--font-ui);color:var(--ink);border-bottom:1px solid var(--line)}
 .v2-cltbl tr:last-child td{border-bottom:0}
@@ -887,3 +887,5 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
 /* ‹ › de la v1 (jornada, escena, plano): cuadros con borde fino, como las flechas del PDF */
 :root[data-v2] .hd-stepb{border-radius:3px;border:1px solid var(--line);background:var(--surface)}
 :root[data-v2] .hd-stepb:disabled{border-color:#F3F3F1;background:var(--surface);color:#A1A1A1}
+/* los campos de la v2 sin el relleno de los campos de la v1 (input[type=text] pesa más que una sola clase) */
+input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding:0}

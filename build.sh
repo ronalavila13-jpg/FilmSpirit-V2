@@ -75,7 +75,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
   # equipo: en escritorio viaja por la carpeta compartida; en la web, por la base de datos de la página
   if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes"; else FILES="$FILES share share-web"; fi
   # versión 2: la barra lateral y la cabecera (envuelve funciones de la v1; va al final, antes de boot)
-  FILES="$FILES v2 v2-guion v2-plan v2-desglose v2-presupuesto v2-storyboard v2-llamado v2-inicio v2-sup v2-pestanas"
+  FILES="$FILES v2 v2-guion v2-plan v2-desglose v2-presupuesto v2-storyboard v2-llamado v2-inicio v2-sup v2-pestanas v2-ejemplo"
   # la huella de las letras de los PDF y de los lectores 3D (en el servidor, parte del nombre de su archivo en lib/)
   echo "const PDFF_V = '$PDFF_V', GLB_V = '$GLB_V';"
   for f in $FILES; do
