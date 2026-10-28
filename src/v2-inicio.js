@@ -168,7 +168,7 @@ function v2HomeMain(H) {
     <div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2><div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div></div>
     ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: v2SampleProg().prog, next: v2SampleProg().next, team: [] }) : ''}
     ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>` : !H.own.length ? `<div class="v2-hempty"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button>${feat ? `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>` : ''}</div>` : ''}
-    <div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="file">Importar .fdx o .fountain</button></div>
+    <div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="impg" title="También abre un proyecto guardado (.${PROJ_EXT})">Importar .fdx o .fountain</button></div>
     <div class="v2-hscripts">${scripts.length ? scripts.map(o => v2ScriptThumb(o, H.sum(o))).join('') : sample ? v2ScriptThumb(sample, { script: v2SampleScript(), draft: 'Versión de muestra' }) : ''}</div>
     <div class="v2-hsec" id="v2hCollab"><h2>Colaboro en</h2><span class="v2-hsub">Proyectos de otras personas que te invitaron</span></div>
     ${coll.length ? `<div class="v2-card v2-hcoll">${coll.map(o => { const s = H.sum(o); return `<button type="button" class="v2-hcr" ${o.invited ? `data-open="${ea(o.id)}"` : `data-open="${ea(o.id)}"`}><span class="v2-av lg ${v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 0 ? 'k' : v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 1 ? 'g' : 'y2'}">${esc(v2Ini(o.owner || o.title))}</span><span class="t"><b>${esc(o.title || 'Sin título')}</b><small>de ${esc(o.owner || 'otra persona')}</small></span>${v2Chip(s.stage || 'g')}<span class="ro">${esc(o.invited ? 'Invitación' : cap1(String(o.role || '')))}</span><span class="pm">${o.invited ? 'Responder' : /lect|ver|read/i.test(String(o.perm || o.role || '')) ? 'Solo ver' : 'Puede editar'}</span>${v2HI('chev')}</button>`; }).join('')}</div>`
@@ -344,6 +344,8 @@ function v2SampleScript() {
 }
 function v2HomeBind(h) {
   h.addEventListener('click', e => {
+    // «Importar .fdx o .fountain»: un guion (Final Draft, Fountain, PDF) o un proyecto guardado (.fsp), como en la v1
+    if (e.target.closest('[data-h="impg"]')) { pickFile(`${SCRIPT_ACCEPT},${PROJ_ACCEPT}`, 'import'); return; }
     const g = e.target.closest('[data-v2go]');
     if (g) {
       const k = g.dataset.v2go, scrollTo = id => { const el = $('#' + id, h); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
