@@ -2312,5 +2312,20 @@
 "el guion cambió después": "the script changed afterward",
 "todavía se usa en lo que hiciste después": "it's still used by what you did afterward",
 "todavía se usa en el proyecto": "it's still used in the project",
-"lo que tenía al lado cambió después": "what was next to it changed afterward"
+"lo que tenía al lado cambió después": "what was next to it changed afterward",
+"// lote AI · sup": "Hoja de script: REC para el cronómetro de la toma («+ Toma» la deja lista), un solo MOS (Plano MOS) y ‹ › para pasar de plano sin marcarlo (28-oct-2026)",
+"REC": "REC",
+"Parar": "Stop",
+"Lista": "Ready",
+"Grabar la toma {0}": "Roll take {0}",
+"Parar la toma {0}": "Stop take {0}",
+"lista para grabar": "ready to roll",
+"Rodado · siguiente": "Done · next",
+"✓ Rodado": "✓ Done",
+"La toma {0} ya está lista: REC la graba": "Take {0} is ready: REC rolls it",
+"Deja lista la toma que sigue, con su número, la tarjeta y el sonido en uso: REC la graba": "Sets up the next take with its number and the card and sound in use: REC rolls it",
+"Lista, todavía sin grabar: REC anota la hora y arranca el cronómetro.": "Ready, not rolled yet: REC logs the time and starts the stopwatch.",
+"Con ‹ vuelves al último plano; también puedes tocar el número de un plano en la tabla.": "Use ‹ to go back to the last shot, or tap a shot number in the table.",
+"El plano que se rueda. ‹ › pasan al plano anterior o al siguiente de la jornada (rodados o no) sin marcar nada; en el celular también se desliza la tarjeta. «+ Toma» deja lista la toma que sigue, con la tarjeta y el sonido en uso. REC anota la hora y arranca el cronómetro (si no hay una toma lista, la crea); el mismo botón lo para. Buena, OK o NG la marcan y también lo paran. «✓ Rodado · siguiente» deja el plano como rodado y pone en cámara el que sigue.": "The shot being filmed. ‹ › move to the day's previous or next shot (done or not) without marking anything; on a phone you can also swipe the card. “+ Take” sets up the next take with the card and sound in use. REC logs the time and starts the stopwatch (if no take is ready, it creates one); the same button stops it. Print, OK or NG mark the take and stop it too. “✓ Done · next” marks the shot as done and puts the next one on camera.",
+"MOS: sin sonido. «Plano MOS» lo pone a todas las tomas del plano; una toma suelta sin sonido se marca en su ventana (toca la toma). «+ Wild / ambiente» anota sonido grabado sin cámara, con su rollo de sonido.": "MOS: without sound. “MOS shot” applies it to every take of the shot; a single take without sound is marked in its window (tap the take). “+ Wild / ambient” logs sound recorded without camera, with its sound roll."
 }

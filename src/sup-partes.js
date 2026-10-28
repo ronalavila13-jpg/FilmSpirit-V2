@@ -12,6 +12,7 @@
      incidencias, notas y firmas.
    · Reporte de cámara: las tomas agrupadas por tarjeta. Reporte de sonido: por rollo de sonido, con el sonido wild,
      y aparte las grabadas sin sonido (MOS).
+   En todos, las tomas grabadas (supRolled, lote AI): la que quedó lista con «+ Toma» y nunca se grabó no sale.
    ============================================================ */
 const supDayLabel = (n, dates) => `Jornada ${n + 1}${dates[n] ? ' · ' + fmtDate(dates[n]) : ''}`;
 const scenePages = k => { const s = sceneOfKey(k); return s ? D.metrics.eighths[s.idx] : 0; };
@@ -257,7 +258,7 @@ function pdfSupSheet(blank) {
       }
     };
     for (const sh of shots) {
-      const takes = supTakes(sh.id);
+      const takes = supRolled(sh.id);   // (lote AI) la toma lista que nunca se grabó no sale
       group(pdfSafe(D.code[sh.id]), pdfSafe('· ' + [supTech(sh), supDesc(sh)].filter(Boolean).join(' — ') + (supKind(sh) ? ' · ' + hsL(supKind(sh)) : '')), { mos: supMos(sh.id), obs: (P.sup.obs || {})[sh.id] || '' },
         takes.map(t => ({ t, o: { snd: isMos(takeSnd(sh.id, t)) ? 'MOS' : takeSnd(sh.id, t) } })));
     }
@@ -301,7 +302,7 @@ function hsParte(doc, X, fill) {
   const nPh = keys.reduce((a, k) => a + ((P.sup.sc[k] || {}).ph || []).length, 0);
   const mat = [['Tarjetas de cámara', fill ? supRolls(shots).join(', ') : ''], ['Rollos de sonido', fill ? supRolls(shots, 's').join(', ') : ''], ['Fotos de continuidad', fill && nPh ? String(nPh) : '']];
   const prog = [['Planos', fill ? `${stats.done} de ${shots.length}` : `de ${shots.length}`], ['Páginas', fill ? `${fmtEighths(stats.eDn)} de ${fmtEighths(stats.ePl)}` : `de ${fmtEighths(stats.ePl)}`], ['Tiempo en pantalla', fill ? `${stats.hasReal ? supFmt(stats.real) : '0:00'} de ${supFmt(stats.plan)}` : `de ${supFmt(stats.plan)}`]];
-  if (fill) { const tk = shots.flatMap(sh => supTakes(sh.id)); prog.push(['Tomas', `${tk.length}${tk.length ? ` (${tk.filter(t => t.st === 'bn').length} ${hsL('buenas')} · ${tk.filter(t => t.st === 'ng').length} NG)` : ''}`]); }
+  if (fill) { const tk = shots.flatMap(sh => supRolled(sh.id)); prog.push(['Tomas', `${tk.length}${tk.length ? ` (${tk.filter(t => t.st === 'bn').length} ${hsL('buenas')} · ${tk.filter(t => t.st === 'ng').length} NG)` : ''}`]); }
   const kv = (rows, x, w, yy, right) => {
     doc.autoTable({ ...T, startY: yy, margin: { left: x, right: W - x - w, top: HS_M + 10, bottom: HS_FOOT + 30 }, tableWidth: w,
       body: rows.map(([a, b]) => [hsL(a), { content: pdfSafe(b || ''), styles: { fontStyle: fill || /^\d/.test(b || '') ? 'bold' : 'normal', textColor: fill ? HS_K : HS_G, halign: right && !fill ? 'right' : 'left' } }]),
@@ -319,7 +320,7 @@ function hsParte(doc, X, fill) {
   const tt = EN ? trDone('Time') : 'Tiempo';
   const head = fill ? ['Esc.', 'Encabezado', 'Planos', 'Tomas', 'Buenas', tt, 'Inicio', 'Fin', 'Completa'] : ['Esc.', 'Encabezado', 'Planos', 'Tomas', 'Buenas', tt, 'Completa'];
   const body = keys.map(k => {
-    const s = sceneOfKey(k), sh = D.shotsBy[k] || [], tk = sh.flatMap(x => supTakes(x.id)), m = P.sup.sc[k] || {}, r = supRealSecs(k);
+    const s = sceneOfKey(k), sh = D.shotsBy[k] || [], tk = sh.flatMap(x => supRolled(x.id)), m = P.sup.sc[k] || {}, r = supRealSecs(k);
     const st = sceneDone(k) ? 'si' : sh.some(x => x.done) ? 'med' : 'no';
     const base = [{ content: pdfSafe(k), styles: { fontStyle: 'bold' } }, pdfSafe(s ? s.heading : ''), { content: fill ? `${sh.filter(x => x.done).length} / ${sh.length}` : `/ ${sh.length}`, styles: { halign: 'right', textColor: fill ? HS_K : HS_G } },
       fill ? String(tk.length) : '', fill ? String(tk.filter(t => t.st === 'bn').length) : '', fill && r != null ? supFmt(r) : ''];
@@ -403,7 +404,7 @@ function pdfParte() {
 function supTakeRows(f) {
   const keys = supScenes(), out = [];
   for (const k of keys) {
-    for (const sh of D.shotsBy[k] || []) supTakes(sh.id).forEach(t => out.push({ k, sh, t, g: f === 's' ? takeSnd(sh.id, t) : t[f] || '' }));
+    for (const sh of D.shotsBy[k] || []) supRolled(sh.id).forEach(t => out.push({ k, sh, t, g: f === 's' ? takeSnd(sh.id, t) : t[f] || '' }));
     // el sonido wild o de ambiente de la escena: solo en el de sonido (no tiene cámara)
     if (f === 's') ((P.sup.sc[k] || {}).wild || []).forEach((w, i) => out.push({ k, sh: null, t: { n: 'W' + (i + 1), st: 'wd', t: w.t, d: w.d, s: w.s, note: w.note }, g: w.s || '' }));
   }
