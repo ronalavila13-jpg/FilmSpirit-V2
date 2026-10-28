@@ -185,3 +185,26 @@ input::placeholder,textarea::placeholder{font-style:normal}
 /* ---------- la etapa de la pestaña abierta: el color de su punto (lo pone v2.js en <html data-v2g>) ---------- */
 :root[data-v2g="0"]{--v2-gc:var(--v2-g0)} :root[data-v2g="1"]{--v2-gc:var(--v2-g1)} :root[data-v2g="2"]{--v2-gc:var(--v2-g2)}
 :root[data-v2g="3"]{--v2-gc:var(--v2-g3)} :root[data-v2g="4"]{--v2-gc:var(--v2-g4)} :root[data-v2g="p"]{--v2-gc:var(--v2-black)}
+
+/* ============ EL TELÉFONO: la cabecera de la pestaña (como la Hoja de script del PDF) ============
+   «‹» a Tu página, el nombre de la pestaña (toca para ver las demás) con el proyecto debajo, y «⋯» */
+.v2-mback,.v2-msub{display:none}
+@media (max-width:760px){
+  body:not(.home) .topbar{display:flex;align-items:center;gap:8px;height:62px;box-sizing:border-box;padding:13px 14px 0 14px;background:var(--bg);border:0}
+  body:not(.home) .topbar>*:not(.v2-mback):not(.v2-ttl):not(#moreBtn){display:none !important}
+  body:not(.home) .topbar .v2-mback{display:grid;place-items:center;width:40px;height:40px;flex:none;border:0;background:none;color:var(--ink);border-radius:3px;cursor:pointer}
+  body:not(.home) .topbar .v2-mback svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  body:not(.home) .topbar .v2-ttl{display:grid;gap:2px;flex:1;min-width:0;cursor:pointer}
+  body:not(.home) .topbar .v2-crumb{display:none}
+  body:not(.home) .topbar .v2-h1{margin:0;font:700 18px/21px var(--v2-disp);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body:not(.home) .topbar .v2-msub{display:block;font:400 12.5px/15px var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body:not(.home) .topbar #moreBtn{display:grid !important;place-items:center;width:40px;height:40px;flex:none;border:0;background:none}
+  body:not(.home) .topbar #moreBtn svg{width:24px;height:24px}
+  body:not(.home) .topbar #moreBtn circle{r:1.15px}
+  body:not(.home) .topbar #tabs,body:not(.home) #tabStrip,body:not(.home) .tabstrip{display:none !important}
+  body:not(.home) #app{background:var(--bg)}
+}
+.v2-tabmenu{min-width:230px;max-height:70vh;overflow:auto}
+.v2-tabmenu h6{display:flex;align-items:center;gap:8px;margin:10px 10px 4px;font:700 11px/1 var(--font-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pop .menu.v2-tabmenu button[aria-current="page"],.pop .menu.v2-tabmenu button[aria-current="page"]:hover{background:var(--v2-black);color:#fff;font-weight:700}
+.v2-tabmenu small{margin-left:auto;font-size:12px;opacity:.7}

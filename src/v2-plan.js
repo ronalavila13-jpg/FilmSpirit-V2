@@ -93,7 +93,7 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
       <span class="v2-pi">${esc(ieLab(s))}</span>
       <span class="v2-pm">${esc(v2Mom(s))}</span>
       <span class="v2-ps"><b>${esc(setOf(s))}${it.sp ? '<em> (parte ' + esc(it.sp) + ')</em>' : ''}</b>${syn ? `<small>${esc(syn)}</small>` : ''}</span>
-      <span class="v2-pg tnum">${esc(fmtEighths(partEighths(it)))}</span>
+      <span class="v2-ppg tnum">${esc(fmtEighths(partEighths(it)))}</span>
       <span class="v2-pr">${esc(castText(s))}</span>
       <span class="v2-pt"><input type="text" class="dur" maxlength="10" value="${esc(it.dur ? fmtDur(num(it.dur)) : '')}" placeholder="${esc(est)}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo aproximado" ${dis}></span>
     </div>`;

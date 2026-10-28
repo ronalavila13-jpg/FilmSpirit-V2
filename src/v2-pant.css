@@ -127,7 +127,7 @@
 .v2-ps{display:grid;gap:3px;padding-right:20px !important}
 .v2-ps b{font:700 13px/18px var(--font-ui);text-transform:uppercase}
 .v2-ps small{font:400 12.5px/17px var(--font-ui);color:#4A4A46}
-.v2-pg{font:700 14px/22px var(--font-ui)}
+.v2-ppg{font:700 14px/22px var(--font-ui)}
 .v2-pr{font:400 14px/22px var(--font-ui)}
 .v2-pt input.dur{width:100%;height:22px;padding:0;border:0;background:transparent;font:700 14px/22px var(--font-ui);color:var(--v2-black)}
 .v2-pt input.dur::placeholder{color:var(--v2-black);font-style:normal;opacity:1}
@@ -545,3 +545,143 @@ body.home #app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1
 .v2-hn small{display:block;margin-top:6px;font:400 12.5px/1 var(--font-ui);color:var(--muted)}
 .v2-hn .dot{width:7px;height:7px;margin-top:7px;border-radius:50%;background:var(--v2-red)}
 .v2-av.xl svg{width:34px;height:34px;fill:none;stroke:var(--v2-black);stroke-width:1.6}
+
+/* ============ HOJA DE SCRIPT (PDF: el celular, a 390 px) ============ */
+.v2-grow{flex:1}
+.v2-hssc{margin:0;font:700 13px/16px var(--font-script,'Courier Prime',monospace);letter-spacing:0;color:#282826;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* la tarjeta del plano */
+.v2-hspl{display:grid;justify-items:center;padding:14px 14px 14px;text-align:center}
+.v2-hsplh{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:start;width:100%}
+.v2-hsar{display:grid;place-items:center;width:44px;height:44px;box-sizing:border-box;padding:0;border:1px solid #E8E8E4;border-radius:3px;background:var(--surface);color:var(--ink);cursor:pointer}
+.v2-hsar svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.v2-hsar:disabled{border-color:#F3F3F1;color:#A1A1A1;cursor:default}
+.v2-hsar:not(:disabled):hover{border-color:#CFCFCA}
+.v2-hsplt{display:grid;justify-items:center;min-width:0;padding-top:3px}
+.v2-hsplt h2{margin:0;font:700 23px/26px var(--v2-disp);letter-spacing:-.005em;color:var(--v2-black);white-space:nowrap}
+.v2-hsplt small{margin-top:-1px;font:400 12px/15px var(--font-ui);color:var(--muted)}
+.v2-hschips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+.v2-hschips span{display:inline-flex;align-items:center;height:23px;padding:0 7.5px;border-radius:3px;background:var(--bg);font:700 11.5px/1 var(--font-ui);color:var(--v2-black);white-space:nowrap}
+.v2-hsd{margin:11px 0 0;font:400 13.5px/19px var(--font-ui);color:#3A3A36}
+.v2-hsend h2{margin:4px 0 0;font:700 19px/24px var(--v2-disp)}
+.v2-hsend .v2-btn{margin-top:14px}
+/* la toma: número, cronómetro, MOS y REC */
+.v2-hsrec{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:17px 17px 18px;border:1px solid var(--v2-black);border-radius:3px;background:var(--v2-black);box-shadow:0 0 0 1px var(--line);color:#fff}
+.v2-hsrl{display:grid;justify-items:start;min-width:0}
+.v2-hsrl>span{font:400 12px/16px var(--font-ui);color:#C5C7C1}
+.v2-hsrl>span b{font-weight:700;color:#FF5A5F}
+.v2-hstim{margin-top:7px;font:700 44px/44px var(--font-ui);letter-spacing:-.01em;color:#fff}
+.v2-hsmos{display:inline-grid;place-items:center;width:56px;height:32px;box-sizing:border-box;margin-top:7px;padding:0;border:1px solid #5B5B5B;border-radius:3px;background:none;color:#fff;font:700 12.5px/1 var(--font-ui);letter-spacing:.06em;cursor:pointer}
+.v2-hsmos[aria-pressed="true"]{background:#fff;border-color:#fff;color:var(--v2-black)}
+.v2-hsrecb{display:grid;justify-items:center;gap:8px;margin:5px 0 0 0;padding:0;border:0;background:none;color:#fff;cursor:pointer}
+.v2-hsrecb i{display:grid;place-items:center;width:76px;height:76px;box-sizing:border-box;border:3px solid #fff;border-radius:50%}
+.v2-hsrecb i::after{content:"";width:50px;height:50px;border-radius:50%;background:#CF0C1C;transition:border-radius .15s,width .15s,height .15s}
+.v2-hsrecb[aria-pressed="true"] i::after{width:30px;height:30px;border-radius:4px}
+.v2-hsrecb span{font:700 11.5px/1 var(--font-ui);letter-spacing:.08em}
+.v2-hsrec.on{border-color:#2A1416;background:#2A1416}
+/* las tomas */
+.v2-hsth{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 4px}
+.v2-hsth h3{margin:0;font:700 16.5px/20px var(--v2-disp);color:var(--v2-black)}
+.v2-hsth span{font:400 12px/16px var(--font-ui);color:var(--muted);text-align:right}
+.v2-hstk{display:grid}
+.v2-hstr{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:14px;padding:10px 12px 10px 14px}
+.v2-hstr+.v2-hstr{border-top:1px solid var(--line)}
+.v2-hstn{font:700 17px/1 var(--font-ui);text-align:center;color:var(--v2-black)}
+.v2-hsti{display:grid;gap:2px;min-width:0;padding:0;border:0;background:none;text-align:left;font:400 13px/17px var(--font-ui);color:var(--muted);cursor:pointer}
+div.v2-hsti{cursor:default}
+.v2-hsti>span:first-child b{font-weight:700;color:var(--v2-black)}
+.v2-hstno{font-size:12.5px;color:#4A4A46;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-hsmk{display:inline-grid;place-items:center;min-width:64px;height:36px;box-sizing:border-box;padding:0 10px;border:0;border-radius:3px;background:#EDEEE9;font:700 13px/1 var(--font-ui);color:var(--v2-black);cursor:pointer}
+.v2-hsmk.bn{background:var(--v2-yellow)}
+.v2-hsmk.ng{background:#FBE3E3;color:#B4141B}
+.v2-hsmk.run{background:none;color:#CF0C1C;cursor:default}
+span.v2-hsmk{cursor:default}
+.v2-hsnone{margin:0;padding:14px 4px;font:400 13px/18px var(--font-ui);color:var(--muted)}
+/* nota y «Rodado · siguiente» */
+.v2-hsdock{display:flex;gap:8px}
+.v2-hsnb{display:grid;place-items:center;width:52px;height:52px;flex:none;box-sizing:border-box;padding:0;border:1px solid #DBDBD8;border-radius:3px;background:var(--surface);color:var(--v2-black);cursor:pointer}
+.v2-hsnb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round}
+.v2-hsdone{display:flex;align-items:center;justify-content:center;gap:12px;flex:1;min-width:0;height:52px;padding:0 16px;border:0;border-radius:3px;background:var(--v2-yellow);font:700 16px/1 var(--v2-disp);color:var(--v2-black);cursor:pointer}
+.v2-hsdone svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.v2-hsdone:hover{background:#FFC72E}
+.v2-popf{display:flex;align-items:center;gap:8px;margin-top:10px}
+.v2-pop textarea{width:100%;min-width:260px;box-sizing:border-box}
+.v2-pmhr{margin:6px 0;border:0;border-top:1px solid var(--line)}
+
+/* el celular, como el PDF */
+.v2-hsm{display:grid;align-content:start;padding:8px 16px 120px}
+.v2-hsm .v2-hssc{margin:3px 0 16px 4px}
+.v2-hsm .v2-hsrec{margin-top:14px}
+.v2-hsm .v2-hsth{margin:18px 0 9px}
+.v2-hsm~.v2-hsdock{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:12px 16px 28px;border-top:1px solid #E6E7E3;background:#fff}
+:root[data-theme="dark"] .v2-hsm~.v2-hsdock{background:var(--surface);border-color:var(--line)}
+
+/* la computadora: jornadas, avance, horarios; el registro de la v1 y «En cámara» a la derecha */
+.v2-hsd.hs{max-width:none;margin:0;display:block;gap:0}
+.v2-hsd.hs,.v2-hssh.hs{--hs-a:var(--v2-black);--hs-at:var(--v2-black);--hs-soft:#FFF6D5;--hs-deep:var(--v2-black);--hs-bar:var(--v2-yellow);--hs-ng:#B4141B;--hs-ng-soft:#FBE3E3;--hs-ok:var(--v2-black);--hs-ok-soft:var(--v2-yellow);--hs-rec:#CF0C1C;--hs-rec-t:#CF0C1C}
+.v2-hstabs{align-items:center;flex-wrap:wrap}
+.v2-hsroll{gap:6px}
+.v2-hsroll span{font-weight:400;color:var(--muted)}
+.v2-hsroll b{font-weight:700}
+.v2-hsmeta{margin:-6px 0 16px;font:400 12.5px/18px var(--font-ui);color:var(--muted)}
+.v2-hsmeta b{color:var(--ink);font-weight:600}
+.v2-hskpis{flex-wrap:wrap}
+.v2-hskpis .v2-kpi{position:relative}
+.v2-hsbar{position:absolute;left:16px;right:16px;bottom:14px;height:4px;border-radius:2px;background:#3A3A38;overflow:hidden}
+.v2-hsbar i{display:block;height:100%;background:var(--v2-yellow)}
+.v2-hshours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0 0 20px}
+.v2-hshours>div{display:grid;gap:4px;padding:12px 16px;min-width:0}
+.v2-hshours>div+div{border-left:1px solid var(--line)}
+.v2-hshours span{font:400 12.5px/16px var(--font-ui);color:var(--muted);white-space:nowrap}
+.v2-hshours small{font-size:11.5px}
+.v2-hshv{width:100%;height:24px;box-sizing:border-box;padding:0;border:0 !important;background:none !important;box-shadow:none !important;font:700 16px/24px var(--font-ui);color:var(--ink);min-width:0}
+.v2-hshv::placeholder{color:var(--muted);font-weight:500}
+.v2-hshv.auto::placeholder{color:var(--ink);font-weight:700}
+.v2-hshv:focus{outline:1px solid var(--ink) !important;background:var(--surface) !important}
+b.v2-hshv.ph{color:var(--muted);font-weight:500}
+.v2-hslu{display:flex;align-items:center;gap:4px}
+.v2-hslu .v2-hshv{width:52px}
+.v2-hslu i{font-style:normal;color:var(--muted)}
+.v2-hsg{display:grid;grid-template-columns:minmax(0,1fr) 358px;gap:24px;align-items:start}
+.v2-hslog{display:grid;gap:14px;min-width:0}
+.v2-hsside{display:grid;gap:14px;position:sticky;top:0}
+.v2-hscam{display:grid;gap:12px}
+.v2-hscam .v2-hsth{margin-top:4px}
+.v2-hsnext{margin:0 4px;font:400 12.5px/16px var(--font-ui);color:var(--muted)}
+.v2-hsnext b{color:var(--ink)}
+@media (max-width:1180px){ .v2-hsg{grid-template-columns:minmax(0,1fr)} .v2-hsside{position:static;order:-1} .v2-hshours{grid-template-columns:repeat(3,minmax(0,1fr))} .v2-hshours>div:nth-child(4){border-left:0} .v2-hshours>div:nth-child(n+4){border-top:1px solid var(--line)} }
+/* las piezas de la v1, en la forma v2 */
+.v2-hsd .hs-card,.v2-hssh .hs-card{border-color:var(--line);border-radius:3px;box-shadow:none}
+.v2-hsd .hs-no,.v2-hssh .hs-no{border-radius:3px;font:700 17px/1 var(--font-ui)}
+.v2-hsd .hs-scm h3{font:700 13.5px/18px var(--font-ui);text-transform:uppercase;letter-spacing:0}
+.v2-hsd .hs-scm p{font:400 12.5px/17px var(--font-ui)}
+.v2-hsd .hs-t th{height:36px;padding:0 8px;background:#F4F4F2;font:600 12px/1 var(--font-ui);letter-spacing:0;text-transform:none;color:var(--ink)}
+.v2-hsd .hs-t th:first-child{padding-left:16px}
+.v2-hsd .hs-t{font:400 13px/18px var(--font-ui)}
+.v2-hsd .hs-st,.v2-hssh .hs-st{border-radius:3px;font:700 12px/1.3 var(--font-ui)}
+.v2-hsd .hs-st.bn,.v2-hssh .hs-st.bn{color:var(--v2-black);background:var(--v2-yellow)}
+.v2-hsd .hs-st.ok,.v2-hssh .hs-st.ok{background:#EDEEE9}
+.v2-hsd .hs-tn.bn,.v2-hssh .hs-tn.bn{box-shadow:inset 0 0 0 2px var(--v2-black);color:var(--v2-black);background:var(--v2-yellow)}
+.v2-hsd .hs-pill,.v2-hssh .hs-pill{border-radius:3px;background:var(--surface);border:1px solid var(--line);color:var(--ink);font:600 12.5px/1 var(--font-ui);min-height:34px;padding:0 12px}
+.v2-hsd .hs-mini{border-radius:3px;color:var(--ink)}
+.v2-hsd .hs-chk:checked{background:var(--v2-black);border-color:var(--v2-black)}
+.v2-hsd .hs-chk{border-radius:2px}
+.v2-hsd .hs-t tr.cur td{background:#FFF8E0}
+.v2-hsd .hs-live{color:var(--v2-black)}
+.v2-hsd .hs-live::first-letter{color:#CF0C1C}
+.v2-hsd .hs-cb h4,.v2-hssh .hs-cb h4{font:700 11px/1 var(--font-ui);letter-spacing:.12em;color:var(--muted)}
+.v2-hsd .hs-in,.v2-hsd .hs-hv,.v2-hssh .hs-in{border-radius:2px}
+.v2-hsd .hs-sbox h3,.v2-hssh .hs-sbox h3{font:700 15px/20px var(--v2-disp)}
+.v2-hsd .hs-link,.v2-hssh .hs-link{color:var(--ink);font:700 12.5px/1 var(--font-ui);text-decoration:underline;text-underline-offset:2px}
+.v2-hsd .hs-fold,.v2-hsd .hs-pr{border-radius:3px}
+/* las hojas del ⋯ en el teléfono */
+.v2-hssh{display:grid;gap:12px}
+.v2-hssh .hs-cb{border-right:0;padding:14px 0 6px}
+.v2-hssh .hs-cont{border-top:0}
+.v2-hssh .hs-mshot>.hs-msh{border-radius:3px}
+.v2-hssh .hs-live::first-letter{color:#CF0C1C}
+.v2-hssh .hs-phadd,.v2-hsd .hs-phadd{border-radius:3px;border-color:#C9C9C3;color:var(--ink)}
+.v2-hssh .v2-hshours{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+.v2-hssh .v2-hshours>div:nth-child(odd){border-left:0}
+.v2-hssh .v2-hshours>div:nth-child(n+3){border-top:1px solid var(--line)}
+.v2-hsrolls{display:flex;gap:8px;flex-wrap:wrap}
+.hs-no.v2-hsno{color:var(--v2-black);box-shadow:inset 0 0 0 1px #DADAD5}

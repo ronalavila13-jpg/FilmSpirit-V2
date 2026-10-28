@@ -54,11 +54,31 @@ function v2Head() {
   let h = $('.v2-ttl', tb);
   if (!h) {
     h = document.createElement('div'); h.className = 'v2-ttl'; h.setAttribute('aria-hidden', 'true');   // el h1 para lectores es #viewH1
-    h.innerHTML = '<span class="v2-crumb"><i class="v2-dot"></i><span class="v2-cn"></span></span><div class="v2-h1"></div>';
+    h.innerHTML = '<span class="v2-crumb"><i class="v2-dot"></i><span class="v2-cn"></span></span><div class="v2-h1"></div><div class="v2-msub"></div>';
     tb.prepend(h);
+    // en el teléfono: «‹» vuelve a Tu página y el título abre la lista de pestañas
+    const bk = document.createElement('button'); bk.type = 'button'; bk.className = 'v2-mback'; bk.setAttribute('aria-label', 'Tu página');
+    bk.innerHTML = v2Svg('<path d="m15 18-6-6 6-6"/>'); bk.onclick = () => { const b = $('#brand'); if (b) b.click(); };
+    tb.prepend(bk);
+    h.addEventListener('click', () => { if (!v2Rail()) v2TabMenu(h); });
   }
   return h;
 }
+/* el teléfono: las etapas y sus pestañas en una lista (el título de la cabecera la abre) */
+function v2TabMenu(anchor) {
+  const groups = $$('#tabs .stg').filter(w => !w.classList.contains('off')).map(w => {
+    const g = w.dataset.g, tabs = $$('.tab', w).filter(t => !t.hidden);
+    return `<h6><i class="v2-dot" style="--v2-dc:var(--v2-g${g})"></i>${esc(V2_STAGE[g] || '')}</h6>${tabs.map(t => `<button type="button" data-tab="${ea(t.dataset.tab)}"${t.dataset.tab === UI.tab ? ' aria-current="page"' : ''}>${esc((typeof TAB_NAMES !== 'undefined' && TAB_NAMES[t.dataset.tab]) || t.textContent.trim())}</button>`).join('')}`;
+  }).join('');
+  const p = popover(anchor, `<div class="menu v2-tabmenu"><button type="button" data-tab="project"${UI.tab === 'project' ? ' aria-current="page"' : ''}>Proyecto</button>${groups}</div>`,
+    pp => pp.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; closePop(); setTab(b.dataset.tab); }));
+  return p;
+}
+/* debajo del título, en el teléfono: el proyecto y, en el llamado y la hoja de script, la jornada */
+const V2_MSUB = {
+  call: () => { try { const S = callSheet(callRef()); return S ? (S.free ? callSheetName(S) : 'jornada ' + (S.n + 1)) : ''; } catch (e) { return ''; } },
+  sup: () => { try { return typeof UI.supDay === 'number' ? 'jornada ' + (UI.supDay + 1) : ''; } catch (e) { return ''; } },
+};
 function v2Paint() {
   if (!V2.on) return;
   const tab = typeof UI !== 'undefined' ? UI.tab : '';
@@ -69,6 +89,7 @@ function v2Paint() {
   const name = (typeof TAB_NAMES !== 'undefined' && TAB_NAMES[tab]) || (b ? b.textContent.trim() : '');
   $('.v2-cn', h).textContent = V2_STAGE[g] || '';
   $('.v2-h1', h).textContent = name;
+  const ms = $('.v2-msub', h); if (ms && typeof P !== 'undefined' && P) { const x = V2_MSUB[tab] ? V2_MSUB[tab]() : ''; ms.textContent = (P.meta.title || '') + (x ? ' · ' + x : ''); }
   v2Acts();
   if (typeof tr === 'function' && typeof EN !== 'undefined' && EN) { $('.v2-cn', h).textContent = tr(V2_STAGE[g] || ''); $('.v2-h1', h).textContent = tr(name); }
   v2ProjSub();
