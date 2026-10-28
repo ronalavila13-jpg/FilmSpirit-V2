@@ -5,7 +5,8 @@
      rot: el giro (grados) alrededor del eje vertical
      flr: la altura del piso en el archivo (fl = flr × sc, en metros); mx, mz: el punto de la acción en el archivo
      ax, az: ese punto ya girado y a escala: es el centro de la escena (0, 0), donde se paran las figuras
-     b: [x0, z0, x1, z1] lo que ocupa en la escena (para la planta); h: su alto sobre el piso; int: es un interior
+     b: [x0, z0, x1, z1] lo que ocupa en la escena (para la planta); h: su alto sobre el piso; dn: lo que queda debajo
+     del piso (si es mucho y arriba casi nada, el piso quedó en el techo); int: es un interior
    El modelo va en FRAMES['m3~s~<id>'] (modelos.js) y su planta, la vista desde arriba cortada a 1,5 m del piso como
    un plano de arquitectura, en FRAMES['m3p~<id>']. Un plano lo usa con s3.set = 'modelo' y s3.set3d = id;
    P.locSet3d[locación] = id hace que los planos nuevos de esa locación lo traigan.
@@ -16,15 +17,19 @@ const S3D_ROOF = 2.2;     // la vista 3D del importador, «sin techo»: corte a 
 const set3dOf = s3 => (s3 && s3.set === 'modelo' && typeof P !== 'undefined' && P.sets3d && P.sets3d[s3.set3d]) || null;
 const set3dKey = s3 => { const d = set3dOf(s3); return d ? m3Key('s', d.id) : null; };
 const set3dPicKey = id => 'm3p~' + id;
-const set3dSig = s3 => { const d = set3dOf(s3); return d ? d.id + ':' + d.v : ''; };
+// lote W · con la escala del escenario (también la de un plano de planta o una calle): cambia la viñeta; (lote AD) y el
+// modelo puesto sobre el entorno (escenarios-sobre.js)
+const set3dSig = s3 => { const d = set3dOf(s3), k = typeof sceneEsc === 'function' ? sceneEsc(s3) : 1; return (d ? d.id + ':' + d.v : '') + (k !== 1 ? ':e' + k : '') + (typeof sobreSig === 'function' ? sobreSig(s3) : ''); };
 const set3dList = () => Object.values((typeof P !== 'undefined' && P.sets3d) || {}).sort((a, b) => String(a.n).localeCompare(String(b.n), 'es'));
 const set3dForLoc = loc => { const id = loc && P.locSet3d && P.locSet3d[loc]; return id && P.sets3d && P.sets3d[id] ? id : null; };
 const set3dUnit = u => S3D_UNITS.find(x => x[0] === u) || S3D_UNITS[0];
 const set3dM = v => (Math.round(v * 100) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // la niebla según el tamaño del escenario (que no tape el fondo de un modelo grande)
-function set3dFog(d) { const D = d && d.b ? Math.hypot(d.b[2] - d.b[0], d.b[3] - d.b[1]) : 30; return [Math.max(30, D * 1.1), Math.max(90, D * 3)]; }
+function set3dFog(d) { const D = d && d.b ? Math.hypot(d.b[2] - d.b[0], d.b[3] - d.b[1]) * set3dEsc(d) : 30; return [Math.max(30, D * 1.1), Math.max(90, D * 3)]; }
+// lote W · escala: la del escenario (escenarios-escala.js), 1 si no tiene
+const set3dEsc = d => typeof escOf === 'function' ? escOf(d) : 1;
 // la parte del escenario que entra al encuadrar la planta: alrededor de la acción, aunque el modelo sea una ciudad
-const set3dFitBox = d => d && d.b ? [Math.max(d.b[0], -14), Math.max(d.b[1], -14), Math.min(d.b[2], 14), Math.min(d.b[3], 14)] : null;
+const set3dFitBox = d => { if (!d || !d.b) return null; const k = set3dEsc(d); return [Math.max(d.b[0] * k, -14), Math.max(d.b[1] * k, -14), Math.min(d.b[2] * k, 14), Math.min(d.b[3] * k, 14)]; };
 
 /* ---------- en la vista 3D ---------- */
 const set3dInk = () => STY.e3ink || (STY.e3ink = new THREE.LineBasicMaterial({ color: STY.ink, transparent: true, opacity: .42 }));
@@ -73,7 +78,7 @@ function set3dSync(s3) {
   const U = G.userData, k = m3Key('s', d.id);
   const t = m3Tpl(k, U.wait === k ? null : () => { U.wait = null; set3dLate(); });
   if (!t) U.wait = k;
-  const key = t ? d.id + ':' + d.v + ':' + ((M3.tpl.get(k) || {}).sig || '') : 'x' + d.id;
+  const key = t ? d.id + ':' + d.v + ':' + set3dEsc(d) + ':' + ((M3.tpl.get(k) || {}).sig || '') : 'x' + d.id;
   if (U.key !== key) {
     U.key = key;
     if (U.hold) { G.remove(U.hold); U.hold = null; }
@@ -81,7 +86,8 @@ function set3dSync(s3) {
     if (t) {
       // las caras un poco más atrás que sus aristas (que no titilen)
       for (const m of m3Mats(t)) if (!m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; }
-      U.hold = set3dHold(t, d, { cast: !d.int, recv: true }); G.add(U.hold);
+      // lote W · la escala del escenario: alrededor del centro de la escena (donde se paran las figuras)
+      U.hold = new T.Group(); U.hold.scale.setScalar(set3dEsc(d)); U.hold.add(set3dHold(t, d, { cast: !d.int, recv: true })); G.add(U.hold);
     }
     R3.shSig = null;
   }
@@ -112,15 +118,21 @@ async function set3dPreload() {
 }
 /* la planta del escenario bajo lo demás (s3d-plan.js); sin la imagen todavía, el contorno */
 function set3dDrawPlan(ctx, s3, toS, redraw) {
+  // (lote AD) un modelo puesto sobre el entorno de la escena (escenarios-sobre.js)
+  if (typeof sobreDrawPlan === 'function') sobreDrawPlan(ctx, s3, toS, redraw);
   const d = set3dOf(s3); if (!d || !d.b) return;
-  const [a, b] = toS(d.b[0], d.b[1]), [c, e] = toS(d.b[2], d.b[3]);
+  // lote W · a la escala del escenario
+  const k = set3dEsc(d);
+  const [a, b] = toS(d.b[0] * k, d.b[1] * k), [c, e] = toS(d.b[2] * k, d.b[3] * k);
   const im = set3dPic(d, redraw);
   if (im) { ctx.save(); ctx.globalAlpha = .72; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, a, b, c - a, e - b); ctx.restore(); }
   else { ctx.save(); ctx.strokeStyle = PLAN_C.muted; ctx.lineWidth = 1; ctx.setLineDash([5, 4]); ctx.strokeRect(a, b, c - a, e - b); ctx.restore(); }
 }
 
 /* ---------- leer el modelo ---------- */
-/* el piso: las superficies que miran hacia arriba, por altura; el piso es la más baja con buena parte de la superficie.
+/* el piso: las superficies horizontales, por altura; el piso es la más baja con buena parte de la superficie.
+   Cuentan también las que miran hacia abajo: en SketchUp el piso suele venir con la cara al revés. Si la única
+   superficie grande está arriba (un techo, sin piso), el piso va en la base del modelo (roof: true).
    Devuelve también los otros niveles con mucha superficie (los pisos de un edificio) */
 function set3dFloors(t, zup) {
   const B = set3dBox(t, zup), y0 = B[1], y1 = B[4], N = 240, step = (y1 - y0) / N || 1, area = new Float64Array(N + 1);
@@ -131,19 +143,33 @@ function set3dFloors(t, zup) {
       const a = I[i] * 3, b = I[i + 1] * 3, c = I[i + 2] * 3;
       const ux = A[b] - A[a], uy = A[b + 1] - A[a + 1], uz = A[b + 2] - A[a + 2], vx = A[c] - A[a], vy = A[c + 1] - A[a + 1], vz = A[c + 2] - A[a + 2];
       const n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx], L = Math.hypot(n[0], n[1], n[2]);
-      if (!L || n[up] / L < .92) continue;
+      if (!L || Math.abs(n[up]) / L < .92) continue;
       const y = (A[a + up] + A[b + up] + A[c + up]) / 3;
       area[clamp(Math.round((y - y0) / step), 0, N)] += L / 2;
     }
   }
-  const max = Math.max(...area);
+  let max = 0; for (const a of area) if (a > max) max = a;
   if (!(max > 0)) return { floor: y0, levels: [y0], y0, y1 };
   const levels = [];
   for (let i = 0; i <= N; i++) if (area[i] >= max * .25 && (area[i] >= (area[i - 1] || 0)) && (area[i] >= (area[i + 1] || 0))) {
     const y = y0 + i * step;
     if (!levels.length || y - levels[levels.length - 1] > (y1 - y0) * .04) levels.push(y);
   }
-  return { floor: levels[0] ?? y0, levels: levels.slice(0, 6), y0, y1 };
+  const roof = !!levels.length && levels[0] - y0 > (y1 - y0) * .5;
+  if (roof) levels.unshift(y0);
+  return { floor: levels[0] ?? y0, levels: levels.slice(0, 6), y0, y1, roof };
+}
+/* ¿el piso quedó en el techo? Casi todo el modelo queda debajo de donde se paran las figuras (en el editor del plano) */
+function set3dRoofy(d) {
+  if (!d) return false;
+  let dn = +d.dn;
+  if (!(dn >= 0)) {
+    // escenarios importados antes: lo que hay debajo del piso sale del modelo, si ya está abierto
+    const k = m3Key('s', d.id), e = M3.tpl.get(k);
+    if (!e || !e.t) return false;
+    dn = ((d.flr || 0) - set3dBox(e.t, d.zup)[1]) * (d.sc || 1);
+  }
+  return dn > 1.5 && (+d.h || 0) < dn * .5;
 }
 // la caja del modelo [x0, y0, z0, x1, y1, z1], ya parado (con Z arriba se acuesta: y ← z, z ← -y)
 function set3dBox(t, zup) {
@@ -164,6 +190,23 @@ function set3dGuessUnit(t, zup, fmt) {
   }
   return best || (D > 40000 ? 'mm' : D > 300 ? 'cm' : 'm');
 }
+
+/* ---------- lote W · versión liviana ----------
+   El escenario abierto (la plantilla de modelos.js) reducido a unos 60 000 triángulos y con texturas de hasta 512 px y
+   unos 48 kB, con el mismo empaque de siempre (m3Pack); las piezas simples (muros, pisos, cajas: hasta 3 000
+   triángulos) no se tocan, así no se deforman. Devuelve lo mismo que m3Pack */
+const E3_LIGHT = { tris: 60000, texTop: 48 * 1024, texAll: 1200 * 1024 };
+async function e3LightPack(t, name) {
+  const T = THREE, root = new T.Group(), mats = [];
+  for (const p of t.parts) {
+    const d = t.H.mats[p.m] || { c: '#CCCCCC' };
+    const m = new T.MeshBasicMaterial({ color: d.c, map: d.t >= 0 ? t.texs[d.t] : null, transparent: !!d.tr, opacity: d.op ?? 1, alphaTest: d.at || 0, side: d.ds ? T.DoubleSide : T.FrontSide, vertexColors: !!d.vc });
+    mats.push(m); root.add(new T.Mesh(p.geo, m));
+  }
+  try { return await m3Pack(root, { kind: 'set', budget: E3_LIGHT.tris, keep: 3000, texTop: E3_LIGHT.texTop, texAll: E3_LIGHT.texAll, extra: { n: name || '' } }); }
+  finally { for (const m of mats) m.dispose(); }
+}
+const e3KB = kb => kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(kb)) + ' kB';
 
 /* ---------- el importador ---------- */
 /* opts: { loc, name, int, edit: id de un escenario para ajustarlo }. done(id, applyLoc) */
@@ -187,7 +230,7 @@ function openSet3dImporter(opts, done) {
         <div class="e3-bar"><div class="seg" role="group" aria-label="Vista"><button data-v="top" aria-pressed="true">Planta</button><button data-v="3d" aria-pressed="false">3D</button></div>
           <label class="opt e3-roof" hidden><input type="checkbox" id="e3Roof" checked><span>Sin techo</span></label></div>
         <div class="fpi-cv e3-cv" id="e3Wrap"><canvas id="e3C"></canvas><canvas id="e3O" class="e3-o"></canvas>
-          <div class="fpi-drop" id="e3Drop" ${ed ? 'hidden' : ''}><b>Elige o arrastra el modelo del escenario</b><span>.glb, .gltf (con todo adentro), .fbx o .vrm. Desde SketchUp: Archivo › Exportar › Modelo 3D › GLTF Binary File (.glb).</span><button class="btn primary" id="e3Pick">Elegir archivo</button></div>
+          <div class="fpi-drop" id="e3Drop" ${ed ? 'hidden' : ''}><b>Elige o arrastra el modelo del escenario</b><span>.glb, .kmz, .dae, .obj (con su .mtl y texturas), .gltf o .fbx.</span><span>SketchUp de escritorio: Archivo › Exportar › Modelo 3D › «Archivo binario glTF (*.glb)».<br>SketchUp para web: Exportar › KMZ (un solo archivo con el modelo y sus texturas).</span><button class="btn primary" id="e3Pick">Elegir archivo</button></div>
           <div class="e3-busy" id="e3Busy" hidden><span class="spin" aria-hidden="true"></span><b id="e3BusyT" role="status"></b></div>
         </div>
         <p class="hint" id="e3Hint" style="margin:0"></p>
@@ -197,11 +240,15 @@ function openSet3dImporter(opts, done) {
         <div class="fld"><span>Medidas del archivo</span><select id="e3Unit">${S3D_UNITS.map(([k, , n]) => `<option value="${k}">${n}</option>`).join('')}</select><span class="hint" id="e3Dims"></span></div>
         <div class="fld"><span>Eje vertical</span><div class="seg" role="group" id="e3Up"><button data-up="0" aria-pressed="true">Y (normal)</button><button data-up="1" aria-pressed="false">Z</button></div><span class="hint">Si el modelo aparece acostado, cambia a Z.</span></div>
         <label class="rr"><span>Giro</span><input type="range" id="e3Rot" min="-180" max="180" step="1" value="${ea(S.rot)}"><output id="e3RotO"></output></label>
-        <div class="e3-fl"><label class="rr"><span>Piso</span><input type="range" id="e3Fl" min="0" max="1" step="any" value="0"><output id="e3FlO"></output></label><div class="e3-lv" id="e3Lv"></div></div>
+        <div class="e3-fl"><label class="rr"><span>Piso</span><input type="range" id="e3Fl" min="0" max="1" step="any" value="0"><output id="e3FlO"></output></label><div class="e3-lv" id="e3Lv"></div><p class="hint e3-warn" id="e3FlW" hidden>¿El piso quedó en el techo? Muévelo en Piso.</p></div>
         <div class="fld"><span>Lugar</span><div class="seg" role="group" id="e3In"><button data-in="1">Interior</button><button data-in="0">Exterior</button></div><span class="hint">En un interior no llueve y el modelo no hace sombra con el sol.</span></div>
-        ${opts.loc ? `<label class="opt" style="padding:8px 10px"><input type="checkbox" id="e3Loc" ${S.loc ? 'checked' : ''}><span><b>Usarlo en toda la locación</b><span class="hint">${esc(titleCase(opts.loc))}: los demás planos de esta locación también lo usan.</span></span></label>` : ''}
+        ${opts.loc && !opts.sobre ? `<label class="opt" style="padding:8px 10px"><input type="checkbox" id="e3Loc" ${S.loc ? 'checked' : ''}><span><b>Usarlo en toda la locación</b><span class="hint">${esc(titleCase(opts.loc))}: los demás planos de esta locación también lo usan.</span></span></label>` : ''}
         <p class="hint" id="e3Stats" style="margin:0"></p>
         <button class="btn sm ghost" id="e3Swap" ${ed ? '' : 'hidden'}>Cambiar el archivo…</button>
+        <div class="e3-w" id="e3W" hidden>
+          <!-- lote W · versión liviana -->
+          <button class="btn sm" id="e3Lite" title="Menos triángulos y texturas más chicas: casi el mismo aspecto, mucho menos espacio">Versión liviana</button>
+        </div>
       </div></div></div>
     <footer><button class="btn" data-x>Cancelar</button><button class="btn primary" id="e3Ok" disabled>${ed ? 'Guardar' : 'Importar escenario'}</button></footer></div>`;
   document.body.appendChild(ov);
@@ -333,13 +380,19 @@ function openSet3dImporter(opts, done) {
     const F = S.fl, f = $o('#e3Fl');
     f.min = F.y0; f.max = F.y1; f.step = (F.y1 - F.y0) / 400 || .01; f.value = S.flr;
     $o('#e3FlO').textContent = `${set3dM((S.flr - F.y0) * sc())} m`;
+    // casi todo el modelo debajo del piso (y el modelo alto, no un terreno): el piso quedó en el techo
+    $o('#e3FlW').hidden = !(S.flr - F.y0 > (F.y1 - F.y0) * .5 && (F.y1 - F.y0) * sc() > 1.5);
     $o('#e3Lv').innerHTML = F.levels.length > 1 ? F.levels.map((y, i) => `<button class="chip" data-lv="${i}" aria-pressed="${ea(Math.abs(y - S.flr) < (F.y1 - F.y0) / 300)}">${i ? `Nivel ${i + 1}` : 'Suelo'} · ${set3dM((y - F.y0) * sc())} m</button>`).join('') : '';
     const B = set3dBox(S.t, S.zup), k = sc();
     $o('#e3Dims').textContent = `Mide ${set3dM((B[3] - B[0]) * k)} × ${set3dM((B[5] - B[2]) * k)} m y ${set3dM((B[4] - B[1]) * k)} m de alto.`;
     const H = S.t.H, kb = S.pk ? S.pk.kb : (ed && ed.kb) || Math.round(S.url.length * .75 / 1024);
     const nt = H.texs.length, cut = S.pk ? S.pk.cut && S.pk.from : ed && ed.cut && ed.from;
     $o('#e3Stats').innerHTML = esc(`${(H.tris || 0).toLocaleString('es-PE')} triángulos · ${kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' kB'}${nt ? ` · ${nt} ${nt === 1 ? 'textura' : 'texturas'}` : ''}.`)
-      + (cut ? `<br>${esc(`Se redujo de ${Math.round(cut).toLocaleString('es-PE')} triángulos para que cargue rápido.`)}` : '');
+      + (S.lite ? `<br><b>${esc(`Versión liviana: pesaba ${e3KB(S.lite.from)}, ahora ${e3KB(kb)}.`)}</b>` : cut ? `<br>${esc(`Se redujo de ${Math.round(cut).toLocaleString('es-PE')} triángulos para que cargue rápido.`)}` : '');
+    // lote W · versión liviana (solo si hay algo que aligerar)
+    const wb = $o('#e3W'); wb.hidden = !has || !!S.busy;
+    const light = (H.tris || 0) <= E3_LIGHT.tris * 1.1 && kb <= 1300;
+    const lb = $o('#e3Lite'); lb.disabled = light || !!S.lite; lb.title = light || S.lite ? 'Ya es liviano.' : 'Menos triángulos y texturas más chicas: casi el mismo aspecto, mucho menos espacio';
   }
   function afterLoad(reset) {
     S.fl = set3dFloors(S.t, S.zup);
@@ -351,12 +404,16 @@ function openSet3dImporter(opts, done) {
     if (reset) floorAt(.6);   // al abrir: solo un ajuste fino del piso detectado (no la mesa del centro)
     paint(); draw();
   }
-  async function load(file) {
-    if (!file) return;
+  /* files: el modelo y, si se eligen junto con él, su .mtl y sus texturas */
+  async function load(files) {
+    files = [].concat(files || []).filter(Boolean);
+    if (!files.length) return;
+    const file = m3Main(files);
+    if (!file) { toast('Elige el archivo del modelo: .glb, .kmz, .dae, .obj, .gltf o .fbx (con su .mtl y sus texturas, si las tiene).', 6000); return; }
     S.busy = 'Leyendo el modelo…'; paint();
     let R0 = null;
     try {
-      R0 = await m3Read(file);
+      R0 = await m3Read(file, files.filter(f => f !== file));
       const st = m3Stats(R0.root);
       S.busy = st.tris > M3_TRIS.set ? `Aligerando ${st.tris.toLocaleString('es-PE')} triángulos…` : 'Preparando el modelo…'; paint();
       await new Promise(r => setTimeout(r, 30));
@@ -370,7 +427,7 @@ function openSet3dImporter(opts, done) {
     } catch (e) { S.busy = ''; paint(); toast(String((e && e.message) || e), 7000); }
     finally { if (R0) R0.root.traverse(o => { if (o.geometry) o.geometry.dispose(); for (const m of [].concat(o.material || [])) if (m) { if (m.map) m.map.dispose(); m.dispose(); } }); }
   }
-  const pick = () => { const fi = document.createElement('input'); fi.type = 'file'; fi.accept = M3_FILES; fi.onchange = () => load(fi.files[0]); fi.click(); };
+  const pick = () => { const fi = document.createElement('input'); fi.type = 'file'; fi.accept = M3_SET_FILES; fi.multiple = true; fi.onchange = () => load([...fi.files]); fi.click(); };
   // ---------- guardar ----------
   /* la planta guardada: la vista desde arriba que cubre justo el modelo (hasta 1600 px por lado y 1 cm por píxel) */
   function renderPic() {
@@ -383,7 +440,7 @@ function openSet3dImporter(opts, done) {
     R.setPixelRatio(1); R.setSize(W, H, false); R.render(scene, camTop);
     const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(cv, 0, 0);
     R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); S.W = 0; draw();
-    return { url: imgUrl(c, { fixed: true }), b: [box.min.x - S.ax, box.min.z - S.az, box.max.x - S.ax, box.max.z - S.az].map(v => Math.round(v * 1000) / 1000), h: Math.round(box.max.y * 100) / 100 };
+    return { url: imgUrl(c, { fixed: true }), b: [box.min.x - S.ax, box.min.z - S.az, box.max.x - S.ax, box.max.z - S.az].map(v => Math.round(v * 1000) / 1000), h: Math.round(box.max.y * 100) / 100, dn: Math.round(Math.max(0, -box.min.y) * 100) / 100 };
   }
   async function save() {
     if (!S.t || S.busy) return;
@@ -391,12 +448,15 @@ function openSet3dImporter(opts, done) {
     const d = {
       id, n: ($o('#e3Name').value || '').trim().slice(0, 80) || 'Escenario', loc: opts.loc || (ed && ed.loc) || '', v: Date.now(),
       u: S.u, sc: sc(), zup: S.zup || undefined, rot: S.rot, flr: +S.flr.toFixed(5), mx: +S.mx.toFixed(5), mz: +S.mz.toFixed(5),
-      fl: +(S.flr * sc()).toFixed(4), ax: +S.ax.toFixed(4), az: +S.az.toFixed(4), b: pic.b, h: pic.h, int: S.int || undefined,
+      fl: +(S.flr * sc()).toFixed(4), ax: +S.ax.toFixed(4), az: +S.az.toFixed(4), b: pic.b, h: pic.h, dn: pic.dn, int: S.int || undefined,
       tris: S.t.H.tris, kb: S.pk ? S.pk.kb : (ed && ed.kb) || 0, cut: (S.pk ? S.pk.cut : ed && ed.cut) || undefined, from: (S.pk ? S.pk.cut && Math.round(S.pk.from) : ed && ed.from) || undefined,
     };
     for (const f in d) if (d[f] === undefined) delete d[f];
+    if (ed && ed.esc) d.esc = ed.esc;   // lote W · ajustar no cambia la escala del escenario
     const ok = $o('#e3Ok'); ok.disabled = true; S.busy = 'Guardando…'; paint();
     try {
+      // lote W · la versión liviana reemplaza al modelo guardado: el de antes vuelve con «Deshacer»
+      if (S.lite && ed && S.url0) histNote(`Versión liviana de «${ed.n}»`, { [k]: S.url0 }, typeof UI !== 'undefined' ? UI.tab : '');
       if (S.own) {
         await m3Save(k, S.url);
         // la ventana ya lo abrió: queda como la plantilla de esa clave (no se vuelve a abrir)
@@ -411,6 +471,19 @@ function openSet3dImporter(opts, done) {
     if (opts.loc) { P.locSet3d = P.locSet3d || {}; if (applyLoc) P.locSet3d[opts.loc] = id; else if (P.locSet3d[opts.loc] === id) delete P.locSet3d[opts.loc]; }
     S.saved = true; close();
     if (done) done(id, applyLoc);
+    if (S.lite) toast(`Escenario guardado en su versión liviana: pesaba ${e3KB(S.lite.from)}, ahora ${e3KB(d.kb)}.`, 5000);
+  }
+  /* ---------- lote W · versión liviana ---------- */
+  async function lite() {
+    if (!S.t || S.busy) return;
+    const before = S.pk ? S.pk.kb : (ed && ed.kb) || Math.round((S.url || '').length * .75 / 1024);
+    S.busy = 'Armando la versión liviana…'; paint(); await new Promise(r => setTimeout(r, 30));
+    try {
+      const pk = await e3LightPack(S.t, S.name), t = await m3Parse(pk.url);
+      if (S.own && S.t) m3Dispose(S.t);
+      S.t = t; S.own = true; S.url = pk.url; S.pk = pk; S.changed = true; S.lite = { from: S.lite ? S.lite.from : before };
+      S.busy = ''; afterLoad(false);
+    } catch (e) { console.warn(e); S.busy = ''; paint(); toast('No se pudo armar la versión liviana. Inténtalo de nuevo.', 6000); }
   }
   // ---------- cerrar ----------
   function close() {
@@ -432,6 +505,7 @@ function openSet3dImporter(opts, done) {
     if (e.target.closest('[data-x]')) { req('x'); return; }
     if (e.target.closest('#e3Pick') || e.target.closest('#e3Swap')) { pick(); return; }
     if (e.target.closest('#e3Ok')) { save(); return; }
+    if (e.target.closest('#e3Lite')) { lite(); return; }   // lote W
     const v = e.target.closest('[data-v]'); if (v) { S.view = v.dataset.v; paint(); draw(); return; }
     if (!S.t) return;
     const up = e.target.closest('[data-up]');
@@ -490,7 +564,7 @@ function openSet3dImporter(opts, done) {
   // soltar un archivo encima
   wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
   wrap.addEventListener('dragleave', () => wrap.classList.remove('drop'));
-  wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) load(f); });
+  wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); if (e.dataTransfer.files && e.dataTransfer.files.length) load([...e.dataTransfer.files]); });
   // ---------- abrir ----------
   paint();
   if (ed) {
@@ -498,7 +572,7 @@ function openSet3dImporter(opts, done) {
     m3TplWait(m3Key('s', ed.id)).then(t => {
       S.busy = '';
       if (!t) { paint(); toast('No se pudo abrir el modelo de este escenario. Vuelve a subir el archivo.', 6000); $o('#e3Drop').hidden = false; return; }
-      S.t = t; S.url = FRAMES[m3Key('s', ed.id)] || ''; afterLoad(false);
+      S.t = t; S.url = S.url0 = FRAMES[m3Key('s', ed.id)] || ''; afterLoad(false);
     });
   }
   return ov;

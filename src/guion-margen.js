@@ -11,7 +11,7 @@
    ============================================================ */
 const MN_GUT = 13.5;   // la columna de las notas al costado de la hoja, en «em» de la página (con su separación)
 const MN = { sig: '' };
-const mnOn = () => UI.tab === 'lined' && typeof edFormat === 'function' && edFormat() !== 'av';
+const mnOn = () => !!P && UI.tab === 'lined' && typeof edFormat === 'function' && edFormat() !== 'av';   // (lote AE) sin proyecto abierto (en Inicio), no
 const mnNotes = () => typeof noteRoots === 'function' && P && P.notes ? noteRoots().filter(n => n.on && n.on.t === 'txt' && !n.done) : [];
 const mnCanMove = n => typeof canWriteNotes === 'function' && canWriteNotes() && (noteMine(n) || !SHARE);
 function mnDate(iso) {
@@ -171,6 +171,7 @@ function mnLayout() {
 function mnSync() {
   if (!mnOn() || !$('#pages')) return;
   if (mnSigOf() !== MN.sig) { refreshPages(); fitPages(); }
+  else if (typeof anoSync === 'function') anoSync();   // las anotaciones a mano (guion-anotar.js)
 }
 function mnBind(pages) {
   pages.addEventListener('click', e => {

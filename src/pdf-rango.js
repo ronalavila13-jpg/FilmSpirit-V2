@@ -83,7 +83,9 @@ const selTag = txt => rangeParts(txt).map(p => p.join('-')).join('_').replace(/[
 
 /* la ventana «Elegir…» de un PDF del menú Exportar */
 function pdfRangeDialog(item, btn) {
-  const { kind, opts } = item.pdf, unit = pdfUnitOf(kind), script = pdfIsScript(kind);
+  const { kind, opts } = item.pdf, script = pdfIsScript(kind);
+  // (lote AH) «Esta hoja» de una hoja libre: no hay jornadas que elegir (solo páginas)
+  const freeCall = kind === 'call' && !(opts && opts.all) && typeof callIsFree === 'function' && callIsFree(callRef()), unit = freeCall ? '' : pdfUnitOf(kind);
   const mem = ls.get('pdfSel:' + kind, null) || {};
   const nSc = D.sc.scenes.length;
   const days = unit === 'day' ? (kind === 'call' && typeof callDays === 'function' ? callDays().days : scheduleDays(P, D.sc).days) : [];
@@ -96,7 +98,7 @@ function pdfRangeDialog(item, btn) {
   const m = modal({
     title: 'Exportar · ' + item.label.replace(/\s*\(PDF\)…?\s*$/, ''),
     body: `<div class="rg">
-      ${opt('all', kind === 'call' ? (opts && opts.all === false ? `Esta jornada (${(UI.callDay || 0) + 1})` : 'Todas las jornadas') : 'Todo el documento')}
+      ${opt('all', kind === 'call' ? (opts && opts.all === false ? (typeof callRangeLabel === 'function' ? callRangeLabel() : `Esta jornada (${(UI.callDay || 0) + 1})`) : 'Todas las jornadas') : 'Todo el documento')}
       ${unit === 'sc' && nSc ? opt('sc', 'Escenas', field('sc', (D.sc.eps || []).length ? 'Ej.: 101, 102-3-102-9, 103-4' : 'Ej.: 1-5, 8, 12A', `De la ${esc(D.sc.scenes[0].key)} a la ${esc(D.sc.scenes[nSc - 1].key)}. Separa con comas; «4-9» es de la 4 a la 9 (con 4A, 5A…).`, curSc ? `<button type="button" class="btn sm" data-q="${esc(curSc)}">Esta escena (${esc(curSc)})</button>` : '')) : ''}
       ${unit === 'day' && days.length ? opt('day', 'Jornadas', field('day', 'Ej.: 1-3, 5', `De la 1 a la ${days.length}.`, curDay != null ? `<button type="button" class="btn sm" data-q="${curDay + 1}">Esta jornada (${curDay + 1})</button>` : '')) : ''}
       ${opt('pg', 'Páginas', field('pg', 'Ej.: 2-4, 7', script ? `Las páginas del guion, con su número (de la ${esc(firstLab)} a la ${esc(lastLab)}), sin la carátula.` : 'Las páginas del documento completo; cada una conserva su número.'))}

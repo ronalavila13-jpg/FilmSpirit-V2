@@ -10,9 +10,11 @@
      Solo se guarda lo que cambió.
    · Lo de cada persona, en su pantalla (ls «screen» y «theme»): el modo (claro u oscuro), el color de las etapas,
      la letra, las barras y el grosor de las líneas. No cambia el proyecto.
-   · El panel «Apariencia» (en el «⋯» de las pestañas y en la leyenda) tiene las dos cosas separadas: «Tu pantalla»
-     y «Colores del proyecto» (las paletas, color por color y «Mis paletas», guardadas en la cuenta de la persona o,
-     sin cuenta, en este navegador o esta computadora). Una paleta no toca la pantalla de nadie.
+   · El panel «Personalización» (antes «Apariencia»: se abre con el botón de la barra de pestañas, en el teléfono desde
+     el menú de arriba, y desde la leyenda) tiene las dos cosas separadas: «Tu pantalla» (el modo, las pestañas
+     visibles, el color de las etapas, la letra, las barras y las líneas) y «Colores del proyecto» (las paletas, color
+     por color y «Mis paletas», guardadas en la cuenta de la persona o, sin cuenta, en este navegador o esta
+     computadora). Una paleta no toca la pantalla de nadie.
    ============================================================ */
 const LG_HEX = /^#[0-9A-Fa-f]{6}$/;
 const lgHexOk = v => typeof v === 'string' && LG_HEX.test(v);
@@ -20,8 +22,12 @@ const lgHexOk = v => typeof v === 'string' && LG_HEX.test(v);
    antes quedan en el tema «Original» */
 const LG = {
   plan: {
-    d: ['Día', '#FFE9A8', 'Las escenas de día: en el plan, la hoja de llamado, la hoja de script y el guion técnico.'],
-    n: ['Noche', '#C9D8F5', 'Las escenas de noche: en el plan, la hoja de llamado, la hoja de script y el guion técnico.'],
+    d: ['Día', '#FFE9A8', 'Las escenas de día: en la hoja de script y el guion técnico. En el plan de rodaje y la hoja de llamado, la tira de exterior de día.'],
+    n: ['Noche', '#C9D8F5', 'Las escenas de noche: en la hoja de script y el guion técnico. En el plan de rodaje y la hoja de llamado, la tira de interior de noche.'],
+    // (lote U) las tiras estándar del plan de rodaje: interior de día blanca, exterior de noche verde, amanecer y atardecer rosa
+    di: ['Día interior', '#FFFFFF', 'La tira de interior de día en el plan de rodaje y la hoja de llamado.'],
+    ne: ['Noche exterior', '#CFE7C6', 'La tira de exterior de noche en el plan de rodaje y la hoja de llamado.'],
+    dd: ['Amanecer o atardecer', '#F8CFC4', 'La tira de amanecer y atardecer en el plan de rodaje y la hoja de llamado.'],
     brk: ['Jornada y cierre', '#3A3A3A', 'La barra de cada jornada y su cierre.'],
     ev: ['Evento', '#EFEDEA', 'Traslados, comidas, ensayos y lo demás con hora.'],
   },
@@ -151,7 +157,7 @@ function lgCan(k) {
   }
   return true;
 }
-const LG_WHO = { plan: 'el stripboard', cal: 'el calendario', call: 'la hoja de llamado', cat: 'todo el desglose', tab: 'el guion' };
+const LG_WHO = { plan: 'el plan de rodaje', cal: 'el calendario', call: 'la hoja de llamado', cat: 'todo el desglose', tab: 'el guion' };
 
 /* ---------- cambiar (pasa por el deshacer, se guarda y se repinta) ---------- */
 function lgDo(label, fn) {
@@ -262,7 +268,7 @@ function lookApply() {
   for (const b of SHEET) { const cc = P.catCol && P.catCol[b.cats[0]]; b.color = lgG(lgHexOk(cc) ? lgMix(cc, '#FFFFFF', .84) : SHEET_COL0[b.id]); }
   // monocromo: las categorías (y lo demás) en grises se distinguen también por el trazo
   R.toggleAttribute('data-mono', lgMono());
-  lookRepaint();   // el panel Apariencia, si está abierto
+  lookRepaint();   // el panel Personalización, si está abierto
 }
 
 /* ---------- en tu pantalla (y en los PDF que exportas): tipografía, barras y líneas ----------
@@ -330,13 +336,18 @@ var LOOK_READY = true;   // ui.js (applyLook) vuelve a aplicar las letras al cam
 screenApply();
 
 /* ---------- la leyenda arriba de cada tabla ---------- */
+// (lote U) las tiras del plan de rodaje, en su orden y con su nombre ahí
+const LG_STRIPS = ['di', 'd', 'n', 'ne', 'dd'];
+const LG_STRIP_NAME = { d: 'Día exterior', n: 'Noche interior' };
 /* qué colores muestra la leyenda de cada pestaña: [legend, key, nombre, color, para qué] */
 function lgItems(tab) {
   const fixed = (k, keys) => keys.map(key => ({ k, key, name: LG[k][key][0], c: lgCol(k, key), hint: LG[k][key][2], fixed: true }));
   const hl = k => lgHl(k).map(h => ({ k, key: 'h:' + h.id, name: h.name, c: h.c, hint: 'Un color tuyo: elígelo al resaltar.', own: true }));
-  if (tab === 'plan') return { add: 'plan', list: [...fixed('plan', ['d', 'n', 'brk', 'ev']), ...hl('plan')] };
-  if (tab === 'call') return { list: [...fixed('plan', ['d', 'n', 'brk', 'ev']), ...hl('plan').filter(x => lgHlUses('plan', x.key.slice(2))), ...fixed('call', ['note'])] };
-  if (tab === 'sup') return { list: fixed('plan', ['d', 'n']) };
+  // (lote U) el plan y la hoja de llamado: las cinco tiras estándar («Día» es la de exterior y «Noche», la de interior)
+  const strips = () => fixed('plan', LG_STRIPS).map(x => ({ ...x, name: LG_STRIP_NAME[x.key] || x.name }));
+  if (tab === 'plan') return { add: 'plan', list: [...strips(), ...fixed('plan', ['brk', 'ev']), ...hl('plan')] };
+  if (tab === 'call') return { list: [...strips(), ...fixed('plan', ['brk', 'ev']), ...hl('plan').filter(x => lgHlUses('plan', x.key.slice(2))), ...fixed('call', ['note'])] };
+  if (tab === 'sup') return { list: strips() };   // (lote AD) la hoja de script también lleva el número de cada escena sobre su tira
   if (tab === 'cal') return { add: 'cal', list: [...fixed('cal', ['pre', 'rod', 'post', 'otro']), ...hl('cal')] };
   if (tab === 'breakdown' || tab === 'lined') {
     const used = new Set(Object.values(P.elements || {}).map(e => e && e.cat));
@@ -566,7 +577,7 @@ const lgAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + (EN ?
 function lgWhoCanTxt() {
   if (P && UI.readOnly) return 'Solo puedes mirarlos: el proyecto está abierto solo para mirar.';
   const who = lgWhoCan();
-  if (!who.length) return 'Solo puedes mirarlos: los cambia quien edita el stripboard, el calendario, la hoja de llamado o el desglose.';
+  if (!who.length) return 'Solo puedes mirarlos: los cambia quien edita el plan de rodaje, el calendario, la hoja de llamado o el desglose.';
   return `Solo puedes mirarlos: los cambia ${lgAnd(who.length > 4 ? [...who.slice(0, 3), `${who.length - 3} ${EN ? 'more' : 'más'}`] : who)}.`;
 }
 /* aplicar una paleta: los colores en lo que se puede editar del proyecto. No toca la pantalla (ni el modo oscuro).
@@ -595,8 +606,9 @@ function themeApply(th) {
   lookPanelPaint();
 }
 
-/* ---------- «Apariencia…»: una columna a la derecha, sin tapar el programa ---------- */
-/* dos pestañas: «Tu pantalla» (solo para ti) y «Colores del proyecto» (para todo el equipo y los PDF) */
+/* ---------- «Personalización» (antes «Apariencia…»): una columna a la derecha, sin tapar el programa ----------
+   (en el teléfono, una hoja abajo, sobre la pantalla). Dos pestañas: «Tu pantalla» (solo para ti) y «Colores del
+   proyecto» (para todo el equipo y los PDF) */
 const LK = { tab: ls.get('lookTab', 'me') === 'proj' ? 'proj' : 'me', naming: false };
 const LK_ICO = {
   me: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
@@ -606,7 +618,7 @@ const LK_ICO = {
 /* el color de las etapas, en muestra: Vivos (de color entero) y Suaves (tonos claros) */
 const LK_SEC = { solido: ['#222222', '#CE0C1C', '#6B6259', '#FFBE0B', '#E8730C'], pastel: ['#E3DFD9', '#F4CACD', '#E2E0DD', '#FFF1C9', '#FCE3CB'], neutro: ['#2A2A2A', '#6E6E6E', '#BDBDBD', '#E6E6E6', '#F5F5F5'] };
 /* color por color: los nombres cortos de las entradas fijas */
-const LK_CC = [['Stripboard', [['plan', 'd', 'Día'], ['plan', 'n', 'Noche'], ['plan', 'brk', 'Jornada'], ['plan', 'ev', 'Evento']]],
+const LK_CC = [['Plan de rodaje', [['plan', 'di', 'Día interior'], ['plan', 'd', 'Día'], ['plan', 'n', 'Noche'], ['plan', 'ne', 'Noche exterior'], ['plan', 'dd', 'Amanecer o atardecer'], ['plan', 'brk', 'Jornada'], ['plan', 'ev', 'Evento']]],
   ['Calendario', [['cal', 'pre', 'Preproducción'], ['cal', 'rod', 'Rodaje'], ['cal', 'post', 'Posproducción'], ['cal', 'otro', 'Otras']]],
   ['Hoja de llamado', [['call', 'note', 'Nota para el equipo']]]];
 function lookPanel(tab) {
@@ -614,19 +626,26 @@ function lookPanel(tab) {
   let pn = $('#lookPanel');
   if (!pn) {
     pn = document.createElement('aside'); pn.id = 'lookPanel'; pn.className = 'np lk';
-    pn.setAttribute('aria-label', 'Apariencia');
+    pn.setAttribute('aria-label', 'Personalización');
     document.body.appendChild(pn);
     pn.addEventListener('click', lookClick);
+    pn.addEventListener('change', e => { const c = e.target.closest('[data-tabv]'); if (c) tabsPickSet(c.dataset.tabv, c.checked); });   // barra.js
     pn.addEventListener('keydown', e => { const n = e.target.closest('.lk-new input'); if (n && e.key === 'Enter') { e.preventDefault(); lookSaveNew(n.value); } if (n && e.key === 'Escape') { e.preventDefault(); LK.naming = false; lookPanelPaint(); return; } if (e.key === 'Escape' && !$('.pop')) lookClose(); });
   }
   if ($('#notesPanel.open')) npClose();
+  if (typeof histPanelClose === 'function') histPanelClose();   // (lote AH) un panel a la vez
+  closePop();
+  if (!$('.lk-scrim')) { const s = document.createElement('div'); s.className = 'lk-scrim'; s.onclick = lookClose; pn.before(s); }   // el velo de atrás, en el teléfono
   pn.classList.add('open'); document.body.classList.add('np-on');
+  const tc = $('#tabsCfg'); if (tc) tc.setAttribute('aria-expanded', 'true');
   Object.keys(FONT_URL).forEach(fontLoad);   // para ver cada tipografía en su botón
   dispatchEvent(new Event('resize'));
   lookPanelPaint();
   themesLoad().then(lookPanelPaint);
 }
-function lookClose() { const pn = $('#lookPanel'); if (!pn) return; pn.classList.remove('open'); if (!$('#notesPanel.open')) document.body.classList.remove('np-on'); dispatchEvent(new Event('resize')); }
+function lookClose() { const pn = $('#lookPanel'); if (!pn) return; pn.classList.remove('open'); $$('.lk-scrim').forEach(s => s.remove()); if (!$('#notesPanel.open')) document.body.classList.remove('np-on'); const tc = $('#tabsCfg'); if (tc) tc.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); }
+/* el botón de la barra de pestañas: abre el panel en esa pestaña; si ya está abierto en ella, lo cierra */
+function lookToggle(tab) { const pn = $('#lookPanel'); if (pn && pn.classList.contains('open') && LK.tab === tab) lookClose(); else lookPanel(tab); }
 /* con el panel abierto, lo que cambia en el proyecto (deshacer, un compañero) se ve también en él */
 function lookRepaint() {
   const pn = $('#lookPanel'); if (!pn || !pn.classList.contains('open')) return;
@@ -634,10 +653,15 @@ function lookRepaint() {
   cancelAnimationFrame(LK.raf); LK.raf = requestAnimationFrame(lookPanelPaint);
 }
 function lookPanelPaint() {
-  const pn = $('#lookPanel'); if (!pn || !pn.classList.contains('open') || !P) return;
-  const tabs = `<div class="lk-tabs" role="tablist" aria-label="Qué cambiar">${[['me', 'Tu pantalla'], ['proj', 'Colores del proyecto']].map(([k, n]) => `<button type="button" role="tab" data-lkt="${k}" aria-selected="${ea(LK.tab === k)}">${n}</button>`).join('')}</div>`;
-  pn.innerHTML = `<div class="np-head"><b class="lk-title">Apariencia</b><button class="nf-ic" data-lk="close" aria-label="Cerrar">${ICO.close}</button></div>
-  <div class="np-body lk-body">${tabs}${LK.tab === 'proj' ? lookProjHTML() : lookMeHTML()}</div>`;
+  const pn = $('#lookPanel'); if (!pn || !pn.classList.contains('open')) return;
+  // sin un proyecto abierto (en Inicio, desde el menú del teléfono) solo «Tu pantalla»: los colores son de un proyecto
+  const proj = typeof P !== 'undefined' && !!P && !document.body.classList.contains('home'), tab = proj ? LK.tab : 'me';
+  const body = $('.np-body', pn), top = body ? body.scrollTop : 0, same = pn.dataset.tab === tab;
+  const tabs = proj ? `<div class="lk-tabs" role="tablist" aria-label="Qué cambiar">${[['me', 'Tu pantalla'], ['proj', 'Colores del proyecto']].map(([k, n]) => `<button type="button" role="tab" data-lkt="${k}" aria-selected="${ea(tab === k)}">${n}</button>`).join('')}</div>` : '';
+  pn.innerHTML = `<div class="np-head"><b class="lk-title">Personalización</b><button class="nf-ic" data-lk="close" aria-label="Cerrar">${ICO.close}</button></div>
+  <div class="np-body lk-body">${tabs}${tab === 'proj' ? lookProjHTML() : lookMeHTML()}</div>`;
+  pn.dataset.tab = tab;
+  if (same && top) $('.np-body', pn).scrollTop = top;   // al cambiar algo, el panel no vuelve arriba
   if (LK.naming) setTimeout(() => { const i = $('.lk-new input', pn); if (i) i.focus(); }, 20);
 }
 /* «Tu pantalla»: solo para esta persona, en este navegador o esta computadora */
@@ -648,6 +672,8 @@ function lookMeHTML() {
   const where = typeof TARGET !== 'undefined' && TARGET === 'desktop' ? 'en esta computadora' : 'en este navegador';
   return `<p class="lk-scope me">${LK_ICO.me}<span>Solo para ti, ${where}. Nadie más lo ve y el proyecto no cambia.</span></p>
     <section><h5>Modo</h5>${seg('theme', [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']], mode, 'mode')}</section>
+    ${$('#tabs .stg') ? `<section class="lk-tabsv"><h5>Pestañas visibles</h5>${tabsPickHTML()}
+      <p class="hint">Ocultar una pestaña no borra nada: vuelve a marcarla para verla.</p></section>` : ''}
     <section><h5>Color de las etapas</h5><div class="lk-cards">${card('solido', 'Vivos', 'Barras de color entero')}${card('pastel', 'Suaves', 'Tonos claros')}${card('neutro', 'Grafito', 'Sin color, solo grises')}</div></section>
     <section><h5>Letra</h5>
       <div class="lk-fonts" role="group" aria-label="Letra, de la más formal a la más informal">${FONTS.map(([v, n, ui]) => `<button type="button" data-scr="font" data-v="${ea(v)}" aria-pressed="${ea(S.font === v)}" style="${ui ? `font-family:${ea(ui)}` : ''}"><b>Aa</b><span>${esc(n)}</span></button>`).join('')}</div></section>
@@ -680,6 +706,19 @@ function lookProjHTML() {
       <p class="hint">Para usarla en otro proyecto.</p></section>
     ${can ? '<button type="button" class="linkbtn lk-reset" data-lk="reset-pal">Volver a la paleta Estándar</button>' : ''}`;
 }
+/* «Volver a lo de siempre (solo tu pantalla)»: el modo, las pestañas visibles (todas), el color de las etapas, la letra,
+   las barras y las líneas. No es del proyecto (no pasa por su historial): el aviso trae su propio «Deshacer» */
+function lookResetMe() {
+  const was = { screen: ls.get('screen', null), theme: ls.get('theme', 'auto'), hidden: ls.get('tabsHidden', []) };
+  const put = (screen, theme, hidden) => {
+    ls.set('screen', screen); ls.set('theme', theme); ls.set('tabsHidden', hidden);
+    screenApply(); applyLook();
+    if (typeof P !== 'undefined' && P) { sharePaintTabs(); render(); }
+    lookPanelPaint();
+  };
+  put({ ...SCREEN0, v: 2 }, 'auto', []);
+  toast('Tu pantalla volvió a lo de siempre. El proyecto no cambió.', 6500, { label: 'Deshacer', fn: () => put(was.screen || { ...SCREEN0, v: 2 }, was.theme, was.hidden) });
+}
 async function lookSaveNew(name) {
   name = String(name || '').trim(); if (!name) return;
   LK.naming = false;
@@ -696,7 +735,7 @@ async function lookClick(e) {
   if (b.dataset.lkt) { LK.tab = b.dataset.lkt; ls.set('lookTab', LK.tab); LK.naming = false; lookPanelPaint(); const t = $(`#lookPanel [data-lkt="${LK.tab}"]`); if (t) t.focus(); return; }
   if (b.dataset.lk === 'name') { LK.naming = true; lookPanelPaint(); return; }
   if (b.dataset.lk === 'save') { const i = $('#lookPanel .lk-new input'); lookSaveNew(i && i.value); return; }
-  if (b.dataset.lk === 'reset-me') { ls.set('screen', { ...SCREEN0, v: 2 }); ls.set('theme', 'auto'); screenApply(); applyLook(); render(); lookPanelPaint(); toast('Tu pantalla volvió a lo de siempre. El proyecto no cambió.'); return; }
+  if (b.dataset.lk === 'reset-me') { lookResetMe(); return; }
   if (b.dataset.lk === 'reset-pal') { themeApply(TH_BUILT[0]); return; }
   if (b.dataset.lk === 'cats') {   // la leyenda del desglose, abierta: ahí se toca cada categoría
     const PBx = typeof PB !== 'undefined' ? PB : null; if (PBx) { PBx.lgd.breakdown = true; ls.set('lgdOpen', PBx.lgd); }
@@ -734,8 +773,8 @@ function lgDocItems(kind, used) {
   const L = [];
   const add = (name, c) => { if (c && !L.some(x => x[0] === name)) L.push([name, c]); };
   if (kind === 'plan' || kind === 'call' || kind === 'sup' || kind === 'shotlist') {
-    if (used.d) add('Día', lgCol('plan', 'd'));
-    if (used.n) add('Noche', lgCol('plan', 'n'));
+    if (used.strips && (kind === 'plan' || kind === 'call')) for (const k of LG_STRIPS) { if (used.strips.has(k)) add(LG_STRIP_NAME[k] || LG.plan[k][0], lgCol('plan', k)); }   // (lote U) el plan y la hoja de llamado
+    else { if (used.d) add('Día', lgCol('plan', 'd')); if (used.n) add('Noche', lgCol('plan', 'n')); }
     if (kind === 'plan' || kind === 'call') add(LG.plan.brk[0], lgCol('plan', 'brk'));
     if (used.ev) add('Evento', lgCol('plan', 'ev'));
     for (const id of used.hl || []) { const h = lgHl('plan').find(x => x.id === id); if (h) add(h.name, h.c); }

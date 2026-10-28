@@ -13,34 +13,115 @@ const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB'
 const lamEditable = box => !UI.readOnly && (typeof canEditArea !== 'function' || canEditArea(box));
 const CAM_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.2h2.6l1.2-1.8h4.4l1.2 1.8H14v7.6H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8.9" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
 /* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP de unos 170 kB (imagenes.js);
-   un PNG transparente queda sobre blanco, como en el papel */
-async function compressPhoto(file) {
-  const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }));
+   un PNG transparente queda sobre blanco, como en el papel. top: otro tope (la hoja de script: 200 kB) */
+async function compressPhoto(file, top) {
+  const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }), top ? { top } : {});
   return { ...r, before: file.size, after: imgBytes(r.url) };
 }
-async function addPhotos(e, files) {
-  if (!proGate('photos')) return 0;
+/* ---------- fotos que se ven al instante ----------
+   Antes cada foto se subía y recién entonces aparecía (una por una: con diez fotos y poca señal, un buen rato sin ver
+   nada). Ahora cada una aparece apenas se comprime y se sube detrás, de a dos. Si el servidor no la acepta (plan,
+   espacio, permisos) se quita y se avisa una vez. Cambiar de proyecto espera a que terminen (settleSave) y cerrar la
+   pestaña avisa si falta alguna (unsavedWork). Los demás del equipo la ven cuando termina de subir (frameHas).
+   Con el servidor, cada foto queda también en la cola sin conexión de este equipo (OFFLINE.putFrame) hasta que el
+   servidor la confirma: si la pestaña se cierra o el teléfono la mata a mitad de la subida, se sube al volver a abrir
+   la app (share-api.js · OFFLINE.flushFrames). Borrar una foto que todavía sube la saca de la cola o la borra al
+   terminar de subir (photoCancel). */
+const PHOTO_UP = new Set();
+const PHOTO_PEND = new Map();   // clave en FRAMES → la subida pendiente ({ cancel })
+const photoErrText = err => err && err.code === 'quota_exceeded' ? 'se llenó el espacio de la página.' : /quota/i.test(String(err && err.name)) ? 'no queda espacio en este navegador.'
+  : err && err.message && err.code !== 'offline' ? err.message : 'inténtalo de nuevo.';
+/* se borró una foto que todavía no termina de subir: true si estaba pendiente (photosAdd la borra en el servidor) */
+function photoCancel(k) { const it = PHOTO_PEND.get(k); if (!it) return false; it.cancel = true; return true; }
+/* o: { keyOf(id) → clave en FRAMES, add({ id, w, h }) y drop(id) en los datos, paint() para volver a pintar, top (el
+   tope de cada foto, si no es el de siempre) }.
+   Devuelve cuántas se agregaron (las subidas siguen en PHOTO_UP) */
+async function photosAdd(files, o) {
+  if (!proGate('photos')) return { n: 0 };
   const list = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
-  if (!list.length) { toast('Elige fotos JPG, PNG o WebP.'); return 0; }
-  let before = 0, after = 0, n = 0;
-  for (const f of list) {
-    let r;
-    try { r = await compressPhoto(f); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
-    const id = uid('f'), k = phKey(e.id, id);
-    try { await Store.saveFrame(P.id, k, r.url); }
-    catch (err) { toast('No se pudo guardar la foto: ' + (err && err.code === 'quota_exceeded' ? 'se llenó el espacio de la página.' : /quota/i.test(String(err && err.name)) ? 'no queda espacio en este navegador.' : 'inténtalo de nuevo.'), 4200); break; }
-    FRAMES[k] = r.url;
-    e.ref = { ...refOf(e), ph: [...(refOf(e).ph || []), { id, w: r.w, h: r.h }] };
-    before += r.before; after += r.after; n++;
+  if (!list.length) { toast('Elige fotos JPG, PNG o WebP.'); return { n: 0 }; }
+  const Px = P, queue = [];
+  let before = 0, after = 0, n = 0, stop = false, bad = 0, why = '', running = 0, feeding = true, wake = null;
+  // con el servidor: la foto espera en la cola sin conexión hasta que el servidor la confirma
+  const keep = () => Store.kind === 'api' && Px._shared && typeof OFFLINE !== 'undefined';
+  const put = (k, url) => P === Px ? Store.saveFrame(Px.id, k, url) : Store.kind === 'api' ? APITEAM.saveFrame(Px.id, k, url) : Store.saveFrame(Px.id, k, url);
+  const fail = (k, id) => {
+    bad++; delete FRAMES[k]; if (typeof IMGS !== 'undefined') IMGS.delete(k);
+    try { o.drop(id); } catch (e) { }
+    if (P === Px) { changed('data'); if (o.paint) o.paint(); }
+  };
+  const send = async it => {
+    const kept = keep(), qid = Px.id + '|' + it.k;
+    try {
+      if (kept) await OFFLINE.putFrame(Px.id, it.k, it.url);
+      // el proyecto ya no es el abierto (se recargó o se abrió otro sin pasar por settleSave): se sube a su proyecto
+      await put(it.k, it.url);
+      if (kept && !OFFLINE.on) await OFFLINE.dropFrame(qid);     // sin conexión, la cola la sube después
+    } catch (err) {
+      if (kept) OFFLINE.dropFrame(qid);
+      if (it.cancel) return;
+      if (!why) why = photoErrText(err);
+      // sin plan, sin espacio o sin permiso: las que faltan tampoco van a entrar
+      if (err && (/quota/i.test(String(err.code || err.name)) || /^(plan_photos|no_area|no_edit|read_only|no_access)$/.test(String(err.code || '')))) stop = true;
+      fail(it.k, it.id);
+    } finally {
+      PHOTO_PEND.delete(it.k);
+      // la borraron mientras subía: ahora sí se borra en el servidor
+      if (it.cancel) put(it.k, null).catch(() => { });
+    }
+  };
+  const done = () => { if (!feeding && !running && !queue.length) wake(); };
+  const pump = () => {
+    while (running < 2 && queue.length) {
+      const it = queue.shift();
+      if (it.cancel) { PHOTO_PEND.delete(it.k); continue; }     // la borraron antes de empezar a subir
+      if (stop) { PHOTO_PEND.delete(it.k); fail(it.k, it.id); continue; }
+      running++;
+      send(it).catch(e => console.warn('fotos:', e)).finally(() => { running--; pump(); done(); });
+    }
+  };
+  const all = new Promise(res => { wake = res; });
+  PHOTO_UP.add(all);
+  all.then(() => {
+    PHOTO_UP.delete(all);
+    if (bad) toast(`${bad === n ? (n === 1 ? 'No se pudo guardar la foto' : 'No se pudieron guardar las fotos') : `${bad} de ${n} fotos no se pudieron guardar`}: ${why}`, 5200);
+  });
+  try {
+    for (const f of list) {
+      let r;
+      try { r = await compressPhoto(f, o.top); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
+      if (P !== Px || stop) break;
+      const id = uid('f'), k = o.keyOf(id);
+      if (o.add({ id, w: r.w, h: r.h }) === false) continue;     // el elemento ya no está
+      FRAMES[k] = r.url;
+      before += r.before; after += r.after; n++;
+      const it = { k, id, url: r.url, cancel: false };
+      PHOTO_PEND.set(k, it); queue.push(it); pump();
+      changed('data'); if (o.paint) o.paint();
+    }
+  } finally {
+    feeding = false; done();
   }
-  if (n) { changed('data'); toast(`${n} ${n === 1 ? 'foto agregada' : 'fotos agregadas'} · ${kb(before)} → ${kb(after)}`, 3600); }
-  return n;
+  return { n, before, after };
+}
+async function addPhotos(e, files, paint) {
+  const eid = e.id, Px = P;
+  // el proyecto abierto (si se recargó con los cambios del equipo, P es otro objeto con el mismo id)
+  const live = () => P && P.id === Px.id ? P : Px;
+  const r = await photosAdd(files, {
+    keyOf: id => phKey(eid, id), paint,
+    add: x => { const el = live().elements[eid]; if (!el) return false; el.ref = { ...refOf(el), ph: [...(refOf(el).ph || []), x] }; },
+    drop: id => { const el = live().elements[eid]; if (el) el.ref = { ...refOf(el), ph: (refOf(el).ph || []).filter(p => p.id !== id) }; },
+  });
+  if (r.n) toast(`${r.n} ${r.n === 1 ? 'foto agregada' : 'fotos agregadas'} · ${kb(r.before)} → ${kb(r.after)}`, 3600);
+  return r.n;
 }
 function delPhoto(e, pid) {
   const k = phKey(e.id, pid);
   histNote('Quitar una foto', FRAMES[k] ? { [k]: FRAMES[k] } : null, 'breakdown');
   delete FRAMES[k];
-  Store.saveFrame(P.id, phKey(e.id, pid), null).catch(() => { });
+  // si todavía se está subiendo, photosAdd la borra en el servidor al terminar (photoCancel)
+  if (!photoCancel(k)) Store.saveFrame(P.id, k, null).catch(() => { });
   e.ref = { ...refOf(e), ph: (refOf(e).ph || []).filter(x => x.id !== pid) };
   changed('data');
 }
@@ -81,7 +162,8 @@ async function openLamina(box, si) {
       }).join('')}</div>` : '<p class="hint">Esta caja no tiene elementos en la escena.</p>'}`;
   };
   paint();
-  const up = async (id, files) => { const e = P.elements[id]; if (!e) return; const n = await addPhotos(e, files); if (n) { paint(); render(); } };
+  // cada foto aparece apenas se comprime (se sube detrás: laminas.js · photosAdd)
+  const up = async (id, files) => { const e = P.elements[id]; if (!e) return; const n = await addPhotos(e, files, () => { if (m.isConnected) paint(); render(); }); if (n && m.isConnected) paint(); };
   m.addEventListener('change', ev => { const f = ev.target.closest('[data-up]'); if (f && f.files.length) up(f.dataset.up, f.files); });
   m.addEventListener('input', ev => {
     const t = ev.target.closest('[data-note]'); if (!t || !ed) return;
@@ -153,11 +235,12 @@ function photoViewer(src, name, opt = {}) {
   show();
   ov.focus({ preventScroll: true });
 }
-/* ---------- PDF: lámina A4 con o sin fotos ---------- */
-/* entries: [{ e, label, scenes }]; dibuja desde «y» y agrega páginas A4 cuando hace falta */
+/* ---------- PDF: lámina con o sin fotos ---------- */
+/* entries: [{ e, label, scenes }]; dibuja desde «y» y agrega páginas cuando hace falta (lote AH: en el papel del
+   documento, A4 o carta; el nombre de cada elemento en su cuadro, con sus escenas a la derecha) */
 function drawLamina(doc, title, sub, entries, photos) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  let y = docHeader(doc, title, sub);
+  let y = docHeader(doc, title, sub, { x0: M });
   if (!entries.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Sin elementos.', M, y + 10); return; }
   if (!photos) {
     doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
@@ -172,28 +255,24 @@ function drawLamina(doc, title, sub, entries, photos) {
     const noteL = note ? doc.splitTextToSize(pdfSafe(note), W - M * 2) : [];
     const rows = Math.ceil(ph.length / cols);
     const need = 18 + noteL.length * 10 + (rows ? rows * (bh + gap) : 14) + 10;
-    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub); }
-    doc.setFont('title', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-    doc.text(pdfSafe(`${x.num || i + 1}. ${x.label}`), M, y + 10);
-    if (x.scenes) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(pdfSafe('Escenas ' + x.scenes), W - M, y + 10, { align: 'right' }); }
-    y += 16;
+    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
+    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6 } });
     if (noteL.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(noteL, M, y + 6); y += noteL.length * 8.5 * doc.getLineHeightFactor() + 2; }
     if (!ph.length) { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin fotos.', M, y + 8); y += 14; }
     ph.forEach((p, j) => {
       const c = j % cols;
       if (c === 0 && j) y += bh + gap;
-      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub); }
+      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
       const url = photoForPdf(phKey(x.e.id, p.id));
       let w = p.w || 4, h = p.h || 3;
       try { if (!p.w) { const pr = doc.getImageProperties(url); w = pr.width; h = pr.height; } } catch (e) { }
       const k = Math.min(bw / w, bh / h), iw = w * k, ih = h * k, x0 = M + c * (bw + gap);
       doc.setFillColor(...PT.soft); doc.rect(x0, y, bw, bh, 'F');
       try { doc.addImage(url, 'JPEG', x0 + (bw - iw) / 2, y + (bh - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; }
-      doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.rect(x0, y, bw, bh);
+      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0, y, bw, bh);
     });
     if (ph.length) y += bh + gap;
-    y += 6;
-    doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.line(M, y - 4, W - M, y - 4);
+    y += 8;
   });
 }
 function sceneEntries(s, boxes) {

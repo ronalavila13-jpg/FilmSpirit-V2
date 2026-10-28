@@ -5,7 +5,7 @@
    ============================================================ */
 'use strict';
 const path = require('node:path');
-const { SECS, SEC_DEPS, PRODUCER_ROLES, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
+const { SECS, SEC_DEPS, PRODUCER_ROLES, seesScriptStage, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
   bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
   GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit } = require(path.join(__dirname, '..', 'areas.js'));
 
@@ -28,6 +28,24 @@ const canEditData = (role, sec) => sec === NOTES || sec === GASTOS ? !role.ro : 
 const NOTE_ID = /^[\w-]{1,40}$/, NOTE_T = /^[a-z]{1,12}$/, NOTE_REF = /^[\w:.~-]{0,100}$/;
 const MAX_NOTES = 3000, MAX_NOTE_TEXT = 4000;
 const cleanText = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, n);
+/* anotación a mano del guion rayado (t «ink», src/guion-anotar.js · inkCleanOn hace lo mismo al abrir un proyecto):
+   trazos de lápiz, marcador, flecha o cuadro de texto, con su color y grosor, en números enteros y con tope */
+const INK_K = ['p', 'm', 'a', 't'], INK_C = ['r', 'b', 'k', 'g', 'o'], INK_MAX_STROKES = 80, INK_MAX_NUMS = 2400;
+function cleanInk(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const st of list.slice(0, INK_MAX_STROKES)) {
+    if (!st || typeof st !== 'object' || !INK_K.includes(st.k) || !Array.isArray(st.d)) continue;
+    const d = st.d.slice(0, INK_MAX_NUMS).map(v => Math.round(+v));
+    if (!d.length || d.length % 2 || d.some(v => !isFinite(v) || Math.abs(v) > 1e5)) continue;
+    if ((st.k === 't' && d.length !== 2) || (st.k === 'a' && d.length !== 4 && d.length !== 6)) continue;
+    const o = { k: st.k, c: INK_C.includes(st.c) ? st.c : 'r', w: [1, 2, 3].includes(st.w) ? st.w : 1, d };
+    if (st.k === 'p' && Array.isArray(st.z) && st.z.length === d.length / 2) o.z = st.z.map(v => Math.min(100, Math.max(0, Math.round(+v) || 0)));
+    if (st.k === 't') { const tx = cleanText(st.tx, 500); if (!tx.trim()) continue; o.tx = tx; }
+    out.push(o);
+  }
+  return out.length ? out : null;
+}
 function cleanOn(on) {
   if (!on || typeof on !== 'object' || !SECS.includes(on.sec) || !NOTE_T.test(String(on.t || '')) || !NOTE_REF.test(String(on.id || ''))) return null;
   const o = { t: on.t, id: String(on.id || ''), sec: on.sec, label: cleanText(on.label, 120).replace(/\s+/g, ' ').trim() };
@@ -46,6 +64,15 @@ function cleanOn(on) {
     if (typeof on.q === 'string') o.q = cleanText(on.q, 80);
     if (typeof on.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(on.d)) o.d = on.d;
     if (on.u === 1 || on.u === true) o.u = 1;
+  }
+  // anotación a mano del guion rayado: el renglón al que va pegada (como la nota al margen) y sus trazos
+  if (o.t === 'ink') {
+    const int = v => typeof v === 'number' && isFinite(v) ? Math.round(Math.min(1e6, Math.max(0, v))) : null;
+    if (int(on.p) != null) o.p = int(on.p);
+    if (int(on.o) != null) o.o = int(on.o);
+    if (typeof on.q === 'string') o.q = cleanText(on.q, 80);
+    const s = cleanInk(on.s); if (!s) return null;
+    o.s = s;
   }
   return o;
 }
@@ -66,17 +93,20 @@ function jsonDepth(str) {
 }
 const canonJ = v => Array.isArray(v) ? '[' + v.map(canonJ).join(',') + ']'
   : v && typeof v === 'object' ? '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canonJ(v[k])).join(',') + '}' : JSON.stringify(v);
-/* lo que una persona ve de las notas: solo las pegadas a pestañas que puede leer */
-function notesView(json, role) {
+/* (lote AD) una nota pegada a la pestaña Historia (o a algo de ella): solo para quien ve la etapa Guion (histHidden) */
+const noteOnHist = on => !!on && (on.tab === 'build' || (on.t === 'tab' && on.id === 'build'));
+/* lo que una persona ve de las notas: solo las pegadas a pestañas que puede leer. hist: sin la etapa Guion (histHidden),
+   tampoco las de Historia */
+function notesView(json, role, hist) {
   const read = readSet(role), out = {};
-  for (const [id, n] of Object.entries(notesOf(json))) if (n && n.on && read.has(n.on.sec)) out[id] = n;
+  for (const [id, n] of Object.entries(notesOf(json))) if (n && n.on && read.has(n.on.sec) && !(hist && noteOnHist(n.on))) out[id] = n;
   return JSON.stringify({ notes: out });
 }
 /* guardar las notas de una persona sobre las vigentes: lo que no ve queda igual; de lo que ve, solo cambia lo
    suyo y el «resuelta». Devuelve el JSON completo que queda guardado. */
-function notesMerge(curJson, val, user, role, t) {
+function notesMerge(curJson, val, user, role, t, hist) {
   const cur = notesOf(curJson), inc = notesOf(val), read = readSet(role), out = {};
-  const vis = n => n && n.on && read.has(n.on.sec);
+  const vis = n => n && n.on && read.has(n.on.sec) && !(hist && noteOnHist(n.on));
   for (const [id, n] of Object.entries(cur)) {
     if (!vis(n)) { out[id] = n; continue; }
     const nw = inc[id];
@@ -97,7 +127,7 @@ function notesMerge(curJson, val, user, role, t) {
   for (const [id, nw] of Object.entries(inc)) {
     if (id in cur || count >= MAX_NOTES || !NOTE_ID.test(id) || !nw || typeof nw !== 'object') continue;
     const on = cleanOn(nw.on), text = cleanText(nw.text, MAX_NOTE_TEXT);
-    if (!on || !read.has(on.sec) || !text.trim()) continue;
+    if (!on || !read.has(on.sec) || (hist && noteOnHist(on)) || !text.trim()) continue;
     const ts = typeof nw.ts === 'number' && Math.abs(nw.ts - t) < 600e3 ? Math.round(nw.ts) : t;
     const n = { id, on, by: user.id, name: user.name, ts, text };
     if (nw.re != null) { if (!NOTE_ID.test(String(nw.re))) continue; n.re = String(nw.re); }
@@ -134,8 +164,29 @@ const activeLimit = (plan, kind) => { const L = PLANS[plan]; return kind === 'gu
 const peopleLimit = (plan, kind) => kind === 'guion' ? PLANS[plan].writers : PLANS[plan].members;
 // en un guion solo existen el guion y las notas
 const SCRIPT_SECS = ['guion', 'notas'];
+/* (lote AD) la etapa Guion (Historia y Guion) de un proyecto de producción la ven el cargo «Guion», producción y quien
+   lo administra (areas.js · seesScriptStage). A los demás no se les envía el material de Historia (build, dentro de la
+   sección del guion) ni las notas pegadas a esa pestaña; cuando guardan el guion (los datos del proyecto, o el texto si
+   producción los autorizó a revisar el guion cerrado), lo de Historia queda como estaba. En un guion no corre */
+const histHidden = (p, role) => kindOf(p) !== 'guion' && !!role && !seesScriptStage(role);
+const parseObj = s => { try { const v = typeof s === 'string' ? JSON.parse(s) : s; return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch (e) { return null; } };
+/* la sección del guion como la recibe quien no ve Historia (si no tiene «build», tal cual) */
+function guionView(json, hide) {
+  if (!hide || typeof json !== 'string' || !json.includes('"build"')) return json;
+  const v = parseObj(json); if (!v || !('build' in v)) return json;
+  delete v.build;
+  return JSON.stringify(v);
+}
+/* lo que guarda quien no ve Historia: lo suyo, con la Historia vigente (lo que mande en «build» no cuenta) */
+function guionKeepHist(curJson, val) {
+  const cur = parseObj(curJson), out = { ...val };
+  delete out.build;
+  if (cur && cur.build !== undefined) out.build = cur.build;
+  return out;
+}
 
 module.exports = {
   jsonDepth, MAX_DEPTH, SECS, SEC_DEPS, PRODUCER_ROLES, ALLP, cleanPerms, cleanRole, readSet, canEdit, areasOf, frameSec, PLANS, TIER, PLAN_NAME, isPaidPlan, planOf, KINDS, kindOf, activeLimit, peopleLimit, SCRIPT_SECS, bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
   NOTES, DATA_SECS, canReadSec, canEditData, notesView, notesMerge, notesOf, canonJ, cleanText,
+  histHidden, guionView, guionKeepHist, noteOnHist,
   GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit };

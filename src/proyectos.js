@@ -5,6 +5,11 @@
 /* ---------- proyectos ---------- */
 /* antes de cambiar de proyecto: lo pendiente del que está abierto termina de guardarse (con su equipo y sus permisos) */
 async function settleSave() {
+  // fotos que todavía se están subiendo (laminas.js · photosAdd): se espera a que terminen (hasta 2 minutos)
+  if (typeof PHOTO_UP !== 'undefined' && PHOTO_UP.size) {
+    toast('Terminando de subir las fotos…', 2500);
+    await Promise.race([Promise.all([...PHOTO_UP]), new Promise(r => setTimeout(r, 120e3))]);
+  }
   const wait = async () => { for (let i = 0; saving && i < 150; i++) await new Promise(r => setTimeout(r, 100)); };
   await wait();
   if (P && dirty.size && !UI.readOnly) await flushSave();
@@ -15,21 +20,44 @@ async function openProject(pid) {
   $('#view').innerHTML = '<div class="loading">Abriendo proyecto…</div>';
   let Pn = null;
   try { Pn = await Store.load(pid); } catch (e) { Pn = null; }
-  if (Pn && Pn.cancel) { if (P) render(); else setProject(buildSample()); return false; }
-  const ok = !!Pn;
-  if (!Pn) { toast('No se pudo abrir ese proyecto: puede que lo hayan borrado o que ya no tengas acceso. Búscalo en Proyectos.'); Pn = buildSample(); }
-  else {
-    Pn._saved = true;
-    if (Store.kind === 'desk' && !Pn._shared) DESK.pathOf(pid).then(p => { Pn._path = p; setSaveState(); }).catch(() => { });
-  }
+  if (Pn && Pn.cancel) { if (P) render(); else openSample(); return false; }
+  if (!Pn) { toast('No se pudo abrir ese proyecto: puede que lo hayan borrado o que ya no tengas acceso. Búscalo en Proyectos.'); openSample(); return false; }
+  Pn._saved = true;
+  if (Store.kind === 'desk' && !Pn._shared) DESK.pathOf(pid).then(p => { Pn._path = p; setSaveState(); }).catch(() => { });
   setProject(Pn);
-  return ok;
+  return true;
 }
+/* ---------- (lote AD) el proyecto de ejemplo «La última función» ----------
+   Uno solo por sesión: lo que cambias en él (y lo que dibujas) queda en la memoria mientras el programa siga abierto,
+   también al pasar a otro proyecto y volver; al cerrar o recargar la página se pierde (y el navegador avisa antes:
+   arranque.js · unsavedWork). No se guarda solo ni ocupa un lugar del plan; «Guardar como mi proyecto» (adoptSample) lo
+   convierte en un proyecto tuyo. Toda forma de abrir el ejemplo pasa por aquí: Inicio, Proyectos, la portada
+   (?ejemplo=1, también sin cuenta) y los botones «Explorar con un proyecto de ejemplo» */
+const SAMPLE_MEM = { P: null, frames: null };
+function openSample() {
+  const keep = SAMPLE_MEM.P && SAMPLE_MEM.P._sample && !SAMPLE_MEM.P._saved ? SAMPLE_MEM.P : null;
+  if (keep && P === keep) { homeHide(); render(); return P; }   // ya está abierto
+  const Pn = keep || buildSample();
+  if (!keep) SAMPLE_MEM.frames = null;
+  SAMPLE_MEM.P = Pn;
+  setProject(Pn);   // con sus dibujos, si ya se había abierto (setProject)
+  return Pn;
+}
+/* el ejemplo va primero en Inicio y en Proyectos, destacado: en la web con cuentas, el plan gratis y quien entra sin
+   cuenta. En los planes de pago queda el botón «Ejemplo» de siempre */
+const sampleFirst = () => Store.kind === 'api' && !!(APITEAM.anon || !APITEAM.me || APITEAM.me.plan === 'free');
+const SAMPLE_INVITE = 'Explora todas las funciones del programa';   // (lote AF) el texto que pidió Ronald
+const sampleName = () => SAMPLE_TX[EN ? 'en' : 'es'].title;
+// ¿hay cambios en el ejemplo que se perderían al cerrar la página?
+const sampleTouched = () => !!(SAMPLE_MEM.P && SAMPLE_MEM.P._touched && SAMPLE_MEM.P._sample && !SAMPLE_MEM.P._saved);
 function setProject(Pn) {
   if (P && P !== Pn && dirty.size && !saving) flushSave();
+  // (lote AD) se sale del ejemplo: sus dibujos quedan en la memoria para cuando se vuelva (openSample)
+  if (P && P !== Pn && P === SAMPLE_MEM.P && P._sample && !P._saved) SAMPLE_MEM.frames = FRAMES;
   dirty.clear();
   P = Pn;
   FRAMES = {}; FRAMES_PID = null; FRIDX = null; FR_KNOWN = null; FR_USE.clear(); FR_FAIL.clear();
+  if (Pn === SAMPLE_MEM.P && Pn._sample && !Pn._saved && SAMPLE_MEM.frames) FRAMES = SAMPLE_MEM.frames;   // el ejemplo, con sus dibujos (lote AD)
   UI.scene = 0; UI.supDay = 0; UI.sbScene = '';
   normalizeProject(P);
   if (typeof SHARE !== 'undefined' && SHARE && (!P._shared || P.id !== SHARE.pid)) SHARE = null;
@@ -69,6 +97,8 @@ function normalizeProject(Px) {
   if (!S.locs) S.locs = [];
   if (!S.setLoc) S.setLoc = {};
   if (!S.castMode) S.castMode = 'num';
+  plColWClean(S);   // (lote AC) el ancho de las columnas del stripboard, limpio una vez aquí (plan-columnas.js)
+  planDocNorm(S);   // (lote AH) «Miniaturas del storyboard» del plan exportado: noThumbs solo como true (tab-plan.js)
   const B = Px.budget = Px.budget || { currency: 'S/', contingency: 0, igv: false, igvRate: 18, lines: [] };
   if (!B.taxName) B.taxName = 'IGV';
   if (!B.fx) B.fx = { on: false, rate: 3.75 };
@@ -95,10 +125,16 @@ function normalizeProject(Px) {
   // escenas 3D de versiones anteriores; la cámara B, solo lo que se conoce
   for (const sh of Object.values(Px.shots || {})) if (sh && sh.s3) {
     s3FloorFix(sh.s3); s3CleanB(sh.s3);
+    if (typeof carClean === 'function') carClean(sh.s3);   // el vehículo del interior: modelo que existe y color válido
     // las medidas de la planta: solo las que tienen dos puntas válidas (s3d-plan.js)
     if ('meas' in sh.s3) { const M = typeof measClean === 'function' ? measClean(sh.s3.meas) : []; if (M.length) sh.s3.meas = M; else delete sh.s3.meas; }
+    // lote W · D: la escala de los objetos (s3d-model.js)
+    if (Array.isArray(sh.s3.objs)) for (const o of sh.s3.objs) objScClean(o);
+    // el foco a mano: metros sobre el eje de la cámara
+    if ('focusD' in sh.s3) { const d = +sh.s3.focusD; if (isFinite(d) && d > 0) sh.s3.focusD = Math.round(clamp(d, FOCUS_D[0], FOCUS_D[1]) * 100) / 100; else delete sh.s3.focusD; }
   }
   sanitizeProject(Px);
+  if (typeof set3dNormalize === 'function') set3dNormalize(Px);   // lote W · escala del escenario; (lote AD) sin escenarios construidos, modelos sobre un entorno
   // Construcción, Scouting y Casting (desde la 1.2): en la forma que esperan sus pestañas
   buildNormalize(Px);
   scoutNormalize(Px);
@@ -163,14 +199,21 @@ function sanitizeProject(Px) {
       // guion cerrado: dónde empieza cada página ([posición, número])
       if (p.lpg != null) { p.lpg = Array.isArray(p.lpg) ? p.lpg.filter(m => Array.isArray(m) && Number.isInteger(m[0]) && m[0] >= 0 && /^[\w-]{1,16}$/.test(String(m[1]))).map(m => [m[0], String(m[1])]).slice(0, 8) : []; if (!p.lpg.length) delete p.lpg; }
       if (p.rv != null && (typeof p.rv !== 'string' || !/^[a-z]{1,12}$/.test(p.rv))) delete p.rv;
-      // formato (negrita, itálica, subrayado, resaltado): tramos [desde, hasta] dentro del texto
+      // palabras cambiadas en la revisión: tramos [desde, hasta, color] y lo borrado [posición, color] (guion-revision.js)
+      const rvc = c => typeof c === 'string' && /^[a-z]{1,12}$/.test(c);
+      if (p.rvw != null) { p.rvw = Array.isArray(p.rvw) ? p.rvw.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length && rvc(r[2])).map(r => [r[0], r[1], r[2]]).slice(0, 400) : []; if (!p.rvw.length) delete p.rvw; }
+      if (p.rvd != null) { p.rvd = Array.isArray(p.rvd) ? p.rvd.filter(r => Array.isArray(r) && Number.isInteger(r[0]) && r[0] >= 0 && r[0] <= p.x.length && rvc(r[1])).map(r => [r[0], r[1]]).slice(0, 200) : []; if (!p.rvd.length) delete p.rvd; }
+      // formato (negrita, itálica, subrayado, resaltado de seis colores): tramos [desde, hasta] dentro del texto
       if (p.fm != null) {
         if (!p.fm || typeof p.fm !== 'object' || Array.isArray(p.fm)) delete p.fm;
-        else { const o = {}; for (const k of ['b', 'i', 'u', 'h']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
+        else { const o = {}; for (const k of ['b', 'i', 'u', 'h', 'g', 'c', 'r', 'o', 'l']) if (Array.isArray(p.fm[k])) { const L = p.fm[k].filter(r => Array.isArray(r) && Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] >= 0 && r[1] > r[0] && r[1] <= p.x.length).map(r => [r[0], r[1]]).slice(0, 400); if (L.length) o[k] = L; } if (Object.keys(o).length) p.fm = o; else delete p.fm; }
       }
     }
   }
   if (Px.meta && Px.meta.lock != null) sanitizeLock(Px.meta);
+  // logos y planos de planta: solo imágenes incrustadas (imagenes.js · imgDataOk)
+  if (Px.meta && typeof Px.meta === 'object') for (const k of ['logo', 'projLogo']) if (Px.meta[k] != null && !imgDataOk(Px.meta[k])) delete Px.meta[k];
+  if (Px.plans && typeof Px.plans === 'object') for (const [id, pl] of Object.entries(Px.plans)) if (!pl || typeof pl !== 'object' || !imgDataOk(pl.img)) delete Px.plans[id];
   const B = Px.budget;
   if (B && typeof B === 'object') {
     for (const k of ['contingency', 'igvRate']) if (!numLike(B[k])) B[k] = 0;
@@ -183,6 +226,7 @@ function sanitizeProject(Px) {
     Su.takes[id] = L.filter(t => t && typeof t === 'object');
     for (const t of Su.takes[id]) { t.n = Math.max(0, Math.round(+t.n) || 0); if (!['ok', 'ng', 'bn'].includes(t.st)) t.st = 'ok'; }
   }
+  if (typeof supClean === 'function') supClean(Su);   // (lote AD) lo nuevo de la hoja de script (tab-sup.js)
   const K = Px.calendar;
   if (K && Array.isArray(K.tasks)) {
     // fechas AAAA-MM-DD: sin inicio válido la tarea no se puede dibujar; sin fin válido, termina el mismo día
@@ -205,11 +249,26 @@ function sanitizeProject(Px) {
     const au = A.audio;
     if (au && typeof au === 'object') for (const k of ['offset', 'vol']) if (au[k] != null && !isFinite(+au[k])) delete au[k];
   }
+  // el máster de la escena y las capas del dibujo 2D (lote U): solo lo que se conoce
+  if (Px.shots && typeof Px.shots === 'object') for (const sh of Object.values(Px.shots)) {
+    if (!sh || typeof sh !== 'object') continue;
+    if ('master' in sh && typeof sh.master !== 'boolean') delete sh.master;
+    // lote W · D: los cambios de escenario del máster y el último que vio cada plano (s3d-model.js)
+    if ('stgN' in sh && !(Number.isInteger(sh.stgN) && sh.stgN > 0)) delete sh.stgN;
+    if ('stgSeen' in sh && !(typeof sh.stgSeen === 'string' && /^[\w~-]{1,80}:\d{1,9}$/.test(sh.stgSeen))) delete sh.stgSeen;
+    if (sh.d2 && typeof sh.d2 === 'object' && Array.isArray(sh.d2.layers)) for (const L of sh.d2.layers) {
+      if (!L || typeof L !== 'object') continue;
+      if ('back' in L && (L.back !== true || L.kind !== 'image')) delete L.back;   // detrás de las figuras: solo imágenes
+      if ('imp' in L && L.imp !== 'ref' && L.imp !== 'anno') delete L.imp;
+    }
+  }
   const N = Px.notes;
   if (N && typeof N === 'object') for (const [id, n] of Object.entries(N)) {
     const on = n && n.on;
     if (!NOTE_ID_RE.test(id) || !n || typeof n !== 'object' || !on || typeof on !== 'object' || !/^[a-z]{1,12}$/.test(String(on.t || '')) || !/^[\w:.~-]{0,100}$/.test(String(on.id || ''))
       || (on.t === 'tab' && !/^[a-z]{1,12}$/.test(String(on.id || ''))) || (n.re != null && !NOTE_ID_RE.test(String(n.re)))) { delete N[id]; continue; }
+    // anotación a mano del guion rayado: sus trazos, limpios (guion-anotar.js); sin ninguno válido, se va
+    if (on.t === 'ink' && typeof anoCleanOn === 'function' && !anoCleanOn(on)) { delete N[id]; continue; }
     n.id = id;
     if (typeof n.text !== 'string') n.text = String(n.text ?? '');
     if (typeof n.ts !== 'number' || !isFinite(n.ts)) n.ts = 0;
@@ -387,7 +446,7 @@ async function projectMenu(anchor) {
         try { await Store.remove(P.id); } catch (e) { toast(e.message || 'No se pudo salir del proyecto.'); return; }
         SHARE = null; toast('Saliste del proyecto.');
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (m === 'tdir') return DESK.team.openDir(P.id);
       if (m === 'backup') backupProject();
@@ -397,17 +456,17 @@ async function projectMenu(anchor) {
         try { await Store.remove(P.id); toast('Proyecto eliminado'); } catch (e) { toast('No se pudo eliminar. Revisa tu conexión y vuelve a intentarlo.'); return; }
         SHARE = null;
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (m === 'delete' && P._shared) return confirmBox('Quitar de mi lista', `«${esc(P.meta.title)}» desaparece de tu lista de proyectos. La carpeta compartida y el trabajo del equipo no se tocan; puedes volver a abrirla cuando quieras.`, 'Quitar', async () => {
         await Store.remove(P.id).catch(() => { }); SHARE = null;
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       }, false);
       if (m === 'delete') confirmBox(Store.kind === 'desk' ? 'Mover a la papelera' : 'Eliminar proyecto', Store.kind === 'desk' ? `El archivo de «${esc(P.meta.title)}» se moverá a la papelera de reciclaje. Podrás recuperarlo desde ahí.` : `Se eliminará «${esc(P.meta.title)}» con su desglose, planos, plan y presupuesto. No se puede deshacer.`, Store.kind === 'desk' ? 'Mover a la papelera' : 'Eliminar', async () => {
         try { await Store.remove(P.id); toast('Proyecto eliminado'); } catch (e) { toast('No se pudo eliminar. Revisa tu conexión y vuelve a intentarlo.'); return; }
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
     }));
 }
@@ -477,10 +536,16 @@ async function openMenu(anchor, tab) {
     const more = open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto: guardar .${ea(PROJ_EXT)}, ZIP, eliminar…" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : '';
     return `<div class="pj-row${ea(open ? ' on' : '')}" data-id="${esc(o.id)}"><button class="pj-open" data-open="${esc(o.id)}" ${open ? 'aria-current="true"' : ''}><span class="pj-t">${esc(o.title || 'Sin título')}</span><span class="pj-m">${open ? '<b>abierto</b>' + (meta(o) ? ' · ' : '') : ''}${meta(o)}</span></button>${more}${btn}</div>`;
   };
+  // (lote AD) el plan gratis y sin cuenta: el ejemplo, primero y destacado (no se borra ni se archiva: no está guardado)
+  const firstS = sampleFirst();
+  const sampleRow = () => {
+    const open = !!(P && P === SAMPLE_MEM.P && P._sample && !P._saved);
+    return `<div class="pj-list pj-samp"><div class="pj-row pj-sample${ea(open ? ' on' : '')}"><button class="pj-open" data-m="sample" ${open ? 'aria-current="true"' : ''}><span class="pj-t" data-no-tr>${esc(sampleName())}</span><span class="pj-m"><span class="pj-ex">Ejemplo</span>${open ? '<b>abierto</b> · ' : ''}${esc(SAMPLE_INVITE)}</span></button>${open ? `<button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button>` : ''}</div></div>`;
+  };
   const html = () => {
     const A = act(), R = arc(), L = (cur === 'arc' ? R : A).filter(o => !q || deaccent(String(o.title || '')).toLowerCase().includes(deaccent(q).toLowerCase()));
     const me = Store.kind === 'api' && APITEAM.me ? APITEAM.me : null;   // al día (archivar lo cambia)
-    const lim = me && me.limits ? `<p class="pj-lim">${me.limits.projects ? `${me.own} de ${me.limits.projects} ${me.limits.projects === 1 ? 'proyecto de producción' : 'proyectos de producción'}${me.scripts ? ` · ${me.scripts} ${me.scripts === 1 ? 'guion' : 'guiones'}` : ''}` : `${me.scripts || 0} de ${me.limits.scripts} guiones activos`} de tu plan</p>` : '';
+    const lim = Store.kind === 'api' && APITEAM.anon ? '<p class="pj-lim"><span>Sin cuenta</span> · <button type="button" class="linkbtn" data-m="signup">Crea tu cuenta gratis</button></p>' : me && me.limits ? `<p class="pj-lim">${me.limits.projects ? `${me.own} de ${me.limits.projects} ${me.limits.projects === 1 ? 'proyecto de producción' : 'proyectos de producción'}${me.scripts ? ` · ${me.scripts} ${me.scripts === 1 ? 'guion' : 'guiones'}` : ''}` : `${me.scripts || 0} de ${me.limits.scripts} guiones activos`} de tu plan</p>` : '';
     const empty = err ? '<p class="pj-empty bad">No se pudo cargar la lista de proyectos. <button class="btn sm" data-m="retry">Reintentar</button></p>'
       : q ? `<p class="pj-empty">Ningún proyecto ${cur === 'arc' ? 'archivado ' : ''}con «${esc(q)}».</p>`
         : cur === 'arc' ? '<p class="pj-empty">No hay proyectos archivados. Archiva los que ya terminaste: salen de esta lista y se pueden recuperar cuando quieras.</p>'
@@ -491,9 +556,10 @@ async function openMenu(anchor, tab) {
         <button role="tab" data-tab="arc" aria-selected="${ea(cur === 'arc')}"><span>Archivados</span><i>${R.length}</i></button>
       </div>
       ${list.length > 6 ? `<label class="pj-q">${ICO.search}<input type="search" id="pjQ" placeholder="Buscar proyecto" value="${esc(q)}" autocomplete="off" aria-label="Buscar proyecto"></label>` : ''}
-      ${P && cur === 'act' && !q && !list.some(o => o.id === P.id) ? `<div class="pj-list pj-cur"><div class="pj-row on"><button class="pj-open" disabled><span class="pj-t">${esc(P.meta.title || 'Sin título')}</span><span class="pj-m"><b>abierto</b> · ${P._sample ? 'ejemplo, sin guardar' : 'sin guardar'}</span></button><button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button></div></div>` : ''}
+      ${firstS && cur === 'act' && (!q || deaccent(sampleName()).toLowerCase().includes(deaccent(q).toLowerCase())) ? sampleRow() : ''}
+      ${P && cur === 'act' && !q && !list.some(o => o.id === P.id) && !(firstS && P === SAMPLE_MEM.P) ? `<div class="pj-list pj-cur"><div class="pj-row on"><button class="pj-open" disabled><span class="pj-t">${esc(P.meta.title || 'Sin título')}</span><span class="pj-m"><b>abierto</b> · ${P._sample ? 'ejemplo, sin guardar' : 'sin guardar'}</span></button><button class="pj-act" data-more="1" title="Acciones de este proyecto" aria-label="Acciones de este proyecto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></button></div></div>` : ''}
       <div class="pj-list" role="tabpanel">${L.map(row).join('') || empty}</div>
-      <div class="pj-ft">${Store.kind !== 'mem' ? '<button class="btn sm ghost" data-m="home">Inicio</button>' : ''}<button class="btn sm" data-m="new">+ Nuevo</button><button class="btn sm ghost" data-m="file" title="Abrir un archivo de proyecto (.${ea(PROJ_EXT)})">Abrir archivo .${PROJ_EXT}</button><button class="btn sm ghost" data-m="sample">Ejemplo</button></div>`;
+      <div class="pj-ft">${Store.kind !== 'mem' ? '<button class="btn sm ghost" data-m="home">Inicio</button>' : ''}<button class="btn sm" data-m="new">+ Nuevo</button><button class="btn sm ghost" data-m="file" title="Abrir un archivo de proyecto (.${ea(PROJ_EXT)})">Abrir archivo .${PROJ_EXT}</button>${firstS ? '' : '<button class="btn sm ghost" data-m="sample">Ejemplo</button>'}</div>`;
   };
   const pp = popover(anchor, html(), p => {
     p.classList.add('pop-pj');
@@ -531,7 +597,8 @@ async function openMenu(anchor, tab) {
       if (b.dataset.m === 'home') return homeShow();
       if (b.dataset.m === 'new') return newMenu($('#newBtn'));
       if (b.dataset.m === 'file') return Store.kind === 'desk' ? deskMenu('open') : pickFile(PROJ_ACCEPT, 'restore');
-      if (b.dataset.m === 'sample') setProject(buildSample());
+      if (b.dataset.m === 'sample') openSample();
+      if (b.dataset.m === 'signup') anonAsk('');
       if (b.dataset.m === 'retry') openMenu(anchor, cur);
     });
     if (list.length > 6 && !matchMedia('(pointer:coarse)').matches) setTimeout(() => { const qi = $('#pjQ', p); if (qi && document.activeElement !== qi) qi.focus(); }, 30);
@@ -582,4 +649,49 @@ function proGate(f) {
   const msg = `${PRO_ONLY[f] || 'Esta función'} es parte de ${appName()} Pro y Studio.`;
   if (typeof licenseDialog === 'function') licenseDialog(msg); else toast(msg, 4000);
   return false;
+}
+
+/* ---------- (lote AD) lo exclusivo de Studio: los mapas del scouting ('mapas') y los escenarios 3D importados ('set3d')
+   Va según el plan de quien es dueño del proyecto abierto: si es Studio, todo su equipo los usa en él aunque cada quien
+   tenga otro plan (el servidor también lo controla: los enlaces cortos de los mapas y la subida de los modelos). En el
+   escritorio manda la licencia (LIC.plan); en la web publicada en Claude todo está abierto, y en el proyecto de ejemplo
+   también, para poder explorarlo. Lo que un proyecto ya tiene se sigue viendo: esto decide si se agrega o se cambia.
+   Lo usan otras partes de la app (con guardas typeof): studioFeat(k), studioLockHTML(k) y studioAsk(k) ---------- */
+const STUDIO_FEATS = {
+  mapas: { lead: 'Los mapas en Scouting son parte de FilmSpirit Studio.', what: 'El enlace al mapa de cada candidata y el «Mapa general», con todas las locaciones en un mapa, su estado y cómo llegar.' },
+  set3d: { lead: 'Los escenarios 3D importados son parte de FilmSpirit Studio.', what: 'Importar el modelo 3D de una locación (de SketchUp, Blender…) como escenario de los planos, ajustarlo y hacer su versión liviana.' },
+};
+/* ¿el proyecto abierto puede usar esa función? */
+function studioFeat(k) {
+  if (!P) return false;
+  if (P._sample && !P._saved) return true;
+  if (TARGET === 'web') return true;
+  if (DESK) return LIC.mode === 'pro' && LIC.plan === 'studio';
+  if (typeof Store !== 'undefined' && Store.kind === 'api') {
+    if (typeof SHARE !== 'undefined' && SHARE && SHARE.pid === P.id) return SHARE.ownerPlan === 'studio';
+    return !P._shared && LIC.plan === 'studio';   // todavía no está en el servidor: será de esta cuenta
+  }
+  return true;
+}
+/* el candado chico con «Studio», junto a lo que es de Studio */
+function studioLockHTML(k) { return `<span class="st-lock" data-k="${ea(k || '')}" title="Función de FilmSpirit Studio">${ICO.lock}<span>Studio</span></span>`; }
+/* la ventana que explica que es de Studio, con «Ver planes de suscripción» */
+function studioAsk(k) {
+  const F = STUDIO_FEATS[k] || STUDIO_FEATS.mapas, api = typeof Store !== 'undefined' && Store.kind === 'api';
+  // alguien del equipo (no quien administra): en este proyecto lo decide el plan de quien lo administra
+  const team = api && P && P._shared && typeof SHARE !== 'undefined' && SHARE && SHARE.pid === P.id && !SHARE.admin;
+  const why = DESK ? 'Se activan con una licencia de FilmSpirit Studio.'
+    : team ? 'En este proyecto los habilita el plan de quien lo administra: si tiene Studio, todo el equipo los usa.'
+      : 'Con Studio los usa todo tu equipo en tus proyectos, aunque cada persona tenga otro plan.';
+  const m = modal({
+    title: 'Función de Studio',
+    body: `<div class="st-ask">${studioLockHTML(k)}<p><b>${esc(F.lead)}</b></p><p>${esc(F.what)}</p><p>${esc(why)}</p><p class="hint">Lo que este proyecto ya tiene se sigue viendo.</p></div>`,
+    foot: `<button class="btn" data-close>Ahora no</button><button class="btn primary" id="stGo">Ver planes de suscripción</button>`,
+  });
+  $('#stGo', m).onclick = () => {
+    closeModal();
+    if (typeof licenseDialog !== 'function') return;
+    if (api) licenseDialog('', 'studio'); else licenseDialog(F.lead);
+  };
+  return m;
 }

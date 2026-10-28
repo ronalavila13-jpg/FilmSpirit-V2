@@ -1,7 +1,6 @@
 'use strict';
 /* Seguridad de la web (lote F): el panel pide haber entrado hace poco, la sección Seguridad del panel, los topes de
    los formularios públicos, la tabla de límites con tope y la cabecera de país */
-process.env.ESPERA_DIA = '3';
 process.env.RECLAMOS_SOPORTE_DIA = '1';
 process.env.MAIL_PROVIDER = 'resend'; process.env.MAIL_API_KEY = 'clave-de-prueba'; process.env.MAIL_FROM = 'FilmSpirit <hola@prueba.pe>';
 const test = require('node:test');
@@ -56,11 +55,31 @@ test('Seguridad en el panel: bloqueos por límite e inicios rechazados', async (
   r = await B.get('/api/admin/security'); assert.equal(r.status, 403);
 });
 
-test('lista de espera: tope de correos nuevos por día; quien ya está se puede volver a anotar', async () => {
-  const A = client(S.base), codes = [];
-  for (const e of ['a@x.pe', 'b@x.pe', 'c@x.pe', 'd@x.pe']) codes.push((await A.post('/api/waitlist', { plan: 'studio', email: e })).status);
-  assert.deepEqual(codes, [200, 200, 200, 429]);
-  assert.equal((await A.post('/api/waitlist', { plan: 'studio', email: 'a@x.pe' })).status, 200);
+/* (lote AD) Studio está a la venta: la lista de espera se cerró y el panel avisa que abrió, cuando quien administra lo
+   pide, una sola vez a cada persona */
+test('lista de espera de Studio (cerrada): el panel avisa una vez a cada persona, en su idioma', async () => {
+  const A = client(S.base);
+  assert.equal((await A.post('/api/waitlist', { plan: 'studio', email: 'a@x.pe' })).status, 404, 'ya no se anota a nadie');
+  const t = Date.now();
+  S.S.run("INSERT INTO waitlist(email,plan,lang,country,ts) VALUES('ana@x.pe','studio','es','PE',?),('bob@x.pe','studio','en','US',?)", t - 2000, t - 1000);
+  const J = client(S.base); await J.post('/api/auth/google', { credential: S.token('jefa@prueba.pe') });
+  let r = await J.get('/api/admin/stats'); assert.equal(r.json.waitlist, 2); assert.equal(r.json.waitlistTodo, 2);
+  // nada sale solo: hasta que se aprieta el botón, nadie recibió nada
+  await S.mail.flush(); assert.equal(sent.filter(m => /Studio/.test(m.subject)).length, 0);
+  await A.post('/api/auth/google', { credential: S.token('curioso@prueba.pe') });
+  r = await A.post('/api/admin/waitlist/notify', {}); assert.equal(r.status, 403, 'solo administración');
+  r = await J.post('/api/admin/waitlist/notify', {}); assert.equal(r.status, 200, r.text); assert.deepEqual(r.json, { queued: 2, total: 2 });
+  await new Promise(res => setTimeout(res, 50)); await S.mail.flush(); await S.mail.idle();
+  const st = sent.filter(m => /Studio/.test(m.subject));
+  assert.equal(st.length, 2);
+  const es = st.find(m => [].concat(m.to).includes('ana@x.pe')), en = st.find(m => [].concat(m.to).includes('bob@x.pe'));
+  assert.match(es.subject, /ya está disponible/); assert.match(es.text, /mapas en Scouting y los escenarios 3D importados/); assert.match(es.text, /\/#planes/);
+  assert.match(en.subject, /now available/);
+  // marcado: el segundo clic no repite el correo
+  r = await J.get('/api/admin/waitlist'); assert.ok(r.json.every(w => w.notified > 0));
+  r = await J.post('/api/admin/waitlist/notify', {}); assert.deepEqual(r.json, { queued: 0, total: 2 });
+  await S.mail.flush(); assert.equal(sent.filter(m => /Studio/.test(m.subject)).length, 2);
+  r = await J.get('/api/admin/stats'); assert.equal(r.json.waitlistTodo, 0);
 });
 
 test('libro de reclamaciones: la copia a soporte tiene tope; la hoja se guarda igual', async () => {

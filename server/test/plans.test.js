@@ -70,7 +70,7 @@ test.before(async () => {
     LS_VARIANT_PRO_MONTH: '501', LS_VARIANT_PRO_YEAR: '502', LS_VARIANT_STUDIO_MONTH: '601', LS_VARIANT_STUDIO_YEAR: '602',
   });
   H = require('./helpers');
-  S = await H.start({ ADMIN_EMAILS: 'admin@prueba.pe', FOUNDER_UNTIL: '2020-01-01', STUDIO_OPEN: '1' });
+  S = await H.start({ ADMIN_EMAILS: 'admin@prueba.pe', FOUNDER_UNTIL: '2020-01-01' });   // Studio, a la venta sin configurar nada
   base = S.base;
 });
 test.after(async () => { await S.stop(); mock.close(); });
@@ -85,7 +85,7 @@ test('plan Guion: 5 guiones activos, sin proyectos de producción; archivar libe
   const p1 = r.json.pid;
   r = await A.get(`/api/p/${p1}?full=1`); assert.equal(r.json.kind, 'guion'); assert.deepEqual(r.json.read, ['guion']);
   // un proyecto de producción pide plan
-  r = await mk(A, 'Prod', 'prod'); assert.equal(r.status, 403); assert.equal(r.json.code, 'need_plan'); assert.match(r.json.error, /30 días/);
+  r = await mk(A, 'Prod', 'prod'); assert.equal(r.status, 403); assert.equal(r.json.code, 'need_plan'); assert.match(r.json.error, /proyecto de ejemplo/); assert.doesNotMatch(r.json.error, /gratis|prueba/i);
   // un guion solo guarda texto del guion y notas
   r = await A.put(`/api/p/${p1}/s/desglose`, { json: '{"items":[]}', base: 0 }); assert.equal(r.json.code, 'script_only');
   r = await A.get(`/api/p/${p1}/s/plan`); assert.equal(r.json.code, 'script_only');
@@ -257,7 +257,7 @@ test('de Pro (Mercado Pago) a Studio: la suscripción anterior se cancela al act
   assert.equal(user('lima@prueba.pe').plan, 'pro');
   // Studio en soles
   r = await A.post('/api/billing/quote', { plan: 'studio', cycle: 'year', region: 'pe' });
-  assert.equal(r.json.amount, 1290); assert.equal(r.json.trialDays, 0, 'la prueba es solo de Pro');
+  assert.equal(r.json.amount, 1290); assert.equal(r.json.trialDays, 0, 'sin prueba gratis');
   r = await A.post('/api/billing/checkout', { plan: 'studio', cycle: 'month', region: 'pe' });
   assert.equal(r.status, 200, r.text);
   const pre2 = Object.values(MPS.pre).at(-1);

@@ -24,8 +24,142 @@ const REV = { q: '', list: [], k: -1, paintT: 0 };
 /* fecha «2026-10-17» → «17 de octubre de 2026» */
 const revDate = iso => { const d = new Date(String(iso || '') + 'T12:00:00'); return isNaN(d) ? String(iso || '') : d.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }); };
 const localISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-// con el guion cerrado, la revisión abierta marca con su color (guion-cierre.js)
-const edRevMark = p => { const c = typeof lockRevColor === 'function' ? lockRevColor() : null; if (p && (c || (P.rev && P.rev.on))) p.rv = c || P.rev.c || 'azul'; return p; };
+// el color con que se marcan los cambios ahora (null: no se marcan). Con el guion cerrado, el de la revisión abierta
+// (guion-cierre.js); si no, el de «Marcar los cambios»
+const revOn = () => { const c = typeof lockRevColor === 'function' ? lockRevColor() : null; return c || (P && P.rev && P.rev.on ? P.rev.c || 'azul' : null); };
+const edRevMark = p => { const c = revOn(); if (p && c) p.rv = c; return p; };
+
+/* ---------- palabras cambiadas en la revisión ----------
+   Además del asterisco del párrafo, lo que se escribe o cambia en una revisión queda con un fondo suave de su color:
+   p.rvw = [[desde, hasta, color]] (cada tramo conserva el color de la revisión en que cambió: lo de la azul sigue azul
+   aunque después haya cambios en la rosa) y p.rvd = [[posición, color]], donde se borró texto (una marquita fina).
+   Se corren con el texto (como el formato: guion-formato.js), se reparten al partir un párrafo y se juntan al unir.
+   Se quitan donde se quitan los asteriscos (al cerrar el guion y con «Quitar todas las marcas»). El PDF no cambia:
+   solo asteriscos, como en la industria. En pantalla se ven ampliados a palabras completas. */
+const RVW = { quiet: false };
+const RVW_MAX = 400, RVD_MAX = 200;
+/* une los tramos del mismo color que se tocan; lo más nuevo (al final de la lista) manda donde se pisan */
+function rvwTidy(p) {
+  const len = (p.x || '').length;
+  if (p.rvw) {
+    let out = [];
+    for (const [s0, e0, c] of p.rvw) {
+      const s = Math.max(0, Math.min(s0, len)), e = Math.max(0, Math.min(e0, len)); if (e <= s) continue;
+      // lo nuevo tapa lo de antes en su tramo
+      out = out.flatMap(([a, b, k]) => b <= s || a >= e ? [[a, b, k]] : [...(a < s ? [[a, s, k]] : []), ...(b > e ? [[e, b, k]] : [])]);
+      out.push([s, e, c]);
+    }
+    out.sort((x, y) => x[0] - y[0]);
+    const m = [];
+    for (const r of out) { const l = m[m.length - 1]; if (l && l[2] === r[2] && r[0] <= l[1]) l[1] = Math.max(l[1], r[1]); else m.push([r[0], r[1], r[2]]); }
+    if (m.length) p.rvw = m.slice(-RVW_MAX); else delete p.rvw;
+  }
+  if (p.rvd) {
+    const seen = new Set(), out = [];
+    for (const [o0, c] of p.rvd) { const o = Math.max(0, Math.min(o0, len)), k = o + ':' + c; if (seen.has(k)) continue; seen.add(k); out.push([o, c]); }
+    out.sort((x, y) => x[0] - y[0]);
+    if (out.length) p.rvd = out.slice(-RVD_MAX); else delete p.rvd;
+  }
+}
+/* el texto cambió de «pre» a «oldEnd» (lo de antes y lo de después igual): los tramos se corren y, en una revisión,
+   lo nuevo queda con su color (lo borrado, con una marquita). Lo que se escribe pegado a un tramo no lo agranda:
+   lleva el color de la revisión de ahora */
+function rvwShift(p, pre, oldEnd, delta) {
+  const c = RVW.quiet ? null : revOn(), newEnd = oldEnd + delta;
+  if (!p.rvw && !p.rvd && !c) return;
+  // ¿lo borrado era todo de esta misma revisión? (escribir y corregir en la misma revisión no deja marca de borrado)
+  const own = oldEnd > pre && !!c && (() => { let x = pre; for (const [a, b, k] of p.rvw || []) { if (k !== c || b <= x) continue; if (a > x) return false; x = b; if (x >= oldEnd) return true; } return x >= oldEnd; })();
+  const mS = x => x < pre ? x : x >= oldEnd ? x + delta : pre;
+  const mE = x => x <= pre ? x : x >= oldEnd ? x + delta : pre;
+  if (p.rvw) p.rvw = p.rvw.map(([s, e, k]) => [mS(s), mE(e), k]);
+  if (p.rvd) p.rvd = p.rvd.map(([o, k]) => [o <= pre ? o : o >= oldEnd ? o + delta : pre, k]);
+  if (c) {
+    if (newEnd > pre) {
+      (p.rvw = p.rvw || []).push([pre, newEnd, c]);
+      // una marca de borrado del mismo color al borde de lo escrito ya no hace falta: se ve lo nuevo
+      if (p.rvd) p.rvd = p.rvd.filter(([o, k]) => !(k === c && o >= pre && o <= newEnd));
+    } else if (oldEnd > pre && !own) (p.rvd = p.rvd || []).push([pre, c]);
+  }
+  rvwTidy(p);
+}
+/* un tramo que cambió sin cambiar el texto (negrita, itálica, subrayado) */
+function rvwMark(p, s, e) {
+  const c = revOn(); if (!c || !p || e <= s) return;
+  (p.rvw = p.rvw || []).push([s, e, c]); rvwTidy(p);
+}
+/* un párrafo nuevo escrito en la revisión: todo su texto es nuevo */
+function rvwNew(p) {
+  const c = revOn(); if (!c || !p || !p.x) return p;
+  p.rvw = [[0, p.x.length, c]]; delete p.rvd;
+  return p;
+}
+/* partir en «o»: lo de la izquierda queda, lo de la derecha pasa al párrafo nuevo */
+function rvwSplit(p, o) {
+  const L = {}, R = {};
+  for (const [s, e, c] of p.rvw || []) { if (s < o) (L.rvw = L.rvw || []).push([s, Math.min(e, o), c]); if (e > o) (R.rvw = R.rvw || []).push([Math.max(0, s - o), e - o, c]); }
+  for (const [x, c] of p.rvd || []) { if (x <= o) (L.rvd = L.rvd || []).push([x, c]); else (R.rvd = R.rvd || []).push([x - o, c]); }
+  return [L, R];
+}
+/* pone en q los tramos de m (o los quita si no hay) */
+function rvwPut(q, m) {
+  for (const k of ['rvw', 'rvd']) if (m && m[k] && m[k].length) q[k] = m[k]; else delete q[k];
+  rvwTidy(q); return q;
+}
+const rvwJoin = (a, b, o) => ({ rvw: [...(a.rvw || []), ...(b.rvw || []).map(([s, e, c]) => [s + o, e + o, c])], rvd: [...(a.rvd || []), ...(b.rvd || []).map(([x, c]) => [x + o, c])] });
+const rvwClear = p => { delete p.rvw; delete p.rvd; };
+/* en pantalla: el tramo ampliado a palabras completas (sin los espacios de las puntas), sin meterse en el tramo vecino
+   de otro color. Si solo cambió un espacio o un signo, se marca con las palabras pegadas a él */
+const RVW_W = /[\p{L}\p{N}'’]/u;
+function rvwWords(x, list) {
+  return list.map(([s, e, c], j) => {
+    let a = s, b = e;
+    const lo = j > 0 ? list[j - 1][1] : 0, hi = j < list.length - 1 ? list[j + 1][0] : x.length;
+    if (/[\p{L}\p{N}]/u.test(x.slice(a, b))) {
+      while (a < b && /\s/.test(x[a])) a++;
+      while (b > a && /\s/.test(x[b - 1])) b--;
+      if (RVW_W.test(x[a])) while (a > lo && RVW_W.test(x[a - 1])) a--;
+      if (RVW_W.test(x[b - 1])) while (b < hi && RVW_W.test(x[b])) b++;
+    } else {
+      while (a > lo && RVW_W.test(x[a - 1])) a--;
+      while (b < hi && RVW_W.test(x[b])) b++;
+    }
+    return [a, b, c];
+  });
+}
+// el resaltado se pinta sin tocar el texto que se escribe: con la API de resaltados del navegador (CSS.highlights),
+// un resaltado por color; si el navegador no la tiene, con rectángulos en la capa de adorno de la página
+const RVW_API = typeof CSS !== 'undefined' && !!CSS.highlights && typeof Highlight === 'function';
+/* rango del texto de un párrafo del editor: de la letra a a la letra b */
+function edTextRange(ep, a, b) {
+  const at = off => { let left = off, node = null, last = null; const w = document.createTreeWalker(ep, NodeFilter.SHOW_TEXT); while ((node = w.nextNode())) { last = node; if (left <= node.length) return [node, left]; left -= node.length; } return last ? [last, last.length] : [ep, 0]; };
+  const r = document.createRange(), [n0, o0] = at(a), [n1, o1] = at(b);
+  try { r.setStart(n0, o0); r.setEnd(n1, o1); } catch (e) { return null; }
+  return r;
+}
+/* pinta las palabras cambiadas; devuelve el HTML de la capa de adorno (marcas de borrado y, sin la API, los fondos) */
+function rvwPaint(ed, origin) {
+  const by = {}, extra = [];
+  for (const ep of ed.querySelectorAll('.ep[data-i]')) {
+    const p = P.paras[+ep.dataset.i]; if (!p || (!p.rvw && !p.rvd)) continue;
+    const x = p.x || '';
+    for (const [a, b, c] of rvwWords(x, p.rvw || [])) { const r = edTextRange(ep, a, b); if (r) (by[c] = by[c] || []).push(r); }
+    if (origin) for (const [o, c] of p.rvd || []) {
+      const r = edTextRange(ep, o, o); if (!r) continue;
+      const q = r.getClientRects()[0] || r.getBoundingClientRect(), h = q.height || parseFloat(getComputedStyle(ep).lineHeight) || 16;
+      if (!q.left && !q.top) continue;
+      extra.push(`<i class="ed-rvd" style="left:${ea((q.left - origin.left - 1).toFixed(1))}px;top:${ea((q.top - origin.top).toFixed(1))}px;height:${ea(h.toFixed(1))}px;--c:${ea(revColor(c))}" title="${esc(`Texto borrado en la revisión ${revName(c).toLowerCase()}`)}"></i>`);
+    }
+  }
+  if (RVW_API) {
+    for (const [k] of REV_COLORS) { const n = 'rvw-' + k; if (by[k] && by[k].length) CSS.highlights.set(n, new Highlight(...by[k])); else CSS.highlights.delete(n); }
+  } else if (origin) {
+    for (const [k, list] of Object.entries(by)) for (const r of list) for (const q of r.getClientRects()) if (q.width > .5)
+      extra.unshift(`<i class="ed-rvw" style="left:${ea((q.left - origin.left).toFixed(1))}px;top:${ea((q.top - origin.top).toFixed(1))}px;width:${ea(q.width.toFixed(1))}px;height:${ea(q.height.toFixed(1))}px;--c:${ea(revColor(k))}"></i>`);
+  }
+  return extra.join('');
+}
+/* al salir del editor, los resaltados del navegador se quitan */
+function rvwUnpaint() { if (RVW_API) for (const [k] of REV_COLORS) CSS.highlights.delete('rvw-' + k); }
 
 /* ---------- datos del guion ---------- */
 function scriptStats() {
@@ -85,10 +219,10 @@ function revRevHTML() {
   const R = P.rev || {}, ed = edEditable(), ch = revChanged(), sc = D.sc ? D.sc.scenes : [], LK = typeof scriptLock === 'function' ? scriptLock() : null;
   const list = ch.length ? `<div class="rv-list">${ch.map(r => { const s = sc[r.si]; return `<button data-rv="go" data-i="${ea(r.i)}"><span class="k tnum">${s ? esc(s.key) : '—'}</span><span class="h">${s ? esc(s.heading) : 'Antes de la primera escena'}</span><span class="n tnum">${r.n}</span></button>`; }).join('')}</div>` : '';
   // guion cerrado: la revisión se abre y se cierra desde «Guion cerrado»; las marcas son el registro y no se quitan
-  if (LK) return `<p class="hint">${LK.rev ? `Revisión ${esc(revName(LK.rev.c).toLowerCase())} del ${esc(revDate(LK.rev.date))}: cada párrafo que cambies queda con un asterisco (*) de su color, también en el PDF.` : 'El guion está cerrado: abre una revisión desde «Guion cerrado» para cambiarlo.'}</p>${list}`;
+  if (LK) return `<p class="hint">${LK.rev ? `Revisión ${esc(revName(LK.rev.c).toLowerCase())} del ${esc(revDate(LK.rev.date))}: lo que cambies queda resaltado con su color y el párrafo con un asterisco (*). En el PDF, solo el asterisco.` : 'El guion está cerrado: abre una revisión desde «Guion cerrado» para cambiarlo.'}</p>${list}`;
   return `${ed ? `<div class="rv-row"><label class="opt-in"><input type="checkbox" data-rv="rev-on" ${R.on ? 'checked' : ''}> Marcar los cambios</label>
       <select data-rv="rev-color" aria-label="Color de la revisión">${REV_COLORS.map(([k, n]) => `<option value="${k}" ${k === (R.c || 'azul') ? 'selected' : ''}>${n}</option>`).join('')}</select></div>` : ''}
-    <p class="hint">${R.on ? `Revisión ${esc(revName(R.c).toLowerCase())}${R.date ? ' del ' + esc(revDate(R.date)) : ''}: cada párrafo que cambies queda con un asterisco (*) en el margen, también en el PDF.` : 'Al activarla, cada párrafo que cambies queda con un asterisco (*) en el margen, como en las revisiones de rodaje.'}</p>
+    <p class="hint">${R.on ? `Revisión ${esc(revName(R.c).toLowerCase())}${R.date ? ' del ' + esc(revDate(R.date)) : ''}: lo que cambies queda resaltado con su color y el párrafo con un asterisco (*) en el margen. En el PDF, solo el asterisco.` : 'Al activarla, lo que cambies queda resaltado con el color de la revisión y el párrafo con un asterisco (*) en el margen, como en las revisiones de rodaje.'}</p>
     ${ch.length ? `<div class="rv-list">${ch.map(r => { const s = sc[r.si]; return `<button data-rv="go" data-i="${ea(r.i)}"><span class="k tnum">${s ? esc(s.key) : '—'}</span><span class="h">${s ? esc(s.heading) : 'Antes de la primera escena'}</span><span class="n tnum">${r.n}</span></button>`; }).join('')}</div>
       ${ed ? '<button class="btn sm ghost" data-rv="rev-clear">Quitar todas las marcas</button>' : ''}` : ''}`;
 }
@@ -135,7 +269,7 @@ function bindReview() {
     if (k === 'repall') revReplaceAll();
     if (k === 'go') { closeDrawers(); edSetCaret(+b.dataset.i, 0); edMarkScene(); edDecoPaint(); }
     if (k === 'note') { const n = NOTES()[b.dataset.nid]; if (n) noteGoto(n.on.t, n.on.id, noteTabOf(n.on), true, n.id); }
-    if (k === 'rev-clear') confirmBox('Quitar las marcas de revisión', 'Se quitan los asteriscos de todos los párrafos cambiados. El texto no cambia.', 'Quitar', () => { edPush(true); P.paras.forEach(p => delete p.rv); edCommit(false); revRefresh(); edDecoPaint(); }, false);
+    if (k === 'rev-clear') confirmBox('Quitar las marcas de revisión', 'Se quitan los asteriscos y los resaltados de lo cambiado. El texto no cambia.', 'Quitar', () => { edPush(true); P.paras.forEach(p => { delete p.rv; rvwClear(p); }); edCommit(false); revRefresh(); edDecoPaint(); }, false);
   });
 }
 
@@ -225,7 +359,9 @@ function edDecoPaint() {
   cancelAnimationFrame(REV.paintT);
   REV.paintT = requestAnimationFrame(() => {
     const page = $('#edHost .ed-page'), ed = $('#ed');
-    if (!page || !ed || edFormat() === 'av') return;
+    // guion AV: solo el resaltado de las palabras cambiadas (no hay capa de adorno)
+    if (ed && edFormat() === 'av') { rvwPaint(ed, null); return; }
+    if (!page || !ed) return;
     let deco = $('.ed-deco', page);
     if (!deco) { deco = document.createElement('div'); deco.className = 'ed-deco'; deco.setAttribute('aria-hidden', 'true'); page.appendChild(deco); }
     const top0 = page.getBoundingClientRect().top, lh = parseFloat(getComputedStyle(ed).lineHeight) || 20;
@@ -254,6 +390,8 @@ function edDecoPaint() {
       const r = el.getBoundingClientRect();
       html += `<div class="ed-rv" style="top:${ea((r.top - top0).toFixed(1))}px;height:${Math.max(lh, r.height).toFixed(1)}px;--c:${ea(revColor(p.rv))}" title="Cambiado en la revisión ${esc(revName(p.rv).toLowerCase())}">*</div>`;
     });
+    // las palabras cambiadas (fondo de su color) y las marquitas de lo borrado
+    html += rvwPaint(ed, page.getBoundingClientRect());
     deco.innerHTML = html;
     edIcoPaint();
   });
@@ -292,5 +430,7 @@ ACT['rv-cover-edit'] = () => coverDialog();
 /* en el teléfono, la revisión se abre desde «⋯» */
 TOOLS_EXTRA.script = () => [
   ...(UI.scriptEdit && edEditable() ? [[ICO.check, 'Revisión del guion', () => { const a = $('#insp'); if (a) a.classList.add('open'); }]] : []),
+  // la racha de escritura (guion-racha.js): en el teléfono la barra se desplaza; aquí está a mano
+  ...(UI.scriptEdit && edEditable() && typeof wkPanel === 'function' ? [[wkFlame(wkStreak(wkRec()).state), 'Escritura', b => wkPanel(b)]] : []),
   ...(typeof scriptLock === 'function' && scriptLock() ? [[ICO.lock, 'Guion cerrado', () => lkPanel()]] : typeof lockCanClose === 'function' && lockCanClose() ? [[ICO.lock, 'Cerrar el guion final…', () => lkCloseDialog()]] : []),
 ];

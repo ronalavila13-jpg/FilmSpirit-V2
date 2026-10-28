@@ -25,6 +25,8 @@ for (const [f, t] of [
   ['node_modules/pdfjs-dist/build/pdf.min.js', 'app/lib/pdf.min.js'],
   ['node_modules/pdfjs-dist/build/pdf.worker.min.js', 'app/lib/pdf.worker.min.js'],
 ]) cp(path.join(root, f), path.join(here, t));
+// el mapa general del scouting (Leaflet 1.9.4, BSD-2): guardado en tools/leaflet; se carga solo al abrir el mapa
+for (const f of ['leaflet.js', 'leaflet.css']) cp(path.join(root, 'tools', 'leaflet', f), path.join(here, 'app', 'lib', f));
 
 // 1b) fuentes de la interfaz y del guion (index.html carga fonts/fonts.css; sin internet)
 // las otras letras de Apariencia › Tu pantalla › Letra: [familia, archivo, pesos] (en desktop/fuentes, OFL)
@@ -74,6 +76,8 @@ fs.writeFileSync(path.join(here, 'LICENCIAS-DE-TERCEROS.txt'),
   // los lectores de modelos 3D (src/glb-lib.js): meshoptimizer y fflate (que usa el lector de FBX de three.js)
   lic('meshoptimizer 1.1.1 (MIT)', path.join(root, 'tools', 'licencias', 'meshoptimizer.txt')) +
   lic('fflate 0.6.9 (MIT)', path.join(root, 'tools', 'licencias', 'fflate.txt')) +
+  lic('Leaflet 1.9.4 (BSD 2-Clause)', path.join(root, 'tools', 'licencias', 'leaflet.txt')) +
+  '==== Mapas ====\n\nTeselas del mapa general del scouting: © colaboradores de OpenStreetMap (openstreetmap.org/copyright), datos con licencia ODbL.\n\n' +
   lic('TweetNaCl.js 1.0.3 (dominio público / Unlicense)', nm('tweetnacl/LICENSE')) +
   '==== Maniquíes 3D ====\n\nMalla base y esqueleto de MakeHuman / MPFB2 (makehumancommunity.org), activos con licencia CC0 1.0 (dominio público).\n\n' +
   lic('Fuente Archivo (SIL Open Font License 1.1)', nm('@fontsource-variable/archivo/LICENSE')) +

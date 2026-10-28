@@ -14,9 +14,9 @@ function peopleListHTML(key, list, ed, rolePh) {
 function headerPreviewHTML() {
   const M = P.meta, b = M.brand || {};
   const pOn = b.project !== false, cOn = b.company !== false;
-  const left = pOn ? (M.projLogo ? `<img src="${esc(M.projLogo)}" alt=""><div><b class="lab">Stripboard</b><span>4 jornadas · lun 19 oct. a jue 22 oct.</span></div>` : `<div><b class="ttl">${esc(M.title)}</b><span>Stripboard · 4 jornadas</span></div>`)
+  const left = pOn ? (imgDataOk(M.projLogo) ? `<img src="${esc(imgDataOk(M.projLogo))}" alt=""><div><b class="lab">Stripboard</b><span>4 jornadas · lun 19 oct. a jue 22 oct.</span></div>` : `<div><b class="ttl">${esc(M.title)}</b><span>Stripboard · 4 jornadas</span></div>`)
     : `<div><b class="lab">Stripboard</b><span>4 jornadas</span></div>`;
-  const right = cOn ? (M.logo ? `<img src="${esc(M.logo)}" alt="">` : M.company ? `<b class="co">${esc(M.company.toUpperCase())}</b>` : '') : '';
+  const right = cOn ? (imgDataOk(M.logo) ? `<img src="${esc(imgDataOk(M.logo))}" alt="">` : M.company ? `<b class="co">${esc(M.company.toUpperCase())}</b>` : '') : '';
   return `<div class="pj-prev"><div class="pv-l">${left}</div><div class="pv-r">${right}<span>${esc(new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }))}</span></div></div>`;
 }
 const SCRIPT_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M14 3v4h4M9 12h6M9 16h4"/></svg>';
@@ -30,7 +30,7 @@ RENDER.project = function () {
   // la cabecera (lote I): el nombre del proyecto como título y lo del guion en gris; sin guion, cómo empezar
   const sub = `<b>Proyecto</b>${P.paras.length ? ` · ${nSc} ${nSc === 1 ? 'escena' : 'escenas'}${nPg ? ` · ${nPg} ${nPg === 1 ? 'página' : 'páginas'}` : ''}` : ''}${[M.author, M.draft].filter(Boolean).map(x => `<span data-no-tr> · ${esc(x)}</span>`).join('')}`;   // el « · » va dentro: el texto de antes no termina en « · » (en inglés no se traduciría)
   const head = hdHead({ title: `<span data-no-tr>${esc(M.title || 'Sin título')}</span>`, sub, act: P.paras.length && ed && !P._sample ? hdBtn('sec', 'Importar otra versión…', { icon: 'doc', attrs: 'data-act="import"' }) : '' });
-  const start = P.paras.length ? '' : hdEmpty({ icon: 'doc', title: 'Importa el guion para empezar', text: `Final Draft (.fdx), Fountain (.fountain) o el PDF del guion${planAllows('pdf') ? '' : ' (con Pro)'}. Las escenas, el reparto y los elementos probables se marcan solos; el stripboard se arma con ellos.`, btn: ed ? hdBtn('pri', 'Importar guion', { attrs: 'data-act="import"' }) : '' });
+  const start = P.paras.length ? '' : hdEmpty({ icon: 'doc', title: 'Importa el guion para empezar', text: `Final Draft (.fdx), Fountain (.fountain) o el PDF del guion${planAllows('pdf') ? '' : ' (con Pro)'}. Las escenas, el reparto y los elementos probables se marcan solos; el plan de rodaje se arma con ellos.`, btn: ed ? hdBtn('pri', 'Importar guion', { attrs: 'data-act="import"' }) : '' });
   const mIn = (k, lab, phd) => `<input type="text" value="${esc(M[k] || '')}" data-bind="pj-meta" data-k="${k}" placeholder="${ea(ed ? phd : '-')}" aria-label="${ea(lab)}" ${ed ? '' : 'readonly'}>`;
   const gData = hdGroup('Datos', hdRow('Título', `<input type="text" class="pj-title" value="${esc(M.title)}" data-bind="pj-meta" data-k="title" aria-label="Título" ${ed ? '' : 'readonly'}>`)
     + hdRow('Guion', mIn('author', 'Guionista', 'Agregar')) + hdRow('Versión', mIn('draft', 'Versión', 'Versión y fecha')) + hdRow('Productora', mIn('company', 'Productora o empresa', 'Agregar'))
@@ -40,7 +40,7 @@ RENDER.project = function () {
     : `<div class="pj-crg"${title ? ` title="${ea(title)}"` : ''}><span class="pj-crl">${lab}</span>${L.length || ed ? peopleListHTML(key, L, ed, rolePh) : '<span class="hd-row v ph">-</span>'}</div>`; };
   const gCred = hdGroup('Créditos', cred('directors', 'Dirección', 'Agregar a quien dirige', 'Cargo (opcional)') + cred('producers', 'Producción', 'Agregar a quien produce', 'Cargo: ejecutivo/a, general…', 'El presupuesto solo lo abre producción, cada persona con su código.'));
   const gLogos = `<div class="hd-g"><h3>Logos</h3><div class="hd-box pj-logos" title="${ea(planAllows('brand') ? 'PNG con fondo transparente o JPG. Se guarda una copia de hasta 600 px de ancho.' : 'Personalizar los documentos con tus logos es parte de Pro y Studio.')}">
-      ${[['projLogo', 'Proyecto', M.title], ['logo', 'Empresa', M.company || 'Empresa']].map(([k, lab, alt]) => `<div class="pj-lg"><div class="pj-logo">${M[k] ? `<img src="${esc(M[k])}" alt="${esc(alt)}">` : HD_ICO.photo}</div>
+      ${[['projLogo', 'Proyecto', M.title], ['logo', 'Empresa', M.company || 'Empresa']].map(([k, lab, alt]) => `<div class="pj-lg"><div class="pj-logo">${imgDataOk(M[k]) ? `<img src="${esc(imgDataOk(M[k]))}" alt="${esc(alt)}">` : HD_ICO.photo}</div>
         <span class="pj-lgt">${lab}${planAllows('brand') ? '' : ' <i class="pro-chip">PRO</i>'}</span>
         ${ed ? `<span class="pj-lb"><button class="linkbtn" data-act="pj-logo" data-k="${k}">${M[k] ? 'Cambiar' : 'Agregar logo'}</button>${M[k] ? `<button class="linkbtn muted" data-act="pj-logo-rm" data-k="${k}">Quitar</button>` : ''}</span>` : ''}</div>`).join('')}
     </div><p class="hd-foot">Salen en el encabezado de los PDF y del Excel.</p></div>`;

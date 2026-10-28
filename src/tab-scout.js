@@ -1,10 +1,15 @@
 /* ============================================================
    Pestaña · SCOUTING — locaciones candidatas para cada lugar del guion (etapa Desarrollo)
-   Viaja con el stripboard (sección «plan» del equipo): al elegir una candidata, su nombre y su dirección
+   Viaja con el plan de rodaje (sección «plan» del equipo): al elegir una candidata, su nombre y su dirección
    pasan a las locaciones del plan, y de ahí a la hoja de llamado.
    Datos: P.scout = { places: { lugar: { cands: [{ id, name, addr, map, contact, phone, permit, cost, status,
      notes, ph: [{ id, w, h }] }], pick, note } } }   (lugar = la locación del encabezado, como en el plan)
    Fotos: FRAMES['lc~<candidata>~<foto>'] (WebP de 1200 px, como las del desglose)
+   (lote W) Ubicación en el mapa general: lat, lng, geo ('link' | 'hand') y gmap en cada candidata (mapa-enlace.js);
+   la vista «Mapa general» está en scout-mapa.js (UI.scView = 'map')
+   (lote AD) Los mapas son de Studio (studioFeat('mapas'), proyectos.js): en Indie y Pro el campo «Mapa» y el «Mapa
+   general» se ven con el candado de Studio y, al tocarlos, se ofrece pasar a Studio. El enlace que ya tenía una
+   candidata se sigue viendo (con «Abrir»), pero no se escribe ni se cambia
    ============================================================ */
 const SC_ST = [['visitar', 'Por visitar'], ['visitada', 'Visitada'], ['aprobada', 'Aprobada'], ['descartada', 'Descartada']];
 const SC_PERMIT = [['', 'Sin pedir'], ['pedido', 'Pedido'], ['ok', 'Aprobado'], ['no', 'No hace falta']];
@@ -27,7 +32,7 @@ function scoutNormalize(Px) {
   for (const [b, pl] of Object.entries(S.places)) {
     if (!isO(pl)) { delete S.places[b]; continue; }
     pl.cands = candNormalize(pl.cands, SC_FIELDS, SC_ST);
-    for (const c of pl.cands) if (!SC_PERMIT.some(p => p[0] === c.permit)) c.permit = '';
+    for (const c of pl.cands) { if (!SC_PERMIT.some(p => p[0] === c.permit)) c.permit = ''; candGeoClean(c); candGeoStore(c); }
     if (pl.pick != null && !pl.cands.some(c => c.id === pl.pick)) pl.pick = null;
     pl.note = candStr(pl.note);
   }
@@ -48,29 +53,23 @@ function scoutPlaces() {
 }
 
 /* ---------- fotos (compartido con el casting) ---------- */
+// cada foto aparece apenas se comprime y se sube detrás (laminas.js · photosAdd)
 async function candAddPhotos(c, keyOf, files) {
-  if (!proGate('photos')) return 0;
-  const list = [...files].filter(f => /^image\/(jpeg|png|webp)$/.test(f.type));
-  if (!list.length) { toast('Elige fotos JPG, PNG o WebP.'); return 0; }
-  let n = 0;
-  for (const f of list) {
-    let r;
-    try { r = await compressPhoto(f); } catch (err) { toast('No se pudo leer ' + f.name + '.'); continue; }
-    const id = uid('f'), k = keyOf(id);
-    try { await Store.saveFrame(P.id, k, r.url); }
-    catch (err) { toast('No se pudo guardar la foto: ' + (err && err.code === 'quota_exceeded' ? 'se llenó el espacio de la página.' : /quota/i.test(String(err && err.name)) ? 'no queda espacio en este navegador.' : err && err.message && /permiso/i.test(err.message) ? err.message : 'inténtalo de nuevo.'), 4200); break; }
-    FRAMES[k] = r.url;
-    c.ph = [...(c.ph || []), { id, w: r.w, h: r.h }];
-    n++;
-  }
-  if (n) { changed('data'); toast(`${n} ${n === 1 ? 'foto agregada' : 'fotos agregadas'}.`); }
-  return n;
+  const Px = P;
+  const r = await photosAdd(files, {
+    keyOf, paint: () => { if (P === Px) render(); },
+    add: x => { c.ph = [...(c.ph || []), x]; },
+    drop: id => { c.ph = (c.ph || []).filter(p => p.id !== id); },
+  });
+  if (r.n) toast(`${r.n} ${r.n === 1 ? 'foto agregada' : 'fotos agregadas'}.`);
+  return r.n;
 }
 function candDelPhoto(c, keyOf, pid, tab) {
   const k = keyOf(pid);
   histNote('Quitar una foto', FRAMES[k] ? { [k]: FRAMES[k] } : null, tab);
   delete FRAMES[k];
-  Store.saveFrame(P.id, k, null).catch(() => { });
+  // si todavía se está subiendo, photosAdd la borra en el servidor al terminar (laminas.js · photoCancel)
+  if (!photoCancel(k)) Store.saveFrame(P.id, k, null).catch(() => { });
   c.ph = (c.ph || []).filter(x => x.id !== pid);
   changed('data');
 }
@@ -118,19 +117,31 @@ function scCandHTML(pl, c, ed) {
         ${candSel(c, 'status', SC_ST, 'sc-c', ed, 'Estado')}
         ${candSel(c, 'permit', SC_PERMIT, 'sc-c', ed, 'Permiso')}
         ${candFld(c, 'addr', 'Dirección', 'sc-c', ed, `placeholder="${ea(ed ? 'Calle, número, distrito' : '')}"`)}
-        <label class="cand-fl"><span>Mapa${safeUrl(c.map) ? ` · <a href="${ea(safeUrl(c.map))}" target="_blank" rel="noopener noreferrer">Abrir</a>` : ''}</span><input type="url" class="cand-in" value="${esc(c.map)}" data-bind="sc-c" data-id="${ea(c.id)}" data-f="map" placeholder="${ea(ed ? 'Enlace de Google Maps' : '')}" ${ed ? '' : 'readonly'}></label>
+        ${scMapFld(c, ed)}
         ${candFld(c, 'contact', 'Contacto', 'sc-c', ed, `placeholder="${ea(ed ? 'Quién da el permiso' : '')}"`)}
         ${candFld(c, 'phone', 'Teléfono', 'sc-c', ed, '', 'tel')}
         ${candFld(c, 'cost', `Costo por día (${cur})`, 'sc-c', ed, 'inputmode="decimal"')}
       </div>
       <textarea class="cand-in cand-nt" rows="2" data-bind="sc-c" data-id="${ea(c.id)}" data-f="notes" placeholder="${ea(ed ? 'Luz, ruido, acceso, estacionamiento, corriente, baños, horarios…' : '')}" aria-label="Notas" ${ed ? '' : 'readonly'}>${esc(c.notes)}</textarea>
-      ${ed ? `<div class="cand-a">${picked ? `<button class="btn" data-act="sc-unpick" data-id="${ea(c.id)}">Quitar la elección</button>` : `<button class="btn" data-act="sc-pick" data-id="${ea(c.id)}" title="Pasa al stripboard como la locación de estas escenas">Elegir esta locación</button>`}</div>` : ''}
+      ${ed ? `<div class="cand-a">${picked ? `<button class="btn" data-act="sc-unpick" data-id="${ea(c.id)}">Quitar la elección</button>` : `<button class="btn" data-act="sc-pick" data-id="${ea(c.id)}" title="Pasa al plan de rodaje como la locación de estas escenas">Elegir esta locación</button>`}</div>` : ''}
     </div>
   </article>`;
+}
+/* el campo «Mapa» de la candidata: con Studio, el enlace de siempre; sin Studio, el que ya tenía (solo para verlo y
+   abrirlo) con el candado, y tocarlo ofrece pasar a Studio */
+function scMapFld(c, ed) {
+  const open = safeUrl(c.map) ? ` · <a href="${ea(safeUrl(c.map))}" target="_blank" rel="noopener noreferrer">Abrir</a>` : '';
+  if (studioFeat('mapas')) return `<label class="cand-fl"><span>Mapa${open}</span><input type="url" class="cand-in" value="${esc(c.map)}" data-bind="sc-c" data-id="${ea(c.id)}" data-f="map" placeholder="${ea(ed ? 'Enlace de Google Maps' : '')}" ${ed ? '' : 'readonly'}></label>`;
+  const v = String(c.map || '').trim();
+  return `<div class="cand-fl st-off"><span>Mapa${open} ${studioLockHTML('mapas')}</span>${ed
+    ? `<button type="button" class="cand-in st-field${v ? '' : ' ph'}" data-act="st-ask" data-k="mapas" title="Los mapas en Scouting son parte de FilmSpirit Studio." aria-label="Mapa: función de Studio"><span data-no-tr>${esc(v)}</span>${v ? '' : '<span>Enlace de Google Maps</span>'}</button>`
+    : `<span class="cand-in st-ro" data-no-tr>${esc(v) || '—'}</span>`}</div>`;
 }
 RENDER.scout = function () {
   const v = $('#view');
   if (!D.sc.scenes.length && !Object.keys(SCT().places).length) { v.innerHTML = emptyScript(); bindView(); return; }
+  if (UI.scView == null) UI.scView = ls.get('scView', 'place') === 'map' ? 'map' : 'place';
+  if (UI.scView === 'map' && studioFeat('mapas')) { smRender(); return; }   // (lote AD) sin Studio, la vista por lugar
   const ed = scoutEditable(), places = scoutPlaces(), cur = scCurPlace(places);
   const picked = places.filter(p => scPlaceData(p.b).pick).length;
   const side = `${hdSide('Lugares', `${places.length} · ${picked} ${picked === 1 ? 'elegido' : 'elegidos'}`, 'Buscar lugar')}
@@ -149,13 +160,13 @@ RENDER.scout = function () {
     const addBtn = ed ? hdBtn('pri', 'Agregar candidata', { icon: 'plus', attrs: 'data-act="sc-add"' }) : '';
     body = `<section class="hd cand-hd">${hdHead({ title: esc(titleCase(cur.b)), sub: esc(info), act: order.length ? addBtn : '' })}</section>
       ${order.length ? `<div class="cand-grid">${order.map(c => scCandHTML(d, c, ed)).join('')}</div>`
-        : hdEmpty({ icon: 'pin', title: 'Aún no hay candidatas', text: `Agrega cada sitio que visites con sus fotos, su dirección y quién da el permiso. Al elegir una, pasa al stripboard como la locación de ${cur.scenes.length === 1 ? 'su escena' : 'sus ' + cur.scenes.length + ' escenas'}.`, btn: addBtn })}
+        : hdEmpty({ icon: 'pin', title: 'Aún no hay candidatas', text: `Agrega cada sitio que visites con sus fotos, su dirección y quién da el permiso. Al elegir una, pasa al plan de rodaje como la locación de ${cur.scenes.length === 1 ? 'su escena' : 'sus ' + cur.scenes.length + ' escenas'}.`, btn: addBtn })}
       <label class="hd-tx hd-txc cand-pn"><span>Notas del lugar</span><textarea class="cand-in" rows="2" data-bind="sc-pnote" placeholder="${ea(ed ? 'Qué pide el guion: época, tamaño, vista, acceso para el equipo' : '')}" ${ed ? '' : 'readonly'}>${esc(d.note)}</textarea></label>`;
   }
   v.innerHTML = `<div class="ws ws-2">
     <aside class="side" id="side">${side}</aside>
     <section class="center">
-      <div class="bar"><button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Lugares</button><span class="grow"></span>${toolsHTML()}</div>
+      <div class="bar"><button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Lugares</button>${smViewSeg()}<span class="grow"></span>${toolsHTML()}</div>
       <div class="scroller pad" data-keep="sc-${ea(cur ? cur.b : '')}">${body}</div>
     </section></div>`;
   bindView(); bindSceneSearch();
@@ -184,7 +195,7 @@ function scPick(id) {
   scSyncPick(b);
   const n = D.sc.scenes.filter(s => (s.locBase || s.loc) === b).length;
   changed('data'); render();
-  toast(`«${c.name}» queda como la locación de ${n === 1 ? 'su escena' : n + ' escenas'} en el stripboard.`, 4600);
+  toast(`«${c.name}» queda como la locación de ${n === 1 ? 'su escena' : n + ' escenas'} en el plan de rodaje.`, 4600);
 }
 function scUnpick(id) {
   const x = scCand(id); if (!x) return;
@@ -208,7 +219,12 @@ Object.assign(ACT, {
     const x = scCand(b.dataset.id); if (!x) return;
     popover(b, '<div class="menu"><button data-m="dup">Duplicar</button><button data-m="del">Quitar la candidata</button></div>', p => p.addEventListener('click', e => {
       const m = e.target.closest('[data-m]'); if (!m) return; closePop();
-      if (m.dataset.m === 'dup') { const c = { ...JSON.parse(JSON.stringify(x.c)), id: uid('l'), ph: [], name: x.c.name ? x.c.name + ' (copia)' : '' }; x.pl.cands.splice(x.pl.cands.indexOf(x.c) + 1, 0, c); changed('data'); render(); }
+      if (m.dataset.m === 'dup') {
+        const c = { ...JSON.parse(JSON.stringify(x.c)), id: uid('l'), ph: [], name: x.c.name ? x.c.name + ' (copia)' : '' };
+        // (lote AD) sin Studio, la copia no lleva el mapa: sería agregar un enlace (el de la original se queda)
+        if (!studioFeat('mapas')) { c.map = ''; delete c.lat; delete c.lng; delete c.geo; delete c.gmap; }
+        x.pl.cands.splice(x.pl.cands.indexOf(x.c) + 1, 0, c); changed('data'); render();
+      }
       else {
         const frames = Object.fromEntries((x.c.ph || []).map(p => [scPhKey(x.c.id, p.id), FRAMES[scPhKey(x.c.id, p.id)]]).filter(([, u]) => u));
         histNote('Quitar una candidata', frames, 'scout');
@@ -223,12 +239,15 @@ Object.assign(ACT, {
   'sc-view': b => { const x = scCand(b.dataset.id); if (!x) return; const ks = (x.c.ph || []).map(p => scPhKey(x.c.id, p.id)); photoViewer(ks, x.c.name || '', { at: ks.indexOf(scPhKey(x.c.id, b.dataset.p)) }); },
   'sc-phdel': b => { const x = scCand(b.dataset.id); if (!x) return; candDelPhoto(x.c, pid => scPhKey(x.c.id, pid), b.dataset.p, 'scout'); render(); toastUndo('Foto quitada.'); },
   'cand-pro': () => proGate('photos'),
+  'st-ask': b => studioAsk(b.dataset.k),   // (lote AD) lo que es de Studio: la ventana que lo explica
 });
 Object.assign(BIND, {
   'sc-c': (el, ev) => {
     const x = scCand(el.dataset.id); if (!x) return;
     const f = el.dataset.f, old = x.c.name.trim() || titleCase(x.b);
+    if (f === 'map' && !studioFeat('mapas')) return;   // (lote AD) sin Studio, el enlace no se cambia
     x.c[f] = el.value;
+    if (f === 'map' && ev === 'change') candGeoStore(x.c);   // (lote W) las coordenadas del enlace nuevo
     if (x.pl.pick === x.c.id && (f === 'name' || f === 'addr') && ev === 'change') scSyncPick(x.b, f === 'name' ? old : null);
     changed('data');
     if (ev === 'change' && (f === 'status' || f === 'map')) render();
@@ -244,36 +263,42 @@ Object.assign(BIND, {
 HELP.scout = [
   ['Lugares', 'A la izquierda, cada lugar que pide el guion (la locación del encabezado de sus escenas), con cuántas candidatas tiene y la elegida (✓).'],
   ['Candidatas', '«+ Candidata» agrega un sitio que visitaste o que vas a visitar: fotos, dirección, enlace al mapa, quién da el permiso, su teléfono, el costo por día y notas (luz, ruido, acceso…).'],
-  ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el stripboard, con su dirección; de ahí pasa a la hoja de llamado.'],
-  ['Equipo', 'El scouting viaja con el stripboard: lo edita quien puede editar el plan.'],
+  ['Elegir', '«Elegir esta locación» la deja como la locación de esas escenas en el plan de rodaje, con su dirección; de ahí pasa a la hoja de llamado.'],
+  ['Mapa general', 'En «Mapa general», todas las candidatas de todos los lugares en un mapa: el pin dice su estado (rojo con ✓ la elegida, oscuro la aprobada, blanco la visitada, punteado la que falta visitar, gris chico la descartada). Toca un pin o una candidata de la lista para ver su tarjeta, con «Abrir ficha» y «Cómo llegar». El lugar sale solo del enlace de Google Maps; si el enlace no lo trae, «Ubicar en el mapa» y toca dónde está (el pin se arrastra para corregir).'],
+  ['Equipo', 'El scouting viaja con el plan de rodaje: lo edita quien puede editar el plan.'],
   ['Exportar', 'Un dossier en PDF con cada lugar y sus candidatas, con o sin fotos, o solo con las elegidas.'],
 ];
+// (lote AD) los mapas son de Studio (en la web publicada en Claude todo está abierto)
+if (TARGET !== 'web') HELP.scout.push(['Studio', 'El enlace del mapa de cada candidata y el «Mapa general» son de FilmSpirit Studio: los usa todo el equipo en los proyectos cuyo dueño tiene Studio. En Indie y Pro se ven con un candado, y el enlace que ya tenía una candidata se sigue viendo.']);
 EXPORTS.scout = () => [
   { label: 'Dossier de locaciones', hint: 'PDF con fotos: cada lugar y sus candidatas', run: btn => exportPDF('scouting', btn, { photos: true }), pdf: { kind: 'scouting', opts: { photos: true } } },
   { label: 'Dossier sin fotos', hint: 'PDF liviano, para imprimir', run: btn => exportPDF('scouting', btn, { photos: false }), pdf: { kind: 'scouting', opts: { photos: false } } },
   { label: 'Locaciones elegidas', hint: 'PDF: solo la elegida de cada lugar, con fotos', run: btn => exportPDF('scouting', btn, { photos: true, picked: true }), pdf: { kind: 'scouting', opts: { photos: true, picked: true } } },
 ];
 
-/* ---------- PDF (compartido con el casting): una tarjeta por candidata, con sus datos y sus fotos ---------- */
+/* ---------- PDF (compartido con el casting): una tarjeta por candidata, con sus datos y sus fotos ----------
+   (lote AH) en cuadro, tipo Excel: el nombre en su cuadro (con «ELEGIDA» a la derecha) y debajo sus datos en una
+   rejilla (rótulo | dato); los grupos (cada lugar o personaje) en un cuadro con su fondo. Antes, texto suelto con una
+   raya debajo */
 function pdfCandBlock(doc, y, c, keyOf, rows, opts, title, tag) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
   const sub = docHeaderSub(doc);
   const ph = opts.photos ? (c.ph || []).filter(p => FRAMES[keyOf(p.id)]) : [];
   const cols = 3, gap = 8, bw = (W - M * 2 - gap * (cols - 1)) / cols, bh = bw * .7;
-  // (lote K) los datos en la letra del cuerpo, con su interlineado
-  const LH = PF.body * PF.lh;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.body);
-  const lines = rows.filter(([, v]) => String(v || '').trim()).map(([k, v]) => doc.splitTextToSize(pdfSafe(`${k}: ${v}`), W - M * 2));
-  const need = 20 + lines.reduce((a, L) => a + L.length * LH, 0) + (ph.length ? bh + gap : 0) + 12;
-  if (y + Math.min(need, 20 + 44 + bh) > H - 40) { doc.addPage(); y = sub(); }
-  doc.setFont('title', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-  doc.text(pdfSafe(title), M, y + 10);
-  if (tag) { doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...OKC); doc.text(pdfSafe(tag), W - M, y + 10, { align: 'right' }); }
-  y += 18;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.body); doc.setTextColor(...INK);
-  for (const L of lines) { if (y + L.length * LH > H - 40) { doc.addPage(); y = sub(); } doc.text(L, M, y + 7); y += L.length * LH; }
+  const data = rows.filter(([, v]) => String(v || '').trim());
+  // el nombre y sus primeros datos juntos: si no entran, a la hoja siguiente
+  if (y + 30 + Math.min(data.length, 2) * 19 + (ph.length ? Math.min(bh, 60) : 0) > H - 40) { doc.addPage(); y = sub(); }
+  y = pdfSec(doc, y, title, { x0: M, right: tag, need: 0, st: { fs: 10.5, pad: 4.5, after: 0, rcol: OKC } });
+  if (data.length) {
+    doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, top: PDF_CAND_HEAD ? HDR.top + HDR.h + 12 : 40, bottom: 40 }, rowPageBreak: 'avoid',
+      body: data.map(([k, v]) => [{ content: pdfSafe(k), styles: { textColor: MUTED, fontSize: PF.small, fillColor: PDF_LABF } }, pdfSafe(v)]),
+      columnStyles: { 0: { cellWidth: 92 } }, styles: { ...TBL.styles, cellPadding: { top: 4, bottom: 4, left: 6, right: 6 } },
+      // si la rejilla sigue en otra hoja, esa hoja también lleva la cabecera
+      didDrawPage: d => { if (d.pageNumber > 1) sub(); } });
+    y = doc.lastAutoTable.finalY;
+  }
   if (ph.length) {
-    y += 4;
+    y += 6;
     ph.slice(0, 6).forEach((p, j) => {
       const col = j % cols;
       if (col === 0 && j) y += bh + gap;
@@ -283,30 +308,27 @@ function pdfCandBlock(doc, y, c, keyOf, rows, opts, title, tag) {
       const k = Math.min(bw / w, bh / h), iw = w * k, ih = h * k, x0 = M + col * (bw + gap);
       doc.setFillColor(...PT.soft); doc.rect(x0, y, bw, bh, 'F');
       try { doc.addImage(url, 'JPEG', x0 + (bw - iw) / 2, y + (bh - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; }
+      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0, y, bw, bh);
     });
-    y += bh + gap;
+    y += bh;
   }
-  y += 8;
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.line(M, y - 5, W - M, y - 5);
-  return y;
+  return y + 14;
 }
 /* encabezado de las páginas siguientes de un PDF de candidatas (el mismo de la primera) */
 let PDF_CAND_HEAD = null;
-const docHeaderSub = doc => () => PDF_CAND_HEAD ? docHeader(doc, PDF_CAND_HEAD[0], PDF_CAND_HEAD[1]) : 50;
+const docHeaderSub = doc => () => PDF_CAND_HEAD ? docHeader(doc, PDF_CAND_HEAD[0], PDF_CAND_HEAD[1], { x0: 40 }) : 50;
 function pdfGroupBand(doc, y, title, sub) {
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+  const H = doc.internal.pageSize.getHeight();
   if (y + 80 > H - 40) { doc.addPage(); y = docHeaderSub(doc)(); }
-  doc.setFillColor(...PT.fill2); doc.rect(M, y, W - M * 2, 24, 'F');
-  doc.setFont('title', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK); doc.text(pdfSafe(title), M + 8, y + 16);
-  if (sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text(pdfSafe(sub), W - M - 8, y + 16, { align: 'right' }); }
-  return y + 34;
+  // (lote AH) en un cuadro con líneas negras y su fondo (antes, una franja de color sin borde)
+  return pdfSec(doc, y, title, { x0: 40, right: sub, need: 0, st: { fill: PT.fill2, after: 10 } });
 }
 function pdfScouting(opts = {}) {
   const doc = newDoc('portrait'), places = scoutPlaces().filter(p => scPlaceData(p.b).cands.length);
   const cur = (P.budget && P.budget.currency) || 'S/';
   const label = opts.picked ? 'Locaciones elegidas' : 'Scouting de locaciones';
   PDF_CAND_HEAD = [label, `${places.length} lugares`];
-  let y = docHeader(doc, ...PDF_CAND_HEAD);
+  let y = docHeader(doc, ...PDF_CAND_HEAD, { x0: 40 });
   try {
     if (!places.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Aún no hay candidatas.', 40, y + 10); }
     for (const p of places) {

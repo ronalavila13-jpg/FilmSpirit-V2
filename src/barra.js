@@ -7,7 +7,7 @@ const SETTINGS = {};   // pestaña → () => html (los controles usan data-act y
 const HELP = {};       // pestaña → [[título, texto], …]
 const EXPORTS = {};    // pestaña → () => [{ label, hint, run(btn) }]
 const EXPORTS_NOTE = {};   // pestaña → () => html: un aviso arriba del menú Exportar (lo que falta antes de enviar)
-const TAB_NAMES = { build: 'Historia', script: 'Guion', project: 'Proyecto', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Stripboard', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
+const TAB_NAMES = { build: 'Historia', script: 'Guion', project: 'Proyecto', lined: 'Guion rayado', breakdown: 'Desglose', scout: 'Scouting', casting: 'Casting', board: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', cal: 'Calendario', call: 'Hoja de llamado', budget: 'Presupuesto', sup: 'Hoja de script' };
 /* íconos dibujados (en vez de emojis, que cambian según el sistema): heredan el color y el tamaño del texto */
 const ICO = {
   palette: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.3 0 1.9-.8 1.9-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.6-1.6h2.1a3.9 3.9 0 0 0 3.9-3.9C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.6" cy="11.4" r="1.2" fill="currentColor" stroke="none"/><circle cx="10.3" cy="7.6" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.6" cy="7.8" r="1.2" fill="currentColor" stroke="none"/></svg>',
@@ -248,7 +248,7 @@ const plain = h => { const d = document.createElement('div'); d.innerHTML = h; r
 const KEYS = [
   ['En todo el programa', [['Ctrl + K', 'Ir a una pestaña, a un tema de la ayuda o a estos atajos'], ['Alt + 1…5', 'La etapa de ese número; otra vez, su pestaña siguiente'], ['Ctrl + Z · Ctrl + Mayús + Z', 'Deshacer y rehacer'], ['Esc', 'Cierra el menú o la ventana de arriba'], ['Flechas', 'Recorren los menús y las etapas de la franja']]],
   ['Guion', [['Intro', 'Pasa al párrafo siguiente'], ['Tab · Mayús + Tab', 'Cambia el tipo de párrafo'], ['Ctrl + 1…7', 'Escena, acción, personaje, acotación, diálogo, transición y plano'], ['Ctrl + B · I · U', 'Negrita, itálica y subrayado'], ['Ctrl + F', 'Buscar en el guion'], ['Ctrl + Intro', 'En AV: agrega una fila']]],
-  ['Stripboard y Calendario', [['Mayús + clic · Ctrl + clic', 'Elige varias escenas o tareas'], ['Arrastrar desde un espacio vacío', 'Elige varias de un trazo']]],
+  ['Plan de rodaje y Calendario', [['Mayús + clic · Ctrl + clic', 'Elige varias escenas o tareas'], ['Arrastrar desde un espacio vacío', 'Elige varias de un trazo']]],
   ['Animatic', [['Espacio', 'Reproduce o pausa'], ['J · K · L', 'Atrás, pausa y adelante'], ['← →', 'Un cuadro (con Mayús, un segundo)'], ['↑ ↓', 'Al corte anterior o siguiente'], ['S · Ctrl + B', 'Divide el clip en el cabezal'], ['Q · W', 'Quita el comienzo o el final'], ['C', 'Cuchilla'], ['Ctrl + D', 'Duplica']]],
 ];
 function keysHTML() { return `<div class="keys">${KEYS.map(([g, list]) => `<section><h5>${esc(g)}</h5><dl>${list.map(([k, d]) => `<dt>${k.split(' · ').map(x => `<span>${x.split(' + ').map(y => `<kbd>${esc(y)}</kbd>`).join(' + ')}</span>`).join(`<i>${EN ? 'or' : 'o'}</i>`)}</dt><dd>${esc(d)}</dd>`).join('')}</dl></section>`).join('')}</div>`; }
@@ -341,13 +341,16 @@ function phoneMenu(anchor) {
   const st = $('#saveState'), stTxt = st ? (st.title || st.textContent || '').trim() : '';
   const I = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const it = [];
+  if (API() && APITEAM.anon) it.push(['signup', I('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'), 'Crear cuenta gratis', 'Para guardar tus cambios y crear tus proyectos']);   // sin cuenta (lote AD)
   if (me) it.push(['acct', `<span class="pm-av">${me.picture ? `<img src="${ea(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || me.email || '?').trim()[0].toUpperCase())}</span>`, esc(me.name || 'Tu cuenta'), esc(me.email || '')]);
   if (why) it.push(['save', I('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'), 'No se guarda', 'Ver por qué y cómo guardarlo']);
   else if (stTxt && typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['', I('<path d="m5 12 4.5 4.5L19 7"/>'), esc(stTxt), '']);
   if (st && $('.bk', st)) it.push(['bk', I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), esc($('.bk', st).textContent.trim()), 'Una copia en tu equipo']);
   if (typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['proj', I('<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/>'), esc(P.meta.title || 'Proyecto'), 'Datos del proyecto, logos y equipo']);
+  // (lote AH) el historial de cambios: en el teléfono, el reloj no cabe en la barra de arriba
+  if (typeof P !== 'undefined' && P && !document.body.classList.contains('home') && !UI.readOnly) it.push(['hist', I('<path d="M3.6 12a8.4 8.4 0 1 0 2.5-6"/><path d="M3.3 4.2v4.2h4.2"/><path d="M12 7.6V12l2.9 1.9"/>'), 'Historial de cambios', 'Deshacer algo de antes']);
   it.push(['open', I('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3 19z"/>'), 'Proyectos', 'Abrir, compartir y archivar']);
-  it.push(['view', I('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'), 'Vista', 'Apariencia y pestañas visibles']);   // en el teléfono, el «⋯» de las pestañas no cabe en la barra
+  it.push(['view', I('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'), 'Personalización', 'Modo, pestañas, colores y letra']);   // en el teléfono, el «⋯» de las pestañas no cabe en la barra
   it.push(['help', I('<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>'), 'Ayuda y soporte', '']);
   popover(anchor, `<div class="menu help-m pm-menu">${it.map(([k, i, n, h]) => k
     ? `<button data-pm="${k}">${i}<b>${n}</b>${h ? `<small>${h}</small>` : ''}</button>`
@@ -360,12 +363,14 @@ function phoneMenu(anchor) {
         const k = b.dataset.pm, a = anchor.isConnected ? anchor : $('#moreBtn');
         setTimeout(() => {
           if (k === 'acct' && typeof accountMenu === 'function') accountMenu(a);
+          else if (k === 'signup') anonAsk('');
           else if (k === 'save') unsavedPop(a);
           else if (k === 'bk') backupProject();
           else if (k === 'proj') setTab('project');
           else if (k === 'open') openMenu(a);
           else if (k === 'help') helpMenu(a);
-          else if (k === 'view') tabsMenu(a);
+          else if (k === 'view') lookPanel('me');   // Personalización › Tu pantalla (leyenda.js)
+          else if (k === 'hist') histPanel();   // (lote AH) historial.js
           else if (k === 'lang') langSet(EN ? 'es' : 'en');
         }, 0);
       });
@@ -434,30 +439,23 @@ function applyTabPrefs() {
     if (!b.hidden) g = b.dataset.g;
   });
 }
-function tabsMenu(anchor) {
-  const can = t => typeof canSeeTab !== 'function' || canSeeTab(t);
-  const paint = () => {
-    const h = tabsHidden();
-    const th = ls.get('theme', 'auto');
-    return `<h5>Modo</h5><div class="seg" role="group" aria-label="Modo">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, n]) => `<button data-theme-set="${k}" aria-pressed="${ea(th === k)}" title="${ea(k === 'auto' ? 'Sigue el del sistema' : '')}">${n}</button>`).join('')}</div>
-      <button type="button" class="btn sm lk-open" data-look-open title="Tu pantalla (letra, barras, líneas) y los colores del proyecto (paletas)">${typeof ICO !== 'undefined' && ICO.palette ? ICO.palette : ''}Apariencia…</button>
-      <h5>Pestañas visibles</h5><div class="tabs-pick">${$$('#tabs .stg').map(w => { const ts = $$('.tab', w).map(b => b.dataset.tab).filter(can); return ts.length ? `<div class="tp-g"><span class="tp-n">${esc(($('.stg-n', w) || {}).textContent || '')}</span>${ts.map(t => `<label class="opt"><input type="checkbox" data-tabv="${ea(t)}" ${!h.has(t) ? 'checked' : ''} ${t === 'script' ? 'disabled' : ''}><span>${esc(TAB_NAMES[t])}</span></label>`).join('')}</div>` : ''; }).join('')}</div>
-      <p class="hint" style="margin:0">Solo cambia lo que ves en esta computadora. No borra nada: vuelve a marcarla para verla.</p>`;
-  };
-  const p = popover(anchor, paint(), p => p.addEventListener('click', e => {
-    if (e.target.closest('[data-look-open]')) { closePop(); lookPanel('me'); return; }   // leyenda.js: «Tu pantalla»
-    const b = e.target.closest('[data-theme-set]'); if (!b) return;
-    ls.set('theme', b.dataset.themeSet); applyLook();
-    $$('[data-theme-set]', p).forEach(x => x.setAttribute('aria-pressed', x === b));
-    render();      // lo dibujado en lienzos toma los colores nuevos
-  }));
-  p.addEventListener('change', e => {
-    const c = e.target.closest('[data-tabv]'); if (!c) return;
-    const h = tabsHidden(); c.checked ? h.delete(c.dataset.tabv) : h.add(c.dataset.tabv);
-    ls.set('tabsHidden', [...h]);
-    if (h.has(UI.tab)) setTab('script'); else sharePaintTabs();
-  });
-  p.classList.add('pop-tabs'); repos(p, anchor);
+/* (lote W) «Pestañas visibles» va en el panel «Personalización › Tu pantalla» (leyenda.js), que se abre con el botón de
+   la barra de pestañas: antes era un menú chico con el modo y el botón «Apariencia…». Por etapa, en el orden de la
+   franja; el guion siempre se ve */
+function tabsPickHTML() {
+  const can = t => typeof canSeeTab !== 'function' || canSeeTab(t), h = tabsHidden();
+  return `<div class="tabs-pick">${$$('#tabs .stg').map(w => {
+    const ts = $$('.tab', w).map(b => b.dataset.tab).filter(can), n = ($('.stg-n', w) || {}).textContent || '';
+    return ts.length ? `<div class="tp-g" role="group" aria-label="${ea(n)}"><span class="tp-n">${esc(n)}</span>${ts.map(t => `<label class="opt"${t === 'script' ? ' title="El guion siempre se ve"' : ''}><input type="checkbox" data-tabv="${ea(t)}" ${!h.has(t) ? 'checked' : ''} ${t === 'script' ? 'disabled' : ''}><span>${esc(TAB_NAMES[t])}</span></label>`).join('')}</div>` : '';
+  }).join('')}</div>`;
+}
+/* mostrar u ocultar una pestaña (solo en esta pantalla); si se oculta la abierta, se pasa al guion */
+function tabsPickSet(t, on) {
+  if (t === 'script') return;
+  const h = tabsHidden(); on ? h.delete(t) : h.add(t);
+  ls.set('tabsHidden', [...h]);
+  if (typeof P === 'undefined' || !P) return;
+  if (h.has(UI.tab) && !document.body.classList.contains('home')) setTab(typeof baseTab === 'function' ? baseTab() : 'script'); else { sharePaintTabs(); tabStripPaint(); }   // también la franja de arriba, sin esperar a otro repintado
 }
 
 /* ---------- ayuda y soporte (el ícono junto a Compartir) ----------

@@ -99,6 +99,19 @@ const MIGRATIONS = [
    CREATE TABLE waitlist(email TEXT NOT NULL, plan TEXT NOT NULL, uid TEXT, lang TEXT, country TEXT, ts INTEGER NOT NULL, PRIMARY KEY(email, plan));`,
   // 9 · cuentas eliminadas: solo la huella de la cuenta de Google y si ya usó el mes gratis (para que no se repita)
   `CREATE TABLE gone(h TEXT PRIMARY KEY, trial INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL);`,
+  // 10 · contadores de escritura y racha de cada persona (pestaña Guion · lib/escritura.js)
+  `ALTER TABLE users ADD COLUMN writing TEXT;`,
+  // 11 · cola de correos (lib/mail.js): si el servicio de envío falla, se reintenta (antes se perdían)
+  `CREATE TABLE outbox(
+     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL DEFAULT '', to_addr TEXT NOT NULL, subject TEXT NOT NULL,
+     body TEXT NOT NULL, reply_to TEXT, tries INTEGER NOT NULL DEFAULT 0, next INTEGER NOT NULL, created INTEGER NOT NULL,
+     sent INTEGER, dead INTEGER, err TEXT);
+   CREATE INDEX outbox_next ON outbox(next) WHERE sent IS NULL AND dead IS NULL;`,
+  // 12 · (lote AD) Studio abierto y sin prueba gratis: a quién de la lista de espera ya se avisó que Studio abrió; las
+  //      marcas de navegador y las huellas de cuentas eliminadas solo servían para que el mes gratis no se repitiera
+  `ALTER TABLE waitlist ADD COLUMN notified INTEGER;
+   DELETE FROM devices;
+   DELETE FROM gone;`,
 ];
 
 function open(dataDir) {

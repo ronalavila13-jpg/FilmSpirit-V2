@@ -15,25 +15,28 @@ function zipDocs() {
   const av = edFormat() === 'av';
   return [
     ['01_Argumento.pdf', 'argumento', null, '', false],
-    ['02_Biografias.pdf', 'bios', null, '', false],
-    ['03_Escaleta.pdf', 'escaleta', null, '', false],
-    ['04_Guion.pdf', 'screenplay', null, '', false],
-    [av ? '05_Guion_AV_rayado.pdf' : '05_Guion_rayado.pdf', 'script', null, 'rayado', true],
-    ['06_Desglose.pdf', 'breakdown', null, '', true],
-    ['07_Scouting.pdf', 'scouting', { photos: true }, '', false],
-    ['08_Casting.pdf', 'casting', { photos: true }, '', false],
-    ['09_Storyboard.pdf', 'storyboard', { plan: false }, '', true],
-    ['10_Storyboard_con_planta.pdf', 'storyboard', { plan: true }, 'planta', true],
-    ['11_Guion_tecnico.pdf', 'shotlist', null, '', true],
-    ['12_Animatic.pdf', 'animatic', null, '', true],
-    ['13_Plan_de_rodaje.pdf', 'plan', null, 'prodpdf', true],
-    ['14_Calendario.pdf', 'calendar', null, 'prodpdf', false],
-    ['15_Hojas_de_llamado.pdf', 'call', { all: true }, 'prodpdf', true],
-    ['16_Presupuesto.pdf', 'budget', null, 'prodpdf', false],
-    ['17_Hoja_de_script.pdf', 'sup', null, 'prodpdf', true],
+    ['02_Premisa_y_mundo.pdf', 'premisa', null, '', false],
+    ['03_Biografias.pdf', 'bios', null, '', false],
+    ['04_Estructura.pdf', 'estructura', null, '', false],
+    ['05_Escaleta.pdf', 'escaleta', null, '', false],
+    ['06_Guion.pdf', 'screenplay', null, '', false],
+    [av ? '07_Guion_AV_rayado.pdf' : '07_Guion_rayado.pdf', 'script', null, 'rayado', true],
+    ['08_Desglose.pdf', 'breakdown', null, '', true],
+    ['09_Scouting.pdf', 'scouting', { photos: true }, '', false],
+    ['10_Casting.pdf', 'casting', { photos: true }, '', false],
+    ['11_Storyboard.pdf', 'storyboard', { plan: false }, '', true],
+    ['12_Storyboard_con_planta.pdf', 'storyboard', { plan: true }, 'planta', true],
+    ['13_Guion_tecnico.pdf', 'shotlist', null, '', true],
+    ['14_Animatic.pdf', 'animatic', null, '', true],
+    ['15_Plan_de_rodaje.pdf', 'plan', null, 'prodpdf', true],
+    ['16_Calendario.pdf', 'calendar', null, 'prodpdf', false],
+    ['17_Hojas_de_llamado.pdf', 'call', { all: true }, 'prodpdf', true],
+    ['18_Presupuesto.pdf', 'budget', null, 'prodpdf', false],
+    ['19_Hoja_de_script.pdf', 'sup', null, 'prodpdf', true],
   ];
 }
-const DOC_TAB = { argumento: 'build', bios: 'build', escaleta: 'build', scouting: 'scout', casting: 'casting', screenplay: 'script', script: 'script', breakdown: 'breakdown', storyboard: 'board', shotlist: 'board', animatic: 'animatic', plan: 'plan', calendar: 'cal', call: 'call', budget: 'budget', sup: 'sup' };
+// cada documento sale si se ve su pestaña; el guion y el rayado, con el Guion rayado (lote AD: lo ve todo el equipo)
+const DOC_TAB = { argumento: 'build', premisa: 'build', bios: 'build', estructura: 'build', escaleta: 'build', scouting: 'scout', casting: 'casting', screenplay: 'lined', script: 'lined', breakdown: 'breakdown', storyboard: 'board', shotlist: 'board', animatic: 'animatic', plan: 'plan', calendar: 'cal', call: 'call', budget: 'budget', sup: 'sup' };
 async function buildProjectZip(step) {
   const files = [], skipped = [], base = zipName(P.meta.title);
   const add = (name, data) => files.push([base + '/' + name, data]);
@@ -55,6 +58,8 @@ async function buildProjectZip(step) {
     // Construcción, Scouting y Casting: solo si tienen algo
     if (kind === 'argumento' && !(P.build && Object.values(P.build.arg || {}).some(t => String(t || '').trim()))) continue;
     if (kind === 'escaleta' && !(bItems().length)) continue;
+    if (kind === 'premisa' && !bPremHas()) continue;      // (lote AD) Premisa y mundo, y Estructura
+    if (kind === 'estructura' && !bBeatsHas()) continue;
     if (kind === 'bios' && !Object.values((P.build || {}).bios || {}).some(b => b && (b.look || b.persona || b.past || b.want || b.need || b.fear || b.arc || b.rel || b.notes || '').trim())) continue;
     if (kind === 'scouting' && !Object.values((P.scout || {}).places || {}).some(p => p.cands && p.cands.length)) continue;
     if (kind === 'casting' && !Object.values((P.casting || {}).roles || {}).some(r => (r.cands && r.cands.length) || String(r.brief || '').trim())) continue;

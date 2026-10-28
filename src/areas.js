@@ -26,7 +26,13 @@ const SEC_DEPS = {
 // el presupuesto es solo para producción: quien administra el proyecto o quien tenga uno de estos cargos
 const PRODUCER_ROLES = ['Producción', 'Producción ejecutiva', 'Jefatura de producción'];
 const isProducer = role => PRODUCER_ROLES.includes(role);
-const ALLP = Object.fromEntries(SECS.map(s => [s, 'editar']));
+/* (lote AD) la etapa Guion (Historia y Guion) de un proyecto de producción: la ven el cargo «Guion», los de producción y
+   quien administra el proyecto. Los demás leen el guion en el Guion rayado, el Desglose y las otras pestañas; en la web
+   con cuentas el material de Historia (build) ni siquiera les llega (server/lib/perm.js · histHidden). En un guion
+   (coescritura) no corre: ahí todos escriben */
+const SCRIPT_STAGE_ROLES = ['Guion', ...PRODUCER_ROLES];
+const seesScriptStage = who => !!who && (!!who.admin || SCRIPT_STAGE_ROLES.includes(who.role));
+const ALLP =Object.fromEntries(SECS.map(s => [s, 'editar']));
 /* los permisos guardables: «ver» o «editar» por sección y, con el desglose para editar, sus áreas (solo las de la
    hoja: no «__proto__», «constructor»… que existen en cualquier objeto) */
 function cleanPerms(p) {
@@ -55,9 +61,10 @@ function permCanEdit(who, sec) {
 const permAreas = who => !who.admin && who.perms && who.perms.desglose === 'editar' && Array.isArray(who.perms.areas) ? who.perms.areas : null;
 // las fotos del desglose («bd~…») y las del casting («ca~…») viajan con el desglose; las del scouting («lc~…»), con
 // el stripboard; las del punto de encuentro («cl~…»), con la hoja de llamado; las de los recibos y órdenes de
-// compra («ga~…»), con Gastos (cada persona las suyas: gaFrameOk); el resto, con el storyboard
-const frameSec = k => /^(bd|ca)~/.test(String(k)) ? 'desglose' : String(k).startsWith('lc~') ? 'plan' : String(k).startsWith('cl~') ? 'llamado' : String(k).startsWith('ga~') ? 'gastos' : 'storyboard';
-const FRAME_SECS = ['storyboard', 'desglose', 'plan', 'llamado'];
+// compra («ga~…»), con Gastos (cada persona las suyas: gaFrameOk); (lote AD) las de continuidad y las de la hoja de
+// papel llena («sp~…»), con la hoja de script; el resto, con el storyboard
+const frameSec = k => /^(bd|ca)~/.test(String(k)) ? 'desglose' : String(k).startsWith('lc~') ? 'plan' : String(k).startsWith('cl~') ? 'llamado' : String(k).startsWith('ga~') ? 'gastos' : String(k).startsWith('sp~') ? 'hoja' : 'storyboard';
+const FRAME_SECS = ['storyboard', 'desglose', 'plan', 'llamado', 'hoja'];
 
 /* ---------- planes de la web con cuentas ----------
    Los números de siempre. En el servidor se pueden cambiar con variables de entorno (server/lib/perm.js); la app usa
@@ -438,7 +445,7 @@ const LOCK_MSG = {
   lock_log: 'El registro del guion cerrado no se puede borrar ni cambiar.',
 };
 if (typeof module !== 'undefined') module.exports = {
-  SECS, SEC_DEPS, PRODUCER_ROLES, isProducer, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, FRAME_SECS,
+  SECS, SEC_DEPS, PRODUCER_ROLES, isProducer, SCRIPT_STAGE_ROLES, seesScriptStage, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, FRAME_SECS,
   PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
   GASTOS, GA_SECS, GA_ROLE_SECS, GA_PAY, GA_KIND, gaRole, gaSeesAll, gaAreaSecs, gaClean, gaView, gaCan, gaFilter, gaFrameItem, gaFrameOk, gaFrameEdit,
   BD_AREAS, bdAreaOfCat, bdCanon, bdFilter, bdViolates, scriptLockCheck, lockPerson, LOCK_MSG };

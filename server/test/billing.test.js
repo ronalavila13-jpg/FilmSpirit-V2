@@ -55,22 +55,32 @@ test.before(async () => {
   await new Promise(r => mock.listen(0, '127.0.0.1', r));
   Object.assign(process.env, { MP_ACCESS_TOKEN: 'TEST-TOKEN', MP_API_BASE: `http://127.0.0.1:${mock.address().port}`, MP_WEBHOOK_SECRET: SECRET });
   H = require('./helpers');
-  // precios fijos para estas pruebas (y sin precio de fundador ni lista de espera: eso se prueba en plans.test.js)
-  S = await H.start({ ADMIN_EMAILS: 'admin@prueba.pe', PEN_PRO_MONTH: '29', PEN_PRO_YEAR: '290', PEN_STUDIO_MONTH: '80', PEN_STUDIO_YEAR: '800', FOUNDER_UNTIL: '2020-01-01', STUDIO_OPEN: '1' });
+  // precios fijos para estas pruebas (y sin precio de fundador: eso se prueba en paddle.test.js)
+  S = await H.start({ ADMIN_EMAILS: 'admin@prueba.pe', PEN_PRO_MONTH: '29', PEN_PRO_YEAR: '290', PEN_STUDIO_MONTH: '80', PEN_STUDIO_YEAR: '800', FOUNDER_UNTIL: '2020-01-01' });
   base = S.base;
 });
 test.after(async () => { await S.stop(); mock.close(); });
 
-test('código de influencer, mes gratis y suscripción autorizada por aviso firmado', async () => {
+test('código de influencer y suscripción autorizada por aviso firmado (sin mes gratis)', async () => {
   const adm = H.client(base); await login(adm, 'admin@prueba.pe', 'Admin');
+  // (lote AD) los días extra de prueba ya no se dan: el panel los ignora y un código tiene que dar un descuento
   let r = await adm.post('/api/admin/codes', { code: 'maria20', label: 'María (Instagram)', pct: 20, cycles: 3, trialDays: 15, maxUses: 2 });
-  assert.equal(r.status, 201, r.text);
+  assert.equal(r.status, 201, r.text); assert.equal(r.json.trial_days, 0);
+  r = await adm.post('/api/admin/codes', { code: 'SOLODIAS', pct: 0, trialDays: 30 });
+  assert.equal(r.status, 400); assert.equal(r.json.code, 'empty_code');
+  // un código de antes que solo daba días de prueba ya no da nada
+  S.S.run("INSERT INTO codes(code,kind,label,pct,cycles,trial_days,created) VALUES('MESGRATIS','promo','antiguo',0,0,30,?)", Date.now());
   const ana = H.client(base); await login(ana, 'ana@prueba.pe', 'Ana');
   r = await ana.get('/api/billing');
-  assert.equal(r.json.enabled, true); assert.deepEqual(r.json.prices.PEN.pro, { month: 29, year: 290 }); assert.deepEqual(r.json.prices.PEN.studio, { month: 80, year: 800 }); assert.equal(r.json.trial, true);
+  assert.equal(r.json.enabled, true); assert.deepEqual(r.json.prices.PEN.pro, { month: 29, year: 290 }); assert.deepEqual(r.json.prices.PEN.studio, { month: 80, year: 800 });
+  assert.equal(r.json.trial, undefined, 'ninguna prueba que ofrecer'); assert.equal(r.json.trialIntl, undefined); assert.equal(r.json.studioOpen, undefined);
   assert.equal(r.json.ref, undefined, 'sin referidos');
+  r = await ana.post('/api/billing/quote', { cycle: 'month', code: 'MESGRATIS' });
+  assert.equal(r.status, 400); assert.equal(r.json.code, 'code_off'); assert.match(r.json.error, /días de prueba/);
+  r = await ana.post('/api/billing/quote', { cycle: 'month' });
+  assert.equal(r.json.amount, 29); assert.equal(r.json.trialDays, 0, 'Pro sin mes gratis');
   r = await ana.post('/api/billing/quote', { cycle: 'month', code: 'MARIA20' });
-  assert.equal(r.json.amount, 23.2); assert.equal(r.json.trialDays, 45); assert.equal(r.json.cycles, 3);
+  assert.equal(r.json.amount, 23.2); assert.equal(r.json.trialDays, 0); assert.equal(r.json.cycles, 3);
   r = await ana.post('/api/billing/quote', { cycle: 'month', code: 'NOEXISTE' });
   assert.equal(r.status, 400);
   r = await ana.post('/api/billing/checkout', { cycle: 'month', code: 'maria20' });
@@ -78,26 +88,26 @@ test('código de influencer, mes gratis y suscripción autorizada por aviso firm
   assert.match(r.json.url, /^https:\/\/mp\.test\/checkout/);
   const pre = Object.values(MPS.pre).at(-1);
   assert.equal(pre.auto_recurring.transaction_amount, 23.2);
-  assert.deepEqual(pre.auto_recurring.free_trial, { frequency: 45, frequency_type: 'days' });
+  assert.equal(pre.auto_recurring.free_trial, undefined, 'sin días gratis en Mercado Pago'); assert.equal(pre.auto_recurring.start_date, undefined);
   assert.equal(pre.auto_recurring.currency_id, 'PEN');
   assert.equal(pre.external_reference, r.json.sid);
   assert.equal(user('ana@prueba.pe').plan, 'free', 'pendiente: aún no es Pro');
   // aviso sin firma válida: se rechaza
-  authorize(pre.id, 'payer-1', 45);
+  authorize(pre.id, 'payer-1', 30);
   assert.equal(await hook('subscription_preapproval', pre.id, { sign: false }), 401);
   assert.equal(user('ana@prueba.pe').plan, 'free');
   assert.equal(await hook('subscription_preapproval', pre.id), 200);
   const u = user('ana@prueba.pe');
   assert.equal(u.plan, 'pro', 'autorizada: Pro');
-  assert.ok(u.pro_until > Date.now() + 47 * DAY, 'hasta el primer cobro + gracia');
-  assert.equal(u.trial_used, 1);
+  assert.ok(u.pro_until > Date.now() + 32 * DAY, 'hasta el próximo cobro + gracia');
+  assert.equal(u.trial_used, 0); assert.equal(S.S.one('SELECT trial FROM subs WHERE ext_id=?', pre.id).trial, 0);
   assert.equal(S.S.one("SELECT uses FROM codes WHERE code='MARIA20'").uses, 1);
   r = await ana.post('/api/billing/checkout', { cycle: 'year' });
   assert.equal(r.status, 409, 'una sola suscripción');
-  // aviso 3 días antes del primer cobro (una sola vez)
+  // sin mes gratis no hay aviso del fin del mes gratis
   S.S.run('UPDATE subs SET next_payment=? WHERE ext_id=?', Date.now() + 2 * DAY, pre.id);
   await S.billing.hourly();
-  assert.ok(S.S.one('SELECT reminded FROM subs WHERE ext_id=?', pre.id).reminded, 'aviso del primer cobro');
+  assert.equal(S.S.one('SELECT reminded FROM subs WHERE ext_id=?', pre.id).reminded, null, 'sin aviso del fin del mes gratis');
   // tres cobros con descuento → vuelve al precio completo
   for (let i = 0; i < 3; i++) assert.equal(await hook('subscription_authorized_payment', pay(pre.id)), 200);
   assert.equal(S.S.one('SELECT paid_cycles FROM subs WHERE ext_id=?', pre.id).paid_cycles, 3);
@@ -108,20 +118,34 @@ test('código de influencer, mes gratis y suscripción autorizada por aviso firm
   assert.equal(S.S.one('SELECT paid_cycles FROM subs WHERE ext_id=?', pre.id).paid_cycles, 3);
 });
 
-test('el mes gratis no se repite: mismo equipo o mismo pagador', async () => {
-  // otra cuenta en el mismo navegador de Ana
-  const anaJar = { fs_dev: S.S.one("SELECT dev FROM devices d JOIN users u ON u.id=d.uid WHERE u.email='ana@prueba.pe'").dev };
-  const otra = H.client(base, anaJar); await login(otra, 'ana.otra@prueba.pe', 'Ana 2');
-  let r = await otra.get('/api/billing');
-  assert.equal(r.json.trial, false, 'mismo dispositivo: sin mes gratis');
-  r = await otra.post('/api/billing/quote', { cycle: 'month' });
+/* (lote AD) ya no se dan pruebas nuevas, pero quien la empezó antes la termina normalmente: Pro hasta el primer cobro,
+   el aviso 3 días antes y la regla de un mes gratis por pagador de Mercado Pago */
+const legacyTrial = (uid, days = 30) => S.S.run("UPDATE subs SET trial=? WHERE uid=? AND status='pending'", days, uid);
+test('quien ya estaba en su mes gratis lo termina normalmente; el navegador ya no se marca', async () => {
+  // la marca del navegador (fs_dev) se borra al entrar y no se anota en ningún lado
+  const otra = H.client(base, { fs_dev: 'marca-vieja-de-este-navegador' }); await login(otra, 'ana.otra@prueba.pe', 'Ana 2');
+  assert.equal(otra.jar.fs_dev, '', 'la marca vieja se borra');
+  assert.equal(S.S.one('SELECT COUNT(*) n FROM devices').n, 0);
+  let r = await otra.post('/api/billing/quote', { cycle: 'month' });
   assert.equal(r.json.trialDays, 0);
-  // otra persona, otro equipo, pero paga con la misma cuenta de Mercado Pago
+  // Beto empezó su mes gratis antes del cambio: sigue en Pro hasta su primer cobro, con el aviso de siempre
+  const beto0 = H.client(base); await login(beto0, 'beto0@prueba.pe', 'Beto 0');
+  await beto0.post('/api/billing/checkout', { cycle: 'month' });
+  const pre0 = Object.values(MPS.pre).at(-1);
+  legacyTrial(user('beto0@prueba.pe').id);
+  authorize(pre0.id, 'payer-viejo', 30);
+  await hook('subscription_preapproval', pre0.id);
+  assert.equal(user('beto0@prueba.pe').plan, 'pro', 'en su mes gratis: Pro');
+  assert.equal(user('beto0@prueba.pe').trial_used, 1);
+  S.S.run('UPDATE subs SET next_payment=? WHERE ext_id=?', Date.now() + 2 * DAY, pre0.id);
+  await S.billing.hourly();
+  assert.ok(S.S.one('SELECT reminded FROM subs WHERE ext_id=?', pre0.id).reminded, 'aviso del primer cobro');
+  // otra persona que empezó su mes gratis con la misma cuenta de Mercado Pago: el plan empieza con el primer cobro
   const beto = H.client(base); await login(beto, 'beto@prueba.pe', 'Beto');
   r = await beto.post('/api/billing/checkout', { cycle: 'month' });
   const pre = Object.values(MPS.pre).at(-1);
-  assert.ok(pre.auto_recurring.free_trial);
-  authorize(pre.id, 'payer-1', 30);
+  legacyTrial(user('beto@prueba.pe').id);
+  authorize(pre.id, 'payer-viejo', 30);
   await hook('subscription_preapproval', pre.id);
   assert.equal(S.S.one('SELECT note FROM subs WHERE ext_id=?', pre.id).note, 'mes gratis repetido');
   assert.equal(user('beto@prueba.pe').plan, 'free', 'Pro empieza con el primer cobro');
@@ -139,14 +163,16 @@ test('el mes gratis no se repite: mismo equipo o mismo pagador', async () => {
 });
 
 /* un pago que quedó a medias y se descartó (a los 7 días, o porque se activó otro) se cancela también en Mercado Pago;
-   y si igual se completa, se activa con las comprobaciones del primer pago (el mes gratis no se repite por pagador) */
+   y si igual se completa, se activa con las comprobaciones del primer pago (el mes gratis de antes no se repite por pagador) */
 test('pago a medias descartado: se cancela en Mercado Pago y, si se completa igual, no regala otro mes', async () => {
   const A = H.client(base); await login(A, 'medias1@prueba.pe');
   await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'pe' });
+  legacyTrial(user('medias1@prueba.pe').id);   // los dos empezaron con mes gratis, antes del lote AD
   let pre = Object.values(MPS.pre).at(-1).id; authorize(pre, 'PAG-M', 30); assert.equal(await hook('preapproval', pre), 200);
   assert.equal(user('medias1@prueba.pe').plan, 'pro');
   const B = H.client(base); await login(B, 'medias2@prueba.pe');
   await B.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'pe' });
+  legacyTrial(user('medias2@prueba.pe').id);
   pre = Object.values(MPS.pre).at(-1).id;
   S.S.run('UPDATE subs SET created=created-8*86400000, updated=updated-8*86400000 WHERE uid=?', user('medias2@prueba.pe').id);
   await S.billing.hourly();

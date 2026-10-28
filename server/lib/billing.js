@@ -7,7 +7,8 @@
        2. al autorizarla, Mercado Pago avisa por webhook; el servidor NUNCA cree en el
           aviso: vuelve a leer la suscripción y los pagos con su token;
        3. el plan dura hasta la próxima fecha de cobro + 3 días de gracia.
-     Primer mes gratis: uno por cuenta, por navegador y por pagador de Mercado Pago.
+     Sin prueba gratis (lote AD): para conocer la producción está el proyecto de ejemplo de la app. Las pruebas que ya
+     habían empezado (subs.trial > 0) terminan normalmente: aviso antes del primer cobro, «mes gratis repetido», etc.
    · Resto del mundo → Paddle, en dólares (si está configurado; si no, Lemon Squeezy). Paddle: el servidor crea
      una transacción con el precio del plan y la persona paga en la página /pagar (Paddle.js), que es el «enlace
      de pago predeterminado» de la cuenta de Paddle. Paddle avisa por webhook firmado («Paddle-Signature») y el
@@ -17,8 +18,8 @@
      Squeezy avisa por webhook firmado y el servidor vuelve a leer la suscripción.
      Lemon Squeezy cobra los impuestos de cada país y emite los comprobantes.
    Subir de Pro a Studio: se contrata Studio y, al activarse, la suscripción anterior se cancela.
-   Códigos de descuento (influencers): % de descuento por N cobros, días extra de prueba,
-   usos máximos y vencimiento. Uno por cuenta. En Mercado Pago los aplica el servidor; en
+   Códigos de descuento (influencers): % de descuento por N cobros, usos máximos y vencimiento (los días extra de
+   prueba de los códigos viejos ya no se dan). Uno por cuenta. En Mercado Pago los aplica el servidor; en
    Lemon Squeezy se envían a su página de pago (hay que crear el mismo código allí).
    Configuración: MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET, LS_API_KEY, LS_STORE_ID, LS_WEBHOOK_SECRET,
    LS_VARIANT_PRO_MONTH, LS_VARIANT_PRO_YEAR, LS_VARIANT_STUDIO_MONTH, LS_VARIANT_STUDIO_YEAR y los precios.
@@ -36,7 +37,7 @@ const money = (n, cur) => (cur === 'USD' ? 'US$ ' : 'S/ ') + (+n).toFixed(2);
 function makeBilling(S, auth, api, cfg, mail, sec) {
   const MP = {
     token: process.env.MP_ACCESS_TOKEN || '', base: (process.env.MP_API_BASE || 'https://api.mercadopago.com').replace(/\/+$/, ''),
-    secret: process.env.MP_WEBHOOK_SECRET || '', trialMode: process.env.MP_TRIAL_MODE === 'start_date' ? 'start_date' : 'free_trial',
+    secret: process.env.MP_WEBHOOK_SECRET || '',
   };
   const LS = {
     key: process.env.LS_API_KEY || '', store: process.env.LS_STORE_ID || '', secret: process.env.LS_WEBHOOK_SECRET || '',
@@ -45,14 +46,14 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
       pro: { month: process.env.LS_VARIANT_PRO_MONTH || '', year: process.env.LS_VARIANT_PRO_YEAR || '' },
       studio: { month: process.env.LS_VARIANT_STUDIO_MONTH || '', year: process.env.LS_VARIANT_STUDIO_YEAR || '' },
     },
-    trialDays: +(process.env.LS_TRIAL_DAYS || 0),
   };
   LS.variants.indie = { month: process.env.LS_VARIANT_INDIE_MONTH || '', year: process.env.LS_VARIANT_INDIE_YEAR || '' };
   const pe = k => process.env[k] || '';
   const PD = {
     key: pe('PADDLE_API_KEY'), secret: pe('PADDLE_WEBHOOK_SECRET'), client: pe('PADDLE_CLIENT_TOKEN'), sandbox: pe('PADDLE_ENV') === 'sandbox',
     base: (pe('PADDLE_API_BASE') || (pe('PADDLE_ENV') === 'sandbox' ? 'https://sandbox-api.paddle.com' : 'https://api.paddle.com')).replace(/\/+$/, ''),
-    // los seis precios de Paddle (pri_…) y, si se quiere el mes gratis de Pro fuera del Perú, los de Pro con 30 días de prueba
+    // los seis precios de Paddle (pri_…). Los de Pro con 30 días de prueba ya no se ofrecen: si están configurados, solo
+    // sirven para reconocer las suscripciones que empezaron con prueba (que siguen hasta su primer cobro)
     prices: Object.fromEntries(['indie', 'pro', 'studio'].map(p => [p, { month: pe(`PADDLE_PRICE_${p.toUpperCase()}_MONTH`), year: pe(`PADDLE_PRICE_${p.toUpperCase()}_YEAR`) }])),
     trial: { month: pe('PADDLE_PRICE_PRO_MONTH_TRIAL'), year: pe('PADDLE_PRICE_PRO_YEAR_TRIAL') },
     founder: pe('PADDLE_DISCOUNT_FUNDADOR'),     // dsc_… del código FUNDADOR (20 % recurrente)
@@ -65,8 +66,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   const intlProv = () => pdOn() ? 'paddle' : lsOn() ? 'ls' : '';
   const enabled = () => mpOn() || pdOn() || lsOn();
   const founderNow = () => now() < (FOUNDER.until || 0);
-  const SELL = ['indie', 'pro', 'studio'];
-  const sellable = plan => plan !== 'studio' || !!cfg.studioOpen;
+  const SELL = ['indie', 'pro', 'studio'];   // (lote AD) Studio, siempre a la venta: ya no hay lista de espera
   const lsVariant = (plan, cycle) => (LS.variants[plan] || {})[cycle] || '';
   const planOfVariant = v => { for (const [p, x] of Object.entries(LS.variants)) for (const c of ['month', 'year']) if (x[c] && String(x[c]) === String(v)) return { plan: p, cycle: c }; return null; };
   // avisos con firma falsa: se cuentan con los demás contadores de seguridad (una fila por hora en la bitácora)
@@ -88,9 +88,9 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   const mp = (method, path, body) => call(MP.base, { Authorization: 'Bearer ' + MP.token, 'Content-Type': 'application/json', ...(method === 'POST' ? { 'X-Idempotency-Key': crypto.randomUUID() } : {}) }, method, path, body, 'Mercado Pago');
   const ls = (method, path, body) => call(LS.base, { Authorization: 'Bearer ' + LS.key, Accept: 'application/vnd.api+json', 'Content-Type': 'application/vnd.api+json' }, method, path, body, 'Lemon Squeezy');
 
-  /* ---------- al entrar: navegador usado, país y código de influencer con el que llegó ---------- */
-  function onLogin(u, req, { isNew, ref, dev, tz }) {
-    if (dev) S.run('INSERT OR IGNORE INTO devices(dev,uid,ts) VALUES(?,?,?)', dev, u.id, now());
+  /* ---------- al entrar: país y código de influencer con el que llegó ----------
+     (lote AD) ya no se anota el navegador: solo servía para que el mes gratis no se repitiera */
+  function onLogin(u, req, { isNew, ref, tz }) {
     if (isNew) S.run('UPDATE users SET signup_ip=? WHERE id=?', req.ip || '', u.id);
     const g = countryOf(req, tz || '');
     if (g.country) S.run('UPDATE users SET country=? WHERE id=?', g.country, u.id);
@@ -102,26 +102,17 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   }
 
   /* ---------- precio con código ---------- */
-  function trialAvailable(u, dev) {
-    if (u.trial_used) return false;
-    if (S.one('SELECT 1 x FROM subs WHERE uid=? AND trial>0 AND status<>?', u.id, 'pending')) return false;
-    // el mismo dispositivo ya usó el mes gratis con otra cuenta
-    if (dev && S.one('SELECT 1 x FROM devices d JOIN users x ON x.id=d.uid WHERE d.dev=? AND d.uid<>? AND x.trial_used=1', dev, u.id)) return false;
-    return true;
-  }
-  function quote(u, cycle, codeIn, dev, opts = {}) {
+  function quote(u, cycle, codeIn, opts = {}) {
     const plan = opts.plan || 'pro', region = opts.region === 'intl' ? 'intl' : 'pe';
     if (!SELL.includes(plan)) fail(400, 'Elige Indie, Pro o Studio.', 'bad_plan');
-    if (!sellable(plan)) fail(403, 'Studio abre muy pronto. Únete a la lista de espera y te avisamos.', 'studio_waitlist');
     if (cycle !== 'month' && cycle !== 'year') fail(400, 'Elige el pago mensual o anual.', 'bad_cycle');
     const currency = region === 'pe' ? 'PEN' : 'USD', list = PRICES[currency][plan][cycle];
     const prov = region === 'pe' ? 'mp' : intlProv() || 'paddle';
     // precio de fundador de Pro: en soles, el precio rebajado; fuera del Perú, el código FUNDADOR (20 %) en Paddle
     const founder = plan === 'pro' && founderNow() && (region === 'pe' ? FOUNDER.PEN[cycle] > 0 : prov === 'paddle');
     const base = founder && region === 'pe' ? FOUNDER.PEN[cycle] : list;
-    // el mes gratis es de Pro: en el Perú con Mercado Pago; fuera, con el precio de prueba de Paddle (o los días de Lemon Squeezy)
-    const trialDays = plan !== 'pro' ? 0 : region === 'pe' ? (trialAvailable(u, dev) ? 30 : 0)
-      : prov === 'paddle' ? (PD.trial[cycle] && trialAvailable(u, dev) ? 30 : 0) : LS.trialDays;
+    // (lote AD) ningún plan tiene prueba gratis: trialDays queda en 0 (lo lee la app; las versiones viejas también)
+    const trialDays = 0;
     const out = {
       plan, cycle, region, provider: prov, currency, base, list, amount: base, pct: 0, cycles: 0,
       trialDays, code: null, label: '', atCheckout: false, founder: !!founder,
@@ -139,26 +130,27 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
     const used = S.one('SELECT code FROM redemptions WHERE uid=?', u.id);
     if (used && used.code !== code) fail(400, 'Tu cuenta ya usó un código de descuento.', 'code_one');
     if (used) fail(400, 'Ya usaste este código.', 'code_one');
+    // un código que solo daba días extra de prueba ya no da nada (el descuento en dinero sigue)
+    if (!(c.pct > 0)) fail(400, 'Ese código daba días de prueba gratis, que ya no se ofrecen.', 'code_off');
     out.code = code; out.label = c.label;
     // fuera del Perú el descuento lo aplica el medio de pago en su página (hay que crear el mismo código allí)
     if (region === 'intl') { out.atCheckout = true; return out; }
     out.pct = Math.max(0, Math.min(100, c.pct));
     out.cycles = cycle === 'year' && c.cycles > 0 ? 1 : c.cycles;   // en el pago anual, el descuento vale para el primer año
     out.amount = Math.round(base * (100 - out.pct)) / 100;
-    if (out.trialDays && c.trial_days) out.trialDays += c.trial_days;
     if (out.amount <= 0) fail(400, 'Ese código no se puede usar en una suscripción.', 'bad_code');
     return out;
   }
 
   /* ---------- suscribirse ---------- */
   const activeSub = uid => S.one("SELECT * FROM subs WHERE uid=? AND status IN ('authorized','paused') ORDER BY created DESC LIMIT 1", uid);
-  async function checkout(u, b, dev) {
+  async function checkout(u, b) {
     const region = b.region === 'intl' ? 'intl' : 'pe', plan = SELL.includes(b.plan) ? b.plan : 'pro';
     if (region === 'pe' && !mpOn()) fail(503, 'Los pagos con Mercado Pago aún no están habilitados. Vuelve pronto.', 'billing_off');
     if (region === 'intl' && !intlProv()) fail(503, 'Los pagos internacionales aún no están habilitados. Vuelve pronto.', 'billing_off');
     const cur = activeSub(u.id);
     if (cur && TIER[cur.plan || 'pro'] >= TIER[plan]) fail(409, `Ya tienes una suscripción a FilmSpirit ${PLAN_NAME[cur.plan || 'pro']}.`, 'has_sub');
-    const q = quote(u, b.cycle, b.code || u.promo, dev, { plan, region });
+    const q = quote(u, b.cycle, b.code || u.promo, { plan, region });
     // en Paddle el cliente es siempre el correo de la cuenta: un correo escrito a mano podía apuntar al cliente de Paddle
     // de otra persona (y abrir su portal de pagos). En Mercado Pago y Lemon Squeezy el correo del pago puede ser otro
     const payer = region === 'intl' && q.provider === 'paddle' ? normEmail(u.email) : normEmail(b.email || u.email);
@@ -185,18 +177,15 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
       audit(u.id, 'checkout', { sid, provider: 'ls', plan, cycle: q.cycle, code: q.code });
       return { url: r.data.attributes.url, sid };
     }
+    // sin prueba gratis: el primer cobro es al autorizar
     const ar = { frequency: q.cycle === 'year' ? 12 : 1, frequency_type: 'months', transaction_amount: q.amount, currency_id: 'PEN' };
-    if (q.trialDays > 0) {
-      if (MP.trialMode === 'start_date') ar.start_date = new Date(now() + q.trialDays * DAY).toISOString();
-      else ar.free_trial = { frequency: q.trialDays, frequency_type: 'days' };
-    }
     const pre = await mp('POST', '/preapproval', {
       reason: `FilmSpirit ${PLAN_NAME[plan]} ${q.cycle === 'year' ? 'anual' : 'mensual'}${q.founder ? ' · precio de fundador' : ''}${q.code ? ' · código ' + q.code : ''}`,
       external_reference: sid, payer_email: payer, back_url: `${cfg.baseUrl}/app/?pago=${sid}`, status: 'pending', auto_recurring: ar,
     });
     S.run(`INSERT INTO subs(id,uid,provider,ext_id,plan,cycle,base_amount,amount,currency,status,code,disc_cycles,trial,created,updated)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, sid, u.id, 'mp', pre.id, plan, q.cycle, q.base, q.amount, 'PEN', 'pending', q.code, q.cycles, q.trialDays, now(), now());
-    audit(u.id, 'checkout', { sid, pre: pre.id, plan, cycle: q.cycle, amount: q.amount, code: q.code, trial: q.trialDays });
+    audit(u.id, 'checkout', { sid, pre: pre.id, plan, cycle: q.cycle, amount: q.amount, code: q.code });
     return { url: pre.init_point || pre.sandbox_init_point, sid };
   }
 
@@ -228,7 +217,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   }
   function welcome(sub, note) {
     const u = userById(sub.uid), name = PLAN_NAME[sub.plan || 'pro'];
-    mail.send({ to: u.email, subject: `Tu FilmSpirit ${name} está activo`, text: `Hola ${u.name}:\n\nTu suscripción a FilmSpirit ${name} quedó activa${sub.trial ? (note ? '. Este medio de pago ya usó el mes gratis, así que el plan se activa con el primer cobro' : ` y el primer cobro será en ${sub.trial} días`) : ''}.\n\nPuedes ver o cancelar tu suscripción desde el botón de tu cuenta en la app.\n\nFilmSpirit` });
+    mail.queue({ kind: 'bienvenida', to: u.email, subject: `Tu FilmSpirit ${name} está activo`, text: `Hola ${u.name}:\n\nTu suscripción a FilmSpirit ${name} quedó activa${sub.trial ? (note ? '. Este medio de pago ya usó el mes gratis, así que el plan se activa con el primer cobro' : ` y el primer cobro será en ${sub.trial} días`) : ''}.\n\nPuedes ver o cancelar tu suscripción desde el botón de tu cuenta en la app.\n\nFilmSpirit` });
   }
 
   /* ---------- Mercado Pago: lo que dice Mercado Pago manda (estado, próximo cobro, pagador) ---------- */
@@ -361,7 +350,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
     }
   }
   async function paddleCheckout(u, q, sid, payer) {
-    const price = q.trialDays && PD.trial[q.cycle] ? PD.trial[q.cycle] : PD.prices[q.plan][q.cycle];
+    const price = PD.prices[q.plan][q.cycle];   // nunca el precio con prueba (lote AD)
     if (!price) fail(503, `FilmSpirit ${PLAN_NAME[q.plan]} ${q.cycle === 'year' ? 'anual' : 'mensual'} aún no está disponible para pagos internacionales.`, 'billing_off');
     // un solo cliente de Paddle por cuenta: el de sus pagos anteriores, si ya tiene uno
     const prev = S.one("SELECT payer_id FROM subs WHERE uid=? AND provider='paddle' AND payer_id LIKE 'ctm_%' ORDER BY created DESC LIMIT 1", u.id);
@@ -372,7 +361,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
     const txn = r.data.id;
     S.run(`INSERT INTO subs(id,uid,provider,ext_id,plan,cycle,base_amount,amount,currency,status,code,disc_cycles,trial,payer_id,created,updated)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, sid, u.id, 'paddle', 'pdt:' + txn, q.plan, q.cycle, q.list || q.base, q.amount, 'USD', 'pending', q.code, 0, q.trialDays, ctm, now(), now());
-    audit(u.id, 'checkout', { sid, provider: 'paddle', txn, plan: q.plan, cycle: q.cycle, code: q.code, trial: q.trialDays });
+    audit(u.id, 'checkout', { sid, provider: 'paddle', txn, plan: q.plan, cycle: q.cycle, code: q.code });
     // el enlace de pago predeterminado de la cuenta es /pagar en esta web; si Paddle no lo trae, se arma igual
     const link = (r.data.checkout && r.data.checkout.url) || `${cfg.baseUrl}/pagar?_ptxn=${encodeURIComponent(txn)}`;
     return { url: link + (link.includes('?') ? '&' : '?') + 'sid=' + encodeURIComponent(sid), sid };
@@ -553,11 +542,13 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
       if (!s.ext_id || (s.provider === 'ls' ? !lsOn() : s.provider === 'paddle' ? !pdOn() : !mpOn())) continue;
       try { await syncAny(s); } catch (e) { S.run('UPDATE subs SET updated=? WHERE id=?', t, s.id); }
     }
-    // aviso 3 días antes del primer cobro, al terminar el mes gratis (Mercado Pago)
+    // aviso 3 días antes del primer cobro, al terminar el mes gratis (Mercado Pago): ya no se dan pruebas nuevas, pero
+    // quien la empezó antes la termina con su aviso
     for (const s of S.all("SELECT s.*, u.email, u.name FROM subs s JOIN users u ON u.id=s.uid WHERE s.provider='mp' AND s.status='authorized' AND s.trial>0 AND s.paid_cycles=0 AND s.reminded IS NULL AND s.next_payment IS NOT NULL AND s.next_payment<?", t + 3 * DAY)) {
       S.run('UPDATE subs SET reminded=? WHERE id=?', t, s.id);
       const d = new Date(s.next_payment).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', timeZone: 'America/Lima' });
-      mail.send({ to: s.email, subject: `Tu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina pronto`, text: `Hola ${s.name}:\n\nTu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina el ${d}. Ese día Mercado Pago cobrará ${money(s.amount, 'PEN')} ${s.cycle === 'year' ? 'por el año' : 'por el mes'}.\n\nSi no quieres continuar, cancela antes desde el botón de tu cuenta en la app: no se cobrará nada.\n\nFilmSpirit` });
+      // en cola: si el servicio de correo falla se reintenta (antes, se marcaba como avisado y el aviso se perdía)
+      mail.queue({ kind: 'fin-mes-gratis', to: s.email, subject: `Tu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina pronto`, text: `Hola ${s.name}:\n\nTu mes gratis de FilmSpirit ${PLAN_NAME[s.plan || 'pro']} termina el ${d}. Ese día Mercado Pago cobrará ${money(s.amount, 'PEN')} ${s.cycle === 'year' ? 'por el año' : 'por el mes'}.\n\nSi no quieres continuar, cancela antes desde el botón de tu cuenta en la app: no se cobrará nada.\n\nFilmSpirit` });
     }
     // plan que venció (sin suscripción o fin de días regalados)
     for (const u of S.all("SELECT id FROM users WHERE plan IN ('indie','pro','studio') AND pro_until IS NOT NULL AND pro_until<?", t)) entitlement(u.id);
@@ -590,7 +581,7 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
   }
 
   /* ---------- rutas ---------- */
-  async function handle(req, res, url, dev) {
+  async function handle(req, res, url) {
     const p = url.pathname;
     if (p === '/api/billing/webhook' && req.method === 'POST') {
       rateLimit('mp:' + req.ip, 600, 60e3);
@@ -649,8 +640,8 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
       const country = g.country || u.country || '';
       return sendJSON(res, 200, {
         enabled: enabled(), providers: { mp: mpOn(), ls: !!intlProv(), paddle: pdOn() }, intl: intlProv(), country, region: regionOf(country),
-        prices: PRICES, trial: trialAvailable(u, dev), trialIntl: pdOn() ? (PD.trial.month ? 30 : 0) : LS.trialDays, promo: u.promo || null,
-        founder: founderNow() ? { until: FOUNDER.until, PEN: FOUNDER.PEN, pct: FOUNDER.pct, code: FOUNDER.code } : null, studioOpen: !!cfg.studioOpen,
+        prices: PRICES, promo: u.promo || null,
+        founder: founderNow() ? { until: FOUNDER.until, PEN: FOUNDER.PEN, pct: FOUNDER.pct, code: FOUNDER.code } : null,
         plans: Object.fromEntries(Object.entries(PLANS).map(([k, x]) => [k, { projects: x.projects, scripts: x.scripts, members: x.members, writers: x.writers, storageMB: x.storageMB, archived: x.archived, gastos: !!x.gastos }])),
         sub: sub ? { plan: sub.plan || 'pro', provider: sub.provider, currency: sub.currency, cycle: sub.cycle, status: sub.status, amount: sub.amount, base: sub.base_amount, next: sub.next_payment, trial: sub.trial, code: sub.code, resume: sub.resume_at, note: sub.note, portal: sub.portal || null } : null,
         grantUntil: u.grant_until && u.grant_until > now() ? u.grant_until : null, grantPlan: u.grant_plan || null,
@@ -659,12 +650,12 @@ function makeBilling(S, auth, api, cfg, mail, sec) {
     if (p === '/api/billing/quote' && req.method === 'POST') {
       rateLimit('q:' + u.id, 60, 600e3);
       const b = await readJSON(req, 4096);
-      return sendJSON(res, 200, quote(u, b.cycle, b.code, dev, { plan: b.plan, region: b.region }));
+      return sendJSON(res, 200, quote(u, b.cycle, b.code, { plan: b.plan, region: b.region }));
     }
     if (p === '/api/billing/checkout' && req.method === 'POST') {
       rateLimit('co:' + u.id, 10, 600e3);
       const b = await readJSON(req, 4096);
-      return sendJSON(res, 200, await checkout(u, b, dev));
+      return sendJSON(res, 200, await checkout(u, b));
     }
     if (p === '/api/billing/sync' && req.method === 'POST') {
       rateLimit('bsync:' + u.id, 30, 600e3);   // cada llamada consulta al medio de pago con la clave de la tienda

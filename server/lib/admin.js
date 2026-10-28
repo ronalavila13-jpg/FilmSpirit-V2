@@ -1,18 +1,32 @@
 /* ============================================================
    PANEL DE ADMINISTRACIÓN (/admin) · solo las cuentas de ADMIN_EMAILS
    Resumen, cuentas (dar o quitar Pro, suspender), códigos de descuento para
-   influencers, suscripciones y libro de reclamaciones.
+   influencers, suscripciones, la lista de espera de Studio (ya cerrada: el aviso de que abrió) y libro de reclamaciones.
    Cada cambio queda en la bitácora (tabla audit).
    ============================================================ */
 'use strict';
 const { fail, sendJSON, readJSON, now } = require('./util');
 const { FOREVER } = require('./billing');
+const { PLANS } = require('./perm');
 
 const CODE_RE = /^[A-Z0-9][A-Z0-9-]{2,39}$/;
 const DAY = 864e5;
 /* el panel pide haber entrado con Google hace poco (ADMIN_SESSION_HOURS, 12 de entrada): una sesión olvidada abierta
    en otro equipo no basta para dar planes, suspender cuentas o ver los reclamos */
 const freshMs = () => Math.max(1, +(process.env.ADMIN_SESSION_HOURS || 12)) * 3600e3;
+/* (lote AD) el aviso a la lista de espera de que Studio abrió, en el idioma con que se anotó cada persona */
+function studioOpenMail(lang, base) {
+  const S = PLANS.studio, gb = Math.round(S.storageMB / 1000), url = base + '/#planes';
+  const T = {
+    es: ['FilmSpirit Studio ya está disponible', `Hola:\n\nTe anotaste en la lista de espera de FilmSpirit Studio: Studio ya está abierto.\n\nIncluye todo lo de Pro, ${S.projects} proyectos de producción activos, hasta ${S.members} personas por proyecto y ${gb} GB de espacio. Y, solo en Studio, los mapas en Scouting y los escenarios 3D importados, que usa todo tu equipo en tus proyectos.\n\nPara suscribirte, entra a FilmSpirit y elige Studio en los planes:\n${url}\n\nEs el único correo que te enviamos por la lista de espera.\n\nFilmSpirit`],
+    en: ['FilmSpirit Studio is now available', `Hi,\n\nYou joined the FilmSpirit Studio waitlist: Studio is now open.\n\nIt includes everything in Pro, ${S.projects} active production projects, up to ${S.members} people per project and ${gb} GB of storage. And, only in Studio, maps in Location scouting and imported 3D sets, which your whole team uses in your projects.\n\nTo subscribe, sign in to FilmSpirit and choose Studio in the plans:\n${url}\n\nThis is the only email we send you about the waitlist.\n\nFilmSpirit`],
+    pt: ['O FilmSpirit Studio já está disponível', `Olá,\n\nVocê entrou na lista de espera do FilmSpirit Studio: o Studio já está aberto.\n\nInclui tudo do Pro, ${S.projects} projetos de produção ativos, até ${S.members} pessoas por projeto e ${gb} GB de espaço. E, só no Studio, os mapas nas locações e os cenários 3D importados, que toda a sua equipe usa nos seus projetos.\n\nPara assinar, entre no FilmSpirit e escolha o Studio nos planos:\n${url}\n\nÉ o único e-mail que enviamos sobre a lista de espera.\n\nFilmSpirit`],
+    fr: ['FilmSpirit Studio est disponible', `Bonjour,\n\nVous vous êtes inscrit sur la liste d'attente de FilmSpirit Studio : Studio est ouvert.\n\nIl comprend tout ce qu'offre Pro, ${S.projects} projets de production actifs, jusqu'à ${S.members} personnes par projet et ${gb} Go d'espace. Et, uniquement dans Studio, les cartes des repérages et les décors 3D importés, que toute votre équipe utilise dans vos projets.\n\nPour vous abonner, connectez-vous à FilmSpirit et choisissez Studio dans les offres :\n${url}\n\nC'est le seul e-mail que nous vous envoyons au sujet de la liste d'attente.\n\nFilmSpirit`],
+    it: ['FilmSpirit Studio è disponibile', `Ciao,\n\nTi sei iscritto alla lista d'attesa di FilmSpirit Studio: Studio è aperto.\n\nInclude tutto ciò che offre Pro, ${S.projects} progetti di produzione attivi, fino a ${S.members} persone per progetto e ${gb} GB di spazio. E, solo in Studio, le mappe dei sopralluoghi e le scenografie 3D importate, che tutta la tua troupe usa nei tuoi progetti.\n\nPer abbonarti, entra in FilmSpirit e scegli Studio tra i piani:\n${url}\n\nÈ l'unica email che ti inviamo per la lista d'attesa.\n\nFilmSpirit`],
+  };
+  const [subject, text] = T[lang] || T.es;
+  return { subject, text };
+}
 
 function makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec) {
   const isAdmin = u => cfg.adminEmails.includes(u.email);
@@ -48,6 +62,7 @@ function makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec) {
         active7: S.one('SELECT COUNT(*) n FROM users WHERE seen>?', t - 7 * DAY).n, pro: S.one("SELECT COUNT(*) n FROM users WHERE plan='pro' AND (pro_until IS NULL OR pro_until>?)", t).n,
         indie: S.one("SELECT COUNT(*) n FROM users WHERE plan='indie' AND (pro_until IS NULL OR pro_until>?)", t).n,
         scripts: c("SELECT COUNT(*) n FROM projects WHERE deleted IS NULL AND kind='guion'"), waitlist: c("SELECT COUNT(*) n FROM waitlist WHERE plan='studio'"),
+        waitlistTodo: c("SELECT COUNT(*) n FROM waitlist WHERE plan='studio' AND notified IS NULL"),
         studio: S.one("SELECT COUNT(*) n FROM users WHERE plan='studio' AND (pro_until IS NULL OR pro_until>?)", t).n,
         projects: c('SELECT COUNT(*) n FROM projects WHERE deleted IS NULL'), archived: c('SELECT COUNT(*) n FROM projects WHERE deleted IS NULL AND archived IS NOT NULL'),
         subs, mrr: Math.round(mrr * 100) / 100, mrrUSD: Math.round(mrrBy.USD * 100) / 100,
@@ -81,11 +96,12 @@ function makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec) {
       const code = String(body.code || '').trim().toUpperCase();
       if (!CODE_RE.test(code)) fail(400, 'El código debe tener de 3 a 40 letras, números o guiones.', 'bad_code');
       if (S.one('SELECT 1 x FROM codes WHERE code=?', code)) fail(409, 'Ese código ya existe.', 'exists');
-      const pct = Math.max(0, Math.min(90, +body.pct | 0)), cycles = Math.max(0, Math.min(36, +body.cycles | 0)), trial = Math.max(0, Math.min(90, +body.trialDays | 0));
-      if (!pct && !trial) fail(400, 'El código debe dar un descuento o días extra de prueba.', 'empty_code');
+      // (lote AD) sin días extra de prueba: ningún plan tiene prueba gratis (los códigos viejos los muestran, pero no los dan)
+      const pct = Math.max(0, Math.min(90, +body.pct | 0)), cycles = Math.max(0, Math.min(36, +body.cycles | 0)), trial = 0;
+      if (!pct) fail(400, 'El código debe dar un descuento.', 'empty_code');
       const maxUses = body.maxUses ? Math.max(1, +body.maxUses | 0) : null, expires = body.expires ? Date.parse(body.expires + 'T23:59:59-05:00') || null : null;
       S.run('INSERT INTO codes(code,kind,label,pct,cycles,trial_days,max_uses,expires,created) VALUES(?,?,?,?,?,?,?,?,?)', code, 'promo', String(body.label || '').slice(0, 80), pct, cycles, trial, maxUses, expires, now());
-      log('code_new', { code, pct, cycles, trial, maxUses, expires });
+      log('code_new', { code, pct, cycles, maxUses, expires });
       return sendJSON(res, 201, S.one('SELECT * FROM codes WHERE code=?', code));
     }
     if ((m = /^\/api\/admin\/codes\/([A-Z0-9-]+)$/.exec(p)) && req.method === 'POST') {
@@ -109,13 +125,29 @@ function makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec) {
       if (!resp) fail(400, 'Escribe la respuesta.', 'missing');
       S.run("UPDATE reclamos SET respuesta=?, resp_ts=?, estado='respondido' WHERE n=?", resp, now(), r.n);
       const d = JSON.parse(r.data);
-      const sent = await mail.send({ to: d.email, subject: `Respuesta a tu ${r.tipo} ${r.code}`, text: `Hola ${d.nombre}:\n\nRespuesta a la hoja ${r.code} del libro de reclamaciones de FilmSpirit:\n\n${resp}\n\n${cfg.business.name || 'FilmSpirit'}` });
+      const sent = await mail.deliver({ kind: 'reclamo-respuesta', to: d.email, subject: `Respuesta a tu ${r.tipo} ${r.code}`, text: `Hola ${d.nombre}:\n\nRespuesta a la hoja ${r.code} del libro de reclamaciones de FilmSpirit:\n\n${resp}\n\n${cfg.business.name || 'FilmSpirit'}` });
       log('reclamo_resp', { n: r.n });
-      return sendJSON(res, 200, { ok: true, emailed: sent.sent });
+      return sendJSON(res, 200, { ok: true, emailed: sent.sent, queued: !!sent.queued });
     }
-    // lista de espera de Studio
+    // lista de espera de Studio (cerrada en el lote AD: Studio está a la venta)
     if (p === '/api/admin/waitlist' && req.method === 'GET') {
-      return sendJSON(res, 200, S.all('SELECT w.email, w.plan, w.lang, w.country, w.ts, u.plan uplan FROM waitlist w LEFT JOIN users u ON u.email=w.email ORDER BY w.ts DESC LIMIT 2000'));
+      return sendJSON(res, 200, S.all('SELECT w.email, w.plan, w.lang, w.country, w.ts, w.notified, u.plan uplan FROM waitlist w LEFT JOIN users u ON u.email=w.email ORDER BY w.ts DESC LIMIT 2000'));
+    }
+    /* «Avisar a la lista de espera que Studio abrió»: un correo a cada persona que aún no lo recibió, una sola vez (queda
+       marcada aunque el envío se reintente después). Nada se envía solo: lo decide quien administra, con este botón */
+    if (p === '/api/admin/waitlist/notify' && req.method === 'POST') {
+      if (!mail.ready) fail(503, 'El correo no está configurado (MAIL_PROVIDER, MAIL_API_KEY y MAIL_FROM): no se envió nada.', 'mail_off');
+      const rows = S.all("SELECT email, lang FROM waitlist WHERE plan='studio' AND notified IS NULL ORDER BY ts");
+      let n = 0;
+      for (const w of rows) {
+        const m = studioOpenMail(w.lang, cfg.baseUrl);
+        // se marca primero: si el mismo botón se aprieta dos veces, el segundo ya no lo encuentra
+        if (!S.run("UPDATE waitlist SET notified=? WHERE email=? AND plan='studio' AND notified IS NULL", now(), w.email).changes) continue;
+        mail.queue({ kind: 'studio-abrio', to: w.email, ...m });
+        n++;
+      }
+      log('waitlist_notify', { n });
+      return sendJSON(res, 200, { queued: n, total: S.one("SELECT COUNT(*) n FROM waitlist WHERE plan='studio'").n });
     }
     // seguridad: las últimas 24 horas (bloqueos por límite, inicios rechazados y firmas falsas de los avisos de pago)
     if (p === '/api/admin/security' && req.method === 'GET') {

@@ -29,6 +29,7 @@ async function readPDFScript(file) {
   return parsePDFScript(pages);
 }
 function pickFile(accept, mode) {
+  if (Store.kind === 'api' && APITEAM.anon) return anonAsk('import');   // sin cuenta: importar crea un proyecto (lote AD)
   pickMode = mode;
   const f = $('#fileIn');
   f.accept = accept; f.value = '';
@@ -68,7 +69,7 @@ async function onFile(file) {
       ${asEp ? `<label class="opt"><input type="radio" name="imode" value="episode" ${epMode ? 'checked' : ''}><span><b>Agregar como episodio de «${esc(P.meta.title)}»</b><span class="hint">${isSeries(P) ? 'Va al final de la serie, con sus escenas numeradas con el episodio delante.' : 'Para una serie: el guion que ya tiene pasa a ser el episodio 101 y este, el que sigue.'}</span>
         <span class="imp-ep"><input id="iepN" class="tnum" value="${ea(epN)}" maxlength="6" aria-label="Número del episodio" title="Número del episodio"><input id="iepT" value="${ea(parsed.title || '')}" placeholder="Título del episodio" maxlength="120" aria-label="Título del episodio"></span></span></label>` : ''}
       <label class="opt"><input type="radio" name="imode" value="new" ${blank || same || epMode ? '' : 'checked'}><span><b>Crear un proyecto nuevo</b><span class="hint">«${esc(title)}»</span></span></label>
-      ${canUpdate ? `<label class="opt"><input type="radio" name="imode" value="update" ${same ? 'checked' : ''}><span><b>Actualizar el guion de «${esc(P.meta.title)}»</b><span class="hint">Conserva el desglose, los planos y el stripboard donde el texto coincide; cada escena mantiene su número y las nuevas toman letra (12A).</span></span></label>` : ''}
+      ${canUpdate ? `<label class="opt"><input type="radio" name="imode" value="update" ${same ? 'checked' : ''}><span><b>Actualizar el guion de «${esc(P.meta.title)}»</b><span class="hint">Conserva el desglose, los planos y el plan de rodaje donde el texto coincide; cada escena mantiene su número y las nuevas toman letra (12A).</span></span></label>` : ''}
       <label class="opt"><input type="checkbox" id="iauto" checked><span><b>Desglose automático</b><span class="hint">Marca reparto, locaciones y elementos probables como sugerencias (línea punteada) para que los confirmes.</span></span></label>`,
     foot: `<button class="btn" data-close>Cancelar</button><button class="btn primary" id="impOk">Importar</button>`,
   });
@@ -143,6 +144,8 @@ function importDone(msg, ms = 4600) {
 /* tipo de un proyecto nuevo en la web con cuentas: el plan Guion solo crea guiones; los demás, proyectos de producción */
 const newKind = () => API() && APITEAM.me && !(APITEAM.me.limits && APITEAM.me.limits.projects) ? 'guion' : 'prod';
 async function canCreateProject(quiet, kind) {
+  // sin cuenta (el ejemplo desde la portada): crear un proyecto pide la cuenta (lote AD · cuenta.js · anonAsk)
+  if (Store.kind === 'api' && APITEAM.anon) { if (!quiet) anonAsk('new'); return false; }
   if (Store.kind === 'api') {
     const me = APITEAM.me;
     if (!me || !me.limits) return true;
@@ -182,7 +185,9 @@ async function restoreBackup(text) {
   FRAMES = imgs; FRAMES_PID = Pn.id; FRIDX = null; FR_KNOWN = Pn.id;
   (async () => {
     const bad = [];
-    for (const [sid, url] of Object.entries(imgs)) { try { await Store.saveFrame(Pn.id, sid, url); } catch (e) { bad.push([sid, url]); } }
+    // de a tres a la vez (antes, una por una: un storyboard con cien viñetas tardaba cien viajes seguidos)
+    const list = Object.entries(imgs);
+    await Promise.all([0, 1, 2].map(async () => { for (let it; (it = list.shift());) { try { await Store.saveFrame(Pn.id, it[0], it[1]); } catch (e) { bad.push(it); } } }));
     if (bad.length) problem(`${bad.length} ${bad.length === 1 ? 'imagen de la copia no se pudo guardar' : 'imágenes de la copia no se pudieron guardar'}.`, async () => { let n = 0; for (const [sid, url] of bad) { try { await Store.saveFrame(Pn.id, sid, url); } catch (e) { n++; } } if (n) problem(`Siguen sin guardarse ${n} imágenes.`); else toast('Imágenes guardadas.'); });
   })();
   render();

@@ -16,7 +16,7 @@
       ok.hidden = false;
       ok.innerHTML = '<div class="ok-box"><b></b><span></span></div><pre style="white-space:pre-wrap;font-family:var(--font-script);font-size:13px;background:var(--surface);border-radius:12px;padding:16px;margin-top:16px"></pre><p><button class="btn" type="button" id="pr">Imprimir o guardar en PDF</button></p>';
       ok.querySelector('b').textContent = 'Hoja ' + j.code + ' registrada';
-      ok.querySelector('span').textContent = j.emailed ? 'Te enviamos una copia a tu correo. Guarda este número.' : 'Guarda este número y la copia de abajo.';
+      ok.querySelector('span').textContent = j.emailed ? 'Te enviamos una copia a tu correo. Guarda este número.' : j.queued ? 'La copia te llegará a tu correo en unos minutos. Guarda este número y la copia de abajo.' : 'Guarda este número y la copia de abajo.';
       ok.querySelector('pre').textContent = j.copy;
       document.getElementById('pr').onclick = () => print();
       ok.focus();   // quien usa lector de pantalla o teclado llega directo al número de la hoja

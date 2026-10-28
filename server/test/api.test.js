@@ -220,6 +220,18 @@ test('imágenes: storyboard sí; fotos del desglose con los planes pagados', asy
   assert.equal(r.status, 400);
   // modelos 3D importados («m3~…»): solo en su formato (gzip de «FSM1» + encabezado), y solo con esas claves
   const fsm = (h = { v: 1, kind: 'set', parts: [] }) => { const j = Buffer.from(JSON.stringify(h)), b = Buffer.alloc(8 + j.length); b.write('FSM1', 0, 'latin1'); b.writeUInt32LE(j.length, 4); j.copy(b, 8); return 'data:model/x-fsm;base64,' + require('node:zlib').gzipSync(b).toString('base64'); };
+  // (lote AD) los escenarios 3D importados («m3~s~…» y su planta «m3p~…») son de Studio, según el plan de quien es dueño;
+  // los modelos de los personajes («m3~c~…») siguen en Indie, Pro y Studio
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3~s~e1', url: fsm() });
+  assert.equal(r.status, 403, 'Pro: sin escenarios 3D importados'); assert.equal(r.json.code, 'plan_studio'); assert.match(r.json.error, /Studio/);
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3p~e1', url: PNG });
+  assert.equal(r.json.code, 'plan_studio', 'ni su planta');
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3~c~e1', url: fsm({ v: 1, kind: 'char', parts: [] }) });
+  assert.equal(r.status, 200, 'el modelo de un personaje, sí');
+  await A.put(`/api/p/${pid}/f`, { k: 'm3~c~e1', url: null });
+  S.S.run("UPDATE users SET plan='studio' WHERE email='ana@prueba.pe'");
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3p~e1', url: PNG });
+  assert.equal(r.status, 200, r.text);
   r = await A.put(`/api/p/${pid}/f`, { k: 'm3~s~e1', url: fsm() });
   assert.equal(r.status, 200, r.text);
   r = await A.put(`/api/p/${pid}/f`, { k: 'm3~s~e2', url: 'data:model/x-fsm;base64,' + Buffer.from('no es un modelo').toString('base64') });
@@ -232,6 +244,14 @@ test('imágenes: storyboard sí; fotos del desglose con los planes pagados', asy
   assert.equal(r.status, 400, 'un modelo con clave de imagen');
   r = await B.post(`/api/p/${pid}/frames/get`, { keys: ['m3~s~e1'] });
   assert.match(r.json.frames['m3~s~e1'].u, /^data:model\/x-fsm;base64,/, 'se lee con el storyboard');
+  // de vuelta en Pro: lo que el proyecto ya tiene se sigue viendo y se puede quitar
+  S.S.run("UPDATE users SET plan='pro' WHERE email='ana@prueba.pe'");
+  r = await B.post(`/api/p/${pid}/frames/get`, { keys: ['m3~s~e1', 'm3p~e1'] });
+  assert.ok(r.json.frames['m3~s~e1'] && r.json.frames['m3p~e1'], 'lo ya hecho se sigue viendo');
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3~s~e1', url: fsm() });
+  assert.equal(r.json.code, 'plan_studio', 'pero no se cambia');
+  r = await A.put(`/api/p/${pid}/f`, { k: 'm3p~e1', url: null });
+  assert.equal(r.status, 200);
   r = await A.put(`/api/p/${pid}/f`, { k: 'm3~s~e1', url: null });
   assert.equal(r.status, 200);
   r = await B.get(`/api/p/${pid}/frames`);

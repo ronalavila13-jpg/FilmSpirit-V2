@@ -90,7 +90,7 @@ test('piezas: «del plan» marca la hora calculada; ‹ › sin a dónde ir qued
 });
 
 /* ---------- las 14 pestañas: cabecera nueva y sin relleno ---------- */
-const HEADS = { call: 'cl-hd', sup: 'sup-hd0', breakdown: 'bd-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
+const HEADS = { call: 'cl-hd', sup: 'hs-hd', breakdown: 'bd-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
 const html = {};
 for (const t of Object.keys(HEADS).concat(['script', 'animatic'])) html[t] = A.show(t);
 test('las 14 pestañas tienen su cabecera nueva', () => {
@@ -148,8 +148,11 @@ test('hoja de llamado: sin centro de salud, el aviso lo pide y su fila queda mar
   run(`P.callsheet.hospital = { name: '', addr: '', phone: '' }; for (const d of Object.values(P.callsheet.days || {})) if (d && d.hosp) d.hosp = {};`);
   const miss = JSON.parse(run(`JSON.stringify(callMissing(0).map(x => x.k))`));
   assert.ok(miss.includes('hosp'), 'callMissing no pide el centro de salud: ' + miss);
-  const h = head(A.show('call'), 'cl-hd');
-  has(h, /data-bind="cs-hosp" data-f="name"[^>]*data-miss="1"/);
+  // (lote U) el centro de salud va al pie de la hoja, como en la referencia (antes, en la cabecera). (lote AH) Sin pie de
+  // página: en un cuadro al final de la hoja, con los canales de radio
+  const h = A.show('call');
+  has(h, /<section class="cl-box cl-hr">[^]*data-bind="cs-hosp" data-f="name"[^>]*data-miss="1"/);
+  assert.doesNotMatch(h, /class="cl-foot"/);
 });
 
 /* ---------- desglose (mejora 7) ---------- */

@@ -11,7 +11,6 @@
      PEN_{INDIE,PRO,STUDIO}_{MONTH,YEAR}            precios en soles (29/290, 49/490, 129/1290)
      USD_{INDIE,PRO,STUDIO}_{MONTH,YEAR}            precios en dólares fuera del Perú (7.99/79, 14.99/149, 39/390)
      FOUNDER_UNTIL     2027-02-28T23:59:59-05:00     precio de fundador de Pro hasta esa fecha (S/ 39; código FUNDADOR fuera)
-     STUDIO_OPEN       1                            Studio a la venta (sin esto, lista de espera)
      MP_ACCESS_TOKEN   APP_USR-…                    Mercado Pago, pagos en el Perú (sin él, quedan apagados)
      MP_WEBHOOK_SECRET …                            clave secreta de los avisos (webhooks) de Mercado Pago
      PADDLE_API_KEY, PADDLE_WEBHOOK_SECRET, PADDLE_CLIENT_TOKEN   Paddle, pagos desde otros países
@@ -30,6 +29,7 @@ const { HttpError, sendJSON, sendText, redirect, readJSON, rateLimit, setRateHoo
 const { makeSecurity } = require('./lib/seguridad');
 const { open } = require('./lib/db');
 const temas = require('./lib/temas');
+const escritura = require('./lib/escritura');
 const { makeAuth } = require('./lib/auth');
 const { makeApi } = require('./lib/api');
 const { makeLive } = require('./lib/live');
@@ -37,8 +37,9 @@ const { makeBilling } = require('./lib/billing');
 const { makeAdmin } = require('./lib/admin');
 const { makeReclamos } = require('./lib/reclamos');
 const { makeMail } = require('./lib/mail');
-const { parseCookies, cookie, addCookie, rid, normEmail, isEmail } = require('./lib/util');
+const { parseCookies, cookie, addCookie, normEmail } = require('./lib/util');
 const { LANGS, countryOf, regionOf, langOf } = require('./lib/geo');
+const { makeMapas } = require('./lib/mapas');
 
 /* textos de la web pública en cinco idiomas (server/i18n/*.json) */
 const I18N = Object.fromEntries(LANGS.map(l => { try { return [l, JSON.parse(fs.readFileSync(path.join(__dirname, 'i18n', l + '.json'), 'utf8'))]; } catch (e) { return [l, {}]; } }));
@@ -64,8 +65,6 @@ function config(over = {}) {
     },
     // precio de fundador de Pro: quien se suscribe antes de la fecha paga ese precio mientras siga suscrito
     founder: { until: Date.parse(e.FOUNDER_UNTIL || '2027-02-28T23:59:59-05:00') || 0, PEN: { month: num('FOUNDER_PEN_MONTH', 39), year: num('FOUNDER_PEN_YEAR', 390) }, pct: num('FOUNDER_USD_PCT', 20), code: String(e.FOUNDER_CODE || 'FUNDADOR').toUpperCase() },
-    // Studio abre cuando existan el scouting con mapas y el casting; mientras tanto, lista de espera
-    studioOpen: e.STUDIO_OPEN === '1',
     business: { name: String(e.BUSINESS_NAME || '').trim(), ruc: String(e.BUSINESS_RUC || '').trim(), address: String(e.BUSINESS_ADDRESS || '').trim(), legalDate: String(e.LEGAL_DATE || '').trim() },
   };
 }
@@ -80,7 +79,8 @@ const GSI = 'https://accounts.google.com/gsi/';
 const csp = () => [
   // 'wasm-unsafe-eval': solo WebAssembly (meshoptimizer aligera los modelos 3D importados); eval de JavaScript, no
   "default-src 'self'", `script-src 'self' 'wasm-unsafe-eval' ${GSI}client`, `style-src 'self' 'unsafe-inline' ${GSI}style`,
-  "img-src 'self' data: blob: https://*.googleusercontent.com", "media-src 'self' data: blob:", "font-src 'self' data:",
+  // las teselas del mapa general del scouting (OpenStreetMap; Leaflet se sirve desde /app/lib)
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://tile.openstreetmap.org", "media-src 'self' data: blob:", "font-src 'self' data:",
   `connect-src 'self' data: blob: ${GSI}`, `frame-src ${GSI}`, "worker-src 'self' blob:", "object-src 'none'",
   "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'",
 ].join('; ');
@@ -95,7 +95,7 @@ function createServer(over) {
   // con https, el navegador recuerda usar siempre https
   if (/^https:/.test(cfg.baseUrl)) SEC_HEADERS['Strict-Transport-Security'] = 'max-age=31536000';
   const S = open(cfg.dataDir);
-  const mail = makeMail(cfg);
+  const mail = makeMail(cfg, S);
   const auth = makeAuth(S, cfg);
   const live = makeLive();
   const api = makeApi(S, auth, live, cfg);
@@ -103,6 +103,7 @@ function createServer(over) {
   setRateHook(sec.limitHit);
   const billing = makeBilling(S, auth, api, cfg, mail, sec);
   const reclamos = makeReclamos(S, cfg, mail);
+  const mapas = makeMapas({ userAgent: `FilmSpirit (+${cfg.baseUrl})` });
   // bloqueos e inicios rechazados, para la pestaña Seguridad del panel
   const admin = makeAdmin(S, auth, billing, cfg, mail, reclamos, live, sec);
   const soles = n => 'S/ ' + (Number.isInteger(n) ? n : n.toFixed(2));
@@ -116,20 +117,36 @@ function createServer(over) {
   const PAY_CSP = [`default-src 'self'`, `script-src 'self' ${PAD}`, `style-src 'self' 'unsafe-inline' ${PAD}`, `img-src 'self' data: ${PAD}`, `font-src 'self' data: ${PAD}`,
     `connect-src 'self' ${PAD}`, `frame-src ${PAD}`, "object-src 'none'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self' https://*.paddle.com"].join('; ');
   const htmlCache = new Map();
-  /* textos comprimidos una vez y guardados en memoria (brotli o gzip, según el navegador) */
-  const zCache = new Map();
+  /* textos comprimidos una vez y guardados en memoria (brotli o gzip, según el navegador).
+     Primero se busca la copia comprimida al compilar (make.js deja app.js.br y app.js.gz al lado); si no está, se
+     comprime fuera del hilo principal (zlib asíncrono). Antes se comprimía aquí mismo y, tras cada actualización, el
+     primero que abría la app dejaba el servidor (un solo núcleo) trabado cerca de un segundo para todos. */
+  const zCache = new Map(), zPend = new Map();
   const ZTYPES = /^(text\/|application\/(json|javascript|manifest)|image\/svg)/;
-  function packed(req, key, mtime, type, getBody) {
+  const brotliA = (b, o) => new Promise((res, rej) => zlib.brotliCompress(b, o, (e, r) => e ? rej(e) : res(r)));
+  const gzipA = (b, o) => new Promise((res, rej) => zlib.gzip(b, o, (e, r) => e ? rej(e) : res(r)));
+  async function packed(req, key, mtime, type, getBody, file) {
     const ae = String(req.headers['accept-encoding'] || '');
     const enc = /\bbr\b/.test(ae) ? 'br' : /\bgzip\b/.test(ae) ? 'gzip' : '';
     if (!enc || !ZTYPES.test(type)) return null;
     const k = key + '|' + enc, c = zCache.get(k);
     if (c && c.m === mtime) return { enc, body: c.body };
-    const raw = Buffer.from(getBody());
-    if (raw.length < 1024) return null;
-    const body = enc === 'br' ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 } }) : zlib.gzipSync(raw, { level: 9 });
-    zCache.set(k, { m: mtime, body });
-    return { enc, body };
+    let job = zPend.get(k);
+    if (!job || job.m !== mtime) {
+      job = { m: mtime };
+      job.p = (async () => {
+        if (file) {
+          const pre = file + (enc === 'br' ? '.br' : '.gz');
+          try { if ((await fs.promises.stat(pre)).mtimeMs >= mtime) return await fs.promises.readFile(pre); } catch (e) { }
+        }
+        const raw = Buffer.from(await getBody());
+        if (raw.length < 1024) return null;
+        return enc === 'br' ? brotliA(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }) : gzipA(raw, { level: 9 });
+      })().then(body => { if (body) zCache.set(k, { m: mtime, body }); return body; }).finally(() => { if (zPend.get(k) === job) zPend.delete(k); });
+      zPend.set(k, job);
+    }
+    const body = await job.p;
+    return body ? { enc, body } : null;
   }
 
   /* páginas HTML: se completan con la configuración pública (id de cliente de Google), los precios de la
@@ -161,7 +178,6 @@ function createServer(over) {
       FOUNDER: fnd ? '1' : '', FOUNDER_PE_M: money(cfg.founder.PEN.month, 'PEN', lang), FOUNDER_PE_Y: money(cfg.founder.PEN.year, 'PEN', lang),
       FOUNDER_PCT: String(cfg.founder.pct), FOUNDER_CODE: cfg.founder.code,
       FOUNDER_HASTA: cfg.founder.until ? new Date(cfg.founder.until).toLocaleDateString(lang === 'en' ? 'en-US' : lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Lima' }) : '',
-      STUDIO_OPEN: cfg.studioOpen ? '1' : '',
       CONTACTO: cfg.supportEmail || '—',
       EMPRESA_PIE: cfg.business.name || 'FilmSpirit',   // el pie de la portada: la razón social, si está configurada
       EMPRESA: cfg.business.name || '[razón social]', RUC: cfg.business.ruc || '[RUC]', DOMICILIO: cfg.business.address || '[domicilio fiscal]',
@@ -188,7 +204,7 @@ function createServer(over) {
     if (q && LANGS.includes(q) && res) addCookie(res, cookie('fs_lang', q, { maxAge: 365 * 86400, httpOnly: false, secure: /^https:/.test(cfg.baseUrl) }));
     return { lang, region: regionOf(g.country) };
   }
-  function serveFile(req, res, rel, csp) {
+  async function serveFile(req, res, rel, csp) {
     let file = path.resolve(pub, '.' + rel);
     if (file !== pub && !file.startsWith(pub + path.sep)) return notFound(res);
     let st;
@@ -198,7 +214,7 @@ function createServer(over) {
     const headers = { ...SEC_HEADERS, 'Content-Type': type };
     headers.Vary = 'Accept-Encoding';
     if (ext === '.html') {
-      const v = visitor(req, res), body = page(file, v), z = packed(req, file + '|' + v.lang + '|' + v.region + '|' + (Date.now() < cfg.founder.until ? 'f' : ''), st.mtimeMs, type, () => body);
+      const v = visitor(req, res), body = page(file, v), z = await packed(req, file + '|' + v.lang + '|' + v.region + '|' + (Date.now() < cfg.founder.until ? 'f' : ''), st.mtimeMs, type, () => body);
       headers.Vary = 'Accept-Encoding, Accept-Language, Cookie';
       res.writeHead(200, { ...headers, 'Content-Security-Policy': csp || CSP, 'Cache-Control': 'no-cache', ...(z ? { 'Content-Encoding': z.enc } : {}) });
       return res.end(req.method === 'HEAD' ? undefined : z ? z.body : body);
@@ -209,7 +225,7 @@ function createServer(over) {
     if (rel === '/app/sw.js') headers['Service-Worker-Allowed'] = '/app/';
     headers.ETag = etag;
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
-    const z = st.size < 20 * 1048576 ? packed(req, file, st.mtimeMs, type, () => fs.readFileSync(file)) : null;
+    const z = st.size < 20 * 1048576 ? await packed(req, file, st.mtimeMs, type, () => fs.promises.readFile(file), file) : null;
     if (z) { res.writeHead(200, { ...headers, 'Content-Encoding': z.enc, 'Content-Length': z.body.length }); return res.end(req.method === 'HEAD' ? undefined : z.body); }
     // videos de la portada: por partes (Safari y los teléfonos piden rangos para reproducir)
     headers['Accept-Ranges'] = 'bytes';
@@ -247,13 +263,9 @@ function createServer(over) {
       res.writeHead(req.method === 'GET' || req.method === 'HEAD' ? 301 : 307, { ...SEC_HEADERS, Location: cfg.baseUrl + req.url, 'Cache-Control': 'no-store' });
       return res.end();
     }
-    // marca de este navegador (para que el mes gratis no se repita desde el mismo equipo con otra cuenta). Se pone
-    // solo al entrar con Google, que es cuando se anota (billing.onLogin): quien solo mira la portada no la recibe
-    let dev = parseCookies(req).fs_dev;
-    if (!dev || !/^[\w-]{16,40}$/.test(dev)) {
-      dev = rid(16);
-      if (p === '/api/auth/google') addCookie(res, cookie('fs_dev', dev, { maxAge: 2 * 365 * 86400, secure: /^https:/.test(cfg.baseUrl) }));
-    }
+    // (lote AD) la marca de este navegador (fs_dev) era para que el mes gratis no se repitiera: ya no hay prueba gratis.
+    // Al entrar con Google se borra la que haya quedado
+    if (p === '/api/auth/google' && parseCookies(req).fs_dev) addCookie(res, cookie('fs_dev', '', { maxAge: 0, secure: /^https:/.test(cfg.baseUrl) }));
     if (p.startsWith('/api/')) {
       if (APP_V) res.setHeader('X-FS-App', APP_V);
       if (p === '/api/auth/google' && req.method === 'POST') {
@@ -264,7 +276,7 @@ function createServer(over) {
         try { got = await auth.loginGoogle(b.credential); }
         catch (e) { if (e instanceof HttpError) sec.loginFail(e.code, req.ip); throw e; }
         const { u, isNew } = got;
-        billing.onLogin(u, req, { isNew, ref: b.ref, dev, tz: typeof b.tz === 'string' ? b.tz.slice(0, 60) : '' });
+        billing.onLogin(u, req, { isNew, ref: b.ref, tz: typeof b.tz === 'string' ? b.tz.slice(0, 60) : '' });
         auth.startSession(res, u, req);
         return sendJSON(res, 200, { ok: true, me: auth.userJSON(S.one('SELECT * FROM users WHERE id=?', u.id)), isNew });
       }
@@ -320,23 +332,34 @@ function createServer(over) {
         S.run('UPDATE users SET themes=? WHERE id=?', JSON.stringify(list), u.id);
         return sendJSON(res, 200, { themes: list });
       }
-      if (p === '/api/config' && req.method === 'GET') return sendJSON(res, 200, { googleClientId: cfg.googleClientId, supportEmail: cfg.supportEmail || '' });
-      // lista de espera de Studio (abre cuando existan el scouting con mapas y el casting): con o sin cuenta
-      if (p === '/api/waitlist' && req.method === 'POST') {
+      // contadores de escritura y racha de la persona (lib/escritura.js): el navegador manda lo que sumó y aquí se suma
+      if (p === '/api/me/writing' && (req.method === 'GET' || req.method === 'POST')) {
+        const u = auth.requireUser(req);
+        if (req.method === 'GET') return sendJSON(res, 200, { writing: escritura.writingOf(S.one('SELECT writing FROM users WHERE id=?', u.id)) });
         auth.checkWrite(req);
-        rateLimit('wl:' + req.ip, 10, 3600e3);
-        const b = await readJSON(req, 2048), me = auth.current(req);
-        const email = normEmail(me ? me.email : b.email), plan = b.plan === 'studio' ? 'studio' : '';
-        if (!plan) return sendJSON(res, 400, { error: 'Plan desconocido.', code: 'bad_plan' });
-        if (!isEmail(email)) return sendJSON(res, 400, { error: 'Escribe un correo válido.', code: 'bad_email' });
-        // tope diario de correos nuevos (el formulario es público: que no se pueda llenar la lista con correos inventados)
-        if (!S.one('SELECT 1 x FROM waitlist WHERE email=? AND plan=?', email, plan) && S.one('SELECT COUNT(*) n FROM waitlist WHERE ts>?', Date.now() - 864e5).n >= Math.max(1, +(process.env.ESPERA_DIA || 500)))
-          return sendJSON(res, 429, { error: 'Hoy ya se anotaron muchas personas. Inténtalo mañana.', code: 'rate_limited' });
-        const lang = LANGS.includes(b.lang) ? b.lang : 'es', g = countryOf(req, typeof b.tz === 'string' ? b.tz.slice(0, 60) : '');
-        S.run('INSERT INTO waitlist(email,plan,uid,lang,country,ts) VALUES(?,?,?,?,?,?) ON CONFLICT(email,plan) DO UPDATE SET uid=COALESCE(excluded.uid, uid)', email, plan, me ? me.id : null, lang, g.country || '', Date.now());
-        return sendJSON(res, 200, { ok: true });
+        rateLimit('writing:' + u.id, 240, 600e3);
+        const b = await readJSON(req, 64 * 1024);
+        // leer, sumar y guardar sin esperas de por medio: dos envíos a la vez no se pisan
+        const cur = S.one('SELECT writing FROM users WHERE id=?', u.id);
+        const W = escritura.merge(cur && cur.writing, b, Date.now());
+        S.run('UPDATE users SET writing=? WHERE id=?', JSON.stringify(W), u.id);
+        return sendJSON(res, 200, { writing: W });
       }
-      if (await billing.handle(req, res, url, dev)) return;
+      // (lote W) un enlace corto de Google Maps (maps.app.goo.gl) → la dirección larga, con las coordenadas
+      if (p === '/api/maps/resolve' && req.method === 'POST') {
+        const u = auth.requireUser(req);
+        auth.checkWrite(req);
+        rateLimit('maps:' + u.id, 60, 3600e3);
+        const b = await readJSON(req, 2048);
+        // (lote AD) los mapas del scouting son de Studio: en un proyecto, según el plan de quien es dueño (todo su equipo
+        // los usa); sin proyecto (uno nuevo que aún no está en el servidor), según el de la cuenta
+        if (!api.studioOk(b && b.pid, u)) return sendJSON(res, 403, { error: api.STUDIO_MSG.mapas, code: 'plan_studio' });
+        try { return sendJSON(res, 200, { url: await mapas.resolve(b && b.url) }); }
+        catch (e) { return sendJSON(res, e.code === 'bad_url' ? 400 : 422, { error: e.message, code: e.code || 'resolve_failed' }); }
+      }
+      if (p === '/api/config' && req.method === 'GET') return sendJSON(res, 200, { googleClientId: cfg.googleClientId, supportEmail: cfg.supportEmail || '' });
+      // (lote AD) Studio está a la venta: la lista de espera se cerró (los correos que quedaron se avisan desde el panel)
+      if (await billing.handle(req, res, url)) return;
       if (await admin.handle(req, res, url)) return;
       if (await reclamos.handle(req, res, url)) return;
       if (await api.handle(req, res, url)) return;
@@ -346,7 +369,9 @@ function createServer(over) {
     if (p === '/healthz') return sendText(res, 200, 'ok');
     // la app pide sesión; sin ella, a la portada para entrar con Google
     if (p === '/app') return redirect(res, '/app/' + url.search);
-    const toApp = () => auth.current(req) ? serveFile(req, res, '/app/index.html') : redirect(res, '/entrar?next=' + encodeURIComponent('/app/' + url.search));
+    // (lote AD) «Explorar con un proyecto de ejemplo» (/app/?ejemplo=1): la app también sin sesión, solo con el ejemplo en
+    // la memoria del navegador. Es la misma página de siempre (sin datos de nadie): todo lo que lee o guarda pide sesión
+    const toApp = () => auth.current(req) || url.searchParams.get('ejemplo') === '1' ? serveFile(req, res, '/app/index.html') : redirect(res, '/entrar?next=' + encodeURIComponent('/app/' + url.search));
     const toAdmin = () => {
       const u = auth.current(req);
       if (!u) return redirect(res, '/entrar?next=' + encodeURIComponent('/admin'));
@@ -386,16 +411,18 @@ function createServer(over) {
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 70000;
   server.requestTimeout = 120000;
-  server.on('close', () => { sec.flush(); sec.stop(); S.close(); });
-  return { server, cfg, S, live, billing, api, sec };
+  server.on('close', () => { mail.stop(); sec.flush(); sec.stop(); S.close(); });
+  return { server, cfg, S, live, billing, api, sec, mapas, mail };
 }
 
 if (require.main === module) {
-  const { server, cfg, billing } = createServer();
+  const { server, cfg, billing, mail } = createServer();
   billing.start();
+  mail.start();   // la cola de correos: reintenta cada minuto lo que no salió
   if (!cfg.googleClientId) console.warn('Aviso: falta GOOGLE_CLIENT_ID; nadie podrá entrar con Google.');
   server.listen(cfg.port, cfg.host, () => console.log(`FilmSpirit escuchando en http://${cfg.host}:${cfg.port} (${cfg.baseUrl})`));
-  const stop = () => { console.log('Cerrando…'); server.close(() => process.exit(0)); server.closeAllConnections(); setTimeout(() => process.exit(0), 4000).unref(); };
+  // la cola de correos termina lo que está enviando (hasta 3 s) antes de cerrar la base
+  const stop = () => { console.log('Cerrando…'); mail.stop(); setTimeout(() => process.exit(0), 6000).unref(); Promise.race([mail.idle(), new Promise(r => setTimeout(r, 3000))]).then(() => { server.close(() => process.exit(0)); server.closeAllConnections(); }); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
 }
 

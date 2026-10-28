@@ -28,7 +28,7 @@
       const k = (l, v) => `<div class="kpi"><span>${l}</span><b>${v}</b></div>`;
       const P = s.allPrices || {};
       const pr = (cur, pl) => P[cur] ? `${money(P[cur][pl].month, cur)} al mes · ${money(P[cur][pl].year, cur)} al año` : '—';
-      return `<div class="kpis">${k('Cuentas', s.users)}${k('Nuevas (7 días)', s.new7)}${k('Activas (7 días)', s.active7)}${k('Con Indie', s.indie || 0)}${k('Con Pro', s.pro)}${k('Con Studio', s.studio || 0)}${k('Guiones', s.scripts || 0)}${k('Lista de espera de Studio', s.waitlist || 0)}
+      return `<div class="kpis">${k('Cuentas', s.users)}${k('Nuevas (7 días)', s.new7)}${k('Activas (7 días)', s.active7)}${k('Con Indie', s.indie || 0)}${k('Con Pro', s.pro)}${k('Con Studio', s.studio || 0)}${k('Guiones', s.scripts || 0)}${k('Lista de espera de Studio', (s.waitlist || 0) + (s.waitlistTodo ? ` <small style="font-size:12px;font-weight:600;color:var(--muted)">${s.waitlistTodo} sin avisar</small>` : ''))}
         ${k('Suscripciones activas', s.subs.authorized || 0)}${k('Ingreso mensual (soles)', soles(s.mrr))}${k('Ingreso mensual (dólares)', money(s.mrrUSD || 0, 'USD'))}${k('Proyectos', s.projects)}${k('Archivados', s.archived || 0)}${k('Espacio usado', s.storageMB + ' MB')}
         ${k('Reclamos abiertos', s.reclamos)}</div>
         <div class="card"><h2>Configuración</h2>
@@ -48,21 +48,22 @@
     },
     async codigos() {
       const rows = await api('GET', '/api/admin/codes');
+      // días de prueba: solo los códigos de antes los tenían (ya no se dan); la columna aparece si alguno los tiene
+      const td = rows.some(c => c.trial_days > 0);
       return `<div class="card"><h2>Nuevo código de descuento (influencers, campañas)</h2>
         <form class="inline" id="cForm">
           <label class="fld"><span>Código</span><input name="code" required placeholder="MARIA20" style="text-transform:uppercase"></label>
           <label class="fld"><span>Para quién</span><input name="label" placeholder="María · Instagram"></label>
           <label class="fld"><span>% de descuento</span><input name="pct" type="number" min="0" max="90" value="20"></label>
           <label class="fld"><span>Durante (cobros, 0 = siempre)</span><input name="cycles" type="number" min="0" max="36" value="3"></label>
-          <label class="fld"><span>Días extra de prueba</span><input name="trialDays" type="number" min="0" max="90" value="0"></label>
           <label class="fld"><span>Usos máximos</span><input name="maxUses" type="number" min="1" placeholder="sin límite"></label>
           <label class="fld"><span>Vence</span><input name="expires" type="date"></label>
           <button class="btn primary">Crear código</button></form>
         <p class="hint" style="margin:0">Cada cuenta puede usar un solo código. El descuento se aplica a los primeros cobros (en el pago anual, al primer año) y después vuelve al precio completo. El enlace para compartir es <span class="mono">${esc(location.origin)}/r/CODIGO</span>.</p></div>
-        <div class="card"><div class="tbl-wrap"><table class="t"><thead><tr><th>Código</th><th>Para quién</th><th class="num">%</th><th class="num">Cobros</th><th class="num">Días extra</th><th class="num">Usos</th><th class="num">Activas</th><th class="num">Cobros</th><th class="num">Cobrado</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>
-        ${rows.map(c => `<tr data-code="${esc(c.code)}"><td class="mono"><b>${esc(c.code)}</b></td><td>${esc(c.label)}</td><td class="num">${c.pct}</td><td class="num">${c.cycles || 'siempre'}</td><td class="num">${c.trial_days}</td>
+        <div class="card"><div class="tbl-wrap"><table class="t"><thead><tr><th>Código</th><th>Para quién</th><th class="num">%</th><th class="num">Cobros</th>${td ? '<th class="num" title="Ya no se dan: ningún plan tiene prueba gratis">Días de prueba (antes)</th>' : ''}<th class="num">Usos</th><th class="num">Activas</th><th class="num">Cobros</th><th class="num">Cobrado</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>
+        ${rows.map(c => `<tr data-code="${esc(c.code)}"><td class="mono"><b>${esc(c.code)}</b></td><td>${esc(c.label)}</td><td class="num">${c.pct}</td><td class="num">${c.cycles || 'siempre'}</td>${td ? `<td class="num">${c.trial_days || ''}</td>` : ''}
           <td class="num">${c.uses}${c.max_uses ? ' / ' + c.max_uses : ''}</td><td class="num">${c.active_subs}</td><td class="num">${c.paid}${c.refunds ? ` <span class="hint">(${c.refunds} devueltos)</span>` : ''}</td><td class="num">${soles(c.collected)}</td><td>${fd(c.expires)}</td><td>${pill(c.active ? 'activo' : 'apagado', c.active ? 'activo' : 'cancelled')}</td>
-          <td><button class="btn xs" data-a="${c.active ? 'off' : 'on'}">${c.active ? 'Apagar' : 'Activar'}</button> <button class="btn xs" data-a="link">Copiar enlace</button></td></tr>`).join('') || '<tr><td colspan="12" class="hint">Aún no hay códigos</td></tr>'}
+          <td><button class="btn xs" data-a="${c.active ? 'off' : 'on'}">${c.active ? 'Apagar' : 'Activar'}</button> <button class="btn xs" data-a="link">Copiar enlace</button></td></tr>`).join('') || '<tr><td colspan="11" class="hint">Aún no hay códigos</td></tr>'}
         </tbody></table></div></div>`;
     },
     async subs() {
@@ -84,9 +85,12 @@
     },
     async espera() {
       const rows = await api('GET', '/api/admin/waitlist');
-      return `<div class="card"><h2>Lista de espera de Studio · ${rows.length}</h2><p class="hint" style="margin:0">Cuando abra Studio (STUDIO_OPEN=1), escríbeles a estos correos.</p>
-        <div class="tbl-wrap"><table class="t"><thead><tr><th>Correo</th><th>Plan hoy</th><th>Idioma</th><th>País</th><th>Desde</th></tr></thead><tbody>
-        ${rows.map(w => `<tr><td>${esc(w.email)}</td><td>${esc(PLAN[w.uplan] || '—')}</td><td>${esc(w.lang || '')}</td><td>${esc(w.country || '')}</td><td>${fd(w.ts)}</td></tr>`).join('')}</tbody></table></div></div>`;
+      const todo = rows.filter(w => !w.notified).length;
+      // (lote AD) Studio ya está a la venta: la lista se cerró. El aviso se envía solo cuando se aprieta el botón
+      return `<div class="card"><h2>Lista de espera de Studio · ${rows.length}</h2><p class="hint" style="margin:0">Studio ya está a la venta y la lista está cerrada. El botón envía un correo a cada persona que aún no lo recibió (en el idioma con que se anotó), una sola vez: queda marcado a quién ya se envió.</p>
+        <div><button class="btn primary" data-a="wl-notify" ${todo ? '' : 'disabled'}>Avisar a la lista de espera que Studio abrió${todo ? ` (${todo})` : ''}</button>${todo ? '' : ' <span class="hint">Ya se avisó a todos.</span>'}</div>
+        <div class="tbl-wrap"><table class="t"><thead><tr><th>Correo</th><th>Plan hoy</th><th>Idioma</th><th>País</th><th>Desde</th><th>Aviso de Studio</th></tr></thead><tbody>
+        ${rows.map(w => `<tr><td>${esc(w.email)}</td><td>${esc(PLAN[w.uplan] || '—')}</td><td>${esc(w.lang || '')}</td><td>${esc(w.country || '')}</td><td>${fd(w.ts)}</td><td>${w.notified ? 'enviado el ' + fd(w.notified) : '<span class="hint">sin enviar</span>'}</td></tr>`).join('')}</tbody></table></div></div>`;
     },
     async seguridad() {
       const s = await api('GET', '/api/admin/security');
@@ -125,6 +129,15 @@
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     try {
+      if (a === 'wl-notify') {
+        const n = +((b.textContent.match(/\((\d+)\)/) || [])[1] || 0);
+        if (!confirm(`Se enviará un correo a ${n === 1 ? 'la persona' : n ? `las ${n} personas` : 'las personas'} de la lista de espera que aún no lo ${n === 1 ? 'recibió' : 'recibieron'}, avisando que Studio abrió. Cada una lo recibe una sola vez. ¿Enviar ahora?`)) return;
+        b.disabled = true;
+        try {
+          const r = await api('POST', '/api/admin/waitlist/notify', {});
+          toast(r.queued ? `Aviso en camino a ${r.queued} ${r.queued === 1 ? 'persona' : 'personas'}` : 'No había nadie sin avisar'); return show('espera');
+        } finally { b.disabled = false; }
+      }
       if (b.closest('[data-id]')) {
         const id = b.closest('[data-id]').dataset.id;
         const body = a === 'i30' ? { grantDays: 30, plan: 'indie' } : a === 'g30' ? { grantDays: 30 } : a === 'g90' ? { grantDays: 90 } : a === 's30' ? { grantDays: 30, plan: 'studio' } : a === 'forever' ? { forever: true } : a === 'sforever' ? { forever: true, plan: 'studio' } : a === 'revoke' ? { revoke: true } : { block: a === 'block' };
@@ -140,7 +153,7 @@
         const card = b.closest('[data-n]'), txt = card.querySelector('textarea').value.trim();
         if (!txt) return toast('Escribe la respuesta');
         const r = await api('POST', '/api/admin/reclamos/' + card.dataset.n, { respuesta: txt });
-        toast(r.emailed ? 'Respuesta enviada por correo' : 'Respuesta guardada (el correo no está configurado: envíala tú)'); return show('reclamos');
+        toast(r.emailed ? 'Respuesta enviada por correo' : r.queued ? 'Respuesta guardada: el correo falló y se reintentará solo' : 'Respuesta guardada (el correo no está configurado: envíala tú)'); return show('reclamos');
       }
     } catch (er) { toast(er.message); }
   });

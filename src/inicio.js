@@ -50,7 +50,7 @@ function posRestore() {
   const script = typeof isScriptKind === 'function' && isScriptKind();
   let t = r.tab && RENDER[r.tab] ? r.tab : UI.tab;
   if (script && !SCRIPT_ONLY_TABS.has(t)) t = 'script';
-  if (typeof canSeeTab === 'function' && !canSeeTab(t)) t = 'script';
+  if (typeof canSeeTab === 'function' && !canSeeTab(t)) t = typeof baseTab === 'function' ? baseTab() : 'script';
   UI.tab = t; ls.set('tab', t);
   const si = r.sk ? D.sc.scenes.findIndex(s => s.key === r.sk) : -1;
   if (si >= 0) UI.scene = si; else if (r.scene != null) UI.scene = clamp(+r.scene || 0, 0, Math.max(0, D.sc.scenes.length - 1));
@@ -124,6 +124,15 @@ function homeCard(o) {
     <span class="home-m">${kind}${[opened, who, o.role && !o.mine ? esc(String(o.role).toLowerCase()) : '', api && o.archived ? 'solo lectura' : ''].filter(Boolean).map(x => `<span>${x}</span>`).join('')}</span>
     <span class="home-w">${esc(cur ? 'Vuelve donde lo dejaste' : homeWhere(o))}</span></button></div>`;
 }
+/* (lote AD) la tarjeta del ejemplo: se abre con un toque, con todas sus pestañas. (lote AG) Como las demás tarjetas, con la
+   etiqueta «Ejemplo» en rojo */
+function homeSampleCard() {
+  const open = !!(P && P === SAMPLE_MEM.P && P._sample && !P._saved);
+  return `<div class="home-card home-sample${ea(open ? ' on' : '')}"><button class="home-open" data-h="sample">
+    <span class="home-m"><span class="home-k s">Ejemplo</span>${open && P._touched ? '<span>con tus cambios, sin guardar</span>' : ''}</span>
+    <span class="home-t" data-no-tr>${esc(sampleName())}</span>
+    <span class="home-w">${esc(SAMPLE_INVITE)}</span></button></div>`;
+}
 function homeList() {
   const b = $('#homeBody'); if (!b) return;
   if (HOME.err) { b.innerHTML = '<p class="pj-empty bad">No se pudo cargar la lista de proyectos. <button class="btn sm" data-h="retry">Reintentar</button></p>'; return; }
@@ -134,12 +143,15 @@ function homeList() {
   const act = homeSort(HOME.list.filter(o => !o.invited && !arch(o) && match(o)));
   const old = homeSort(HOME.list.filter(o => !o.invited && arch(o) && match(o)));
   const empty = !HOME.list.length;
+  // (lote AD) el plan gratis y sin cuenta: el ejemplo va primero, destacado (proyectos.js · sampleFirst)
+  const firstS = typeof sampleFirst === 'function' && sampleFirst() && (!q || deaccent(sampleName()).toLowerCase().includes(q));
+  const samp = firstS ? homeSampleCard() : '';
   b.innerHTML = `${inv.length ? `<h2 class="home-sec">Invitaciones</h2><div class="home-grid">${inv.map(homeCard).join('')}</div>` : ''}
-    ${empty ? `<div class="home-empty"><h2>Empieza por tu guion</h2><p class="hint">Escríbelo aquí o importa Final Draft, Fountain o PDF. Las escenas, el reparto y los elementos probables se marcan solos.</p>
-        <div class="empty-acts"><button class="btn primary" data-h="guion">Nuevo guion</button><button class="btn" data-h="prod">Nuevo proyecto</button><button class="btn ghost" data-h="sample">Ver el proyecto de ejemplo</button></div></div>`
-      : act.length ? `<div class="home-grid">${act.map(homeCard).join('')}</div>` : q ? `<p class="pj-empty">Ningún proyecto con «${esc(HOME.q)}».</p>` : '<p class="pj-empty">No hay proyectos activos: los tuyos están archivados.</p>'}
+    ${empty ? `${samp ? `<div class="home-grid home-samp">${samp}</div>` : ''}<div class="home-empty"><h2>Empieza por tu guion</h2><p class="hint">Escríbelo aquí o importa Final Draft, Fountain o PDF. Las escenas, el reparto y los elementos probables se marcan solos.</p>
+        <div class="empty-acts"><button class="btn primary" data-h="guion">Nuevo guion</button><button class="btn" data-h="prod">Nuevo proyecto</button>${samp ? '' : '<button class="btn ghost" data-h="sample">Ver el proyecto de ejemplo</button>'}</div></div>`
+      : act.length || samp ? `<div class="home-grid">${samp}${act.map(homeCard).join('')}</div>${act.length ? '' : q ? `<p class="pj-empty">Ningún proyecto con «${esc(HOME.q)}».</p>` : '<p class="pj-empty">No hay proyectos activos: los tuyos están archivados.</p>'}` : q ? `<p class="pj-empty">Ningún proyecto con «${esc(HOME.q)}».</p>` : '<p class="pj-empty">No hay proyectos activos: los tuyos están archivados.</p>'}
     ${old.length ? `<details class="home-arch"${HOME.arch || q ? ' open' : ''}><summary>Archivados <i>${old.length}</i></summary><div class="home-grid">${old.map(homeCard).join('')}</div></details>` : ''}
-    ${empty ? '' : `<div class="home-ft"><button class="btn sm ghost" data-h="file">Abrir archivo .${PROJ_EXT}</button><button class="btn sm ghost" data-h="sample">Ver el proyecto de ejemplo</button></div>`}`;
+    ${empty ? '' : `<div class="home-ft"><button class="btn sm ghost" data-h="file">Abrir archivo .${PROJ_EXT}</button>${typeof sampleFirst === 'function' && sampleFirst() ? '' : '<button class="btn sm ghost" data-h="sample">Ver el proyecto de ejemplo</button>'}</div>`}`;
   const d = $('.home-arch', b); if (d) d.addEventListener('toggle', () => { HOME.arch = d.open; });
 }
 async function homeClick(e) {
@@ -160,9 +172,32 @@ async function homeClick(e) {
   const h = b.dataset.h;
   if (h === 'retry') return homeShow();
   if (h === 'guion' || h === 'prod') return newOf(h);
-  if (h === 'sample') { setProject(buildSample()); homeHide(); return; }
+  if (h === 'sample') { openSample(); homeHide(); return; }
   if (h === 'file') return Store.kind === 'desk' ? deskMenu('open') : pickFile(PROJ_ACCEPT, 'restore');
 }
+
+/* (lote AD) «Explorar con un proyecto de ejemplo»: ningún plan tiene prueba gratis; para ver la producción está el
+   ejemplo, con todas sus pestañas. Se abre en la misma pestaña en que estaba la persona (el desglose, el plan…) */
+async function sampleExplore() {
+  const tab = UI.tab;
+  closeModal(); closePop();
+  if (P && dirty.size && !saving) await flushSave();
+  // openSample (lote AD · acceso, proyectos.js) reutiliza el ejemplo en memoria si ya existe; sin ella, uno nuevo
+  await (typeof openSample === 'function' ? openSample() : setProject(buildSample()));
+  if (tab && tab !== UI.tab && RENDER[tab] && (typeof canSeeTab !== 'function' || canSeeTab(tab))) setTab(tab);
+  toast('Este es el proyecto de ejemplo, con todas sus pestañas. Explóralo: lo que cambies aquí no se guarda.', 6000);
+}
+/* el par de botones donde antes se ofrecía la prueba gratis: los planes y el ejemplo. planAct: la acción del de los
+   planes (en un guion, «kind-produce»: después de pagar se lleva a producción solo); cls: clases extra de los botones */
+const samplePairHTML = (planAct = 'plans-see', cls = '') => `<button class="btn primary${cls}" data-act="${ea(planAct)}">Ver planes de suscripción</button><button class="btn${cls}" data-act="sample-explore">Explorar con un proyecto de ejemplo</button>`;
+Object.assign(ACT, {
+  'sample-explore': () => sampleExplore(),
+  'plans-see': () => {
+    if (typeof licenseDialog !== 'function') return;
+    const me = typeof APITEAM !== 'undefined' && APITEAM.me;
+    licenseDialog('', me && typeof nextPlan === 'function' ? nextPlan(me.plan) : 'pro');
+  },
+});
 
 /* ---------- «Nuevo»: Guion o Proyecto ---------- */
 function newMenu(anchor) {
@@ -170,13 +205,15 @@ function newMenu(anchor) {
   const paid = !api || !!(me && me.limits && me.limits.projects);
   popover(anchor, `<div class="menu xmenu new-menu">
       <button data-n="guion"><b>Guion</b><small>En blanco, para escribir. Se guarda solo.</small></button>
-      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, stripboard, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y stripboard: Indie, Pro y Studio. Prueba Pro 30 días gratis.'}</small></button>
-    </div>`, p => p.addEventListener('click', e => { const x = e.target.closest('[data-n]'); if (!x) return; closePop(); newOf(x.dataset.n); }));
+      <button data-n="prod"><b>Proyecto${paid ? '' : ' <i class="pro-chip">PRO</i>'}</b><small>${paid ? 'Guion, desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto' : 'Con desglose, storyboard y plan de rodaje: Indie, Pro y Studio.'}</small></button>
+      ${paid ? '' : '<button data-n="sample"><b>Proyecto de ejemplo</b><small>Todas las pestañas de producción, para explorarlas sin pagar.</small></button>'}
+    </div>`, p => p.addEventListener('click', e => { const x = e.target.closest('[data-n]'); if (!x) return; closePop(); if (x.dataset.n === 'sample') sampleExplore(); else newOf(x.dataset.n); }));
 }
 async function newOf(kind) {
+  if (Store.kind === 'api' && APITEAM.anon) return anonAsk('new');   // sin cuenta: crear pide la cuenta (lote AD)
   if (kind === 'prod' && Store.kind === 'api') {
     const me = APITEAM.me;
-    // plan Guion: los planes, con la prueba de Pro (para los curiosos)
+    // plan Guion: los planes y el proyecto de ejemplo (lote AD: sin prueba gratis)
     if (!(me && me.limits && me.limits.projects)) return freeLimitNotice('prod');
   }
   return newBlankProject(kind);
@@ -190,7 +227,7 @@ function appVersionSeen(v) {
   if (!v) return;
   if (APP_V0 == null) { APP_V0 = v; return; }
   if (v === APP_V0) return;
-  const idle = !dirty.size && !(typeof saving !== 'undefined' && saving) && !$('#modal');
+  const idle = !dirty.size && !(typeof saving !== 'undefined' && saving) && !$('#modal') && !(typeof sampleTouched === 'function' && sampleTouched());   // (lote AD) los cambios del ejemplo viven en la memoria
   if (homeOn() && idle) { location.reload(); return; }
   if (Date.now() - APP_WARNED < 10 * 60e3) return;
   APP_WARNED = Date.now();

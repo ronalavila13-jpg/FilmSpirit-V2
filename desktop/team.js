@@ -6,6 +6,9 @@
      equipo/<id>.id          secretos de cada persona, cifrados con SU contraseña (scrypt + AES-256-GCM)
      equipo/<id>.llaves      llaves de las pestañas que puede leer, selladas por el productor (X25519)
      datos/<sección>.dat     cada sección cifrada con su propia llave (AES-256-GCM) y firmada por quien la editó (Ed25519)
+     datos/historial/        las últimas versiones de cada sección: cada versión dice de cuál parte (prev), así los
+                             demás comprueban paso a paso los cambios de un jefe de área o del guion cerrado aunque
+                             se hayan perdido versiones intermedias
      imagenes/<hash>.dat     imágenes: las del storyboard con la llave del storyboard; las fotos del
                              desglose («bd~…») y del casting («ca~…») con la llave del desglose; las del
                              scouting («lc~…») con la del plan de rodaje; las del punto de encuentro
@@ -30,6 +33,11 @@ const KDF = { N: 131072, r: 8, p: 1 };
 const KDF_OLD = { N: 32768, r: 8, p: 1 };
 const kdfParams = k => { const N = k && +k.N, r = k && +k.r, p = k && +k.p; return N >= 16384 && N <= 1048576 && (N & (N - 1)) === 0 && r >= 1 && r <= 16 && p >= 1 && p <= 4 ? { N, r, p } : KDF_OLD; };
 const POLL_MS = 2000;
+// versiones guardadas por sección en datos/historial (para comprobar la cadena de cambios)
+const HIST_MAX = 120;
+// cuánto se espera a que la nube traiga la versión de la que parte un cambio antes de darlo por no comprobable
+const PEND_MS = 120000;
+const teamErr = (code, msg) => Object.assign(new Error(msg), { code });
 
 const b64 = b => Buffer.from(b).toString('base64');
 const unb = s => Buffer.from(s, 'base64');
@@ -132,7 +140,8 @@ class Team {
     const keys = {};
     for (const s of rs) if (S.keys[s]) keys[s] = b64(S.keys[s]);
     const nonce = nacl.randomBytes(24);
-    const msg = Buffer.from(JSON.stringify({ pid: S.pid, keys, gens: S.manifest.gens }));
+    // la revisión y la persona van dentro de la caja: nadie puede volver a poner un sobre viejo cambiándole el número
+    const msg = Buffer.from(JSON.stringify({ pid: S.pid, mid: member.id, rev: S.manifest.rev, keys, gens: S.manifest.gens }));
     return { rev: S.manifest.rev, nonce: b64(nonce), box: b64(nacl.box(u8(msg), nonce, u8(unb(member.box)), S.boxSK)) };
   }
 
@@ -148,6 +157,7 @@ class Team {
       pid, dir, file: path.join(dir, safeFile(title) + '.' + this.ext), me, admin: true,
       signSK: u8(unb(id.secrets.signSK)), boxSK: u8(unb(id.secrets.boxSK)), adminSign: id.pub.sign, adminBox: id.pub.box,
       keys: Object.fromEntries(SECS.map(s => [s, crypto.randomBytes(32)])), vers: {}, plain: {}, seen: new Map(), frameFiles: new Map(), frameKeys: new Map(),
+      keyGens: Object.fromEntries(SECS.map(s => [s, 1])),
     };
     S.manifest = { format: this.FORMAT, app: this.appLabel, id: pid, title, created: Date.now(), owner: me.id, licensee: licensee || '', admin: { sign: id.pub.sign, box: id.pub.box }, members: [me], gens: Object.fromEntries(SECS.map(s => [s, 1])), rev: 1 };
     const F = this.files(dir);
@@ -188,16 +198,17 @@ class Team {
       pid, dir, file, me: mem, admin: memberId === m.owner, manifest: m,
       signSK: u8(unb(secrets.signSK)), boxSK: u8(unb(secrets.boxSK)), adminSign: secrets.adminSign, adminBox: secrets.adminBox,
       keys: {}, vers: {}, plain: {}, seen: new Map(), frameFiles: new Map(), frameKeys: new Map(), secrets, wrap: w,
-      minVers: seen.vers || {},
+      minVers: seen.vers || {}, frameTs: { ...(seen.ft || {}) },
     };
     await this.openGrant(S);
     // contraseña cifrada con los parámetros anteriores: se vuelve a cifrar con los nuevos (más resistentes)
     if (!useRecovery && kdfParams(w.kdf).N < KDF.N) this.changePasswordS(S, secret).catch(() => { });
     if (S.admin) await this.addMissingSections(S);
+    if (S.admin && S.grantLegacy) await this.resealGrants(S).catch(() => { });
     this.close(pid);
     this.S.set(pid, S);
     const sections = {};
-    for (const s of SECS) sections[s] = S.keys[s] ? await this.readSection(S, s).catch(e => { if (/anterior/.test(e.message)) this.send('team-warn', pid, e.message); return null; }) : null;
+    for (const s of SECS) sections[s] = S.keys[s] ? await this.readSection(S, s).catch(e => { if (/anterior/.test(e.message) || e.code) this.send('team-warn', pid, e.message); return null; }) : null;
     this.noteSeen(S);
     this.startPoll(S);
     return this.state(S, sections);
@@ -218,7 +229,7 @@ class Team {
     const add = SECS.filter(s => !S.manifest.gens[s]);
     if (!add.length) return;
     const m = JSON.parse(JSON.stringify(S.manifest));
-    for (const s of add) { S.keys[s] = crypto.randomBytes(32); m.gens[s] = 1; }
+    for (const s of add) { S.keys[s] = crypto.randomBytes(32); m.gens[s] = 1; S.keyGens[s] = 1; }
     m.rev = (m.rev || 1) + 1;
     S.manifest = m;
     for (const s of add) await this.writeSection(S, s, '{}');
@@ -230,14 +241,28 @@ class Team {
     S.seen.set(S.file, sha(txt));
     this.noteSeen(S, m.rev);
   }
-  async openGrant(S) {
-    const g = await readJSON(path.join(this.files(S.dir).eq, S.me.id + '.llaves'));
+  /* sobres en el formato actual (con revisión y persona dentro) para todo el equipo */
+  async resealGrants(S) {
+    const F = this.files(S.dir);
+    for (const mem of S.manifest.members) if (mem.active !== false) await atomicWrite(path.join(F.eq, mem.id + '.llaves'), JSON.stringify(this.sealGrant(S, mem)));
+    S.grantLegacy = false;
+  }
+  async openGrant(S, txt) {
+    const g = txt ? JSON.parse(txt) : await readJSON(path.join(this.files(S.dir).eq, S.me.id + '.llaves'));
     const open = nacl.box.open(u8(unb(g.box)), u8(unb(g.nonce)), u8(unb(S.adminBox)), S.boxSK);
     if (!open) throw new Error('No se pudieron abrir tus llaves de acceso.');
     const o = JSON.parse(Buffer.from(open).toString('utf8'));
     if (o.pid !== S.pid && o.pid !== S.manifest.id) throw new Error('Llaves de otro proyecto.');
+    // el sobre tiene que ser el de esta revisión del manifiesto y con sus mismas cerraduras: un sobre anterior (de antes
+    // de un cambio de llaves) no se acepta aunque alguien le cambie el número de afuera
+    // (los sobres de versiones anteriores no traen revisión ni persona: valen si sus cerraduras son las actuales, y el
+    // productor los vuelve a escribir al entrar)
+    const gens = o.gens || {}, legacy = o.rev === undefined && o.mid === undefined;
+    if ((!legacy && (o.mid !== S.me.id || !(o.rev >= S.manifest.rev))) || Object.keys(o.keys || {}).some(k => gens[k] !== S.manifest.gens[k]))
+      throw teamErr('pending', 'Todavía no llegan tus llaves de acceso actualizadas. Espera a que termine de sincronizar.');
+    S.grantLegacy = legacy;
     S.keys = Object.fromEntries(Object.entries(o.keys).map(([k, v]) => [k, unb(v)]));
-    S.keyGens = o.gens || {};
+    S.keyGens = { ...gens };
   }
   /* lo último que este equipo vio de cada proyecto: revisión del manifiesto y [generación, versión] de cada sección */
   seenAll() {
@@ -251,9 +276,10 @@ class Team {
     const all = this.seenAll(), cur = this.seenOf(S.manifest.id), vers = { ...(cur.vers || {}) };
     for (const s of SECS) {
       const g = S.manifest.gens[s] || 1, v = S.vers[s] || 0, p = vers[s] || [0, 0];
-      if (v && (g > p[0] || (g === p[0] && v > p[1]))) vers[s] = [g, v];
+      // [llave, versión, huella de la última versión aceptada]: desde ella se comprueba la cadena al volver a entrar
+      if (v && (g > p[0] || (g === p[0] && v >= p[1]))) vers[s] = [g, v, (S.envh || {})[s] || p[2] || ''];
     }
-    all[S.manifest.id] = { rev: Math.max(cur.rev || 0, rev || S.manifest.rev || 0), vers };
+    all[S.manifest.id] = { rev: Math.max(cur.rev || 0, rev || S.manifest.rev || 0), vers, ft: { ...(cur.ft || {}), ...(S.frameTs || {}) } };
     clearTimeout(this.seenT);
     this.seenT = setTimeout(() => { atomicWrite(this.seenFile, JSON.stringify(all)).catch(() => { }); }, 400);
   }
@@ -262,7 +288,82 @@ class Team {
 
   /* ---------- secciones ---------- */
   secFile(S, s) { return path.join(this.files(S.dir).datos, s + '.dat'); }
-  sigText(pid, o) { return [pid, o.sec, o.gen, o.ver, o.by, o.ts, o.iv, o.tag, sha(o.ct)].join('|'); }
+  sigText(pid, o) { return [pid, o.sec, o.gen, o.ver, o.by, o.ts, o.iv, o.tag, sha(o.ct), ...(o.prev != null ? ['p:' + o.prev] : [])].join('|'); }
+  envId(S, o) { return sha(this.sigText(S.manifest.id, o)); }
+  histDir(S) { return path.join(this.files(S.dir).datos, 'historial'); }
+  histFile(S, s, id) { return path.join(this.histDir(S), s + '.' + String(id).replace(/[^0-9a-f]/g, '').slice(0, 40) + '.dat'); }
+  /* cambios que se comprueban contra la versión de la que parten: los de un jefe de área en el desglose y todo cambio
+     del guion (que puede estar cerrado). El productor y quien edita todo el desglose no tienen límites que comprobar */
+  constrained(S, s, by) {
+    if (by === S.manifest.owner) return false;
+    if (s === 'guion') return true;
+    if (s !== 'desglose') return false;
+    const mem = S.manifest.members.find(x => x.id === by) || {};
+    return !!(mem.perms && mem.perms.desglose === 'editar' && Array.isArray(mem.perms.areas));
+  }
+  stepErr(S, s, by, before, after) {
+    const mem = S.manifest.members.find(x => x.id === by) || {};
+    if (s === 'desglose') {
+      const areas = mem.perms && Array.isArray(mem.perms.areas) ? mem.perms.areas : [];
+      return bdViolates(JSON.parse(before), JSON.parse(after), areas) ? `${mem.name || 'Alguien'} cambió áreas del desglose que no le corresponden` : null;
+    }
+    const err = this.lockErr(S, by, before, after);
+    return err ? `${mem.name || 'Alguien'} cambió el guion cerrado sin autorización: ${LOCK_MSG[err] || err}` : null;
+  }
+  async readHist(S, s, id) {
+    const f = this.histFile(S, s, id);
+    let txt;
+    try { txt = await fsp.readFile(f, 'utf8'); } catch (e) { return null; }
+    const p = JSON.parse(txt);
+    if (p.sec !== s || this.envId(S, p) !== id) throw teamErr('unverified', `${path.basename(f)}: el historial no coincide`);
+    if (p.gen !== S.manifest.gens[s]) throw teamErr('unverified', 'el cambio parte de una versión con otra llave');
+    this.verifyItem(S, p, f);
+    return { o: p, json: zlib.inflateRawSync(aesDec(S.keys[s], p)).toString('utf8') };
+  }
+  /* la cadena desde una versión ya aceptada (o desde una del productor o de alguien sin límites) hasta la nueva: cada
+     paso de alguien con límites se compara con el anterior. Así no sirve saltarse números de versión ni esperar a que
+     los demás estén desconectados */
+  async verifyChain(S, s, o, json) {
+    const ok = (S.okIds = S.okIds || {})[s] = S.okIds[s] || new Map();
+    if (S.envh && S.envh[s] && S.plain[s] != null) ok.set(S.envh[s], S.plain[s]);
+    const seenId = S.minVers && S.minVers[s] && S.minVers[s][2];
+    // primera vez en esta computadora: no hay de dónde partir (como entrar al proyecto por primera vez)
+    if (!ok.size && !seenId) return;
+    const who = (S.manifest.members.find(x => x.id === o.by) || {}).name || 'alguien';
+    const chain = [{ o, json }];
+    let cur = o, before = null;
+    for (let n = 0; ; n++) {
+      if (!cur.prev) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}: no dice de qué versión parte.`);
+      if (ok.has(cur.prev)) { before = ok.get(cur.prev); if (before == null) { const h = await this.readHist(S, s, cur.prev); if (!h) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}.`); before = h.json; } break; }
+      if (n >= HIST_MAX) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}: parte de una versión demasiado antigua.`);
+      const h = await this.readHist(S, s, cur.prev);
+      if (!h) throw teamErr('pending', `La versión de la que parte el cambio de ${who} aún no llega.`);
+      // punto de partida de confianza: la última versión que vimos, una propia, o una de alguien sin límites
+      if (cur.prev === seenId || h.o.by === S.me.id || !this.constrained(S, s, h.o.by)) { before = h.json; break; }
+      chain.unshift(h); cur = h.o;
+    }
+    for (const c of chain) {
+      if (c.o.by !== S.me.id && this.constrained(S, s, c.o.by)) { const err = this.stepErr(S, s, c.o.by, before, c.json); if (err) throw teamErr('violation', err); }
+      before = c.json;
+    }
+  }
+  /* las últimas versiones aceptadas (dos personas pueden partir de la misma) */
+  accepted(S, s, id, json) {
+    const ok = (S.okIds = S.okIds || {})[s] = S.okIds[s] || new Map();
+    ok.delete(id); ok.set(id, json);
+    while (ok.size > 6) ok.delete(ok.keys().next().value);
+    (S.envh = S.envh || {})[s] = id;
+  }
+  async pruneHist(S, s) {
+    const dir = this.histDir(S);
+    let names;
+    try { names = (await fsp.readdir(dir)).filter(n => n.startsWith(s + '.') && n.endsWith('.dat')); } catch (e) { return; }
+    if (names.length <= HIST_MAX + 10) return;
+    const st = [];
+    for (const n of names) { try { st.push([n, (await fsp.stat(path.join(dir, n))).mtimeMs]); } catch (e) { } }
+    st.sort((a, b) => a[1] - b[1]);
+    for (const [n] of st.slice(0, st.length - HIST_MAX)) await fsp.unlink(path.join(dir, n)).catch(() => { });
+  }
   canWrite(m, by, sec) {
     const mem = m.members.find(x => x.id === by && x.active !== false);
     if (!mem) return null;
@@ -277,16 +378,23 @@ class Team {
   }
   async writeSection(S, s, json, verHint) {
     const m = S.manifest, gen = m.gens[s];
+    // nunca se cifra con una llave que no es la de la cerradura actual (también en la reparación automática)
+    if (!S.keyGens || S.keyGens[s] !== gen) throw teamErr('pending', 'Tus llaves de acceso no están al día.');
     // la versión siempre sube respecto de la que hay en la carpeta (los demás rechazan versiones anteriores)
     let onDisk = 0;
     try { const c = JSON.parse(await fsp.readFile(this.secFile(S, s), 'utf8')); if (c && c.gen === gen && c.sec === s) onDisk = +c.ver || 0; } catch (e) { }
     const o = { sec: s, gen, ver: Math.max(S.vers[s] || 0, verHint || 0, onDisk) + 1, by: S.me.id, ts: Date.now() };
     Object.assign(o, aesEnc(S.keys[s], zlib.deflateRawSync(Buffer.from(json, 'utf8'))));
+    // de qué versión parte (la última que esta computadora aceptó): firmado junto con lo demás
+    o.prev = (S.envh || {})[s] || '';
     o.sig = b64(nacl.sign.detached(Buffer.from(this.sigText(m.id, o)), S.signSK));
     const txt = JSON.stringify(o);
-    const f = this.secFile(S, s);
+    const f = this.secFile(S, s), id = this.envId(S, o);
+    await atomicWrite(this.histFile(S, s, id), txt);
     await atomicWrite(f, txt);
+    this.pruneHist(S, s).catch(() => { });
     S.vers[s] = o.ver; (S.vgen = S.vgen || {})[s] = gen; S.plain[s] = json;
+    this.accepted(S, s, id, json);
     S.seen.set(f, sha(txt));
     this.noteSeen(S);
     return o.ver;
@@ -304,27 +412,11 @@ class Team {
     const mv = S.minVers && S.minVers[s], cur = S.vers[s] || 0, cg = (S.vgen || {})[s] || 0;
     if ((mv && (o.gen < mv[0] || (o.gen === mv[0] && o.ver < mv[1]))) || o.gen < cg || (o.gen === cg && o.ver < cur)) throw new Error(`${path.basename(f)}: es una versión anterior a la que ya tenías (¿alguien restauró un archivo viejo?)`);
     const json = zlib.inflateRawSync(aesDec(S.keys[s], o)).toString('utf8');
-    // jefe de área: su cambio solo puede tocar sus cajas del desglose
-    if (s === 'desglose' && o.by !== S.me.id && S.plain.desglose != null) {
-      const mem = S.manifest.members.find(x => x.id === o.by) || {};
-      const areas = o.by !== S.manifest.owner && mem.perms && mem.perms.desglose === 'editar' && Array.isArray(mem.perms.areas) ? mem.perms.areas : null;
-      if (areas && bdViolates(JSON.parse(S.plain.desglose), JSON.parse(json), areas)) {
-        // si viene justo después de la versión que tenemos, se puede comparar con certeza: se rechaza.
-        // si nos faltó alguna versión intermedia, no: se acepta y se avisa al productor.
-        if (o.gen === cg && o.ver === (S.vers.desglose || 0) + 1) throw new Error(`${mem.name || 'Alguien'} cambió áreas del desglose que no le corresponden`);
-        this.send('team-warn', S.pid, `Revisa el desglose: ${mem.name || 'alguien'} pudo cambiar áreas que no le corresponden.`);
-      }
-    }
-    // guion cerrado: el texto solo cambia en una revisión abierta y por quien producción autorizó (areas.js · scriptLockCheck)
-    if (s === 'guion' && o.by !== S.me.id && S.plain.guion != null) {
-      const err = this.lockErr(S, o.by, S.plain.guion, json);
-      if (err) {
-        const mem = S.manifest.members.find(x => x.id === o.by) || {};
-        if (o.gen === cg && o.ver === (S.vers.guion || 0) + 1) throw new Error(`${mem.name || 'Alguien'} cambió el guion cerrado sin autorización: ${LOCK_MSG[err] || err}`);
-        this.send('team-warn', S.pid, `Revisa el guion: ${mem.name || 'alguien'} pudo cambiar el guion cerrado sin autorización.`);
-      }
-    }
+    // jefe de área (solo sus cajas del desglose) y guion cerrado (solo en una revisión abierta y por quien producción
+    // autorizó): se comprueba cada paso desde la última versión aceptada (verifyChain)
+    if (o.by !== S.me.id && this.constrained(S, s, o.by)) await this.verifyChain(S, s, o, json);
     S.vers[s] = o.ver; (S.vgen = S.vgen || {})[s] = o.gen; S.plain[s] = json;
+    this.accepted(S, s, this.envId(S, o), json);
     S.seen.set(f, sha(txt));
     this.noteSeen(S);
     return { json, ver: o.ver, by: o.by, ts: o.ts };
@@ -366,12 +458,14 @@ class Team {
     if (!url) { await fsp.unlink(f).catch(() => { }); S.frameFiles.delete(f); S.seen.delete(f); return; }
     const sec = frameSec(k);
     if (!S.keys[sec]) throw new Error('Sin acceso a esa sección');
-    const o = { sec, gen: S.manifest.gens[sec], ver: 1, by: S.me.id, ts: Date.now() };
+    if (!S.keyGens || S.keyGens[sec] !== S.manifest.gens[sec]) throw teamErr('pending', 'Tus llaves de acceso no están al día.');
+    const o = { sec, gen: S.manifest.gens[sec], ver: 1, by: S.me.id, ts: Math.max(Date.now(), ((S.frameTs || {})[path.basename(f)] || 0) + 1) };
     Object.assign(o, aesEnc(S.keys[sec], Buffer.from(JSON.stringify({ k, u: url }), 'utf8')));
     o.sig = b64(nacl.sign.detached(Buffer.from(this.sigText(S.manifest.id, o)), S.signSK));
     const txt = JSON.stringify(o);
     await atomicWrite(f, txt);
     S.frameFiles.set(f, k); S.seen.set(f, sha(txt));
+    (S.frameTs = S.frameTs || {})[path.basename(f)] = o.ts;
   }
   async saveFrame(pid, k, url) {
     const S = this.S.get(pid);
@@ -388,7 +482,14 @@ class Team {
     if (o.gen !== S.manifest.gens[sec]) throw new Error('versión de llave antigua');
     const { k, u } = JSON.parse(aesDec(S.keys[sec], o).toString('utf8'));
     if (frameSec(k) !== sec) throw new Error('imagen en una sección que no le corresponde');
+    // el nombre del archivo sale de la clave de la imagen: copiar una imagen encima de otra no la reemplaza
+    if (path.basename(this.frameFile(S, k)) !== path.basename(f)) throw new Error('imagen en un archivo que no le corresponde');
+    // una imagen anterior (restaurada en la carpeta) no reemplaza a la que ya viste
+    const ft = S.frameTs = S.frameTs || {}, base = path.basename(f);
+    if (!(+o.ts > 0) || +o.ts < (ft[base] || 0)) throw new Error('imagen anterior a la que ya tenías');
+    ft[base] = +o.ts;
     S.frameFiles.set(f, k); S.seen.set(f, sha(txt));
+    this.noteSeen(S);
     return { k, u };
   }
   async loadFrames(pid) {
@@ -448,7 +549,7 @@ class Team {
       try {
         const g = JSON.parse(gt || await fsp.readFile(gf, 'utf8'));
         if (g.rev >= S.manifest.rev) {
-          await this.openGrant(S);
+          await this.openGrant(S, gt || null);
           S.seen.set(gf, sha(JSON.stringify(g)));
           if (S.needReload) {
             S.needReload = false;
@@ -475,10 +576,18 @@ class Team {
           this.send('team-update', S.pid, { sec: s, json: r.json, ver: r.ver, by, mine: r.by === S.me.id });
         }
       } catch (e) {
-        if (/llave/.test(e.message)) { S.stat && S.stat.delete(f); continue; }   // llega antes que el manifiesto: se reintenta
+        // llega antes que el manifiesto o antes que la versión de la que parte: se reintenta (un tiempo)
+        const pend = S.pend = S.pend || new Map(), k = f + '|' + sha(txt);
+        if (/llave/.test(e.message) || e.code === 'pending') {
+          if (!pend.has(k)) pend.set(k, Date.now());
+          if (Date.now() - pend.get(k) < PEND_MS) { S.stat && S.stat.delete(f); continue; }
+          e = teamErr('unverified', e.message + ' No se aplicó.');
+        }
+        pend.delete(k);
         this.send('team-warn', S.pid, String(e.message || e)); S.seen.set(f, sha(txt));
-        // el productor repara la sección con la última versión válida que tiene
-        if (S.admin && S.plain[s] != null) await this.writeSection(S, s, S.plain[s]).catch(() => { });
+        // el productor repara la sección con la última versión válida que tiene (si el cambio solo no se pudo
+        // comprobar, no: podría borrar trabajo bueno que aún no llega)
+        if (S.admin && S.plain[s] != null && e.code !== 'unverified') await this.writeSection(S, s, S.plain[s]).catch(() => { });
       }
     }
     // 4) imágenes
@@ -548,7 +657,7 @@ class Team {
     for (const s of lostRead) { const r = await this.readSection(S, s).catch(() => null); plains[s] = r ? r.json : S.plain[s]; }
     // las imágenes de toda sección que cambia de llave (también las del scouting y las del punto de encuentro)
     const oldFrames = [...lostRead].some(s => FRAME_SECS.includes(s)) ? await this.loadFrames(pid) : null;
-    for (const s of lostRead) { S.keys[s] = crypto.randomBytes(32); m.gens[s] = (m.gens[s] || 1) + 1; }
+    for (const s of lostRead) { S.keys[s] = crypto.randomBytes(32); m.gens[s] = (m.gens[s] || 1) + 1; S.keyGens[s] = m.gens[s]; }
     S.manifest = m;
     for (const s of lostRead) if (plains[s] != null) await this.writeSection(S, s, plains[s]);
     if (oldFrames) for (const [k, u] of Object.entries(oldFrames)) if (lostRead.has(frameSec(k))) await this.writeFrame(S, k, u);

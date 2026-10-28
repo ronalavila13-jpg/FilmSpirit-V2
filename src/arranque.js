@@ -7,7 +7,8 @@ async function boot() {
   paintBrand();
   $('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.tab); });
   tabGroupsBuild();
-  { const tc = document.createElement('button'); tc.type = 'button'; tc.id = 'tabsCfg'; tc.className = 'tabs-cfg'; tc.title = 'Vista: pestañas visibles y apariencia (clara u oscura)'; tc.setAttribute('aria-label', 'Vista: pestañas y apariencia'); tc.innerHTML = ICO.more; tc.onclick = e => tabsMenu(e.currentTarget); $('#tabs').appendChild(tc); }
+  // (lote W) abre el panel «Personalización» (leyenda.js) en «Tu pantalla»: modo, pestañas visibles, colores y letra
+  { const tc = document.createElement('button'); tc.type = 'button'; tc.id = 'tabsCfg'; tc.className = 'tabs-cfg'; tc.title = 'Personalización: modo, pestañas visibles, colores y letra'; tc.setAttribute('aria-label', 'Personalización'); tc.setAttribute('aria-controls', 'lookPanel'); tc.innerHTML = ICO.more; tc.onclick = () => lookToggle('me'); $('#tabs').appendChild(tc); }
   $('#tabs').addEventListener('scroll', tabFade, { passive: true });
   addEventListener('resize', debounce(() => tabInView(false), 200));
   $('#newBtn').onclick = e => newMenu(e.currentTarget);
@@ -51,7 +52,9 @@ async function boot() {
   if (listErr) setTimeout(() => problem('No se pudo cargar la lista de proyectos.', () => location.reload()), 400);
   // sin enlace ni archivo que abrir: Inicio, con los proyectos del último abierto al primero (inicio.js)
   const home = !first && !back && Store.kind !== 'mem' && (list.length || !listErr) && !(Store.kind === 'api' && PAGO_SID);
-  if (!first && Store.kind === 'api' && !PAGO_SID && await landingScene()) { /* la escena de la portada, abierta como guion nuevo */ }
+  // (lote AD) «Explorar con un proyecto de ejemplo» (la portada, /app/?ejemplo=1): el ejemplo, con o sin cuenta
+  if (!first && Store.kind === 'api' && typeof SAMPLE_ASK !== 'undefined' && SAMPLE_ASK) openSample();
+  else if (!first && Store.kind === 'api' && !PAGO_SID && await landingScene()) { /* la escena de la portada, abierta como guion nuevo */ }
   else if (home) { await homeShow(); }
   else if (pick) {
     const ok = await openProject(pick.id);
@@ -60,8 +63,8 @@ async function boot() {
     const alt = !ok && Store.kind === 'api' && first ? list.find(x => x.id === last) || list[0] : null;
     if (alt) await openProject(alt.id);
   }
-  else setProject(buildSample());
-  if (Store.kind === 'api') apiPaymentReturn();
+  else openSample();
+  if (Store.kind === 'api' && !APITEAM.anon) apiPaymentReturn();
   if (typeof deskReady === 'function') deskReady();
   setSaveState();
   addEventListener('resize', debounce(() => { if (UI.tab === 'lined' || UI.tab === 'script') fitPages(); }, 150));
@@ -94,7 +97,10 @@ async function landingScene() {
 }
 /* trabajo que se perdería al cerrar la pestaña */
 function unsavedWork() {
+  // el ejemplo: sus cambios viven en la memoria (proyectos.js · openSample), también si ahora está abierto otro proyecto
+  if (typeof sampleTouched === 'function' && sampleTouched()) return true;
   if (!P || UI.readOnly) return false;
+  if (typeof PHOTO_UP !== 'undefined' && PHOTO_UP.size) return true;   // fotos que se están subiendo (laminas.js)
   if (modalDirty($('#modal')) || (typeof S2 !== 'undefined' && S2 && S2.dirty)) return true;
   if (P._sample && !P._saved) return !!P._touched;
   if (Store.kind === 'mem') return !!P._touched;

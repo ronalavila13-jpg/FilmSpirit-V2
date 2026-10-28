@@ -1,5 +1,5 @@
 'use strict';
-/* Cuentas: eliminar la cuenta (suscripción cancelada, proyectos borrados, el mes gratis no se repite),
+/* Cuentas: eliminar la cuenta (suscripción cancelada, proyectos borrados, sin huellas: ya no hay mes gratis),
    cerrar la sesión en todos los navegadores y datos de Google que no se guardan tal cual */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -41,10 +41,10 @@ test.before(async () => {
 });
 test.after(async () => { await S.stop(); mock.close(); });
 
-test('eliminar la cuenta: confirma con el correo, cancela la suscripción, borra sus proyectos y no repite el mes gratis', async () => {
+test('eliminar la cuenta: confirma con el correo, cancela la suscripción, borra sus proyectos y no deja huellas', async () => {
   const A = H.client(base); await login(A, 'borrar@prueba.pe');
   const B = H.client(base); await login(B, 'equipo@prueba.pe');
-  // A con Pro (mes gratis de Mercado Pago) y un proyecto con B en el equipo
+  // A con Pro (Mercado Pago) y un proyecto con B en el equipo
   let r = await A.post('/api/billing/checkout', { plan: 'pro', cycle: 'month', region: 'pe' }); assert.equal(r.status, 200, r.text);
   const pre = Object.values(MPS.pre).at(-1);
   pre.status = 'authorized'; pre.payer_id = 'p1'; pre.next_payment_date = new Date(Date.now() + 30 * DAY).toISOString();
@@ -57,7 +57,7 @@ test('eliminar la cuenta: confirma con el correo, cancela la suscripción, borra
   assert.equal((await B.get(`/api/p/${pid}`)).status, 200);
   const pB = (await B.post('/api/projects', { sections: sec('De B') })).json.pid;
   await B.put(`/api/p/${pB}/team`, { list: [{ add: true, email: 'borrar@prueba.pe', role: 'Guion', perms: { guion: 'ver' } }] });
-  await A.post('/api/waitlist', { plan: 'studio' });
+  S.S.run("INSERT INTO waitlist(email,plan,uid,lang,ts) VALUES('borrar@prueba.pe','studio',?,'es',?)", user('borrar@prueba.pe').id, Date.now());   // se anotó antes del lote AD
   // confirmar: sin el correo o con otro, no
   r = await A.post('/api/me/delete', {}); assert.equal(r.json.code, 'bad_confirm');
   r = await A.post('/api/me/delete', { confirm: 'otro@prueba.pe' }); assert.equal(r.json.code, 'bad_confirm');
@@ -78,12 +78,11 @@ test('eliminar la cuenta: confirma con el correo, cancela la suscripción, borra
   assert.equal(S.S.one('SELECT COUNT(*) n FROM waitlist WHERE email=?', 'borrar@prueba.pe').n, 0);
   assert.equal(S.S.one('SELECT COUNT(*) n FROM sections WHERE pid=?', pid).n, 0);
   assert.equal(S.S.one("SELECT COUNT(*) n FROM payments WHERE ext_id='mp:1'").n, 1, 'los cobros quedan (contabilidad)');
-  assert.equal(S.S.one('SELECT COUNT(*) n FROM gone WHERE trial=1').n, 2);
-  assert.ok(!JSON.stringify(S.S.all('SELECT * FROM gone')).includes('borrar'), 'solo huellas, no el correo');
-  // vuelve con la misma cuenta de Google: cuenta nueva, sin proyectos y sin otro mes gratis
+  // (lote AD) sin prueba gratis no queda ninguna huella de la cuenta de Google
+  assert.equal(S.S.one('SELECT COUNT(*) n FROM gone').n, 0, 'sin huellas');
+  // vuelve con la misma cuenta de Google: cuenta nueva, sin proyectos (y sin mes gratis, que ya no existe)
   const A2 = H.client(base); const j = await login(A2, 'borrar@prueba.pe');
   assert.equal(j.isNew, true); assert.equal(j.me.plan, 'free'); assert.equal(j.me.scripts + j.me.own, 0);
-  assert.equal(user('borrar@prueba.pe').trial_used, 1);
   r = await A2.post('/api/billing/quote', { plan: 'pro', cycle: 'month', region: 'pe' }); assert.equal(r.json.trialDays, 0);
   // una cuenta sin suscripción se elimina sin llamar a ningún medio de pago
   const C = H.client(base); await login(C, 'simple@prueba.pe');
@@ -91,7 +90,7 @@ test('eliminar la cuenta: confirma con el correo, cancela la suscripción, borra
   r = await C.post('/api/me/delete', { confirm: 'simple@prueba.pe' }); assert.equal(r.status, 200);
   assert.equal(MPS.calls.length, n);
   const C2 = H.client(base); await login(C2, 'simple@prueba.pe');
-  assert.equal(user('simple@prueba.pe').trial_used, 0, 'sin mes gratis usado, puede usarlo');
+  assert.equal(user('simple@prueba.pe').trial_used, 0);
 });
 
 test('cerrar sesión en todos los navegadores', async () => {

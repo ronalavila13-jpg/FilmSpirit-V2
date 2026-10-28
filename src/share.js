@@ -8,12 +8,12 @@ const TIO = () => DESK ? DESK.team : TARGET === 'server' ? APITEAM : WEBTEAM;   
 // TARGET: para qué versión se armó (build.sh): 'web' (la página publicada en Claude), 'server' (la web con cuentas) o
 // 'desktop'. Cada versión trae su transporte del equipo: DESK.team, APITEAM (share-api.js) o WEBTEAM (share-web.js)
 const API = () => TARGET === 'server';   // web app con cuentas y servidor propio
-const SEC_LIST = [['guion', 'Guion', 'script'], ['desglose', 'Desglose', 'breakdown'], ['storyboard', 'Storyboard', 'board'], ['animatic', 'Animatic', 'animatic'], ['plan', 'Stripboard', 'plan'], ['calendario', 'Calendario', 'cal'], ['presupuesto', 'Presupuesto', 'budget'], ['llamado', 'Hoja de llamado', 'call'], ['hoja', 'Hoja de script', 'sup']];   // en el orden de las pestañas
+const SEC_LIST = [['guion', 'Guion', 'script'], ['desglose', 'Desglose', 'breakdown'], ['storyboard', 'Storyboard', 'board'], ['animatic', 'Animatic', 'animatic'], ['plan', 'Plan de rodaje', 'plan'], ['calendario', 'Calendario', 'cal'], ['presupuesto', 'Presupuesto', 'budget'], ['llamado', 'Hoja de llamado', 'call'], ['hoja', 'Hoja de script', 'sup']];   // en el orden de las pestañas
 const TAB2SEC = Object.fromEntries(SEC_LIST.map(([s, , t]) => [t, s]));
 TAB2SEC.project = 'guion';   // la pestaña Proyecto viaja con el guion
 TAB2SEC.lined = 'guion';     // el guion rayado también
 TAB2SEC.build = 'guion';     // Construcción (argumento, escaleta y tarjetas) también
-TAB2SEC.scout = 'plan';      // Scouting viaja con el stripboard (la locación elegida pasa a sus locaciones)
+TAB2SEC.scout = 'plan';      // Scouting viaja con el plan de rodaje (la locación elegida pasa a sus locaciones)
 TAB2SEC.casting = 'desglose';   // Casting viaja con el desglose (se edita con el área de reparto)
 TAB2SEC.gastos = 'gastos';      // Gastos (solo la web con cuentas): su propia sección, con sus reglas (areas.js · gaRole)
 const SECNAME = Object.fromEntries(SEC_LIST.map(([s, n]) => [s, n]));
@@ -52,9 +52,14 @@ const sclone = o => o === undefined ? undefined : JSON.parse(JSON.stringify(o));
 const omitK = (o, ks) => { const r = { ...o }; for (const k of ks) delete r[k]; return r; };
 
 /* ---------- qué datos del proyecto van en cada sección ---------- */
+/* (lote AD) en la web, a quien no ve la etapa Guion no le llega la Historia (el servidor la recorta: perm.js · histHidden).
+   Tampoco viaja en lo que guarda ni cuenta al comparar: la que tiene es la vacía que arma normalizeProject, y si contara,
+   cada cambio que llega del equipo dejaría el guion «distinto» y se volvería a guardar (o a deshacer) sin parar. El
+   servidor, además, guarda siempre la Historia que tenía (guionKeepHist) */
+const histOff = Px => API() && !!SHARE && SHARE.pid === Px.id && SHARE.kind !== 'guion' && !seesScriptStage({ admin: SHARE.admin, role: SHARE.me && SHARE.me.role });
 function secGet(Px, s) {
   switch (s) {
-    case 'guion': return { meta: omitK(Px.meta, ['aspect', 'hair', 'sensor']), paras: Px.paras, ...(Px.build ? { build: Px.build } : {}) };
+    case 'guion': return { meta: omitK(Px.meta, ['aspect', 'hair', 'sensor']), paras: Px.paras, ...(Px.build && !histOff(Px) ? { build: Px.build } : {}) };
     case 'desglose': return { elements: Object.fromEntries(Object.entries(Px.elements).map(([k, e]) => [k, omitK(e, ['look'])])), tags: Px.tags, scenes: Px.scenes, ...(Px.casting ? { casting: Px.casting } : {}), ...(Px.catCol && Object.keys(Px.catCol).length ? { catCol: Px.catCol } : {}) };
     case 'storyboard': return {
       shots: Object.fromEntries(Object.entries(Px.shots).map(([k, sh]) => [k, omitK(sh, ['done', 'dur'])])),
@@ -62,6 +67,8 @@ function secGet(Px, s) {
       looks: Object.fromEntries(Object.entries(Px.elements).filter(([, e]) => e.look).map(([k, e]) => [k, e.look])),
       faces: Px.faces || {},
       ...(Px.scEls && Object.keys(Px.scEls).length ? { scEls: Px.scEls } : {}),   // luces, objetos y animales de cada escena
+      ...(Px.envEsc && Object.keys(Px.envEsc).length ? { envEsc: Px.envEsc } : {}),   // lote W · la escala de la calle y los paisajes de cada locación
+      ...(Px.sobre3d && Object.keys(Px.sobre3d).length ? { sobre3d: Px.sobre3d } : {}),   // (lote AD) los escenarios importados sobre un entorno
       ...(Px.meta.hair ? { hair: Px.meta.hair } : {}),   // cómo se dibuja el pelo de las figuras (Ajustes del storyboard)
       ...(Px.meta.sensor ? { sensor: Px.meta.sensor } : {}),   // el sensor de la cámara del proyecto (Ajustes del storyboard)
     };
@@ -112,6 +119,8 @@ function secPut(Px, s, d) {
       }
       Px.plans = d.plans || {}; Px.locPlans = d.locPlans || {}; Px.sets3d = d.sets3d || {}; Px.locSet3d = d.locSet3d || {};
       if (d.scEls && typeof d.scEls === 'object') Px.scEls = d.scEls; else delete Px.scEls;
+      if (d.envEsc && typeof d.envEsc === 'object') Px.envEsc = d.envEsc; else delete Px.envEsc;   // lote W
+      if (d.sobre3d && typeof d.sobre3d === 'object') Px.sobre3d = d.sobre3d; else delete Px.sobre3d;   // (lote AD)
       Px.faces = d.faces || {}; if (typeof faceChanged === 'function') for (const id of Object.keys(Px.faces)) faceChanged(id);
       Px.meta.aspect = d.aspect || '16:9';
       if (d.hair) Px.meta.hair = d.hair; else delete Px.meta.hair;
@@ -214,7 +223,14 @@ function mergeSeq(b, l, r) {
 // Gastos: lo guarda (con sus reglas, que el servidor aplica) quien tiene algo que hacer ahí: ver gaCan en areas.js
 const canEditSec = (s, X = SHARE) => s === 'gastos' ? !!X && API() && !X.ro && gaCan(gaWhoOf(X)).receipt : !X || (!X.ro && (s === 'notas' || X.admin || (X.perms[s] === 'editar' && !X.unavailable.has(s)) || (s === 'guion' && API() && !X.unavailable.has(s) && typeof lockMine === 'function' && !!lockMine())));
 const canReadData = (s, X = SHARE) => s === 'notas' || (s === 'gastos' && API()) || X.read.has(s);
-const canSeeTab = t => t === 'gastos' ? typeof gsTabOk === 'function' && gsTabOk() : !SHARE || TAB2SEC[t] === 'guion' || SHARE.admin || (!!SHARE.perms[TAB2SEC[t]] && (TAB2SEC[t] !== 'presupuesto' || isProducer(SHARE.me && SHARE.me.role)));
+const canSeeTab = t => t === 'gastos' ? typeof gsTabOk === 'function' && gsTabOk() : t === 'build' || t === 'script' ? scriptStageOk(t) : !SHARE || TAB2SEC[t] === 'guion' || SHARE.admin || (!!SHARE.perms[TAB2SEC[t]] && (TAB2SEC[t] !== 'presupuesto' || isProducer(SHARE.me && SHARE.me.role)));
+/* (lote AD) la etapa Guion (Historia y Guion) en un proyecto de producción compartido: el cargo «Guion», producción y quien
+   lo administra (areas.js · seesScriptStage); en la web, el servidor ni siquiera envía la Historia a los demás. Quien
+   producción autorizó a revisar el guion cerrado ve la pestaña Guion mientras siga autorizado. En un guion (coescritura)
+   todos escriben. El resto lee el guion en el Guion rayado (baseTab) */
+const scriptStageOk = t => !SHARE || SHARE.kind === 'guion' || seesScriptStage({ admin: SHARE.admin, role: SHARE.me && SHARE.me.role }) || (t === 'script' && typeof lockMine === 'function' && !!lockMine());
+// la pestaña a la que se vuelve cuando la que se pidió no se puede ver (un enlace, una nota, una preferencia vieja)
+const baseTab = () => canSeeTab('script') ? 'script' : 'lined';
 // quién soy en el proyecto, para las reglas de Gastos (areas.js)
 // las pestañas con permiso, con Gastos en la web con cuentas (para los resúmenes de permisos)
 const secListAll = () => API() ? [...SEC_LIST, ['gastos', 'Gastos', 'gastos']] : SEC_LIST;
@@ -228,7 +244,12 @@ const canEditBdAll = () => canEditSec('desglose') && !myBdAreas();
 const areasText = a => !a ? 'Todas las áreas' : !a.length ? 'Ninguna área' : a.map(id => (SHEET.find(b => b.id === id) || { name: id }).name).join(', ');
 function sharePaintTabs() {
   $$('#tabs .tab').forEach(b => { b.hidden = !canSeeTab(b.dataset.tab); b.classList.toggle('kind-off', typeof isScriptKind === 'function' && isScriptKind() && !SCRIPT_TABS.has(b.dataset.tab)); });
-  if (!canSeeTab(UI.tab)) { UI.tab = 'script'; if (typeof paintTabSel === 'function') paintTabSel(); }
+  if (!canSeeTab(UI.tab)) {
+    UI.tab = baseTab(); if (typeof paintTabSel === 'function') paintTabSel();
+    // (lote AD) lo que estaba a la vista ya no se puede ver (p. ej. producción quitó la autorización para revisar el guion
+    // cerrado): se pinta la pestaña a la que se volvió
+    const v = $('#view'); if (P && v && v._tab && !canSeeTab(v._tab)) requestAnimationFrame(() => render());
+  }
   if (typeof applyTabPrefs === 'function') applyTabPrefs();
   let chip = $('#roChip');
   if (!chip) { chip = document.createElement('span'); chip.id = 'roChip'; chip.className = 'ro-chip'; $('#tabs').appendChild(chip); }
@@ -493,7 +514,7 @@ async function shareSave(Px) {
 }
 // cada imagen se guarda con su sección (frameSec, en areas.js): sin permiso de editarla, no se sube
 async function shareSaveFrame(pid, k, url) {
-  if (!canEditSec(frameSec(k))) { toast(`Solo lectura: las imágenes ${({ desglose: 'del desglose', plan: 'del scouting', llamado: 'de la hoja de llamado', gastos: 'de Gastos' })[frameSec(k)] || 'del storyboard'} no se guardan.`); return; }
+  if (!canEditSec(frameSec(k))) { toast(`Solo lectura: las imágenes ${({ desglose: 'del desglose', plan: 'del scouting', llamado: 'de la hoja de llamado', gastos: 'de Gastos', hoja: 'de la hoja de script' })[frameSec(k)] || 'del storyboard'} no se guardan.`); return; }
   await TIO().saveFrame(pid, k, url || null);
 }
 
@@ -573,7 +594,7 @@ function shareInit() {
     if (!SHARE || SHARE.pid !== pid) return;
     const admin = SHARE.admin;
     SHARE = null;
-    setProject(buildSample()); sharePaintTabs();
+    openSample(); sharePaintTabs();
     if (why === 'deleted' && admin) return;
     modal({ title: why === 'deleted' ? 'Proyecto eliminado' : 'Acceso cerrado', body: `<p style="margin:0">${why === 'deleted' ? 'Producción eliminó este proyecto.' : `Producción ${DESK ? 'cambió o quitó tu acceso a este proyecto. Si sigues en el equipo, pídele tu nueva contraseña.' : 'quitó tu acceso a este proyecto.'}`}</p>`, foot: '<button class="btn primary" data-close>Entendido</button>' });
   });
@@ -678,6 +699,7 @@ function teamDialog(focusId) {
   const m = modal({
     title: 'Equipo y permisos', wide: true,
     body: `<p class="hint" style="margin:0">Elige qué pestañas puede <b>ver</b> o <b>editar</b> cada jefe de área. En el desglose, «Editar» puede limitarse a sus áreas: cada uno llena sus cajas y ve las demás. Ver una pestaña incluye leer el guion y el desglose; el presupuesto también incluye el plan (para contar los días de rodaje).${DESK ? ' Si alguien deja de poder leer algo, se cambian las cerraduras de esa parte.' : ''}</p>
+      ${SHARE.kind === 'guion' ? '' : '<p class="hint" style="margin:0">Historia y Guion los ven el cargo «Guion», los de producción y quien administra; los demás leen el guion en el Guion rayado.</p>'}
       <div class="team-wrap"><table class="team-t"><thead><tr><th>Persona</th>${COLS.map(([, n]) => `<th>${esc(n)}</th>`).join('')}<th></th></tr></thead><tbody id="tmB"></tbody></table></div>
       <div class="team-add"><b>Agregar persona</b>
         ${AP ? `<div class="team-add-row"><input type="email" id="tmE" placeholder="Correo de su cuenta de Google" autocomplete="off" inputmode="email" aria-label="Correo"><select id="tmR" aria-label="Cargo">${ROLES.map(([r]) => `<option>${esc(r)}</option>`).join('')}</select><button class="btn" id="tmA" type="button">＋ Agregar</button></div>
@@ -859,14 +881,14 @@ function teamPanel(anchor) {
         try { await Store.remove(SHARE.pid); } catch (er) { toast(errText(er)); return; }
         SHARE = null; toast('Saliste del proyecto.');
         const rest = await Store.list().catch(() => []);
-        if (rest.length) openProject(rest[0].id); else setProject(buildSample());
+        if (rest.length) openProject(rest[0].id); else openSample();
       });
       if (t === 'out') {
         await flushSave();
         const pid = SHARE.pid;
         try { ls.del(`budpin:${pid}:${SHARE && SHARE.me ? SHARE.me.id : ''}`); } catch (er) { }   // al salir, el código del presupuesto de este equipo se borra
         await TIO().logout(pid);
-        SHARE = null; setProject(buildSample()); sharePaintTabs();
+        SHARE = null; openSample(); sharePaintTabs();
         toast(DESK ? 'Sesión cerrada.' : 'Saliste del proyecto.');
       }
     });

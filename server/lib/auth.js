@@ -66,8 +66,6 @@ function makeAuth(S, cfg) {
         S.run('INSERT INTO users(id,sub,email,name,picture,created,seen) VALUES(?,?,?,?,?,?,?)', newId(), g.sub, email, g.name || email.split('@')[0], g.picture, now(), now());
         isNew = true;
         u = S.one('SELECT * FROM users WHERE sub=?', g.sub);
-        // la misma cuenta de Google ya tuvo una cuenta (eliminada) que usó el mes gratis: no se repite
-        if (S.one('SELECT 1 x FROM gone WHERE h IN (?,?) AND trial=1', goneHash('sub', g.sub), goneHash('email', email))) { S.run('UPDATE users SET trial_used=1 WHERE id=?', u.id); u = S.one('SELECT * FROM users WHERE id=?', u.id); }
       } else {
         // el correo de una cuenta de Google puede cambiar; la cuenta se reconoce por «sub»
         const clash = email !== u.email && S.one('SELECT id FROM users WHERE email=? AND id<>?', email, u.id);
@@ -83,20 +81,17 @@ function makeAuth(S, cfg) {
     return { u, claimed, isNew };
   }
 
-  const goneHash = (kind, v) => sha256('fs-gone|' + kind + '|' + String(v || '').toLowerCase());
   /* cerrar la sesión en todos los navegadores */
   function endAll(uid) { S.run('DELETE FROM sessions WHERE uid=?', uid); }
   /* eliminar la cuenta: sus proyectos (también para su equipo), su lugar en los equipos ajenos, invitaciones,
-     sesiones y navegadores. Quedan los cobros (contabilidad), los reclamos y el registro de seguridad, y una
-     huella de la cuenta de Google para que el mes gratis no se repita */
+     sesiones y navegadores. Quedan los cobros (contabilidad), los reclamos y el registro de seguridad.
+     (lote AD) Ya no queda la huella de la cuenta de Google (tabla gone): era para que el mes gratis no se repitiera */
   function deleteAccount(u) {
     S.tx(() => {
       const fresh = S.one('SELECT * FROM users WHERE id=?', u.id);
-      const trial = fresh.trial_used || S.one('SELECT 1 x FROM subs WHERE uid=? AND trial>0 AND status<>?', u.id, 'pending') ? 1 : 0;
-      for (const h of [fresh.sub && goneHash('sub', fresh.sub), goneHash('email', fresh.email.replace(/#.*$/, ''))].filter(Boolean))
-        S.run('INSERT INTO gone(h,trial,ts) VALUES(?,?,?) ON CONFLICT(h) DO UPDATE SET trial=MAX(trial, excluded.trial), ts=excluded.ts', h, trial, now());
       S.run('DELETE FROM invites WHERE email=?', fresh.email);
       S.run('DELETE FROM waitlist WHERE email=? OR uid=?', fresh.email, u.id);
+      S.run('DELETE FROM outbox WHERE to_addr=?', fresh.email);   // correos en cola (lib/mail.js): no se envían y no queda la dirección
       S.run('DELETE FROM devices WHERE uid=?', u.id);
       S.run('UPDATE codes SET owner=NULL WHERE owner=?', u.id);
       S.run('DELETE FROM users WHERE id=?', u.id);   // en cascada: sesiones, proyectos (secciones, historial, imágenes, equipo), membresías, suscripciones

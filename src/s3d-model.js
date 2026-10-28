@@ -70,9 +70,18 @@ const S3_BODY = {
   extra: { name: 'Extra', s: 1, h: 1.7, sh: .96, hip: 1, head: 1, hunch: 0, hair: 'ninguno', hc: '#8E949C', skin: '#C3C8CF', faceless: true },
 };
 const S3_TONOS = ['#D9D3C9', '#C8D2DD', '#CAD6CA', '#E0CCCB', '#E3D2B5', '#D2CBDD', '#BDBCBA', '#D6C6AE'];  // tono sutil del maniquí
-// peinados estilo anime (se arman en s3d-pelo.js): cortos, medios y largos o recogidos, para todas las edades
-const S3_PELO = [['ninguno', 'Sin pelo'], ['rapado', 'Rapado'], ['corto', 'Corto'], ['despeinado', 'Despeinado'], ['raya', 'Raya al lado'], ['flequillo', 'Flequillo'], ['entradas', 'Entradas'], ['calvicie', 'Calvicie'],
-  ['melena', 'Melena'], ['ondas', 'Ondas'], ['larga', 'Larga'], ['cola', 'Cola'], ['coletas', 'Coletas'], ['recogido', 'Moño']];
+// peinados estilo anime (se arman en s3d-pelo.js): cortos, medios y largos o recogidos, para todas las edades.
+// [clave, nombre, a qué cuerpos les va]: h hombre, m mujer, o anciano, a anciana, n niño, i niña (el extra: los de hombre
+// y mujer). El selector muestra primero los que le van a la figura y el resto detrás de «Ver todos»
+const S3_PELO = [['ninguno', 'Sin pelo', 'hmoani'], ['rapado', 'Rapado', 'hon'], ['corto', 'Corto', 'hon'], ['despeinado', 'Despeinado', 'hmni'], ['raya', 'Raya al lado', 'hmon'],
+  ['flequillo', 'Flequillo', 'hmni'], ['puntas', 'Parado en puntas', 'hni'], ['tupe', 'Tupé', 'ho'], ['atras', 'Hacia atrás', 'ho'], ['cresta', 'Cresta', 'hn'], ['rizado', 'Rizado corto', 'hn'],
+  ['entradas', 'Entradas', 'ho'], ['calvicie', 'Calvicie', 'ho'], ['canas', 'Canas hacia atrás', 'oa'], ['tazon', 'Tazón', 'ni'], ['pixie', 'Pixie', 'ma'], ['bob', 'Bob', 'mai'],
+  ['melena', 'Melena', 'mai'], ['ondas', 'Ondas', 'hma'], ['rulos', 'Rulos', 'oa'], ['afro', 'Afro', 'hmni'], ['rastas', 'Rastas', 'hm'], ['larga', 'Larga', 'mi'], ['rizos', 'Rizos largos', 'mi'],
+  ['cola', 'Cola', 'mi'], ['media_cola', 'Media cola', 'mi'], ['coletas', 'Coletas', 'mi'], ['trenza', 'Trenza', 'mi'], ['trenzas', 'Trenzas', 'mni'], ['recogido', 'Moño', 'ma'],
+  ['mono_alto', 'Moño alto', 'hm'], ['mono_bajo', 'Moño bajo', 'moa'], ['chongitos', 'Dos chongitos', 'ni']];
+const S3_PELO_FOR = { hombre: 'h', mujer: 'm', anciano: 'o', anciana: 'a', nino: 'n', nina: 'i', extra: 'hm' };
+/* ¿ese peinado le va a ese tipo de cuerpo? */
+const peloFits = (key, body) => { const r = S3_PELO.find(x => x[0] === key), t = S3_PELO_FOR[body] || 'hm'; return !!r && [...t].some(c => r[2].includes(c)); };
 const S3_SKIN = ['#EFE7DB', '#F2D9C4', '#E2BD98', '#C99A72', '#9E6E4B', '#6B4632', '#C3C8CF'];
 /* proporciones del cuerpo en % (100 = la del tipo de cuerpo) */
 const S3_PROP = [['shw', 'Hombros', 75, 135], ['hipw', 'Caderas', 75, 135], ['headk', 'Cabeza', 80, 130], ['limb', 'Extremidades', 75, 150], ['belly', 'Abdomen', 85, 150]];
@@ -165,8 +174,10 @@ function eyeOf(s3, id, pose) {
   const B = ob ? bodyOf(ob) : S3_BODY.hombre;
   return eyeH(pose) * (ob ? lookOf(ob).s : 1) * (1 - B.hunch * .08);
 }
-/* «int:cocina» y los demás son la habitación con ese ambiente (s3.set = 'int', s3.room.kind = 'cocina') */
-const S3_SETS = [['int', 'Habitación vacía'], ['int:sala', 'Sala'], ['int:comedor', 'Comedor'], ['int:cocina', 'Cocina'], ['int:dormitorio', 'Dormitorio'], ['int:bano', 'Baño'], ['int:oficina', 'Oficina'], ['int:ascensor', 'Ascensor'], ['plano', 'Plano importado'], ['auto', 'Interior de automóvil'], ['ext', 'Exterior abierto'], ['calle', 'Calle'], ['jardin_d', 'Frente de la casa (jardín)'], ['jardin_t', 'Patio trasero (jardín)'], ['parque', 'Parque'], ['bosque', 'Bosque'], ['montana', 'Montaña'], ['playa', 'Playa'], ['mar', 'Mar abierto (en un bote)'], ['desierto', 'Desierto o arenal'], ['canaveral', 'Cañaveral o chacra'], ['vacio', 'Vacío (estudio)']];
+/* «int:cocina» y los demás son la habitación con ese ambiente (s3.set = 'int', s3.room.kind = 'cocina'); «auto:suv» y los
+   demás, el interior de ese vehículo (s3.set = 'auto', s3.car.m = 'suv'; «auto» solo es el sedán) */
+const S3_SETS = [['int', 'Habitación vacía'], ['int:sala', 'Sala'], ['int:comedor', 'Comedor'], ['int:cocina', 'Cocina'], ['int:dormitorio', 'Dormitorio'], ['int:bano', 'Baño'], ['int:oficina', 'Oficina'], ['int:ascensor', 'Ascensor'], ['plano', 'Plano importado'],
+  ['auto', 'Interior de vehículo: sedán'], ['auto:suv', 'Interior de vehículo: SUV'], ['auto:van', 'Interior de vehículo: van o combi'], ['auto:pickup', 'Interior de vehículo: pick-up'], ['auto:bus', 'Interior de vehículo: bus urbano'], ['ext', 'Exterior abierto'], ['calle', 'Calle'], ['jardin_d', 'Frente de la casa (jardín)'], ['jardin_t', 'Patio trasero (jardín)'], ['parque', 'Parque'], ['bosque', 'Bosque'], ['montana', 'Montaña'], ['playa', 'Playa'], ['mar', 'Mar abierto (en un bote)'], ['desierto', 'Desierto o arenal'], ['canaveral', 'Cañaveral o chacra'], ['vacio', 'Vacío (estudio)']];
 const S3_COLORS = ['#C8563F', '#3D6FB6', '#C99A2E', '#4E8F5A', '#8B5BA6', '#3E8F94', '#B5577D', '#6B6F7A'];
 /* ---------- el piso que se pisa ----------
    Casi todo está a nivel 0, pero las veredas de la calle tienen 15 cm. Figuras, objetos y luces se apoyan en
@@ -175,7 +186,8 @@ const S3_COLORS = ['#C8563F', '#3D6FB6', '#C99A2E', '#4E8F5A', '#8B5BA6', '#3E8F
    s3d-render (CALLE_WALK) y los que la cámara no atraviesa (CALLE_BLOCKS, en floorplan). */
 const CALLE_WALK = { h: .15, z: [-.75, -10.25], d: 2.5 };
 function groundAt(s3, x, z) {
-  if (s3 && s3.set === 'calle') for (const c of CALLE_WALK.z) if (Math.abs(z - c) <= CALLE_WALK.d / 2) return CALLE_WALK.h;
+  // lote W · la vereda, a la escala de la calle de esa locación (escenarios-escala.js)
+  if (s3 && s3.set === 'calle') { const k = typeof envEscOf === 'function' ? envEscOf(s3) : 1; for (const c of CALLE_WALK.z) if (Math.abs(z - c * k) <= CALLE_WALK.d * k / 2) return CALLE_WALK.h * k; }
   return 0;
 }
 /* dónde se apoya una figura, un objeto o una luz: el suelo bajo sus pies más su «Altura» (solo figuras y objetos pequeños) */
@@ -218,7 +230,14 @@ const camFF = cam => Math.max(2, Math.min(2000, Math.max(8, Math.min(600, cam.le
 const lensEqText = s3 => { const S = sensorOf(s3); return S[0] === 'ff' ? '' : S[2]; };
 /* desenfoque del plano (s3.dof): se enfoca a s3.focus o, si no, a quien sigue la cámara o a la primera figura; el punto
    es el de sus ojos (un objeto o una luz: su altura). El diafragma es el de Luz › Exposición (f/2.8 si no se eligió) */
+/* lote W · el foco a mano (obs. 8): s3.focusD, en metros sobre el eje de la cámara (tocar un punto de la viñeta, arrastrar
+   la línea de foco en la planta o «Foco en › A mano»). El punto es el del eje a esa distancia: el desenfoque lo mide igual
+   que el de una figura. Sin animación por ahora */
+const FOCUS_D = [.3, 30];
+const focusMan = s3 => { const d = +(s3 && s3.focusD); return d > 0 && isFinite(d) ? clamp(d, FOCUS_D[0], FOCUS_D[1]) : 0; };
 function dofFocus(s3, st) {
+  const dm = focusMan(s3);
+  if (dm) { const c = st.cam, y = rad(c.yaw || 0), p = rad(clamp(c.pitch || 0, -89.9, 89.9)); return { id: null, man: true, d: dm, x: c.x - Math.sin(y) * Math.cos(p) * dm, y: c.h + Math.sin(p) * dm, z: c.z - Math.cos(y) * Math.cos(p) * dm }; }
   const has = id => id && st.o[id] && s3.objs.some(o => o.id === id);
   const id = [s3.focus, s3.aim, ...s3.objs.filter(o => o.kind === 'actor').map(o => o.id)].find(has);
   if (!id) return null;
@@ -249,7 +268,7 @@ function estDur(sh) {
 }
 const shotDur = sh => sh.dur && num(sh.dur) > 0 ? num(sh.dur) : estDur(sh);
 
-const VEH_LIKE = /^(moto|taxi|patrullero|limosina|suv|van|bus|deportivo)$/;
+const VEH_LIKE = /^(moto|taxi|patrullero|limosina|suv|pickup|van|bus|deportivo)$/;
 /* ---------- escena por defecto a partir de los datos del plano ---------- */
 /* elementos de la escena: luces, objetos y animales puestos desde la planta general (planta-general.js).
    P.scEls[escena] = [{ ob, pos }]: están en todos sus planos. Los que tienen puesta en escena propia los llevan en su
@@ -281,24 +300,15 @@ function s3Default(sh) {
     const names = [...D.sem[s.idx]].map(id => P.elements[id]).filter(Boolean).map(e => deaccent(e.name.toLowerCase()));
     const want = [];
     // vehículos y animales con nombre propio en el desglose (el taxi como taxi, el perro como perro)
-    const SPEC = [[/mototaxi/, 'moto'], [/\btaxi/, 'taxi'], [/patrull/, 'patrullero'], [/limosina|limusina/, 'limosina'], [/camioneta|\bsuv\b|4x4/, 'suv'], [/\b(van|combi|minivan)\b/, 'van'], [/\b(bus|autobus|omnibus|micro|custer)\b/, 'bus'], [/bicicleta|\bbici\b/, 'bici'], [/triciclo/, 'triciclo'], [/avioneta/, 'avioneta'], [/avion de combate|caza\b/, 'caza'], [/\bavion\b/, 'avion'], [/deportivo/, 'deportivo'], [/auto|carro|coche/, 'auto'],
+    const SPEC = [[/mototaxi/, 'moto'], [/\btaxi/, 'taxi'], [/patrull/, 'patrullero'], [/limosina|limusina/, 'limosina'], [/pick-?\s?up/, 'pickup'], [/^(?!.*pick-?\s?up).*(camioneta|\bsuv\b|4x4)/, 'suv'], [/\b(van|combi|minivan)\b/, 'van'], [/\b(bus|autobus|omnibus|micro|custer)\b/, 'bus'], [/bicicleta|\bbici\b/, 'bici'], [/triciclo/, 'triciclo'], [/avioneta/, 'avioneta'], [/avion de combate|caza\b/, 'caza'], [/\bavion\b/, 'avion'], [/deportivo/, 'deportivo'], [/auto|carro|coche/, 'auto'],
       [/\bperr[oa]/, 'perro'], [/\bgat[oa]\b/, 'gato'], [/caball|yegua/, 'caballo'], [/\btoro\b/, 'toro'], [/\bvaca\b/, 'vaca'], [/\bburr[oa]|\basno\b/, 'burro'], [/\bllama\b|alpaca/, 'llama'], [/\boveja/, 'oveja'], [/\bcerdo|chancho/, 'cerdo'], [/gallin|gallo\b/, 'gallina'], [/dragon/, 'dragon'], [/dinosaurio|t-?rex/, 'dinosaurio']];
-    for (const [re, k] of SPEC) if (S3_PROPS[k] && names.some(x => re.test(x)) && !want.includes(k)) { if (k === 'auto' && want.some(w => VEH_LIKE.test(w))) continue; want.push(k); }
+    // (dentro del interior de vehículo no se pone otro vehículo)
+    for (const [re, k] of SPEC) if (S3_PROPS[k] && names.some(x => re.test(x)) && !want.includes(k)) { if (k === 'auto' && want.some(w => VEH_LIKE.test(w))) continue; if (set === 'auto' && S3_PROPS[k].cat === 'vehiculo') continue; want.push(k); }
     if (names.some(x => /mostrador|vitrina/.test(x))) want.push('mostrador');
     if (names.some(x => /mesa|escritorio/.test(x))) want.push('mesa');
     if (names.some(x => /sofa|sillon/.test(x))) want.push('sofa');
     if (names.some(x => /cama/.test(x))) want.push('cama');
-    if ((sh.size === 'PD' || sh.size === 'INS') && !ids.length) {
-      let pn = 'Detalle';
-      if (sh.p0 != null) { const t = P.tags.find(t => t.p >= sh.p0 && t.p <= sh.p1 && P.elements[t.el] && ['props', 'setdress', 'vfx', 'weapons'].includes(P.elements[t.el].cat)); if (t) pn = P.elements[t.el].name; }
-      const d0 = { id: 'd0', kind: 'detalle', name: pn };
-      // una lámpara del guion se ve como lámpara (quemada si el plano o su texto lo dicen)
-      if (detailModel(d0) === 'lampara') {
-        let txt = deaccent(((sh.desc || '') + ' ' + (sh.p0 != null ? P.paras.slice(sh.p0, (sh.p1 ?? sh.p0) + 1).map(p => p.x).join(' ') : '')).toLowerCase());
-        d0.model = /quemad|fundid|negra|rota/.test(txt) ? 'lampara_q' : 'lampara';
-      }
-      objs.push(d0); st.d0 = { x: 0, z: 0, rot: 0 };
-    }
+    if ((sh.size === 'PD' || sh.size === 'INS') && !ids.length) { objs.push(detailOf(sh, 'd0')); st.d0 = { x: 0, z: 0, rot: 0 }; }
     // en una cocina, sala o dormitorio, lo que ya trae el ambiente no se repite
     if (set === 'int' && ENV.room && typeof roomLayout === 'function') { const have = new Set(roomLayout(ENV.room, { w: 6, d: 5 }).map(r => r[0])); for (let i = want.length - 1; i >= 0; i--) if (have.has(want[i])) want.splice(i, 1); }
     want.slice(0, 2).forEach((k, i) => {
@@ -317,12 +327,195 @@ function s3Default(sh) {
   if (ENV.rain) s3.rain = true;
   // el sensor de la cámara del proyecto (Ajustes del storyboard); full frame no se anota
   if (P && P.meta && P.meta.sensor && P.meta.sensor !== 'ff' && SENSORS.some(x => x[0] === P.meta.sensor)) s3.sensor = P.meta.sensor;
-  if (set === 'auto' && !ms && typeof envSeatCar === 'function') envSeatCar(s3);
+  if (set === 'auto' && !ms && typeof envSeatCar === 'function') { if (ENV.car && ENV.car !== 'sedan') s3.car = { m: ENV.car }; envSeatCar(s3); }
   if (s3.set === 'int' && ENV.room && typeof roomFurnish === 'function') roomFurnish(s3, ENV.room);
   s3Frame(s3, sh.size, sh.angle, num(sh.lens) || 0);
   if (set === 'auto' && !ms && typeof envCarCam === 'function') envCarCam(s3);
   s3ApplyMove(s3, sh.move, shotDur(sh), sh.desc);
   if ((s3.set === 'plano' || s3.set === 'calle') && typeof s3CamInside === 'function') s3CamInside(s3);
+  if (typeof escLocSet === 'function') escLocSet(s3, s && s.loc);   // lote W · la locación (para la escala de la calle)
+  for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
+  return s3;
+}
+
+/* el objeto de un plano detalle o un inserto: lo que el desglose marca en su texto (utilería, decorado, efectos, armas) */
+function detailOf(sh, id) {
+  let pn = 'Detalle';
+  if (sh.p0 != null) {
+    // con varios en el mismo texto, el que nombra la descripción del plano («Detalle: celular»)
+    const ts = P.tags.filter(t => t.p >= sh.p0 && t.p <= sh.p1 && P.elements[t.el] && ['props', 'setdress', 'vfx', 'weapons'].includes(P.elements[t.el].cat));
+    const dsc = deaccent(String(sh.desc || '').toLowerCase()), t = ts.find(t => dsc.includes(deaccent(P.elements[t.el].name.toLowerCase()))) || ts[0];
+    if (t) pn = P.elements[t.el].name;
+  }
+  const d0 = { id, kind: 'detalle', name: pn };
+  // una lámpara del guion se ve como lámpara (quemada si el plano o su texto lo dicen)
+  if (detailModel(d0) === 'lampara') {
+    let txt = deaccent(((sh.desc || '') + ' ' + (sh.p0 != null ? P.paras.slice(sh.p0, (sh.p1 ?? sh.p0) + 1).map(p => p.x).join(' ') : '')).toLowerCase());
+    d0.model = /quemad|fundid|negra|rota/.test(txt) ? 'lampara_q' : 'lampara';
+  }
+  return d0;
+}
+
+/* ---------- el máster de la escena (lote U) ----------
+   Los planos de una escena toman la puesta en escena de su máster: dónde está cada personaje (posición, giro y
+   postura), el escenario con sus muebles, objetos y luces, la hora del día y la lluvia. Cada plano pone solo su
+   cámara, que encuadra a su personaje según el tamaño del plano, del mismo lado de la línea de acción que la del
+   máster (regla de los 180°); en un diálogo, por encima del hombro del otro (plano y contraplano). Un personaje del
+   plano que no está en el máster se para junto al grupo; un inserto, dentro del mismo escenario.
+   Un plano sin puesta en escena propia (sin sh.s3) sigue al máster: se arma de nuevo desde él cada vez, así que si
+   alguien se mueve en el máster los demás se acomodan. Al ajustarlo a mano guarda lo suyo y deja de seguirlo.
+   El máster es el que se eligió («Usar como máster») o el que sugirió FilmSpirit (sh.master = true); si ninguno lo
+   dice, el primero cuya descripción dice «máster». sh.master = false: no lo es aunque su descripción lo diga. */
+const saysMaster = sh => /\bmaster\b/.test(deaccent(String((sh && sh.desc) || '').toLowerCase()));
+let MASTER_C = { rev: -1, d: null, by: new Map() };
+function shotMaster(scKey) {
+  if (typeof D === 'undefined' || !D || !D.shotsBy) return null;
+  if (MASTER_C.rev !== S3REV || MASTER_C.d !== D) MASTER_C = { rev: S3REV, d: D, by: new Map() };
+  if (MASTER_C.by.has(scKey)) return MASTER_C.by.get(scKey);
+  const list = (D.shotsBy[scKey] || []).filter(Boolean);
+  const m = list.find(sh => sh.master === true) || list.find(sh => sh.master !== false && saysMaster(sh)) || null;
+  MASTER_C.by.set(scKey, m);
+  return m;
+}
+const isMaster = sh => !!sh && (m => !!m && m.id === sh.id)(shotMaster(sh.sc));
+/* el máster que sigue un plano (null si es el máster, si la escena no tiene o si el plano tiene puesta propia) */
+const masterOf = sh => { if (!sh || sh.s3) return null; const m = shotMaster(sh.sc); return m && m.id !== sh.id ? m : null; };
+/* elegir (o dejar de usar) el máster: uno por escena, marcar otro desmarca el anterior */
+function setMaster(sh, on = true) {
+  for (const o of (typeof D !== 'undefined' && D.shotsBy[sh.sc]) || []) {
+    if (!o) continue;
+    if (o.id === sh.id) o.master = !!on;
+    else if (on && (o.master === true || (o.master !== false && saysMaster(o)))) o.master = false;
+  }
+  S3REV++;
+}
+/* los personajes que hablan en la escena (elementos del desglose con diálogo): con ellos se arma el plano y contraplano */
+function sceneSpeakers(scKey) {
+  const out = new Set(), s = typeof sceneOfKey === 'function' && typeof D !== 'undefined' && D && D.sc ? sceneOfKey(scKey) : null;
+  if (!s || typeof P === 'undefined' || !P || !Array.isArray(P.paras)) return out;
+  const byName = new Map(Object.values(P.elements || {}).filter(e => e && e.cat === 'cast').map(e => [e.name, e.id]));
+  for (let i = s.p0 + 1; i < s.p1 && i < P.paras.length; i++) { const p = P.paras[i]; if (p && p.t === 'c') { const id = byName.get(typeof normCue === 'function' ? normCue(p.x) : String(p.x || '').trim().toUpperCase()); if (id) out.add(id); } }
+  return out;
+}
+/* el lado del máster: de la línea que pasa por p con dirección w (unitaria), la normal que apunta a la cámara c */
+function sideOf(p, w, c) {
+  const n = { x: -w.z, z: w.x };
+  return (c.x - p.x) * n.x + (c.z - p.z) * n.z < 0 ? { x: -n.x, z: -n.z } : n;
+}
+const unit2 = (x, z) => { const l = Math.hypot(x, z); return l > 1e-6 ? { x: x / l, z: z / l } : null; };
+const angOf = v => Math.atan2(v.x, v.z);   // como el giro de una figura: 0 mira hacia +z
+/* encuadra la clave 0 de s3 para el plano sh dentro de la puesta del máster (mcam: la cámara del máster, que decide de
+   qué lado de la línea de acción va la cámara). Devuelve s3 */
+function s3FrameFollow(s3, sh, mcam) {
+  const k = s3.keys[0], size = sh.size || 'PM', lens = num(sh.lens) || 0, ins = size === 'PD' || size === 'INS';
+  const wide = ['GPG', 'PG', 'PC', 'PE'].includes(size);
+  let ang = sh.angle || 'Normal';
+  const acts = s3.objs.filter(o => o.kind === 'actor' && k.o[o.id]);
+  const P0 = id => k.o[id];
+  // a quién encuadra: sus personajes (en el orden del plano); un inserto, su objeto
+  const mine = (sh.chars || []).map(id => acts.find(o => o.el === id)).filter(Boolean);
+  const det = ins && !mine.length ? s3.objs.find(o => o.kind === 'detalle' && k.o[o.id]) : null;
+  const frameWith = (objs, dir, a = ang, ln = lens) => {
+    const red = { ...s3, objs, keys: [{ ...k, o: Object.fromEntries(objs.map(o => [o.id, k.o[o.id]])) }] };
+    s3Frame(red, size, a, ln, dir);   // cambia k.cam (es el mismo objeto)
+    s3.aim = null; if (red.aimF != null) s3.aimF = red.aimF; else delete s3.aimF;
+  };
+  const toCam = p => unit2(mcam.x - p.x, mcam.z - p.z) || { x: 0, z: 1 };
+  if (det) { frameWith([det], angOf(toCam(P0(det.id)))); return s3; }
+  const group = mine.length ? mine : acts;
+  if (!group.length) { frameWith([], 0); return s3; }
+  if (wide || ang === 'Cenital') {
+    // general: desde el lado del máster, hacia el centro de los suyos
+    const c = { x: group.reduce((a, o) => a + P0(o.id).x, 0) / group.length, z: group.reduce((a, o) => a + P0(o.id).z, 0) / group.length };
+    frameWith(group, angOf(toCam(c)));
+    return s3;
+  }
+  const A = group[0], pa = P0(A.id);
+  // el otro del diálogo: otro personaje del plano o, si no, el más cercano de los que hablan en la escena (si nadie
+  // más habla, el más cercano)
+  const near = (a, b) => Math.hypot(P0(a.id).x - pa.x, P0(a.id).z - pa.z) - Math.hypot(P0(b.id).x - pa.x, P0(b.id).z - pa.z);
+  let others = group.length > 1 ? group.slice(1) : acts.filter(o => o.id !== A.id);
+  if (group.length < 2) { const sp = sceneSpeakers(sh.sc), talk = others.filter(o => o.el && sp.has(o.el)); if (talk.length) others = talk; }
+  const B = others.sort(near)[0];
+  // solo: a 3/4 de su cara, del lado del máster
+  const single = () => { const f = { x: Math.sin(rad(pa.rot || 0)), z: Math.cos(rad(pa.rot || 0)) }, m = sideOf(pa, f, mcam); frameWith([A], angOf(unit2(f.x + m.x * .6, f.z + m.z * .6) || f)); return s3; };
+  if (!B) return single();
+  if (ang === 'Subjetivo (POV)') { frameWith([A, B], 0); return s3; }
+  // diálogo: por encima del hombro de B, del lado del máster (el contraplano de B queda del mismo lado). Primero a qué
+  // distancia da el tamaño del plano con su lente; la cámara va al menos 1,6 m detrás de B (con el lente más cerrado si
+  // hace falta, para el mismo tamaño) y se gira hacia el lado del máster hasta que la cabeza de B queda a un costado del
+  // cuadro (a 0,85 del medio cuadro): su nuca y su hombro entran por el borde sin tapar a A
+  if (ang === 'Sobre el hombro') ang = 'Normal';
+  const pb = P0(B.id), L = Math.hypot(pb.x - pa.x, pb.z - pa.z), w = unit2(pb.x - pa.x, pb.z - pa.z) || { x: 0, z: 1 }, n = sideOf(pa, w, mcam);
+  frameWith([A], angOf(w));
+  let d = Math.hypot(k.cam.x - pa.x, k.cam.z - pa.z), ln = k.cam.lens;
+  const maxL = Math.round(135 * sensorW(s3) / 36);
+  if (d < L + 1.6 && !lens && ang !== 'Nadir') { const l2 = Math.min(maxL, Math.round(ln * (L + 1.6) / Math.max(.2, d))); d *= l2 / ln; ln = l2; }
+  if (d < L + .6) return single();   // el otro queda casi pegado a la cámara (o detrás): un plano solo, del lado del máster
+  const hf = Math.atan(18 / (ln * 36 / sensorW(s3)));
+  // el ángulo φ (desde la línea A→B hacia el lado del máster) en que la cabeza de B queda a 0,85 del medio cuadro
+  const off = f => Math.atan2(L * Math.sin(f), d - L * Math.cos(f)) - .85 * hf;
+  let lo = 0, hi = 1.2;
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (off(mid) < 0) lo = mid; else hi = mid; }
+  const f = (lo + hi) / 2, dir = { x: w.x * Math.cos(f) + n.x * Math.sin(f), z: w.z * Math.cos(f) + n.z * Math.sin(f) };
+  frameWith([A], angOf(dir), ang, ln);
+  return s3;
+}
+/* la escena 3D de un plano que sigue al máster ms: la puesta del máster en su instante 0 (quieta: la acción del
+   máster no se copia), los personajes del plano que faltan junto al grupo, el objeto del inserto y su propia cámara */
+function s3Follow(sh, ms) {
+  const s3 = JSON.parse(JSON.stringify(ms));
+  // lo que es de la cámara del máster (a quién sigue, su temblor, su cámara B, su foco, sus medidas) no viene
+  for (const f of ['aim', 'aimF', 'aimTilt', 'shake', 'camB', 'meas', 'from', 'dof', 'focus', 'focusD']) delete s3[f];
+  const st0 = s3At(ms, 0, true), o = {};
+  for (const ob of s3.objs) { const p = st0.o[ob.id]; if (!p) continue; const q = { ...p }; delete q.walk; delete q.walkN; if (q.j) q.j = { ...q.j }; o[ob.id] = q; }
+  const mcam = { ...camKeys(ms)[0].cam };
+  s3.keys = [{ t: 0, ease: 'suave', cam: { ...mcam }, o }];
+  // los personajes del plano que no están en el máster: junto al grupo, del lado derecho de la cámara del máster
+  const acts = s3.objs.filter(x => x.kind === 'actor'), pts = acts.map(a => o[a.id]).filter(Boolean);
+  const miss = (sh.chars || []).filter(id => typeof P !== 'undefined' && P.elements[id] && !acts.some(a => a.el === id));
+  const freeId = pre => { let i = 0; while (s3.objs.some(x => x.id === pre + i)) i++; return pre + i; };
+  if (miss.length) {
+    const c = pts.length ? { x: pts.reduce((a, p) => a + p.x, 0) / pts.length, z: pts.reduce((a, p) => a + p.z, 0) / pts.length } : { x: 0, z: 0 };
+    const r = { x: Math.cos(rad(mcam.yaw || 0)), z: -Math.sin(rad(mcam.yaw || 0)) };   // la derecha de la cámara del máster
+    let edge = pts.length ? Math.max(...pts.map(p => (p.x - c.x) * r.x + (p.z - c.z) * r.z)) : -.8;
+    miss.forEach((id, i) => {
+      const el = P.elements[id], nid = freeId('a');
+      s3.objs.push({ id: nid, kind: 'actor', el: id, name: el.name, color: S3_COLORS[(acts.length + i) % S3_COLORS.length] });
+      edge += .8;
+      const x = c.x + r.x * edge, z = c.z + r.z * edge;
+      o[nid] = { x: round2(x), z: round2(z), rot: pts.length ? Math.round(deg(Math.atan2(c.x - x, c.z - z))) : 0, expr: 'neutral', pose: 'pie' };
+    });
+    if (s3.set === 'auto' && !s3.set3d && typeof envSeatCar === 'function') envSeatCar(s3);
+  }
+  // el inserto: su objeto dentro del escenario, entre el grupo y la cámara del máster y un poco a un lado
+  if ((sh.size === 'PD' || sh.size === 'INS') && !(sh.chars || []).some(id => s3.objs.some(x => x.kind === 'actor' && x.el === id))) {
+    const nid = freeId('d'), d0 = detailOf(sh, nid);
+    const all = s3.objs.filter(x => x.kind === 'actor').map(a => o[a.id]).filter(Boolean);
+    const c = all.length ? { x: all.reduce((a, p) => a + p.x, 0) / all.length, z: all.reduce((a, p) => a + p.z, 0) / all.length } : { x: 0, z: 0 };
+    const u = unit2(mcam.x - c.x, mcam.z - c.z) || { x: 0, z: 1 }, sd = { x: -u.z, z: u.x };
+    // el primer lugar libre (a más de 0,8 m de cada figura y sin nadie justo detrás, visto desde la cámara del máster),
+    // cada vez un poco más lejos o más al costado
+    const free = q => all.every(p => { const dx = p.x - q.x, dz = p.z - q.z, along = -(dx * u.x + dz * u.z), side = Math.abs(dx * sd.x + dz * sd.z); return Math.hypot(dx, dz) >= .8 && !(along > 0 && side < .7); });
+    // (primero a los costados del grupo, donde detrás no queda nadie; después entre el grupo y la cámara)
+    const ext = all.length ? Math.max(...all.map(p => Math.abs((p.x - c.x) * sd.x + (p.z - c.z) * sd.z))) : 0;
+    let at = null;
+    for (const r of [.6, 1, 1.5, 2.2]) { for (const sx of [ext + .9, -(ext + .9), .55, -.55, 1.1, -1.1, 0]) { const q = { x: c.x + u.x * r + sd.x * sx, z: c.z + u.z * r + sd.z * sx }; if (free(q)) { at = q; break; } } if (at) break; }
+    if (!at) for (const r of [.9, 1.3, 1.8]) { for (const sx of [.55, -.55, 1.1, -1.1]) { const q = { x: c.x + u.x * r + sd.x * sx, z: c.z + u.z * r + sd.z * sx }; if (all.every(p => Math.hypot(p.x - q.x, p.z - q.z) >= .8)) { at = q; break; } } if (at) break; }
+    at = at || { x: c.x + u.x * .9 + sd.x * .55, z: c.z + u.z * .9 + sd.z * .55 };
+    s3.objs.push(d0);
+    o[nid] = { x: round2(at.x), z: round2(at.z), rot: Math.round(deg(angOf(u))) };
+  }
+  // los del plano, primero: a ellos apuntan el encuadre y los movimientos de cámara (seguimiento, arco…)
+  const mine = (sh.chars || []).map(id => s3.objs.find(x => x.kind === 'actor' && x.el === id)).filter(Boolean);
+  if (mine.length) s3.objs = [...mine, ...s3.objs.filter(x => !mine.includes(x))];
+  s3.keys[0].cam.lens = num(sh.lens) || 35;
+  s3FrameFollow(s3, sh, mcam);
+  // en un auto, la cámara del parabrisas (como en la escena armada sola)
+  if (s3.set === 'auto' && !s3.set3d && typeof envCarCam === 'function') envCarCam(s3);
+  s3ApplyMove(s3, sh.move, shotDur(sh), sh.desc);
+  if ((s3.set === 'plano' || s3.set === 'calle') && typeof s3CamInside === 'function') s3CamInside(s3);
+  if (typeof escLocSet === 'function' && typeof sceneOfKey === 'function') escLocSet(s3, (sceneOfKey(sh.sc) || {}).loc);   // lote W
   for (const x of scEls(sh.sc)) scElPut(s3, x.ob, x.pos);   // las luces, objetos y animales de la escena
   return s3;
 }
@@ -350,7 +543,9 @@ function s3Target(s3, key) {
   // y: ojos sobre sus pies; lift: dónde están sus pies (vereda, tarima…)
   return { x: a.x, z: a.z, y: eyeOf(s3, aimO.id, a.pose), lift: liftOf(s3, a), face: a.rot, id: aimO.id, pose: a.pose, bs: lookOf(aimO).s };
 }
-function s3Frame(s3, size, angle, lens) {
+/* dir (opcional, radianes): desde dónde se mira, medido como el giro de una figura (0 = desde +z). Lo usan los planos
+   que siguen al máster para quedar del mismo lado de la línea de acción (s3FrameFollow) */
+function s3Frame(s3, size, angle, lens, dir) {
   const k = s3.keys[0];
   const cam = k.cam;
   const fr = SIZE_FRAME[size] || SIZE_FRAME.PM;
@@ -368,6 +563,7 @@ function s3Frame(s3, size, angle, lens) {
     // en diálogo, la cámara se coloca a 3/4 del personaje que se encuadra
     dirA = rad((tg.face || 0) * .55);
   }
+  if (dir != null && isFinite(dir)) dirA = dir;
   const ratio = (tg.pose === 'sentado' ? .72 : poseDef(tg.pose).h) * (tg.bs || 1);
   let centerY = fr[1] * (size === 'GPG' ? 1 : ratio);
   // el detalle: se encuadra lo que importa (las flores, no el cuerpo del florero; la lámpara entera)
@@ -588,7 +784,340 @@ function s3CopyAction(dst, src, srcId, off = 0) {
   out.from = { id: srcId, off: round2(off) };
   return s3Bake(out);
 }
+
+/* ---------- clonar los atributos de un plano en otros (storyboard: Ctrl+clic y «Clonar sus atributos…») ----------
+   El plano de origen puede ser de otra escena. Lo que se elige: tamaño, ángulo, movimiento, soporte, lente, sonido,
+   duración, la cámara 3D y la puesta en escena 3D. La descripción, el tramo del guion, las notas, «Rodado», las
+   imágenes subidas y los dibujos 2D de cada plano no cambian */
+/* lo de la cámara que va arriba en la escena (no en las claves): a quién sigue, temblor, sensor y desenfoque */
+const CLONE_CAM_F = ['aimF', 'aimTilt', 'shake', 'sensor', 'dof', 'focusD'];   // (lote W: y el foco a mano)
+/* la figura de la escena «out» que hace de la figura «id» de «src»: el mismo personaje; si no está, la figura en el
+   mismo lugar de la lista (la segunda por la segunda); un objeto, si está con el mismo id y la misma clase */
+function s3MapObj(id, src, out) {
+  if (!id) return null;
+  const o = src.objs.find(x => x.id === id); if (!o) return null;
+  if (o.el) { const m = out.objs.find(x => x.el === o.el); if (m) return m.id; }
+  if (o.kind === 'actor') {
+    const A = src.objs.filter(x => x.kind === 'actor'), B = out.objs.filter(x => x.kind === 'actor');
+    const m = B[Math.min(A.indexOf(o), B.length - 1)];
+    return m ? m.id : null;
+  }
+  return out.objs.some(x => x.id === id && x.kind === o.kind) ? id : null;
+}
+/* la escena de dst (decorado, figuras, objetos, luces y su animación) vista con la cámara de src: posición, altura,
+   giro, lente y recorrido, a quién sigue (por personaje), temblor, sensor, desenfoque y la cámara B */
+function s3TakeCam(dst, src) {
+  const out = JSON.parse(JSON.stringify(dst));
+  const camK = camKeys(src).map(k => ({ t: k.t, ease: k.ease, cam: { ...k.cam }, ...(k.camB ? { camB: { ...k.camB } } : {}), o: {}, co: true }));
+  const objK = objKeys(dst).map(k => ({ t: k.t, ease: k.ease, cam: { ...k.cam }, o: JSON.parse(JSON.stringify(k.o)), oo: true }));
+  out.keys = [...camK, ...objK];
+  out.aim = s3MapObj(src.aim, src, out);
+  const fo = s3MapObj(src.focus, src, out); if (fo) out.focus = fo; else delete out.focus;
+  for (const f of CLONE_CAM_F) { if (src[f] != null) out[f] = JSON.parse(JSON.stringify(src[f])); else delete out[f]; }
+  if (s3HasB(src)) { out.camB = JSON.parse(JSON.stringify(src.camB)); if (out.camB.aim != null) out.camB.aim = s3MapObj(src.camB.aim, src, out); }
+  else delete out.camB;
+  return s3Bake(out);
+}
+/* la puesta en escena de src (decorado, figuras, objetos, luces y su animación) con la cámara de dst. Como «Copiar la
+   escena del plano anterior», pero sin quedar ligada a src (en el animatic no pasa a ser un inserto encima de él) */
+function s3TakeStage(dst, src) {
+  const out = s3CopyAction(dst, src, null, 0);
+  delete out.from;
+  for (const f of ['sensor', 'dof', 'focusD']) { if (dst[f] != null) out[f] = JSON.parse(JSON.stringify(dst[f])); else delete out[f]; }
+  const fo = s3MapObj(dst.focus, dst, out); if (fo) out.focus = fo; else delete out.focus;
+  return out;
+}
+/* ¿su viñeta muestra la escena 3D? Desde el lote U un dibujo 2D la puede llevar como capa («Viñeta 3D»: shot3D, en
+   s2d-editor.js); un dibujo sin ella no tiene 3D que clonar */
+const shotHas3D = sh => !!sh && (typeof shot3D === 'function' ? shot3D(sh) : sh.ws !== '2d');
+/* el lente que muestra la viñeta: el de la primera clave de cámara (en un dibujo sin 3D, el anotado) */
+const shotLens = sh => shotHas3D(sh) ? Math.round(camKeys(s3Of(sh))[0].cam.lens || 0) : Math.round(num(sh.lens));
+const CLONE_F = ['size', 'angle', 'move', 'support', 'lens', 'snd', 'dur', 'cam', 'stage'];
+/* pasa a dst lo elegido de src (pick: { size, angle, move, support, lens, snd, dur, cam, stage }: true o false).
+   Devuelve qué pasó de llamativo: { show3d } si dst es un dibujo 2D que ahora muestra la escena 3D debajo */
+function shotCloneFrom(dst, src, pick) {
+  const res = {};
+  if (!dst || !src || dst === src) return res;
+  const src3d = shotHas3D(src), take3d = src3d && !!(pick.cam || pick.stage);
+  const lens0 = shotLens(dst), lensS = shotLens(src);
+  // primero los datos del plano: en un plano automático (sin escena 3D propia) también lo reencuadran
+  for (const f of ['size', 'angle', 'move', 'support']) if (pick[f]) dst[f] = src[f] != null ? src[f] : '';
+  if (pick.snd) { if (src.snd) dst.snd = src.snd; else delete dst.snd; }
+  if (pick.dur) dst.dur = String(shotDur(src));
+  const lensOn = !!pick.lens && lensS > 0;
+  if (lensOn) {
+    dst.lens = String(lensS);
+    // con escena 3D propia, el lente va en sus claves (como al cambiarlo en el guion técnico)
+    if (dst.s3 && !take3d) { const r = lensS / (camKeys(dst.s3)[0].cam.lens || lensS); dst.s3.keys.forEach(k => { if (k.cam) k.cam.lens = Math.round(k.cam.lens * r * 10) / 10; }); }
+  }
+  if (take3d) {
+    const a = s3Of(src), b = s3Of(dst);
+    let out;
+    if (pick.cam && pick.stage) { out = JSON.parse(JSON.stringify(a)); delete out.from; }
+    else out = pick.cam ? s3TakeCam(b, a) : s3TakeStage(b, a);
+    // el lente: el de src si se eligió; con la cámara de src pero sin su lente, el que tenía dst
+    const L = lensOn ? lensS : pick.cam ? lens0 : 0, L0 = camKeys(out)[0].cam.lens;
+    if (L > 0 && L0 > 0 && Math.abs(L - L0) > .05) { const r = L / L0; out.keys.forEach(k => { if (k.cam) k.cam.lens = Math.round(k.cam.lens * r * 10) / 10; }); }
+    dst.s3 = out;
+    s3SyncShot(dst);
+    // un dibujo a mano: la escena 3D que llega se ve como su capa «Viñeta 3D», debajo del dibujo, y el plano se sigue
+    // abriendo en el 2D. Un plano 2D sin dibujo pasa a abrirse en el 3D
+    const d = dst.d2;
+    if (d && Array.isArray(d.frames) && d.frames.length && Array.isArray(d.layers)) {
+      if (typeof d2Norm === 'function') d2Norm(dst, d);
+      if (d.base !== '3d') { d.base = '3d'; res.show3d = true; }
+      d.rev = (d.rev || 0) + 1;
+    } else if (dst.ws === '2d') dst.ws = '3d';
+    // armó la escena 3D: se ve (como al guardar el editor)
+    if (shotBlank(dst)) { if (typeof P !== 'undefined' && P && P.meta && P.meta.sbBlank) dst.blank = false; else delete dst.blank; }
+    if (pick.stage) {
+      if (src.noNames) dst.noNames = true; else delete dst.noNames;
+      const els = [...new Set(out.objs.filter(o => o.kind === 'actor' && o.el).map(o => o.el))];
+      if (els.length) dst.chars = els;
+    }
+    delete dst.auto;
+  }
+  return res;
+}
 function findPose(s3, id) { for (const k of s3.keys) if (k.o[id]) return k.o[id]; return null; }
+
+/* ---------- lote W · escala de los objetos (obs. 10) ----------
+   ob.sc: cuánto mide un objeto, vehículo, animal o modelo importado como objeto respecto de su tamaño de siempre (1 =
+   100 %, de 10 % a 500 %). Es del objeto en todo el plano (no se anima). Las figuras no: su estatura viene de Personajes;
+   los extras en grupo y las luces tampoco. Se ve en la viñeta (s3d-render), en la planta del plano, en la planta general y
+   en el PDF (su huella: propFoot) */
+const OBJ_SC = [.1, 5];
+const scalable = ob => !!ob && !!ob.kind && ob.kind !== 'actor' && ob.kind !== 'luz' && ob.kind !== 'gente';
+const objSc = ob => { const v = scalable(ob) ? +ob.sc : 1; return v > 0 && isFinite(v) ? clamp(v, OBJ_SC[0], OBJ_SC[1]) : 1; };
+/* la huella del objeto en la planta (ancho y fondo en metros), con su escala */
+function propFoot(ob) {
+  const fp = (typeof S3_PROPS !== 'undefined' && S3_PROPS[ob.kind]) || { w: .5, d: .5, name: ob.kind }, k = objSc(ob);
+  return k === 1 ? fp : { ...fp, w: fp.w * k, d: fp.d * k };
+}
+/* la escala guardada: un número de 0,1 a 5 con dos decimales; 1 (o algo raro) no se anota */
+function objScClean(ob) {
+  if (!ob || typeof ob !== 'object' || !('sc' in ob)) return;
+  const v = +ob.sc;
+  if (scalable(ob) && isFinite(v) && v > 0 && Math.abs(v - 1) > .004) ob.sc = Math.round(clamp(v, OBJ_SC[0], OBJ_SC[1]) * 100) / 100; else delete ob.sc;
+}
+
+/* ---------- lote W · el escenario del plano y el del máster (obs. 9) ----------
+   «Escenario» es lo que el lote U llama así: el decorado (set, set3d, planId y lo del plano de planta, la habitación, el
+   interior de vehículo con su modelo y su color), la hora del día (atm) y el sol, la lluvia, la luz ambiente del lugar y
+   los objetos y luces que no son figuras (muebles, objetos, vehículos, animales, luces del set), quietos en su instante 0.
+   No entran las figuras ni los extras, lo que una figura sostiene, la cámara ni lo de la cámara (exposición, balance).
+   s3StageSig: su firma (texto). Un plano ajustado a mano (sh.s3) cuyo escenario ya no coincide con el de su máster
+   después de que el máster cambió de escenario lleva un aviso: el máster cuenta sus cambios (master.stgN, al guardar su
+   editor) y cada plano anota hasta qué cambio vio (sh.stgSeen = '<máster>:<n>'), al actualizarse o «Mantener así». */
+const STAGE_F = ['set', 'set3d', 'planId', 'planFloor', 'wildWalls', 'room', 'car', 'atm', 'rain', 'sunAz'];
+const isSetObj = o => !!o && o.kind !== 'actor' && o.kind !== 'gente' && !o.hold;
+function s3StageSig(s3, fbAtm) {
+  if (!s3 || !Array.isArray(s3.objs) || !Array.isArray(s3.keys) || !s3.keys.length) return '';
+  const st = s3At(s3, 0, true), r = v => Math.round(v * 100) / 100, L = s3.light || {};
+  const sc = {};
+  for (const f of STAGE_F) if (s3[f] != null && s3[f] !== false && s3[f] !== '') sc[f] = s3[f];
+  sc.atm = s3.atm || fbAtm || 'dia';
+  if (sc.planFloor === true) delete sc.planFloor;
+  if (sc.room && typeof sc.room === 'object') sc.room = { w: r(+sc.room.w || 8), d: r(+sc.room.d || 8), h: r(+sc.room.h || 3), kind: sc.room.kind || '' };
+  if (sc.set !== 'int') delete sc.room;
+  if (sc.set !== 'auto') delete sc.car;
+  if (sc.set !== 'plano') { delete sc.planId; delete sc.planFloor; delete sc.wildWalls; }
+  if (sc.set !== 'modelo') delete sc.set3d;
+  const sim = L.mode === 'sim';
+  sc.light = sim ? ['sim', r(L.amb ?? .22)] : ['previs', r(L.amb ?? .22)];
+  sc.objs = s3.objs.filter(isSetObj).map(o => {
+    const p = st.o[o.id] || {}, q = {};
+    for (const f of ['x', 'z', 'rot', 'h', 'open', 'tilt', 'int', 'k', 'ang']) if (typeof p[f] === 'number') q[f] = f === 'rot' ? Math.round(p[f]) : r(p[f]);
+    return [o.id, o.kind, o.type || '', o.fx || '', o.mod || '', o.model || '', o.paint || '', o.sc || 1, q];
+  }).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  return JSON.stringify(sc);
+}
+/* el escenario de src en dst: decorado, objetos y luces del set (quietos, como en src en su instante 0), la hora, el sol,
+   la lluvia y la luz ambiente. La cámara de dst, sus figuras (dónde están, su postura y su animación), sus extras y lo
+   que sus figuras sostienen no cambian */
+function s3TakeSet(dst, src) {
+  const out = JSON.parse(JSON.stringify(dst));
+  for (const f of STAGE_F) { if (src[f] != null) out[f] = JSON.parse(JSON.stringify(src[f])); else delete out[f]; }
+  const Ls = src.light || {}, Ld = out.light || {};
+  if (src.light || out.light) { out.light = { ...Ld, mode: Ls.mode || 'previs', amb: Ls.amb ?? .22 }; if (Ls.mode !== 'sim' && Ld.mode == null) delete out.light.mode; }
+  const old = new Set(out.objs.filter(isSetObj).map(o => o.id));
+  const keep = out.objs.filter(o => !old.has(o.id));
+  const st = s3At(src, 0, true), add = [];
+  for (const o of src.objs.filter(isSetObj)) {
+    const n = JSON.parse(JSON.stringify(o));
+    // (un id de src que en dst es de una figura: otro id)
+    if (keep.some(x => x.id === n.id)) { let i = 0; while (keep.some(x => x.id === n.id + 'm' + i) || src.objs.some(x => x.id === n.id + 'm' + i)) i++; n.id = n.id + 'm' + i; }
+    // una luz que apunta a una figura de src: a la misma de dst (por personaje)
+    if (n.aim) n.aim = s3MapObj(o.aim, src, out) || null;
+    add.push([n, st.o[o.id]]);
+  }
+  out.objs = [...keep, ...add.map(a => a[0])];
+  for (const k of out.keys) {
+    for (const id of old) delete k.o[id];
+    if (k.co) continue;
+    for (const [n, p] of add) if (p) { const q = { ...p }; delete q.walk; delete q.walkN; k.o[n.id] = q; }
+  }
+  if (out.aim && !out.objs.some(o => o.id === out.aim)) out.aim = null;
+  if (out.focus && !out.objs.some(o => o.id === out.focus)) delete out.focus;
+  return out.keys.some(k => k.co || k.oo) ? s3Bake(out) : out;
+}
+/* la hora que propone el guion para la escena del plano (la que el editor pone si el plano no eligió una) */
+const shotAtmFb = sh => { const s = typeof sceneOfKey === 'function' && typeof D !== 'undefined' && D && D.sc ? sceneOfKey(sh.sc) : null; return s && typeof envFromScene === 'function' ? envFromScene(s).atm : null; };
+const shotStageSig = sh => s3StageSig(s3Of(sh), shotAtmFb(sh));
+/* el máster de un plano ajustado a mano cuyo escenario quedó atrás (null si no hace falta avisar) */
+function stageStale(sh) {
+  if (!sh || !sh.s3) return null;
+  const m = shotMaster(sh.sc);
+  if (!m || m.id === sh.id || !(+m.stgN > 0) || sh.stgSeen === m.id + ':' + m.stgN) return null;
+  return shotStageSig(sh) !== shotStageSig(m) ? m : null;
+}
+/* el plano queda al día con el máster (se actualizó o se mantiene así) */
+function stageSeen(sh, m) { if (m && +m.stgN > 0) sh.stgSeen = m.id + ':' + m.stgN; }
+
+/* ---------- lote W · lo que muestra la viñeta 3D: tamaño, ángulo y movimiento ----------
+   Para avisar en el editor cuando la cámara 3D no coincide con el guion técnico. Sin THREE: proyecta con la cámara del
+   plano (posición, altura, paneo, tilt, holandés, lente y sensor) igual que el visor (s3d-render, giros en orden YXZ).
+   TAMAÑO: la figura principal (la que sigue la cámara o, si no, la primera que entra en el cuadro). Sus referencias
+   (coronilla, ojos, mentón, pecho, cintura, rodillas y pies) dicen si entra y si entra su cabeza; el alto del cuadro a la
+   distancia de sus ojos se compara con el que da «Reencuadrar» (s3Frame) con esa misma figura para cada tamaño del
+   lenguaje (GPG … PPP): así lo que arma FilmSpirit se lee siempre como lo anotado. Sin la cabeza en cuadro y muy cerca,
+   un plano detalle. Un objeto de detalle cercano en cuadro: PD o INS.
+   ÁNGULO: cenital o nadir por la inclinación y la altura de la cámara; picado o contrapicado comparando con la
+   inclinación de un plano normal de ese tamaño; holandés si la cámara está girada.
+   MOVIMIENTO: solo cuando es claro (fijo, cámara en mano, travelling, dolly, paneo, tilt, zoom, grúa, arco, drone); si no,
+   null y no se compara. */
+const READ_SIZES = ['GPG', 'PG', 'PC', 'PE', 'PA', 'PM', 'PMC', 'PP', 'PPP'];
+const READ_FREE = ['Subjetivo (POV)', 'Sobre el hombro'];   // ángulos que dependen de dónde está el otro: no se leen
+const READ_LOOSE = ['Seguimiento', 'Plano secuencia', 'Steadicam / gimbal', 'Arco', 'Barrido (step printing)'];
+/* la cámara como proyector: at(x, y, z) da { x, y } en el cuadro (−1 … 1) y z, la distancia sobre su eje */
+function camProj(cam, aspect) {
+  const yw = rad(cam.yaw || 0), p = rad(clamp(cam.pitch || 0, -89.9, 89.9)), r = rad(cam.roll || 0);
+  const R = v => {
+    let [x, y, z] = v;
+    [x, y] = [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+    [y, z] = [y * Math.cos(p) - z * Math.sin(p), y * Math.sin(p) + z * Math.cos(p)];
+    [x, z] = [x * Math.cos(yw) + z * Math.sin(yw), -x * Math.sin(yw) + z * Math.cos(yw)];
+    return [x, y, z];
+  };
+  const rt = R([1, 0, 0]), up = R([0, 1, 0]), bk = R([0, 0, 1]);
+  const tv = Math.tan(vfovFor(camFF(cam), aspect) / 2), th = tv * aspect;
+  return {
+    tv,
+    at(x, y, z) {
+      const d = [x - cam.x, y - cam.h, z - cam.z], dot = a => d[0] * a[0] + d[1] * a[1] + d[2] * a[2], zc = -dot(bk);
+      return { x: dot(rt) / (zc * th), y: dot(up) / (zc * tv), z: zc };
+    },
+  };
+}
+/* las referencias del cuerpo de una figura: alturas (m) sobre donde pisa */
+function figRefs(s3, ob, p) {
+  const lk = lookOf(ob), hv = lk.height * (p.pose === 'sentado' ? .72 : poseDef(p.pose).h), eye = eyeOf(s3, ob.id, p.pose);
+  return { g: liftOf(s3, p), eye, pts: [['coronilla', hv], ['ojos', eye], ['menton', eye - .11 * (lk.s || 1)], ['pecho', hv * .72], ['cintura', hv * .6], ['rodillas', hv * .28], ['pies', .02]] };
+}
+/* la cámara que pone «Reencuadrar» para ese tamaño y ángulo, con solo esa figura u objeto */
+function readCal(s3, st, ob, size, angle) {
+  const red = { v: s3.v, set: s3.set, sensor: s3.sensor, room: s3.room, objs: [ob], keys: [{ t: 0, ease: 'suave', cam: { ...st.cam }, o: { [ob.id]: { ...st.o[ob.id] } } }] };
+  s3Frame(red, size, angle, 0);
+  return red.keys[0].cam;
+}
+function s3Read(s3) {
+  const out = { size: null, angle: null, angles: [], move: null, moves: [], still: true, fig: null };
+  if (!s3 || !Array.isArray(s3.objs) || !Array.isArray(s3.keys) || !s3.keys.length) return out;
+  const q = { ...s3, shake: 0 }, st = s3At(q, 0), ar = aspectOf();
+  const camAt = c => ({ ...c, h: Math.max(c.h, groundAt(s3, c.x, c.z) + CAM_FLOOR) });   // como el visor: nunca dentro del piso
+  const cam = camAt(st.cam), V = camProj(cam, ar);
+  const inF = (x, y, z) => { const v = V.at(x, y, z); return v.z > .05 && Math.abs(v.x) <= 1.02 && Math.abs(v.y) <= 1.02; };
+  // el alto del cuadro (m) a la distancia de un punto, visto con la cámara c
+  const tall = (c, x, y, z) => { const P2 = camProj(camAt(c), ar), v = P2.at(x, y, z); return v.z > .05 ? 2 * v.z * P2.tv : null; };
+  const nearest = (m, cands) => { let best = null, bd = Infinity; for (const [k, v] of cands) { if (!(v > 0)) continue; const d = Math.abs(Math.log(m / v)); if (d < bd) { bd = d; best = k; } } return best; };
+  const camH = cam.h - groundAt(s3, cam.x, cam.z), pitch = cam.pitch || 0;
+  const A0 = pitch <= -65 ? 'Cenital' : pitch >= 55 || (camH <= .18 && pitch >= 4) ? 'Nadir' : null;
+  let size = null, rel = null;
+  // un objeto de detalle cerca, en cuadro: plano detalle o inserto
+  const det = s3.objs.find(o => o.kind === 'detalle' && st.o[o.id]);
+  if (det) {
+    const p = st.o[det.id], y = liftOf(s3, p) + detailFrame(detailModel(det)).cy, m = inF(p.x, y, p.z) ? tall(cam, p.x, y, p.z) : null;
+    if (m && m <= 1) {
+      const c = Object.fromEntries(['PD', 'INS'].map(k => [k, readCal(s3, st, det, k, 'Normal')]));
+      size = nearest(m, Object.entries(c).map(([k, cc]) => [k, tall(cc, p.x, y, p.z)]));
+      rel = pitch <= -10 ? 'Picado' : pitch >= 8 ? 'Contrapicado' : 'Normal';
+    }
+  }
+  if (!size) {
+    const acts = s3.objs.filter(o => o.kind === 'actor' && st.o[o.id]);
+    let fig = null, R = null, vis = null;
+    for (const ob of [...acts.filter(o => o.id === s3.aim), ...acts.filter(o => o.id !== s3.aim)]) {
+      const p = st.o[ob.id], r = figRefs(s3, ob, p), v = r.pts.map(([, y]) => inF(p.x, r.g + y, p.z));
+      if (v.some(Boolean)) { fig = ob; R = r; vis = v; break; }
+    }
+    if (fig) {
+      out.fig = fig.id;
+      const p = st.o[fig.id], ey = R.g + R.eye, m = tall(cam, p.x, ey, p.z);
+      const sizeFor = ang => nearest(m, READ_SIZES.map(k => [k, tall(readCal(s3, st, fig, k, ang), p.x, ey, p.z)]));
+      if (m) {
+        size = sizeFor(A0 || 'Normal');
+        // sin la cabeza en cuadro (ni coronilla, ni ojos, ni mentón) y muy cerca: un detalle del cuerpo
+        if (!vis[0] && !vis[1] && !vis[2] && m < .6) size = 'PD';
+        if (!A0 && size !== 'PD') {
+          const p0 = readCal(s3, st, fig, size, 'Normal').pitch, dp = pitch - p0, low = camH <= .35 * (ey - groundAt(s3, cam.x, cam.z));
+          rel = dp <= -8 ? 'Picado' : dp >= 8 || (dp >= 3 && low) ? 'Contrapicado' : 'Normal';
+          if (rel !== 'Normal') size = sizeFor(rel);
+        } else if (!A0) rel = pitch <= -10 ? 'Picado' : pitch >= 8 ? 'Contrapicado' : 'Normal';
+      }
+    }
+  }
+  out.size = size;
+  const dutch = Math.abs(cam.roll || 0) >= 4;
+  if (A0 || rel) {
+    out.angles = [A0 || rel];
+    if (dutch) out.angles.unshift('Holandés');
+    out.angle = A0 || (dutch ? 'Holandés' : rel);
+  } else if (dutch) { out.angle = 'Holandés'; out.angles = ['Holandés']; }
+  // el movimiento: de la primera clave a la última (con a quién sigue, sin el temblor)
+  const T = Math.max(...s3.keys.map(k => +k.t || 0)), t0 = Math.min(...camKeys(s3).map(k => +k.t || 0)), N = 8;
+  const cs = Array.from({ length: N + 1 }, (_, i) => s3At(q, t0 + (Math.max(t0, T) - t0) * i / N).cam);
+  const a = cs[0], b = cs[N], yw = rad(a.yaw || 0), dx = b.x - a.x, dz = b.z - a.z, hor = Math.hypot(dx, dz);
+  const along = dx * -Math.sin(yw) + dz * -Math.cos(yw), side = dx * Math.cos(yw) + dz * -Math.sin(yw);
+  const dh = b.h - a.h, dyaw = ((b.yaw - a.yaw + 540) % 360) - 180, dpt = b.pitch - a.pitch, lr = (b.lens || 1) / (a.lens || 1);
+  const still = hor < .05 && Math.abs(dh) < .05;
+  let mv = null;
+  if (still && Math.abs(dyaw) < 1 && Math.abs(dpt) < 1 && Math.abs(Math.log(lr)) < .03) mv = 'Fijo';
+  else if (b.h >= 8 && dh >= 4) mv = 'Drone';
+  else {
+    // un arco: la cámara gira alrededor de lo que encuadra, a la misma distancia
+    const tg = s3Target(s3, s3.keys[0]), ang = c => Math.atan2(c.x - tg.x, c.z - tg.z), dist = c => Math.hypot(c.x - tg.x, c.z - tg.z);
+    const sweep = Math.abs(deg(((ang(b) - ang(a)) + Math.PI * 3) % (Math.PI * 2) - Math.PI)), dd = cs.map(dist), d0 = dd[0] || 1;
+    if (hor >= .3 && sweep >= 25 && Math.abs(dyaw) >= sweep * .5 && dd.every(d => d / d0 > .7 && d / d0 < 1.4)) mv = 'Arco';
+    else if (dh >= .8 && hor < .5) mv = 'Grúa';
+    else if (hor >= .3 && Math.abs(along) >= 1.5 * Math.abs(side)) mv = along > 0 ? 'Dolly in' : 'Dolly out';
+    else if (hor >= .3 && Math.abs(side) >= 1.5 * Math.abs(along)) mv = 'Travelling lateral';
+    else if (hor < .15 && lr >= 1.2) mv = 'Zoom in';
+    else if (hor < .15 && lr <= 1 / 1.2) mv = 'Zoom out';
+    else if (hor < .2 && Math.abs(dyaw) >= 8 && Math.abs(dyaw) >= Math.abs(dpt)) mv = 'Paneo';
+    else if (hor < .2 && Math.abs(dpt) >= 6) mv = 'Tilt';
+  }
+  const moves = mv ? [mv] : [], shk = +s3.shake || 0;
+  if (shk >= .08) {
+    // con temblor: cámara en mano (un temblor suave, también steadicam)
+    if (shk < .4) moves.push('Steadicam / gimbal');
+    moves.push('Cámara en mano');
+    if (mv === 'Fijo') { moves.shift(); mv = 'Cámara en mano'; }
+  }
+  if (mv === 'Paneo') moves.push('Barrido (step printing)');
+  // la cámara sigue a una figura que se desplaza: también un seguimiento
+  if (s3.aim && mv && mv !== 'Fijo') moves.push('Seguimiento');
+  out.move = mv; out.moves = [...new Set(moves)]; out.still = still;
+  return out;
+}
+/* qué no coincide con lo anotado (f: tamaño, ángulo y movimiento del guion técnico): [{ k, v (lo de la viñeta), was }] */
+function s3ReadDiff(R, f) {
+  const out = [], det = k => k === 'PD' || k === 'INS';
+  if (!R || !f) return out;
+  if (R.size && f.size && !READ_FREE.includes(f.angle) && R.size !== f.size && !(det(R.size) && det(f.size))) out.push({ k: 'size', v: R.size, was: f.size });
+  if (R.angle && f.angle && !READ_FREE.includes(f.angle) && !R.angles.includes(f.angle)) out.push({ k: 'angle', v: R.angle, was: f.angle });
+  if (R.move && f.move && !R.moves.includes(f.move) && !(READ_LOOSE.includes(f.move) && !R.still)) out.push({ k: 'move', v: R.move, was: f.move });
+  return out;
+}
 
 /* ---------- edición con clave automática ---------- */
 function s3KeyAt(s3, t, create = true) {
@@ -748,14 +1277,18 @@ const S3D_C = new WeakMap();
    plano (sh.blank, «Dejar en blanco» o «Volver a la escena 3D») y, si no dice nada, el storyboard para sus viñetas
    automáticas (P.meta.sbBlank: las que nadie armó en 3D) */
 const shotBlank = sh => !!sh && (sh.blank != null ? !!sh.blank : !!(typeof P !== 'undefined' && P && P.meta && P.meta.sbBlank && !sh.s3));
+/* la escena armada sola: desde el máster de la escena si lo tiene (s3Follow), si no, desde los datos del plano */
+function s3Auto(sh) { const m = masterOf({ ...sh, s3: null }); return m ? s3Follow(sh, s3Of(m)) : s3Default(sh); }
 function s3Of(sh) {
   if (sh.s3) return sh.s3;
-  const sig = S3REV + '|' + ((P && P.meta && P.meta.sensor) || '') + '|' + sh.sc + '|' + (sh.chars || []).join(',') + '|' + sh.size + '|' + sh.angle + '|' + sh.lens + '|' + sh.move + '|' + sh.dur + '|' + sh.desc + '|' + sh.p0 + '|' + sh.p1;
+  // el máster entra en la firma: al cambiar de máster (o al cambiar él, que sube S3REV) se vuelve a armar
+  const m = masterOf(sh);
+  const sig = S3REV + '|' + (m ? m.id : '') + '|' + ((P && P.meta && P.meta.sensor) || '') + '|' + sh.sc + '|' + (sh.chars || []).join(',') + '|' + sh.size + '|' + sh.angle + '|' + sh.lens + '|' + sh.move + '|' + sh.dur + '|' + sh.desc + '|' + sh.p0 + '|' + sh.p1;
   const c = S3D_C.get(sh);
   if (c && c.sig === sig) return c.s3;
-  const s3 = s3Default(sh);
+  const s3 = m ? s3Follow(sh, s3Of(m)) : s3Default(sh);
   S3D_C.set(sh, { sig, s3 });
   return s3;
 }
 
-if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake };
+if (typeof module !== 'undefined') module.exports = { shotBlank, scEls, scElPut, s3Default, s3Auto, s3Follow, s3FrameFollow, shotMaster, isMaster, masterOf, setMaster, saysMaster, s3At, s3Frame, s3ApplyMove, s3KeyAt, s3AddObj, s3DelObj, estDur, vfovFor, SENSORS, camFF, s3HasB, s3AddB, s3DelB, s3SwapB, s3ForB, s3FillB, s3CleanB, shotB, lensB, s3Bake, s3MapObj, s3TakeCam, s3TakeStage, shotLens, shotHas3D, shotCloneFrom, CLONE_F, s3Read, s3ReadDiff, objSc, propFoot, objScClean, scalable, s3StageSig, s3TakeSet, stageStale, stageSeen, dofFocus, focusMan, FOCUS_D };

@@ -19,7 +19,13 @@ async function clearLocalData() {
   try { if (typeof OFFLINE !== 'undefined') await OFFLINE.clear(); } catch (e) { }
   try { for (const k of Object.keys(localStorage)) if (k.startsWith('filmspirit:p:') || k === 'filmspirit:me') localStorage.removeItem(k); } catch (e) { }
 }
+/* (lote AD) «Explorar con un proyecto de ejemplo» (/app/?ejemplo=1, desde la portada): con sesión se abre el ejemplo;
+   sin sesión, la app entra en modo ejemplo (APITEAM.anon): solo el ejemplo, en la memoria del navegador. Nada se lee ni
+   se guarda en el servidor (aquí abajo se corta toda llamada) y guardar, crear, importar o compartir piden una cuenta
+   (cuenta.js · anonAsk) */
+const SAMPLE_ASK = (() => { try { return new URLSearchParams(location.search).get('ejemplo') === '1'; } catch (e) { return false; } })();
 async function apiFetch(method, path, body) {
+  if (APITEAM.anon) { const er = new Error('Para eso necesitas una cuenta: crea la tuya gratis.'); er.code = 'need_account'; throw er; }
   let r;
   try {
     r = await fetch(path, {
@@ -132,6 +138,26 @@ const OFFLINE = {
   async setLoc(pid, s, json) { const r = await this.get(pid); if (!r) return false; r.loc[s] = json; await this.put(r); return true; },
   async dropLoc(pid, s, json) { const r = await this.get(pid); if (r && r.loc[s] != null && (json == null || r.loc[s] === json)) { delete r.loc[s]; await this.put(r); } },
   async pending() { return (await this.all()).filter(r => Object.keys(r.loc || {}).length); },
+  /* imágenes que esperan subir: las hechas sin conexión y las fotos que se estaban subiendo cuando se cerró la pestaña
+     (laminas.js · photosAdd). false si se cortó la conexión */
+  async flushFrames() {
+    if (this.flushing) return this.flushing;
+    this.flushing = (async () => {
+      let lost = 0, why = '';
+      for (const f of await this.frames()) {
+        if (typeof PHOTO_PEND !== 'undefined' && PHOTO_PEND.has(f.k)) continue;     // la está subiendo photosAdd
+        try { await APITEAM.saveFrame(f.pid, f.k, f.url, true); await this.dropFrame(f.id); }
+        catch (e) {
+          if (e.code === 'offline') { this.set(true); return false; }
+          if (e.status >= 500 || e.code === 'rate_limited') continue;     // se reintenta la próxima vez
+          lost++; why = e.message || ''; await this.dropFrame(f.id);
+        }
+      }
+      if (lost) problem(lost === 1 ? `Una imagen que esperaba en este equipo no se pudo subir${why ? ': ' + why : '.'}` : `${lost} imágenes que esperaban en este equipo no se pudieron subir${why ? ': ' + why : '.'}`);
+      return true;
+    })().finally(() => { this.flushing = null; });
+    return this.flushing;
+  },
   /* imágenes guardadas sin conexión */
   putFrame(pid, k, url) { return this.run('fr', 'readwrite', st => { st.put({ id: pid + '|' + k, pid, k, url }); }); },
   async frames() { return (await this.run('fr', 'readonly', st => st.getAll())) || []; },
@@ -162,16 +188,7 @@ const OFFLINE = {
       clearInterval(this.timer);
       this.set(false);
       // imágenes que esperaban
-      let lost = 0, why = '';
-      for (const f of await this.frames()) {
-        try { await APITEAM.saveFrame(f.pid, f.k, f.url, true); await this.dropFrame(f.id); }
-        catch (e) {
-          if (e.code === 'offline') { this.set(true); return; }
-          if (e.status >= 500 || e.code === 'rate_limited') continue;     // se reintenta la próxima vez
-          lost++; why = e.message || ''; await this.dropFrame(f.id);
-        }
-      }
-      if (lost) problem(`${lost === 1 ? 'Una imagen hecha' : lost + ' imágenes hechas'} sin conexión no se pudo subir${why ? ': ' + why : '.'}`);
+      if (!(await this.flushFrames())) return;
       // proyecto abierto: se vuelve a suscribir y se guarda lo pendiente (shareSave compara con la versión del servidor)
       if (P && P._shared && SHARE && SHARE.pid === P.id) {
         APITEAM.check(P.id);
@@ -197,7 +214,7 @@ const OFFLINE = {
   },
 };
 addEventListener('online', () => { if (OFFLINE.on) OFFLINE.reconnect(); });
-addEventListener('offline', () => { if (Store && Store.kind === 'api') OFFLINE.set(true); });
+addEventListener('offline', () => { if (Store && Store.kind === 'api' && !APITEAM.anon) OFFLINE.set(true); });   // sin cuenta no hay nada que enviar después
 /* presencia: con el programa en segundo plano más de un minuto, los demás te ven atenuado («en otra ventana») */
 document.addEventListener('visibilitychange', () => {
   clearTimeout(APITEAM.awayT);
@@ -211,10 +228,15 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localh
 
 /* ---------- transporte ---------- */
 const APITEAM = {
+  anon: false,   // sin cuenta, solo el ejemplo (lote AD · SAMPLE_ASK)
   me: null, h: {}, pid: null, es: null, vers: {}, read: new Set(), queue: {}, creating: new Map(), st: null, esFails: 0,
   who: [], esTab: '', hereTab: '', hereT: 0, away: false, awayT: 0, whoStale: 0,   // presencia: quién más está, en qué pestaña y si a la vista
   async init() {
     let r;
+    // la lista de proyectos se pide a la vez que la cuenta (antes, una después de la otra); list() la usa una vez.
+    // Con ?ejemplo=1 no: puede que no haya sesión (y entonces no se pide nada más)
+    if (!SAMPLE_ASK) this.listP = fetch('/api/projects', { credentials: 'same-origin', cache: 'no-store', headers: { 'X-FS': '1' } })
+      .then(x => x.ok ? x.json() : null).catch(() => null);
     for (let i = 0; ; i++) {
       try { r = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }); break; }
       catch (e) {
@@ -225,9 +247,14 @@ const APITEAM = {
         await new Promise(res => setTimeout(res, 1500));
       }
     }
+    // sin sesión y con ?ejemplo=1: el modo ejemplo, sin cuenta (lote AD). Con el plan gratis: marca de agua y lo de Pro cerrado
+    if (r.status === 401 && SAMPLE_ASK) { this.anon = true; LIC = { mode: 'free', plan: 'free' }; paintBrand(); shareInit(); anonButton(); return; }
     if (r.status === 401) { location.replace('/entrar?next=' + encodeURIComponent(location.pathname + location.search)); await new Promise(() => { }); }
     this.setMe(await r.json());
     shareInit();
+    // imágenes que quedaron esperando en este equipo (la pestaña se cerró mientras subían, o se hicieron sin conexión y
+    // se volvió a abrir ya con internet): se suben ahora
+    setTimeout(() => { if (!OFFLINE.on) OFFLINE.frames().then(f => { if (f.length) OFFLINE.flushFrames(); }).catch(() => { }); }, 2500);
   },
   setMe(me, cached) {
     this.me = me;
@@ -241,6 +268,10 @@ const APITEAM = {
   on(ev, fn) { this.h[ev] = fn; },
   emit(ev, ...a) { const f = this.h[ev]; if (f) { try { f(...a); } catch (e) { console.warn('equipo:', e); } } },
   async list() {
+    if (this.anon) return [];   // sin cuenta no hay proyectos guardados: solo el ejemplo
+    const pre = this.listP ? await this.listP : null;
+    this.listP = null;
+    if (Array.isArray(pre)) { const out = pre.map(x => ({ ...x, shared: x.shared || !x.mine })); ls.set('offList', out); return out; }
     try {
       const r = await apiFetch('GET', '/api/projects');
       const out = r.json.map(x => ({ ...x, shared: x.shared || !x.mine }));
@@ -255,10 +286,19 @@ const APITEAM = {
     }
   },
 
-  /* ---------- abrir ---------- */
+  /* ---------- abrir ----------
+     Se le dice al servidor qué versiones ya están guardadas en este equipo (have): las que siguen igual no se vuelven
+     a bajar (antes, abrir un proyecto bajaba todo cada vez). Llegan como { v, same, n } y se toman de la copia local,
+     comprobando su largo; si algo no cuadra, se pide todo como antes. */
   async open(pid) {
     let r;
-    try { r = await apiFetch('GET', `/api/p/${encodeURIComponent(pid)}?full=1`); }
+    const url = `/api/p/${encodeURIComponent(pid)}?full=1`;
+    const mine = await OFFLINE.get(pid).catch(() => null);
+    const have = mine && mine.srv ? Object.entries(mine.srv).filter(([s, x]) => x && x.v > 0 && typeof x.json === 'string' && s !== 'notas' && s !== 'gastos').map(([s, x]) => s + '.' + x.v).join(',') : '';
+    try {
+      r = await apiFetch('GET', url + (have ? '&have=' + encodeURIComponent(have) : ''));
+      if (have && !(await this.fillSame(pid, r.json))) r = await apiFetch('GET', url);
+    }
     catch (e) {
       if (e.code !== 'offline') return { error: e.message, code: e.code || 'error' };
       const rec = await OFFLINE.get(pid);
@@ -281,6 +321,20 @@ const APITEAM = {
     this.subscribe(pid);
     OFFLINE.mirror(pid, st);
     return st;
+  },
+  /* las secciones que el servidor no envió porque este equipo ya las tiene: se toman de la copia local (false si alguna
+     falta o no coincide su largo en bytes con el del servidor) */
+  async fillSame(pid, st) {
+    const same = Object.entries((st && st.sections) || {}).filter(([, x]) => x && x.same);
+    if (!same.length) return true;
+    const rec = await OFFLINE.get(pid).catch(() => null);
+    const enc = new TextEncoder();
+    for (const [s, x] of same) {
+      const c = rec && rec.srv && rec.srv[s];
+      if (!c || c.v !== x.v || typeof c.json !== 'string' || enc.encode(c.json).length !== x.n) return false;
+      st.sections[s] = { v: x.v, json: c.json };
+    }
+    return true;
   },
   subscribe(pid) {
     if (typeof EventSource === 'undefined') return;
@@ -434,6 +488,8 @@ const APITEAM = {
       // sin conexión: la imagen queda en el equipo y se sube después
       if (e.code === 'offline' && !retry) { OFFLINE.set(true); await OFFLINE.putFrame(pid, k, url || null); if (url) FCACHE.put(pid, k, 0, url); else FCACHE.drop(pid, [k]); if (typeof FRIDX !== 'undefined' && FRIDX && FRAMES_PID === pid) { if (url) FRIDX[k] = 0; else delete FRIDX[k]; } return; }
       if (e.code === 'plan_photos' || e.code === 'quota' || e.code === 'no_area') { if (!this.warned) { this.warned = 1; setTimeout(() => this.warned = 0, 8000); planNotice(e.message, e.code === 'plan_photos'); } }
+      // (lote AD) un escenario 3D importado en un proyecto que no es de Studio (al guardar el ejemplo, por ejemplo)
+      if (e.code === 'plan_studio' && typeof studioAsk === 'function') { if (!this.warned) { this.warned = 1; setTimeout(() => this.warned = 0, 8000); studioAsk(String(k).startsWith('m3') ? 'set3d' : 'mapas'); } }
       throw e;
     }
   },
@@ -497,7 +553,10 @@ const APITEAM = {
         if (e.code === 'offline' && !Px._offNew) { Px._offNew = true; OFFLINE.set(true); toast('Sin conexión: este proyecto nuevo se creará en tu cuenta cuando vuelva internet. Mientras tanto, no cierres esta pestaña.', 7000); }
         throw e;
       }
-      OFFLINE.mirror(st.pid, { ...st, sections: Object.fromEntries(Object.entries(sent).map(([s, j]) => [s, { v: (st.vers || {})[s] || 1, json: j }])) });
+      // solo las secciones que el servidor de verdad creó, con su versión (antes, todas con versión 1: una sección que el
+      // servidor no guardó, como Gastos o lo de producción en un guion, quedaba en la copia como si existiera)
+      const vs = st.vers || {};
+      OFFLINE.mirror(st.pid, { ...st, sections: Object.fromEntries(Object.entries(sent).filter(([s]) => vs[s] > 0).map(([s, j]) => [s, { v: vs[s], json: j }])) });
       const oldId = Px.id;
       Px._oldId = oldId; Px.id = st.pid; Px._shared = true; Px._saved = true;
       if (FRAMES_PID === oldId) FRAMES_PID = st.pid;
@@ -538,6 +597,7 @@ const APITEAM = {
 
 /* la dirección lleva el proyecto abierto: se puede recargar o enviar como enlace */
 function apiUrl(pid) {
+  if (APITEAM.anon) return;   // sin cuenta la dirección conserva ?ejemplo=1: al recargar se vuelve al ejemplo
   try { history.replaceState(null, '', pid ? '?p=' + encodeURIComponent(pid) : location.pathname); } catch (e) { }
 }
 function apiLink(pid) { return location.origin + '/app/?p=' + encodeURIComponent(pid); }

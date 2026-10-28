@@ -43,11 +43,49 @@ function imageSize(b, mime) {
 const DATA_RE = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
 // modelos 3D importados (escenarios y personajes): gzip del formato propio de la app, que empieza con «FSM1»
 const M3_RE = /^data:(model\/x-fsm);base64,([A-Za-z0-9+/]+={0,2})$/;
+/* se revisa por partes, sin trabar el servidor (antes, gunzipSync lo dejaba detenido para todos) y sin guardar el modelo
+   entero en memoria: solo el encabezado; el resto se cuenta (hasta 96 MB) para saber que el archivo está completo.
+   Así varios modelos a la vez no llenan la memoria (descomprimidos enteros eran hasta 96 MB cada uno) */
+const M3_RAW_MAX = 96 * 1024 * 1024, M3_HEAD_MAX = 16 * 1024 * 1024;
 function m3Ok(b) {
-  if (b.length < 20 || b[0] !== 0x1f || b[1] !== 0x8b) return false;
-  try { const raw = require('node:zlib').gunzipSync(b, { maxOutputLength: 96 * 1024 * 1024 }); if (raw.toString('latin1', 0, 4) !== 'FSM1') return false; const n = raw.readUInt32LE(4); if (n < 2 || 8 + n > raw.length) return false; const h = JSON.parse(raw.toString('utf8', 8, 8 + n)); return !!(h && Array.isArray(h.parts)); } catch (e) { return false; }
+  if (b.length < 20 || b[0] !== 0x1f || b[1] !== 0x8b) return Promise.resolve(false);
+  return new Promise(resolve => {
+    const z = require('node:zlib').createGunzip();
+    const parts = [];
+    let have = 0, need = 8, total = 0, done = false, head8 = null;
+    const end = ok => { if (done) return; done = true; z.removeAllListeners('data'); z.on('error', () => { }); z.destroy(); resolve(ok); };
+    z.on('data', c => {
+      if (done) return;
+      total += c.length;
+      if (total > M3_RAW_MAX) return end(false);
+      let off = 0;
+      while (off < c.length && have < need) {
+        const take = Math.min(need - have, c.length - off);
+        parts.push(c.subarray(off, off + take)); have += take; off += take;
+        if (need === 8 && have === 8) {
+          head8 = Buffer.concat(parts);
+          if (head8.toString('latin1', 0, 4) !== 'FSM1') return end(false);
+          const n = head8.readUInt32LE(4);
+          if (n < 2 || n > M3_HEAD_MAX) return end(false);
+          need = 8 + n;
+        }
+      }
+    });
+    z.on('error', () => end(false));
+    z.on('end', () => {
+      if (done) return;
+      if (!head8 || have < need) return end(false);
+      try { const h = JSON.parse(Buffer.concat(parts).toString('utf8', 8, need)); end(!!(h && Array.isArray(h.parts))); } catch (e) { end(false); }
+    });
+    z.end(b);
+  });
 }
-const HIST_KEEP = 40;
+/* historial de cada sección: una copia de la versión anterior como mucho cada 5 minutos (antes, en cada guardado:
+   mientras se escribía el guion se archivaba el guion entero cada 1,2 s y las 40 copias cubrían solo los últimos
+   minutos). Al volver a editar después de una pausa se guarda la versión de antes de empezar. Si otra persona guarda
+   encima de lo tuyo, tu versión se copia aunque no hayan pasado los 5 minutos (como mucho una vez por minuto: dos
+   personas escribiendo a la vez no vuelven a copiar en cada guardado). */
+const HIST_KEEP = 40, HIST_GAP = 5 * 60e3, HIST_GAP_OTHER = 60e3;
 const SECNAME = { guion: 'Guion', desglose: 'Desglose', storyboard: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', calendario: 'Calendario', llamado: 'Hoja de llamado', presupuesto: 'Presupuesto', hoja: 'Hoja de script', notas: 'Notas', gastos: 'Gastos' };
 const MAX_GA_FRAME = 2 * MB;   // la foto de un recibo llega comprimida a unos 300 kB
 const ACT_GAP = 180e3, ACT_KEEP = 3000;
@@ -97,6 +135,9 @@ function makeApi(S, auth, live, cfg) {
     if (P.gaSeesAll(P.gaRole(r)) && !P.readSet(r).has('presupuesto')) { v.partidas = B.lines.filter(l => l.id).map(l => ({ id: l.id, sec: l.sec, name: l.name.slice(0, 120) })); v.moneda = B.cur; v.impuesto = B.tax; }
     return JSON.stringify(v);
   };
+  /* lo que recibe cada persona de una sección: las notas que puede ver, su parte de Gastos y el guion sin Historia si no
+     ve la etapa Guion (lote AD · perm.js · histHidden); lo demás, tal cual */
+  const secView = (p, r, uid, sec, json) => json == null ? null : sec === P.NOTES ? P.notesView(json, r, P.histHidden(p, r)) : sec === P.GASTOS ? gaViewJson(p, json, r, uid) : sec === 'guion' ? P.guionView(json, P.histHidden(p, r)) : json;
   // ¿quién de los conectados ve todo Gastos? (los avisos con detalle van solo a ellos)
   const gaSeer = p => { const memo = new Map(); return c => { if (!memo.has(c.uid)) { const r = roleOf(p, c.uid); memo.set(c.uid, !!r && !r.suspended && P.gaSeesAll(P.gaRole(r))); } return memo.get(c.uid); }; };
   const gaPlanOk = p => !!P.PLANS[ownerPlan(p)].gastos;
@@ -143,6 +184,21 @@ function makeApi(S, auth, live, cfg) {
   }
   const roMsg = r => r.why === 'archived' ? 'Este proyecto está archivado: desarchívalo para editarlo.' : 'Este proyecto está en solo lectura: tu plan permite menos proyectos activos.';
   const ownerPlan = p => P.planOf(userById(p.owner));
+  /* (lote AD) lo exclusivo de Studio: los mapas del scouting (los enlaces cortos que resuelve el servidor) y los
+     escenarios 3D importados (sus modelos «m3~s~…» y sus plantas «m3p~…»). Va según el plan de quien es dueño del
+     proyecto: si es Studio, todo su equipo los usa en él. Sin proyecto (uno nuevo que todavía no está en el servidor),
+     según el plan de la cuenta, que será su dueña. Lo que un proyecto ya tiene se sigue viendo y se puede quitar */
+  const STUDIO_MSG = {
+    mapas: 'Los mapas del scouting son parte de FilmSpirit Studio. En este proyecto los habilita el plan de quien lo administra.',
+    set3d: 'Importar escenarios 3D es parte de FilmSpirit Studio. En este proyecto lo habilita el plan de quien lo administra.',
+  };
+  const isStudioFrame = k => k.startsWith('m3~s~') || k.startsWith('m3p~');
+  function studioOk(pid, u) {
+    if (pid == null || pid === '') return P.planOf(u) === 'studio';
+    const p = project(String(pid)); if (!p) return false;
+    const r = roleOf(p, u.id);
+    return !!r && !r.suspended && ownerPlan(p) === 'studio';
+  }
   const teamCount = pid => S.one('SELECT (SELECT COUNT(*) FROM members WHERE pid=?) + (SELECT COUNT(*) FROM invites WHERE pid=?) n', pid, pid).n;
   // espacio de la cuenta: imágenes, secciones y su historial (todo cuenta para la cuota del plan). Lo eliminado también
   // cuenta mientras se guarda (30 días, por si hay que recuperarlo): antes, crear y eliminar en ciclo llenaba el disco.
@@ -160,7 +216,19 @@ function makeApi(S, auth, live, cfg) {
      cuenta no pueda trabar el servidor pidiendo lo mismo una y otra vez */
   const readCost = (u, bytes) => rateLimit('rd:' + u.id, 1.5e9, 300e3, bytes);
 
-  function state(p, u, r, full) {
+  /* «have»: las versiones que el navegador ya tiene guardadas (?have=guion.12,desglose.5). Al abrir el proyecto, esas
+     secciones no se vuelven a enviar si siguen en la misma versión: va { v, same: 1, n } (n: su largo en bytes, para que
+     el navegador compruebe su copia). Las notas y Gastos se envían siempre: cada persona recibe su propia vista. */
+  const HAVE_RE = /^([a-z]{1,20})\.(\d{1,9})$/;
+  function parseHave(str) {
+    const out = {};
+    for (const x of String(str || '').split(',').slice(0, 24)) {
+      const m = HAVE_RE.exec(x);
+      if (m && P.DATA_SECS.includes(m[1]) && m[1] !== P.NOTES && m[1] !== P.GASTOS) out[m[1]] = +m[2];
+    }
+    return out;
+  }
+  function state(p, u, r, full, have) {
     const kind = P.kindOf(p), script = kind === 'guion';
     const read = script ? new Set(['guion']) : P.readSet(r), owner = userById(p.owner), plan = P.planOf(owner);
     const perms = script ? { guion: r.admin ? 'editar' : (r.perms || {}).guion === 'editar' ? 'editar' : 'ver' } : r.admin ? P.ALLP : r.perms;
@@ -171,10 +239,15 @@ function makeApi(S, auth, live, cfg) {
       limits: { members: P.peopleLimit(plan, kind), photos: !script && P.PLANS[plan].photos, gastos: !script && !!P.PLANS[plan].gastos, projects: P.PLANS[plan].projects, scripts: P.PLANS[plan].scripts, writers: P.PLANS[plan].writers },
     };
     if (full) out.sections = {};
-    for (const s of S.all(`SELECT sec, v${full ? ', json' : ''} FROM sections WHERE pid=?`, p.id)) {
+    const hv = have || {}, hist = P.histHidden(p, r);
+    for (const s of S.all('SELECT sec, v FROM sections WHERE pid=?', p.id)) {
       if (!readable(p, r, s.sec)) continue;
       out.vers[s.sec] = s.v;
-      if (full) out.sections[s.sec] = { json: s.sec === P.NOTES ? P.notesView(s.json, r) : s.sec === P.GASTOS ? gaViewJson(p, s.json, r, u.id) : s.json, v: s.v };
+      if (!full) continue;
+      // el guion sin Historia (lote AD): el largo es el de lo que esta persona recibe, que es lo que tiene guardado
+      if (hv[s.sec] === s.v) { out.sections[s.sec] = { v: s.v, same: 1, n: s.sec === 'guion' && hist ? Buffer.byteLength(P.guionView(S.one("SELECT json FROM sections WHERE pid=? AND sec='guion'", p.id).json, true)) : S.one('SELECT length(CAST(json AS BLOB)) n FROM sections WHERE pid=? AND sec=?', p.id, s.sec).n }; continue; }
+      const json = S.one('SELECT json FROM sections WHERE pid=? AND sec=?', p.id, s.sec).json;
+      out.sections[s.sec] = { json: secView(p, r, u.id, s.sec, json), v: s.v };
     }
     // gastos sin guardar todavía: vacío (versión 0), para que se pueda guardar el primero
     if (full && !script && !out.sections[P.GASTOS]) out.sections[P.GASTOS] = { json: gaViewJson(p, null, r, u.id), v: 0 };
@@ -191,7 +264,9 @@ function makeApi(S, auth, live, cfg) {
     }
     return out;
   }
-  const evaluate = (p, uid) => { const r = roleOf(p, uid); return r && !r.suspended ? { read: P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r) } : null; };
+  const evaluate = (p, uid) => { const r = roleOf(p, uid); return r && !r.suspended ? { read: P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r), hist: P.histHidden(p, r) } : null; };
+  // (lote AD) una nota en la pestaña Historia: quien no ve la etapa Guion no recibe su aviso ni la ve en la actividad
+  const HIST_REF = 'guion|tab|build';
   const teamChanged = pid => { const p = project(pid); live.teamChanged(pid, c => p ? evaluate(p, c.uid) : null); };
 
   function parseSec(str, what) {
@@ -202,7 +277,7 @@ function makeApi(S, auth, live, cfg) {
     catch (e) { fail(400, `Los datos de ${what} no son válidos.`, 'bad_section'); }
   }
   const safeParse = str => { try { const v = JSON.parse(str); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
-  const NEED_PLAN = `Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Prueba Pro 30 días gratis al llevar tu guion a producción.`;
+  const NEED_PLAN = `Los proyectos de producción (desglose, storyboard, plan de rodaje, calendario, hoja de llamado y presupuesto) son de Indie, Pro y Studio. Para conocerlos sin pagar, explora el proyecto de ejemplo.`;
   const limitMsg = (plan, kind = 'prod') => kind === 'guion'
     ? `El plan Guion permite ${P.PLANS.free.scripts} guiones activos. Archiva uno que terminaste o pasa a Indie, Pro o Studio (guiones sin límite).`
     : plan === 'free' ? NEED_PLAN
@@ -261,8 +336,10 @@ function makeApi(S, auth, live, cfg) {
 
   on('GET', /^\/api\/p\/([\w-]+)$/, (req, res, u, m, url) => {
     const { p, r } = access(m[1], u), full = url.searchParams.get('full') === '1';
-    if (full) readCost(u, S.one('SELECT COALESCE(SUM(LENGTH(json)),0) b FROM sections WHERE pid=?', p.id).b);
-    sendJSON(res, 200, state(p, u, r, full));
+    const have = full ? parseHave(url.searchParams.get('have')) : null;
+    // lo que de verdad se envía (lo que el navegador ya tiene no cuenta)
+    if (full) readCost(u, S.all('SELECT sec, v, LENGTH(json) n FROM sections WHERE pid=?', p.id).reduce((b, s) => b + (have[s.sec] === s.v ? 0 : s.n), 0));
+    sendJSON(res, 200, state(p, u, r, full, have));
   });
 
   on('DELETE', /^\/api\/p\/([\w-]+)$/, (req, res, u, m) => {
@@ -307,7 +384,7 @@ function makeApi(S, auth, live, cfg) {
     const s = S.one('SELECT v, json, by FROM sections WHERE pid=? AND sec=?', p.id, sec);
     if (s) readCost(u, s.json.length);
     if (sec === P.GASTOS) return sendJSON(res, 200, { v: s ? s.v : 0, json: gaViewJson(p, s ? s.json : null, r, u.id), by: s && P.gaSeesAll(P.gaRole(r)) ? (userById(s.by) || {}).name || '' : '' });
-    sendJSON(res, 200, s ? { v: s.v, json: sec === P.NOTES ? P.notesView(s.json, r) : s.json, by: (userById(s.by) || {}).name || '' } : { v: 0, json: null });
+    sendJSON(res, 200, s ? { v: s.v, json: secView(p, r, u.id, sec, s.json), by: (userById(s.by) || {}).name || '' } : { v: 0, json: null });
   });
 
   on('PUT', /^\/api\/p\/([\w-]+)\/s\/(\w+)$/, async (req, res, u, m) => {
@@ -326,7 +403,7 @@ function makeApi(S, auth, live, cfg) {
     let json = b.json;
     const val = parseSec(json, SECNAME[sec]);
     const curV = cur ? cur.v : 0;
-    const notes = sec === P.NOTES, gastos = sec === P.GASTOS, view = j => j == null ? null : notes ? P.notesView(j, r) : gastos ? gaViewJson(p, j, r, u.id) : j;
+    const notes = sec === P.NOTES, gastos = sec === P.GASTOS, view = j => secView(p, r, u.id, sec, j), hist = P.histHidden(p, r);
     if (gastos && !gaPlanOk(p)) fail(403, GA_PLAN, 'plan_gastos');
     if (+b.base !== curV) return sendJSON(res, 409, { error: 'Otra persona guardó antes.', code: 'conflict', v: curV, json: cur ? view(cur.json) : null, by: cur ? (userById(cur.by) || {}).name || '' : '' });
     // guion cerrado: solo con una revisión abierta y por las personas autorizadas; reabrir y cambiar quiénes, producción
@@ -345,10 +422,15 @@ function makeApi(S, auth, live, cfg) {
     }
     if (notes) {
       // cada quien solo cambia lo suyo; lo que no ve queda igual
-      const full = P.notesMerge(cur ? cur.json : null, val, u, r, now());
+      const full = P.notesMerge(cur ? cur.json : null, val, u, r, now(), hist);
       if (cur && P.canonJ(JSON.parse(full)) === P.canonJ(JSON.parse(cur.json))) return sendJSON(res, 200, { v: curV, json: view(cur.json) });
       json = full;
       filtered = P.canonJ(JSON.parse(view(full))) !== P.canonJ(val);
+    }
+    // quien no ve Historia (lote AD): guarda el guion con la Historia vigente (que no la tenga no es que la borró)
+    if (sec === 'guion' && hist) {
+      const g = P.guionKeepHist(cur ? cur.json : null, val);
+      if (P.canonJ(g) !== P.canonJ(val)) { json = JSON.stringify(g); filtered = P.canonJ(JSON.parse(view(json))) !== P.canonJ(val); }
     }
     // jefe de área: solo se guarda lo que cae en sus cajas del desglose
     const ar = sec === 'desglose' ? P.areasOf(r) : null;
@@ -360,18 +442,21 @@ function makeApi(S, auth, live, cfg) {
     const grow = json.length - (cur ? cur.json.length : 0);
     if (grow > 0 && storageOf(p.owner) + grow > P.PLANS[ownerPlan(p)].storageMB * MB) fail(413, quotaMsg, 'quota');
     const v = curV + 1, t = now();
-    let act = null;
+    let act = null, snap = false;
     S.tx(() => {
-      if (cur) {
+      const last = cur ? S.one('SELECT ts FROM history WHERE pid=? AND sec=? ORDER BY v DESC LIMIT 1', p.id, sec) : null;
+      if (cur && (!last || t - last.ts >= HIST_GAP || (cur.by !== u.id && t - last.ts >= HIST_GAP_OTHER))) {
+        snap = true;
         S.run('INSERT OR REPLACE INTO history(pid,sec,v,z,by,ts) VALUES(?,?,?,?,?,?)', p.id, sec, cur.v, S.gz(cur.json), cur.by, t);
-        S.run('DELETE FROM history WHERE pid=? AND sec=? AND v<=?', p.id, sec, cur.v - HIST_KEEP);
+        // las HIST_KEEP copias más recientes (las versiones guardadas ya no son seguidas: se cuentan las filas)
+        S.run('DELETE FROM history WHERE pid=? AND sec=? AND v < (SELECT MIN(v) FROM (SELECT v FROM history WHERE pid=? AND sec=? ORDER BY v DESC LIMIT ?))', p.id, sec, p.id, sec, HIST_KEEP);
       }
       S.run('INSERT OR REPLACE INTO sections(pid,sec,v,json,by,client,ts) VALUES(?,?,?,?,?,?,?)', p.id, sec, v, json, u.id, String(b.c || '').slice(0, 40), t);
       if (sec === 'guion') S.run('UPDATE projects SET updated=?, title=? WHERE id=?', t, titleOf(val) || p.title, p.id);
       else S.run('UPDATE projects SET updated=? WHERE id=?', t, p.id);
       act = logActivity(p, u, sec, b, t);
     });
-    storageAdd(p.owner, json.length - (cur ? cur.json.length : 0) + (cur ? Math.round(cur.json.length / 4) : 0));   // + la versión anterior en el historial (comprimida, aprox.)
+    storageAdd(p.owner, json.length - (cur ? cur.json.length : 0) + (snap ? Math.round(cur.json.length / 4) : 0));   // + la versión anterior si pasó al historial (comprimida, aprox.)
     // el aviso dice quién cambió qué; lo recibe quien puede ver la pestaña (y, en una nota, la pestaña donde está pegada)
     const refSec = act.ref ? act.ref.split('|')[0] : '';
     if (gastos) {
@@ -380,7 +465,7 @@ function makeApi(S, auth, live, cfg) {
       live.broadcast(p.id, { t: 'sec', sec, v, by: u.name, uid: u.id, what: act.what, ref: act.ref, aid: act.id || 0, aj: act.joined ? 1 : 0, ts: t, c: String(b.c || '') }, c => sees(c));
       live.broadcast(p.id, { t: 'sec', sec, v, c: String(b.c || '') }, c => !sees(c));
     } else live.broadcast(p.id, { t: 'sec', sec, v, by: u.name, uid: u.id, what: act.what, ref: act.ref, aid: act.id || 0, aj: act.joined ? 1 : 0, ts: t, c: String(b.c || '') },
-      c => (notes || c.read.has(sec)) && (!refSec || c.read.has(refSec)));
+      c => (notes || c.read.has(sec)) && (!refSec || c.read.has(refSec)) && !(c.hist && act.ref === HIST_REF));
     sendJSON(res, 200, filtered ? { v, json: view(json) } : { v });
   });
 
@@ -423,7 +508,7 @@ function makeApi(S, auth, live, cfg) {
     // fotos de Gastos (recibos, órdenes de compra, reembolsos): de Pro y Studio, y cada quien las de lo suyo
     if (ga && !gaPlanOk(p)) fail(403, GA_PLAN, 'plan_gastos');
     if (ga && !P.gaFrameEdit(gaCur(p.id) || {}, gaWho(r, u.id), k)) fail(403, 'No puedes cambiar esta foto: el gasto es de otra persona o ya se revisó.', 'no_edit');
-    if (!ga && !P.canEdit(r, sec)) fail(403, `No tienes permiso para guardar imágenes ${sec === 'desglose' ? (k.startsWith('ca~') ? 'del casting' : 'del desglose') : sec === 'plan' ? 'del scouting' : sec === 'llamado' ? 'de la hoja de llamado' : 'del storyboard'}.`, 'no_edit');
+    if (!ga && !P.canEdit(r, sec)) fail(403, `No tienes permiso para guardar imágenes ${sec === 'desglose' ? (k.startsWith('ca~') ? 'del casting' : 'del desglose') : sec === 'plan' ? 'del scouting' : sec === 'llamado' ? 'de la hoja de llamado' : sec === 'hoja' ? 'de la hoja de script' : 'del storyboard'}.`, 'no_edit');
     const ar = sec === 'desglose' ? P.areasOf(r) : null;
     if (ar) {
       const d = S.one("SELECT json FROM sections WHERE pid=? AND sec='desglose'", p.id);
@@ -437,15 +522,16 @@ function makeApi(S, auth, live, cfg) {
       if (del.changes) live.broadcast(p.id, { t: 'frame', k, v: 0, c: String(b.c || '') }, frameTo(p, k, sec));
       return sendJSON(res, 200, { v: 0 });
     }
-    // fotos del desglose, del casting, del scouting y del punto de encuentro: de Pro y Studio
-    if ((sec === 'desglose' || k.startsWith('lc~') || k.startsWith('cl~')) && !P.PLANS[ownerPlan(p)].photos) fail(403, `Las fotos ${k.startsWith('ca~') ? 'del casting' : k.startsWith('lc~') ? 'del scouting' : k.startsWith('cl~') ? 'del punto de encuentro' : 'en el desglose'} son parte de FilmSpirit Pro y Studio.`, 'plan_photos');
+    // fotos del desglose, del casting, del scouting, del punto de encuentro y de la hoja de script: de Pro y Studio
+    if ((sec === 'desglose' || sec === 'hoja' || k.startsWith('lc~') || k.startsWith('cl~')) && !P.PLANS[ownerPlan(p)].photos) fail(403, `Las fotos ${k.startsWith('ca~') ? 'del casting' : k.startsWith('lc~') ? 'del scouting' : k.startsWith('cl~') ? 'del punto de encuentro' : sec === 'hoja' ? 'de la hoja de script' : 'en el desglose'} son parte de FilmSpirit Pro y Studio.`, 'plan_photos');
     const m3 = k.startsWith('m3~');
     if (m3 && !P.PLANS[ownerPlan(p)].photos) fail(403, 'Los modelos 3D importados son de los planes Indie, Pro y Studio.', 'plan_photos');
+    if (isStudioFrame(k) && ownerPlan(p) !== 'studio') fail(403, STUDIO_MSG.set3d, 'plan_studio');
     const mm = (m3 ? M3_RE : DATA_RE).exec(typeof b.url === 'string' ? b.url : '');
     if (!mm) fail(400, m3 ? 'El modelo 3D no tiene un formato válido.' : 'La imagen no tiene un formato válido (PNG, JPEG o WebP).', 'bad_image');
     const data = Buffer.from(mm[2], 'base64');
     if (data.length > (ga ? MAX_GA_FRAME : MAX_FRAME)) fail(413, m3 ? 'El modelo 3D es demasiado grande (máximo 8 MB).' : 'La imagen es demasiado grande.', 'too_large');
-    if (m3) { if (!m3Ok(data)) fail(400, 'El modelo 3D no tiene un formato válido.', 'bad_image'); }
+    if (m3) { if (!(await m3Ok(data))) fail(400, 'El modelo 3D no tiene un formato válido.', 'bad_image'); }
     else {
       // que sea de verdad una imagen del tipo que dice y de un tamaño razonable (una «bomba» de pocos KB y
       // cientos de megapíxeles colgaría el navegador de quien la abre)
@@ -595,7 +681,8 @@ function makeApi(S, auth, live, cfg) {
     const { p, r } = access(m[1], u);
     // lo de Gastos (quién aprobó, pagó o rindió qué), solo para quien ve todo Gastos
     const gaAll = P.gaSeesAll(P.gaRole(r));
-    const vis = a => readable(p, r, a.sec) && (a.sec !== P.GASTOS || gaAll) && (!a.ref || readable(p, r, a.ref.split('|')[0]));
+    const hist = P.histHidden(p, r);
+    const vis = a => readable(p, r, a.sec) && (a.sec !== P.GASTOS || gaAll) && (!a.ref || readable(p, r, a.ref.split('|')[0])) && !(hist && a.ref === HIST_REF);
     const lim = Math.min(200, Math.max(1, +url.searchParams.get('n') || 60));
     let cursor = +url.searchParams.get('before') || Number.MAX_SAFE_INTEGER;
     const items = [];
@@ -615,7 +702,7 @@ function makeApi(S, auth, live, cfg) {
     if (live.count(u.id) >= 24) fail(429, 'Hay demasiadas pestañas abiertas con tu cuenta.', 'too_many');
     const read = P.kindOf(p) === 'guion' ? new Set(['guion']) : P.readSet(r), vers = {};
     for (const s of S.all('SELECT sec, v FROM sections WHERE pid=?', p.id)) if (readable(p, r, s.sec)) vers[s.sec] = s.v;
-    live.open(req, res, p.id, { uid: u.id, sh: sha256(parseCookies(req).fs_s || ''), client: String(url.searchParams.get('c') || '').slice(0, 40), read,
+    live.open(req, res, p.id, { uid: u.id, sh: sha256(parseCookies(req).fs_s || ''), client: String(url.searchParams.get('c') || '').slice(0, 40), read, hist: P.histHidden(p, r),
       name: u.name || String(u.email || '').split('@')[0], pic: u.picture || '', tab: String(url.searchParams.get('tab') || '').slice(0, 12) }, { t: 'hello', vers });
   });
   /* presencia: en qué pestaña del programa está esta ventana (los demás lo ven junto a sus fotos) */
@@ -640,7 +727,7 @@ function makeApi(S, auth, live, cfg) {
   }
   /* cambió el plan de una cuenta (pago, vencimiento o administración): sus proyectos se vuelven a evaluar */
   function planChanged(uid) { for (const x of S.all('SELECT id FROM projects WHERE owner=? AND deleted IS NULL', uid)) teamChanged(x.id); }
-  return { handle, state, roleOf, project, planChanged };
+  return { handle, state, roleOf, project, planChanged, studioOk, STUDIO_MSG };
 }
 
 module.exports = { makeApi };

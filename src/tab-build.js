@@ -7,7 +7,8 @@
      cards: { id: { id, h, syn, after, ord, act, plot } }   escenas por escribir; «after» es la escena escrita que
                                                          las precede (null: al principio del guion)
      sc: { clave: { act, plot } }                          acto y trama de cada escena escrita
-     acts: ['Acto I', 'Acto II', 'Acto III'], plots: [{ id, name, c }] }
+     acts: ['Acto I', 'Acto II', 'Acto III'], plots: [{ id, name, c }],
+     bios: { id: biografía }, prem, refs y beats (lote AD: «Premisa y mundo» y «Estructura», en historia-previa.js) }
    Escaleta y Tarjetas muestran las mismas escenas: las escritas siguen el orden del guion; moverlas mueve
    también su texto en el guion (se pregunta antes). «Pasar al guion» crea el encabezado donde le toca.
    ============================================================ */
@@ -19,7 +20,8 @@ const B_ARG = [
 ];
 const B_PLOT_C = ['#E0523A', '#3D7FD6', '#2F9A5B', '#C99A12', '#8D5CC8', '#D9669B'];
 const B_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-const B_VIEWS = [['arg', 'Argumento'], ['bio', 'Biografías'], ['esc', 'Escaleta'], ['cards', 'Tarjetas']];
+// (lote AD) «Premisa y mundo» y «Estructura»: historia-previa.js
+const B_VIEWS = [['arg', 'Argumento'], ['prem', 'Premisa y mundo'], ['bio', 'Biografías'], ['est', 'Estructura'], ['esc', 'Escaleta'], ['cards', 'Tarjetas']];
 /* biografía de personaje: los campos, en el orden en que se piensa un personaje */
 const B_ROLES = ['', 'Protagonista', 'Antagonista', 'Secundario', 'Episódico', 'Otro'];
 const B_BIO_F = [
@@ -69,6 +71,7 @@ function buildNormalize(Px) {
     if (b.el != null && typeof b.el !== 'string') delete b.el;
     if (!Number.isFinite(+b.ord)) b.ord = 0;
   }
+  bPrevNormalize(B);   // premisa y mundo, y estructura (historia-previa.js)
   return B;
 }
 const BLD = () => P.build || buildNormalize(P);
@@ -183,6 +186,7 @@ function bToScript(id) {
   if (c.syn && synEditable()) { P.scenes[key] = { ...(P.scenes[key] || {}), synopsis: c.syn }; }
   const m = {}; if (Number.isInteger(c.act)) m.act = c.act; if (c.plot) m.plot = c.plot; B.sc[key] = m;
   for (const o of Object.values(B.cards)) if (o !== c && o.after === c.after && o.ord > c.ord) o.after = key;
+  for (const bt of Object.values(B.beats || {})) if (bt.on === 'cd:' + id) bt.on = 'sc:' + key;   // los puntos clave unidos (Estructura)
   delete B.cards[id];
   changed('data'); render();
   toast(`La escena ${key} ya está en el guion.`, 5200, { label: 'Escribirla', fn: () => bOpenScene(key) });
@@ -199,6 +203,9 @@ function bOpenScene(key) {
 function bDelCard(id) {
   const B = BLD(), c = B.cards[id]; if (!c) return;
   histNote('Quitar una escena por escribir', null, 'build');
+  // un punto clave unido a ella se queda en su acto, suelto
+  const eff = (bItems().find(it => it.id === 'cd:' + id) || {}).eff;
+  for (const bt of Object.values(B.beats || {})) if (bt.on === 'cd:' + id) { if (Number.isInteger(eff)) bt.act = eff; delete bt.on; }
   delete B.cards[id]; changed('data'); render();
   toastUndo('Escena por escribir quitada.');
 }
@@ -280,6 +287,7 @@ RENDER.build = function () {
   const v = $('#view'), view = bView(), ed = buildEditable();
   BLD();
   if (view === 'bio') { bBioRender(v, ed); return; }
+  if (view === 'prem' || view === 'est') { bPrevRender(v, view, ed); return; }
   const items = view === 'arg' ? [] : bItems(), todo = items.filter(it => !it.s).length;
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
@@ -441,7 +449,7 @@ Object.assign(ACT, {
   'b-act-rm': () => {
     const B = BLD(); if (B.acts.length < 2) return;
     const last = B.acts.length - 1;
-    for (const x of [...Object.values(B.cards), ...Object.values(B.sc)]) if (Number.isInteger(x.act) && x.act >= last) x.act = last - 1;
+    for (const x of [...Object.values(B.cards), ...Object.values(B.sc), ...Object.values(B.beats || {})]) if (Number.isInteger(x.act) && x.act >= last) x.act = last - 1;
     B.acts.pop(); changed('data'); render();
   },
 });
@@ -466,7 +474,7 @@ HELP.build = [
   ['Mover', 'Arrastra una escena (con el dedo, desde ⠿) o usa ⋯ › Subir y Bajar. Si mueves una escena escrita a otro lugar, se pregunta antes de moverla también en el guion, con su texto, sus marcas y sus planos.'],
   ['Actos', 'Cada acto empieza donde lo marcas: ⋯ › «El Acto II empieza aquí». Sus nombres se cambian tocándolos; «+ Acto» agrega otro.'],
   ['Tramas', 'El punto de color de cada escena es su trama. «Tramas…» cambia sus nombres y colores.'],
-  ['Exportar', 'El argumento sale en un PDF con portada y los textos seguidos (eliges cuáles); la escaleta, como tabla por actos; y las tarjetas, cuatro por hoja para recortar.'],
+  ['Exportar', 'El argumento sale en un PDF con portada y los textos seguidos (eliges cuáles); la premisa y el mundo, las biografías y la estructura, cada uno en su PDF; la escaleta, como tabla por actos; y las tarjetas, cuatro por hoja para recortar.'],
 ];
 EXPORTS.build = () => [
   { label: 'Argumento', hint: 'PDF con portada: logline, storyline, sinopsis y argumento seguidos', run: btn => bArgExportDialog(btn) },
@@ -493,9 +501,9 @@ function pdfArgumento(opts = {}) {
   const doc = newDoc('portrait'), A = BLD().arg, W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const parts = B_ARG.filter(([k]) => (opts.parts || B_ARG.map(x => x[0])).includes(k) && A[k].trim());
   const M = 72, TW = W - M * 2;
-  // portada
-  // portada: la barra de la pestaña arriba, el título en la letra de los títulos y una raya de su color
-  doc.setFillColor(...PT.bar); doc.rect(0, 0, W, 64, 'F'); doc.setFillColor(...PT.c); doc.rect(0, 64, W, 2.4, 'F');
+  // portada: el título en la letra de los títulos y una raya de su color. (lote AH) Arriba, la cabecera en cuadro de
+  // todos los documentos, con cuántas páginas son (antes, la barra de la pestaña de borde a borde)
+  docHeader(doc, 'Argumento', parts.map(p => p[1]).join(' · '));
   doc.setFont('title', 'bold'); doc.setFontSize(28); doc.setTextColor(...INK);
   const tl = doc.splitTextToSize(pdfSafe(P.meta.title || 'Proyecto'), TW);
   let y = H * .38;
@@ -527,14 +535,8 @@ function pdfArgumento(opts = {}) {
       y += 7;
     }
   }
-  // números de página (sin la portada)
-  const n = doc.getNumberOfPages();
-  for (let i = 2; i <= n; i++) {
-    doc.setPage(i);
-    doc.setFillColor(...PT.bar); doc.rect(0, 0, W, 20, 'F'); doc.setFillColor(...PT.c); doc.rect(0, 20, W, 1.6, 'F');
-    doc.setFont('title', 'bold'); doc.setFontSize(8); doc.setTextColor(...PT.barInk); doc.text(pdfSafe(`${P.meta.title || ''}  ·  Argumento`), M, 13.4);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(pdfSafe(P.meta.title || ''), M, H - 36); doc.text(`${i - 1} / ${n - 1}`, W - M, H - 36, { align: 'right' });
-  }
+  // (lote AH) sin barra arriba ni pie en las páginas del texto: el número de páginas va en el cuadro de la portada
+  pageNumbers(doc, 'Argumento');
   return { doc, name: fileSafe(P.meta.title) + '_argumento.pdf' };
 }
 function pdfEscaleta() {
@@ -557,7 +559,7 @@ function pdfEscaleta() {
   pageNumbers(doc, 'Escaleta');
   return { doc, name: fileSafe(P.meta.title) + '_escaleta.pdf' };
 }
-/* cuatro tarjetas por hoja carta, con su línea de corte */
+/* cuatro tarjetas por hoja (carta o A4), con su línea de corte */
 function pdfTarjetas() {
   const doc = newDoc('portrait'), B = BLD(), items = bItems(), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const M = 30, G = 18, cw = (W - M * 2 - G) / 2, ch = (H - M * 2 - G) / 2;
@@ -695,8 +697,8 @@ EXPORTS.build = (prev => () => { const L = prev(); L.splice(1, 0, { label: 'Biog
 function pdfBios() {
   const doc = newDoc('portrait'), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
   const list = bBioList().filter(it => it.b && (it.b.age || it.b.role || B_BIO_F.some(([k]) => it.b[k].trim())));
-  let y = docHeader(doc, 'Biografías de personajes', `${list.length} ${list.length === 1 ? 'personaje' : 'personajes'}`);
-  const next = need => { if (y + need > H - 44) { doc.addPage(); y = docHeader(doc, 'Biografías de personajes', ''); } };
+  let y = docHeader(doc, 'Biografías de personajes', `${list.length} ${list.length === 1 ? 'personaje' : 'personajes'}`, { x0: M });
+  const next = need => { if (y + need > H - 44) { doc.addPage(); y = docHeader(doc, 'Biografías de personajes', '', { x0: M }); } };
   if (!list.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Aún no hay biografías.', M, y + 10); }
   list.forEach((it, i) => {
     if (i) { next(120); y += 6; }

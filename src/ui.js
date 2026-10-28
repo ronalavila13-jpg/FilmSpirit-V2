@@ -66,7 +66,7 @@ function colorName(hex) {
   if (name === 'naranja' && l > .75) return 'beige';
   return name + tone;
 }
-/* apariencia: automática (sigue al sistema), clara u oscura; se elige en ⋯ de las pestañas */
+/* apariencia: automática (sigue al sistema), clara u oscura; se elige en Personalización (el ⋯ de las pestañas) */
 const themeDark = t => t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 function applyTheme(t) {
   const r = document.documentElement;
@@ -136,12 +136,20 @@ function derive() {
   return D;
 }
 const sceneOfKey = k => D.sc.byKey[k];
-const synopsisOf = s => {
+// La sinopsis de una escena: la que se escribió o la primera acción del guion, cortada a «max» letras con «…» en una
+// palabra. (lote X) Con «sentence» (la hoja de llamado: callSyn, tab-call.js) el corte cae al final de una oración, sin
+// «…», si hay una que cierre después de la mitad del largo
+const synopsisOf = (s, max = 110, sentence = false) => {
   const m = P.scenes[s.key];
   if (m && m.synopsis) return m.synopsis;
   for (let i = s.p0 + 1; i < s.p1; i++) if ((P.paras[i].t === 'a' || P.paras[i].t === 'v') && P.paras[i].x.trim()) {
-    const t = P.paras[i].x.trim();
-    return t.length > 110 ? t.slice(0, 107).replace(/\s+\S*$/, '') + '…' : t;
+    const t = P.paras[i].x.trim().replace(/\s+/g, ' ');
+    if (t.length <= max) return t;
+    if (sentence) {
+      const cut = t.slice(0, max + 1), stop = Math.max(...['. ', '! ', '? ', '.» ', '." ', '…'].map(p => { const k = cut.lastIndexOf(p); return k < 0 ? -1 : k + p.trimEnd().length; }));
+      if (stop >= max * .5) return t.slice(0, stop).trim();
+    }
+    return t.slice(0, max - 3).replace(/\s+\S*$/, '') + '…';
   }
   return '';
 };
@@ -503,9 +511,12 @@ function setSaveState() {
 function unsavedPop(anchor) {
   const why = unsavedWhy(); if (!why) return;
   const fsp = `<button data-w="backup">Guardar .${PROJ_EXT}</button>`;
+  // (lote AD) los cambios del ejemplo duran mientras el programa siga abierto (proyectos.js · openSample); sin cuenta,
+  // guardar pide crear una (cuenta.js · anonAsk)
+  const anon = Store.kind === 'api' && APITEAM.anon;
   const body = why === 'sample' ? `<h5>Proyecto de ejemplo</h5>
-      <p class="hint uw-p">Prueba todo lo que quieras: los cambios del ejemplo no se guardan. Para quedarte con tu trabajo:</p>
-      <div class="menu"><button data-w="adopt">Guardar el ejemplo como mi proyecto</button><button data-w="import">Importar mi guion…</button><button data-w="blank">Empezar en blanco</button></div>`
+      <p class="hint uw-p">${anon ? 'Prueba todo lo que quieras: tus cambios duran mientras sigas en esta página. Para guardarlos, crea tu cuenta gratis:' : 'Prueba todo lo que quieras: tus cambios duran mientras sigas en el programa, pero no se guardan. Para quedarte con tu trabajo:'}</p>
+      <div class="menu"><button data-w="adopt">${anon ? 'Crear mi cuenta y guardar el ejemplo' : 'Guardar el ejemplo como mi proyecto'}</button><button data-w="import">Importar mi guion…</button><button data-w="blank">Empezar en blanco</button></div>`
     : why === 'mem' ? `<h5>Esta vista no puede guardar</h5>
       <p class="hint uw-p">Los cambios se pierden al cerrar. Guarda el proyecto como archivo .${PROJ_EXT} y ábrelo luego con «Abrir».</p>
       <div class="menu">${fsp}</div>`

@@ -80,7 +80,8 @@ const canWriteNotes = () => !!P && !UI.readOnly && !(SHARE && SHARE.ro);
 const noteMine = n => n.by === noteMe().id;
 const noteCanDel = n => noteMine(n) || !SHARE;    // solo quien la escribió (sin equipo, todo es de uno)
 const noteKey = on => on.t + ':' + on.id;
-const noteRoots = () => Object.values(NOTES()).filter(n => !n.re && noteCanRead(n));
+// las anotaciones a mano del guion rayado (tipo «ink», guion-anotar.js) viajan como notas pero no salen en las listas
+const noteRoots = () => Object.values(NOTES()).filter(n => !n.re && noteCanRead(n) && n.on.t !== 'ink');
 const noteReplies = id => Object.values(NOTES()).filter(n => n.re === id).sort((a, b) => a.ts - b.ts);
 /* «tipo:id» son todas las notas de un lugar; «tipo:id#nota» es una sola (la de un globo clavado) */
 const notesAt = key => { const h = key.indexOf('#'); if (h > 0) { const n = NOTES()[key.slice(h + 1)]; return n && !n.re && noteCanRead(n) ? [n] : []; } return noteRoots().filter(n => noteKey(n.on) === key).sort((a, b) => a.ts - b.ts); };
@@ -583,6 +584,8 @@ const CHDESC = {
     if (LA.on && !LB.rev && LA.rev) return { what: `abrió la revisión ${rn(LA.rev)} del guion` };
     if (LA.on && LB.rev && !LA.rev) { const r = (LA.revs || []).find(x => x.at === LB.rev.at && x.c === LB.rev.c); return { what: `cerró la revisión ${rn(LB.rev)} del guion${r && r.n ? ` (${r.n} ${r.n === 1 ? 'párrafo' : 'párrafos'})` : ' sin cambios'}` }; }
     if (chCanon(b.meta) !== chCanon(a.meta) && chCanon(b.paras) === chCanon(a.paras)) return { what: LA.on && chCanon(LB) !== chCanon(LA) ? 'cambió el acceso al guion cerrado' : 'cambió los datos del proyecto' };
+    // (lote AD) solo cambió la Historia (argumento, premisa, estructura…): antes se contaba como «editó la escena N»
+    if (chCanon(b.paras) === chCanon(a.paras) && typeof bChangeWhat === 'function') { const w = bChangeWhat(b.build, a.build); if (w) return { what: w }; }
     const B = b.paras || [], A = a.paras || [];
     let i = 0; while (i < B.length && i < A.length && chCanon(B[i]) === chCanon(A[i])) i++;
     let j = 0; while (j < B.length - i && j < A.length - i && chCanon(B[B.length - 1 - j]) === chCanon(A[A.length - 1 - j])) j++;
@@ -649,9 +652,9 @@ const CHDESC = {
     const db = days(B.items), da = days(A.items), moved = Object.keys(da).filter(k => k in db && db[k] !== da[k]);
     if (moved.length === 1) { const k = moved[0].replace(/[^\w.-].*$/, ''); return { what: `movió la escena ${moved[0]} a la jornada ${da[moved[0]]}`, ref: 'guion|scene|' + k }; }
     if (moved.length > 1) return { what: `movió ${moved.length} escenas de jornada` };
-    if (chCanon(B.items) !== chCanon(A.items)) return { what: (B.items || []).length === (A.items || []).length ? 'reordenó el stripboard' : 'cambió las jornadas del plan' };
-    if (B.start !== A.start || chCanon(B.off) !== chCanon(A.off)) return { what: 'cambió las fechas del stripboard' };
-    return { what: 'cambió el stripboard' };
+    if (chCanon(B.items) !== chCanon(A.items)) return { what: (B.items || []).length === (A.items || []).length ? 'reordenó el plan de rodaje' : 'cambió las jornadas del plan' };
+    if (B.start !== A.start || chCanon(B.off) !== chCanon(A.off)) return { what: 'cambió las fechas del plan de rodaje' };
+    return { what: 'cambió el plan de rodaje' };
   },
   calendario(b, a) {
     const T = chDiff((b.calendar || {}).tasks, (a.calendar || {}).tasks), tb = Object.fromEntries(((b.calendar || {}).tasks || []).map(t => [t.id, t])), ta = Object.fromEntries(((a.calendar || {}).tasks || []).map(t => [t.id, t]));
@@ -687,6 +690,8 @@ const CHDESC = {
     const B = b.notes || {}, A = a.notes || {}, N = chDiff(B, A);
     if (!N.n) return null;
     const id = N.add[0] || N.mod[0] || N.del[0], n = A[id] || B[id], on = n.on || {};
+    // con su ref (guion|ink|id): el aviso lo ve solo quien puede leer el guion, como las demás notas
+    if (on.t === 'ink') return { what: N.add.length ? 'anotó a mano en el guion rayado' : N.del.length ? 'borró una anotación del guion rayado' : 'cambió una anotación del guion rayado', ref: `${on.sec || 'guion'}|ink|${on.id || ''}` };
     const where = on.t === 'txt' && typeof mnWhere === 'function' ? mnWhere(on) : noteLabel(on) || 'una pestaña';
     const ref = on.sec ? `${on.sec}|${on.t}|${on.id}` : '';
     if (N.add.length) return { what: n.re ? `respondió en ${where}` : `dejó una nota en ${where}`, ref };
@@ -791,6 +796,8 @@ function actGo(ref, thread) {
 }
 /* ir a algo: cambia de pestaña, lo busca, lo muestra y (si se pide) abre su conversación */
 function noteGoto(t, id, tab, thread, nid) {
+  // (lote AD) Historia y Guion sin acceso: el guion se lee en el Guion rayado
+  if (tab && !canSeeTab(tab) && (tab === 'build' || tab === 'script') && canSeeTab('lined')) tab = 'lined';
   if (tab && !canSeeTab(tab)) { toast('No tienes acceso a esa pestaña.'); return; }
   if (nid && notesHidden()) ls.set('notesHide', false);
   if (nid) {
@@ -839,6 +846,7 @@ function npOpen(view, key) {
   if (key) NP.key = key;
   nfClose();
   lookClose();
+  if (typeof histPanelClose === 'function') histPanelClose();   // (lote AH) un panel a la vez
   pn.classList.add('open'); document.body.classList.add('np-on');
   dispatchEvent(new Event('resize'));
   npPaint();

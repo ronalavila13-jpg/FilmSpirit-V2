@@ -326,15 +326,130 @@ function accSurface(f, n, iso = .5) {
   }
   return { pos, idx };
 }
+/* ---------- la ropa dibujada se acomoda al cuerpo ----------
+   Cada prenda dibujada recuerda sobre qué tipo de cuerpo se dibujó (acc.fit.b; las de antes, el que tenía la figura al
+   cambiarlo). En otro cuerpo (de hombre a niño, por ejemplo), cada punto de la piel nueva busca su punto equivalente en el
+   cuerpo del dibujo por referencias del cuerpo: a lo alto entre cadera, cintura, pecho, cuello, mandíbula, ojos y
+   coronilla, y a lo ancho y a lo hondo según el ancho y el fondo del cuerpo a esa altura; en brazos y piernas, a lo largo
+   de sus huesos (hombro, codo, muñeca y dedos; cadera, rodilla, tobillo y punta del pie) y según su grosor. El dibujo se
+   mira en ese punto: un polo dibujado en el adulto sigue siendo un polo en el niño. Las proporciones (hombros, caderas,
+   cabeza, extremidades, abdomen) ya las sigue la piel: la prenda se arma sobre el cuerpo en reposo y se dobla con él. */
+const ACC_LAND = new WeakMap();
+function accLand(tp) {
+  let A = ACC_LAND.get(tp); if (A) return A;
+  const L = vestLand(tp), H = L.head, g = tp.parts.cuerpo.geo, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+  const eye = (tp.meta.eye || [0, H.y1 - .1, 0])[1];
+  // a lo alto (de abajo arriba): tobillo, rodilla, cadera, cintura, pecho, cuello, mandíbula, ojos, coronilla
+  const V = [L.ankle, L.knee, L.hip, L.waist, L.chest, L.neck, Math.max(L.neck + .02, H.y0), Math.max(L.neck + .04, eye), H.y1];
+  for (let i = 1; i < V.length; i++) V[i] = Math.max(V[i], V[i - 1] + .01);
+  // ancho y fondo del tronco con el cuello y la cabeza (sin brazos ni piernas), cada 1 cm
+  const NB = 240, WX = new Float32Array(NB), Z0 = new Float32Array(NB).fill(9), Z1 = new Float32Array(NB).fill(-9);
+  // grosor medio de cada tramo de brazos y piernas (distancia de la piel al hueso)
+  const CH = { arm_l: L.arm_l, arm_r: L.arm_r, leg_l: L.leg_l, leg_r: L.leg_r }, RS = {}, RN = {};
+  for (const k in CH) { RS[k] = [0, 0, 0]; RN[k] = [0, 0, 0]; }
+  for (let i = 0; i < P.count; i++) {
+    const w = [0, 0, 0, 0]; for (let k = 0; k < 4; k++) w[L.cls[SI.getComponent(i, k)]] += SW.getComponent(i, k);
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+    if (w[0] + w[3] > .6) { const b = Math.round(y * 100); if (b >= 0 && b < NB) { WX[b] = Math.max(WX[b], Math.abs(x)); Z0[b] = Math.min(Z0[b], z); Z1[b] = Math.max(Z1[b], z); } }
+    for (const [c, nm] of [[1, 'arm_'], [2, 'leg_']]) if (w[c] > .8) {
+      const k = nm + (x >= 0 ? 'l' : 'r'), C = CH[k], sg = Math.max(0, Math.min(2, Math.floor(vestChainT(x, y, z, C))));
+      RS[k][sg] += accSegDist([x, y, z], C[sg], C[sg + 1]); RN[k][sg]++;
+    }
+  }
+  for (const k in CH) RS[k] = RS[k].map((v, sg) => RN[k][sg] ? v / RN[k][sg] : .04);
+  // huecos (sin puntos a esa altura): el vecino más cercano; después, un suavizado de ±2 cm
+  const has = b => Z1[b] > -8;
+  for (let b = 0; b < NB; b++) if (!has(b)) for (let d = 1; d < NB; d++) { const q = has(b - d) ? b - d : has(b + d) ? b + d : -1; if (q >= 0 && q < NB) { WX[b] = WX[q]; Z0[b] = Z0[q]; Z1[b] = Z1[q]; break; } }
+  const sm = A0 => { const O = new Float32Array(NB); for (let b = 0; b < NB; b++) { let s2 = 0, n = 0; for (let d = -2; d <= 2; d++) if (b + d >= 0 && b + d < NB) { s2 += A0[b + d]; n++; } O[b] = s2 / n; } return O; };
+  A = { L, V, WX: sm(WX), Z0: sm(Z0), Z1: sm(Z1), CH, RS, H };
+  ACC_LAND.set(tp, A);
+  return A;
+}
+function accSegDist(p, a, b) {
+  const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ap = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+  const t = clamp((ap[0] * ab[0] + ap[1] * ab[1] + ap[2] * ab[2]) / (ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2] || 1), 0, 1);
+  return Math.hypot(ap[0] - ab[0] * t, ap[1] - ab[1] * t, ap[2] - ab[2] * t);
+}
+/* interpolación por tramos (la tabla X, de menor a mayor, a la tabla Y); fuera de la tabla sigue el tramo de la punta */
+function accPiece1(X, Y, x) {
+  let i = 1; while (i < X.length - 1 && x > X[i]) i++;
+  return Y[i - 1] + (x - X[i - 1]) * (Y[i] - Y[i - 1]) / Math.max(1e-4, X[i] - X[i - 1]);
+}
+/* el cuerpo del dibujo de una prenda (su plantilla), si es otro que el de la figura y ya cargó (si no, se pide) */
+function accFitSrc(acc, tp) {
+  const b = acc && acc.fit && acc.fit.b; if (!b || !tp || typeof FIG3D === 'undefined') return null;
+  const k = fig3dBody(b), S = FIG3D.tpl[k];
+  if (!S) { FIG3D.want(k); return null; }
+  return S === tp ? null : S;
+}
+/* para las cachés: con qué cuerpo se acomodó (vacío si es el mismo; con «?» mientras ese cuerpo carga) */
+function accFitKey(acc, tp) {
+  const b = acc && acc.fit && acc.fit.b; if (!b || !tp || typeof FIG3D === 'undefined') return '';
+  const k = fig3dBody(b), S = FIG3D.tpl[k];
+  return S === tp ? '' : k + (S ? '' : '?');
+}
+/* del cuerpo de la figura (T) al del dibujo (S): (x, y, z, pesos por clase de hueso [tronco, brazo, pierna, cabeza]) → punto */
+const ACC_FITM = new WeakMap();
+function accFitMap(S0, T0) {
+  let box = ACC_FITM.get(T0); if (!box) ACC_FITM.set(T0, box = new Map());
+  if (box.has(S0)) return box.get(S0);
+  const S = accLand(S0), T = accLand(T0);
+  const at = (A, y) => { const f = clamp(y * 100, 0, A.WX.length - 1.001), b = Math.floor(f), u = f - b, L = (X) => X[b] * (1 - u) + X[b + 1] * u; const z0 = L(A.Z0), z1 = L(A.Z1); return [L(A.WX), (z0 + z1) / 2, (z1 - z0) / 2]; };
+  const trunk = (x, y, z) => { const y2 = accPiece1(T.V, S.V, y), a = at(T, y), b = at(S, y2); return [x * b[0] / Math.max(.01, a[0]), y2, b[1] + (z - a[1]) * b[2] / Math.max(.01, a[2])]; };
+  const lerp3 = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+  // tramo por tramo: el giro que lleva la dirección del hueso de la figura a la del dibujo (Rodrigues)
+  const rot = {};
+  for (const k in T.CH) rot[k] = [0, 1, 2].map(sg => {
+    const d = (C, i) => { const v = [C[i + 1][0] - C[i][0], C[i + 1][1] - C[i][1], C[i + 1][2] - C[i][2]], l = Math.hypot(...v) || 1; return v.map(q => q / l); };
+    const a = d(T.CH[k], sg), b = d(S.CH[k], sg), c = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])), ax = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], sn = Math.hypot(...ax);
+    return { ax: sn > 1e-6 ? ax.map(q => q / sn) : null, c, s: sn, k: S.RS[k][sg] / Math.max(.005, T.RS[k][sg]) };
+  });
+  const limb = (k, x, y, z) => {
+    const CT = T.CH[k], CS = S.CH[k], t = vestChainT(x, y, z, CT), sg = Math.max(0, Math.min(2, Math.floor(t))), u = t - sg;
+    const pT = lerp3(CT[sg], CT[sg + 1], u), pS = lerp3(CS[sg], CS[sg + 1], u), R = rot[k][sg];
+    let o = [x - pT[0], y - pT[1], z - pT[2]];
+    if (R.ax) { const K = R.ax, kv = K[0] * o[0] + K[1] * o[1] + K[2] * o[2], cx = [K[1] * o[2] - K[2] * o[1], K[2] * o[0] - K[0] * o[2], K[0] * o[1] - K[1] * o[0]]; o = [0, 1, 2].map(j => o[j] * R.c + cx[j] * R.s + K[j] * kv * (1 - R.c)); }
+    return [pS[0] + o[0] * R.k, pS[1] + o[1] * R.k, pS[2] + o[2] * R.k];
+  };
+  const f = (x, y, z, w) => {
+    const wt = w[0] + w[3], sd = x >= 0 ? 'l' : 'r'; let X = 0, Y = 0, Z = 0, n = 0;
+    const add = (p, k) => { X += p[0] * k; Y += p[1] * k; Z += p[2] * k; n += k; };
+    if (wt > 1e-3) add(trunk(x, y, z), wt);
+    if (w[1] > 1e-3) add(limb('arm_' + sd, x, y, z), w[1]);
+    if (w[2] > 1e-3) add(limb('leg_' + sd, x, y, z), w[2]);
+    return n ? [X / n, Y / n, Z / n] : [x, y, z];
+  };
+  box.set(S0, f);
+  return f;
+}
+/* piezas (casco visual) de un cuerpo a otro: la pieza se corre y se escala con la parte donde va (la cabeza, el pecho,
+   la cadera): P en el marco del hueso, del cuerpo del dibujo (S) al de la figura (T) */
+function accPieceFit(P, S0, T0, partKey) {
+  const S = accLand(S0), T = accLand(T0), part = ACC_PARTS[partKey] || ACC_PARTS.cabeza;
+  const bS = S0.bones[S0.idx[part.bone]].h, bT = T0.bones[T0.idx[part.bone]].h;
+  // centro y medida de la parte en cada cuerpo
+  const frame = (A) => {
+    const L = A.L, H = A.H, at = y => { const b = clamp(Math.round(y * 100), 0, A.WX.length - 1); return [A.WX[b], (A.Z0[b] + A.Z1[b]) / 2, Math.max(.02, (A.Z1[b] - A.Z0[b]) / 2)]; };
+    if (part.bone === 'head') return { c: [(H.x0 + H.x1) / 2, (H.y0 + H.y1) / 2, (H.z0 + H.z1) / 2], s: [(H.x1 - H.x0) / 2, (H.y1 - H.y0) / 2, (H.z1 - H.z0) / 2] };
+    if (part.bone === 'spine_03') { const q = at(L.chest); return { c: [0, L.chest, q[1]], s: [q[0], L.neck - L.waist, q[2]] }; }
+    if (partKey === 'cadera') { const q = at(L.hip); return { c: [0, L.hip, q[1]], s: [q[0], L.waist - L.knee, q[2]] }; }
+    const q = at(L.chest); return { c: [0, L.hip, q[1]], s: [q[0], H.y1, q[2]] };
+  };
+  const fS = frame(S), fT = frame(T);
+  for (let i = 0; i < P.length; i += 3) for (let j = 0; j < 3; j++) P[i + j] = fT.c[j] - bT[j] + (P[i + j] + bS[j] - fS.c[j]) * fT.s[j] / Math.max(1e-3, fS.s[j]);
+}
+
 /* ---------- ropa ----------
    Lo dibujado elige la piel del maniquí que cubre: cada punto lo decide la vista que más lo mira de frente
    (si solo se dibujó de frente, la prenda rodea el cuerpo). Esa piel se copia, se empuja hacia afuera
    según el volumen (ajustada … holgada) y conserva los pesos de los huesos: se dobla con la figura. */
 function accClothGeo(acc, tp) {
   const part = ACC_PARTS[acc.part] || ACC_PARTS.torso, bi = tp.idx[part.bone]; if (bi === undefined) return null;
-  const h = tp.bones[bi].h, c = [h[0] + part.c[0], h[1] + part.c[1], h[2] + part.c[2]], S = part.s;
   // prenda lista (polo, pantalón, zapatos…): la piel que cubre la decide su receta, no un dibujo
   const PV = acc.preset && typeof vestCoverage === 'function' ? vestCoverage(acc, tp) : null;
+  // dibujada sobre otro tipo de cuerpo: cada punto se mira en el cuerpo del dibujo (y la caja es la de ese cuerpo)
+  const src = PV ? null : accFitSrc(acc, tp), fm = src ? accFitMap(src, tp) : null, Lc = fm ? vestLand(tp).cls : null;
+  const h = (src || tp).bones[(src || tp).idx[part.bone]].h, c = [h[0] + part.c[0], h[1] + part.c[1], h[2] + part.c[2]], S = part.s;
   const M = {}; if (!PV) for (const [k] of ACC_VIEWS) { const m = accMask(acc.views && acc.views[k]); if (m) M[k] = m; }
   const keys = Object.keys(M); if (!keys.length && !PV) return null;
   const facing = ACC_FACING, hair = acc.kind === 'pelo';
@@ -364,31 +479,38 @@ function accClothGeo(acc, tp) {
     if (!g.index || !A.skinIndex) continue;
     const fv = PV ? PV[name] : new Float32Array(n), fd = hair ? new Float32Array(n) : null;
     if (!fv) continue;
+    // el punto equivalente en el cuerpo del dibujo (o el mismo)
+    const Q = fm ? new Float32Array(n * 3) : null;
+    if (Q) for (let i = 0; i < n; i++) {
+      const w = [0, 0, 0, 0]; for (let k = 0; k < 4; k++) w[Lc[A.skinIndex.getComponent(i, k)]] += A.skinWeight.getComponent(i, k);
+      const q = fm(pos.getX(i), pos.getY(i), pos.getZ(i), w); Q[i * 3] = q[0]; Q[i * 3 + 1] = q[1]; Q[i * 3 + 2] = q[2];
+    }
+    const qx = i => Q ? Q[i * 3] : pos.getX(i), qy = i => Q ? Q[i * 3 + 1] : pos.getY(i), qz = i => Q ? Q[i * 3 + 2] : pos.getZ(i);
     if (!PV) for (let i = 0; i < n; i++) {
       const nx = nr.getX(i), ny = nr.getY(i), nz = nr.getZ(i);
       let best = keys[0], bf = -9; for (const k of keys) { const fa = facing[k](nx, ny, nz); if (fa > bf) { bf = fa; best = k; } }
-      const uv = ACC_PROJ[best]((pos.getX(i) - c[0]) / S, (pos.getY(i) - c[1]) / S, (pos.getZ(i) - c[2]) / S);
+      const uv = ACC_PROJ[best]((qx(i) - c[0]) / S, (qy(i) - c[1]) / S, (qz(i) - c[2]) / S);
       fv[i] = sample(B[best], uv);
       if (hair) fd[i] = sample(HD[best], uv);
     }
     // un punto nuevo: sobre la arista de i (adentro) a o (afuera), donde el borde la cruza
     const map = new Int32Array(n).fill(-1), cut = new Map(), ix = g.index.array;
-    const put = (px, py, pz, nx, ny, nz, si, inf0, inf1, f) => {
+    const put = (px, py, pz, nx, ny, nz, si, inf0, inf1, f, bx, by, bz) => {
       const l = Math.hypot(nx, ny, nz) || 1, tt = hair ? Math.max(.003, t * Math.sqrt(Math.min(1, f / 7))) : t;
       P.push(px + nx / l * tt, py + ny / l * tt, pz + nz / l * tt); N.push(nx / l, ny / l, nz / l);
-      BX.push((px - c[0]) / S, (py - c[1]) / S, (pz - c[2]) / S);
+      BX.push((bx - c[0]) / S, (by - c[1]) / S, (bz - c[2]) / S);   // donde mira los detalles: en el cuerpo del dibujo
       SI.push(A.skinIndex.getX(si), A.skinIndex.getY(si), A.skinIndex.getZ(si), A.skinIndex.getW(si));
       SW.push(A.skinWeight.getX(si), A.skinWeight.getY(si), A.skinWeight.getZ(si), A.skinWeight.getW(si));
       IN.push(inf0, inf1);
       return P.length / 3 - 1;
     };
-    const vtx = v => map[v] >= 0 ? map[v] : (map[v] = put(pos.getX(v), pos.getY(v), pos.getZ(v), nr.getX(v), nr.getY(v), nr.getZ(v), v, inf ? inf.getX(v) : 0, inf ? inf.getY(v) : 0, hair ? fd[v] : 0));
+    const vtx = v => map[v] >= 0 ? map[v] : (map[v] = put(pos.getX(v), pos.getY(v), pos.getZ(v), nr.getX(v), nr.getY(v), nr.getZ(v), v, inf ? inf.getX(v) : 0, inf ? inf.getY(v) : 0, hair ? fd[v] : 0, qx(v), qy(v), qz(v)));
     const edge = (i, o) => {
       const key = i < o ? i * n + o : o * n + i;
       if (cut.has(key)) return cut.get(key);
       const u = clamp((fv[i] - .5) / ((fv[i] - fv[o]) || 1), 0, 1), L = (p, q) => p + (q - p) * u;
       const r = put(L(pos.getX(i), pos.getX(o)), L(pos.getY(i), pos.getY(o)), L(pos.getZ(i), pos.getZ(o)), L(nr.getX(i), nr.getX(o)), L(nr.getY(i), nr.getY(o)), L(nr.getZ(i), nr.getZ(o)), i,
-        inf ? L(inf.getX(i), inf.getX(o)) : 0, inf ? L(inf.getY(i), inf.getY(o)) : 0, 0);
+        inf ? L(inf.getX(i), inf.getX(o)) : 0, inf ? L(inf.getY(i), inf.getY(o)) : 0, 0, L(qx(i), qx(o)), L(qy(i), qy(o)), L(qz(i), qz(o)));
       cut.set(key, r); return r;
     };
     for (let f = 0; f < ix.length; f += 3) {
@@ -431,8 +553,8 @@ function accBuild(acc, tp) {
   const part = ACC_PARTS[acc.part] || ACC_PARTS.cabeza;
   if (acc.preset && typeof vestBuild === 'function') return tp ? vestBuild(acc, tp) : null;
   if (acc.kind === 'ropa' || acc.kind === 'pelo') return tp ? accClothGeo(acc, tp) : null;
-  const vk = accVolK(acc);
-  const V = accVolume(acc.views, ACC_PARTS[acc.part] ? acc.part : 'cabeza', tp, vk);
+  const vk = accVolK(acc), src = accFitSrc(acc, tp);
+  const V = accVolume(acc.views, ACC_PARTS[acc.part] ? acc.part : 'cabeza', src || tp, vk);
   if (!V) return null;
   // el volumen también engorda o adelgaza lo que sale del casco visual (umbral más bajo = más grande)
   const { pos, idx } = accSurface(V.f, V.n, clamp(.5 - Math.log2(vk) * .09, .38, .62));
@@ -444,6 +566,8 @@ function accBuild(acc, tp) {
     P[i + 1] = c[1] + (.5 - (pos[i + 1] - 1 + .5) / N) * S;
     P[i + 2] = c[2] + ((pos[i + 2] - 1 + .5) / N - .5) * S;
   }
+  // dibujada sobre otro tipo de cuerpo: se corre y se escala con su parte del cuerpo
+  if (src) accPieceFit(P, src, tp, ACC_PARTS[acc.part] ? acc.part : 'cabeza');
   // el eje y se invirtió: se da vuelta el sentido de los triángulos para que miren hacia afuera
   for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
   // dos pasadas de suavizado (cada vértice se acerca al promedio de sus vecinos)
@@ -474,7 +598,7 @@ function accBuild(acc, tp) {
 }
 const ACC_GEOT = new WeakMap();   // una caché por cuerpo (la piel cambia de un cuerpo a otro)
 function accGeo(acc, tp) {
-  const key = acc.id + '|' + (acc.v || 0) + '|' + acc.part + '|' + (acc.kind || '') + '|' + (acc.vol || 0) + '|' + (acc.color || '') + '|' + (acc.mat || '') + '|' + (acc.preset || '');
+  const key = acc.id + '|' + (acc.v || 0) + '|' + acc.part + '|' + (acc.kind || '') + '|' + (acc.vol || 0) + '|' + (acc.color || '') + '|' + (acc.mat || '') + '|' + (acc.preset || '') + '|' + accFitKey(acc, tp);
   const box = tp ? (ACC_GEOT.get(tp) || (ACC_GEOT.set(tp, new Map()), ACC_GEOT.get(tp))) : ACC_GEO;
   if (box.has(key)) return box.get(key);
   const g = accBuild(acc, tp);
@@ -487,7 +611,7 @@ function fig3dAcc(A, look) {
   const list = ((look && look.acc) || []).filter(a => a && ACC_PARTS[a.part] && !a.hide);
   // con cabello dibujado, el peinado de la figura no se muestra (se repite en cada cuadro: el vestuario lo vuelve a poner)
   if (A.meshes && list.some(a => a.kind === 'pelo')) for (const k in A.meshes) if (k.startsWith('pelo_')) A.meshes[k].g.visible = false;
-  const sig = list.map(a => a.id + ':' + (a.v || 0) + ':' + a.color + ':' + a.part + ':' + (a.kind || '') + ':' + (a.vol || 0) + ':' + (a.mat || '') + ':' + (a.preset || '') + ':' + (a.pattern || '') + ':' + (a.color2 || '')).join('|');
+  const sig = list.map(a => a.id + ':' + (a.v || 0) + ':' + a.color + ':' + a.part + ':' + (a.kind || '') + ':' + (a.vol || 0) + ':' + (a.mat || '') + ':' + (a.preset || '') + ':' + (a.pattern || '') + ':' + (a.color2 || '') + ':' + accFitKey(a, A.fig)).join('|');
   if (A.accSig === sig) return;
   A.accSig = sig;
   for (const o of A.accObjs || []) { o.parent && o.parent.remove(o); o.traverse(m => { if (m.isMesh && m.material && !m.userData.ol) accDisposeMat(m.material); }); }
@@ -502,12 +626,18 @@ function fig3dAcc(A, look) {
   }
 }
 
+/* al cambiar el tipo de cuerpo de una figura: las prendas dibujadas que todavía no sabían sobre qué cuerpo se dibujaron
+   (las de antes) quedan con el que tenía la figura, así se siguen viendo igual y se acomodan al nuevo */
+const accFitStamp = (list, body) => (list || []).map(a => a && !a.preset && !a.fit && body ? { ...a, fit: { b: body } } : a);
+
 /* ---------- el editor ----------
    Una ventana sobre el editor del plano: a la izquierda la vista para dibujar (con la figura detrás,
    tenue), a la derecha el resultado en 3D, que gira solo o con el dedo. */
 function openAccEditor({ look, acc, onSave, kind }) {
   const T = THREE, body = fig3dBody(look.body);
-  if (!r3Init() || !FIG3D.has(body)) { FIG3D.want(body); toast('Espera a que cargue la figura 3D y vuelve a intentarlo.'); return; }
+  // una prenda dibujada sobre otro tipo de cuerpo se sigue dibujando sobre ese (la figura la lleva acomodada)
+  const srcB = (acc && acc.fit && acc.fit.b) || look.body, other = fig3dBody(srcB) !== body;
+  if (!r3Init() || !FIG3D.has(body) || !FIG3D.has(srcB)) { FIG3D.want(body); FIG3D.want(srcB); toast('Espera a que cargue la figura 3D y vuelve a intentarlo.'); return; }
   const a = acc ? JSON.parse(JSON.stringify(acc)) : { id: uid('a'), name: '', part: kind === 'ropa' ? 'cuerpo' : 'cabeza', color: kind === 'ropa' ? ACC_COLORS[3] : ACC_COLORS[0], views: {}, v: 0, ...(kind === 'ropa' ? { kind: 'ropa' } : {}) };
   a.views = a.views || {};
   // herramientas de precisión: simetría y guías del cuerpo (de entrada en la ropa), zoom con desplazamiento, polígono
@@ -521,19 +651,24 @@ function openAccEditor({ look, acc, onSave, kind }) {
   // figura de referencia: quieta, en la postura de reposo, con sus otros accesorios
   const lookRef = { ...look, acc: (look.acc || []).filter(x => x.id !== a.id) };
   const A = makeFigActor(lookRef);
+  // la figura de referencia para dibujar: la del cuerpo del dibujo (si es otro, el resultado se ve en la figura)
+  const lookSrc = other ? { ...lookRef, body: srcB } : lookRef, R = other ? makeFigActor(lookSrc) : A;
   // para dibujar cabello, la cabeza se ve sin el peinado de la figura
   const syncRef = () => {
-    fig3dColors(A, lookRef); fig3dScale(A, lookRef); fig3dAcc(A, lookRef);
-    if (a.kind === 'pelo') for (const k in A.meshes) if (k.startsWith('pelo_')) A.meshes[k].g.visible = false;
+    for (const [F, lk] of other ? [[A, lookRef], [R, lookSrc]] : [[A, lookRef]]) {
+      fig3dColors(F, lk); fig3dScale(F, lk); fig3dAcc(F, lk);
+      if (a.kind === 'pelo') for (const k in F.meshes) if (k.startsWith('pelo_')) F.meshes[k].g.visible = false;
+    }
   };
   syncRef();
   const scene = new T.Scene(); scene.background = new T.Color('#F4F1EC');
   scene.add(new T.HemisphereLight(0xffffff, 0xb3ada0, 2.2));
   const sun = new T.DirectionalLight(0xffffff, 1.4); sun.position.set(-2, 5, 4); scene.add(sun);
   scene.add(A.root); A.blob.visible = false; A.root.updateMatrixWorld(true);
+  if (other) { scene.add(R.root); R.blob.visible = false; R.root.visible = false; R.root.updateMatrixWorld(true); }
   let prevMesh = null;
-  const boxOf = () => {
-    const part = ACC_PARTS[a.part], b = A.bone(part.bone);
+  const boxOf = (F = R) => {
+    const part = ACC_PARTS[a.part], b = F.bone(part.bone);
     const c = b.localToWorld(new T.Vector3(...part.c)), s = part.s * b.getWorldScale(new T.Vector3()).x;
     return { c, s, b };
   };
@@ -554,8 +689,10 @@ function openAccEditor({ look, acc, onSave, kind }) {
     ocam.up.set(0, k === 'top' ? 0 : 1, k === 'top' ? -1 : 0);
     ocam.position.set(c.x + D[0], c.y + D[1], c.z + D[2]); ocam.lookAt(c);
     if (prevMesh) prevMesh.visible = false;   // la referencia es la figura sola
+    if (other) { A.root.visible = false; R.root.visible = true; }
     const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
     cv.getContext('2d').drawImage(render(ocam, 1024, 1024), 0, 0, 1024, 1024);
+    if (other) { A.root.visible = true; R.root.visible = false; }
     if (prevMesh) prevMesh.visible = true;
     return (refs[k] = cv);
   };
@@ -585,6 +722,7 @@ function openAccEditor({ look, acc, onSave, kind }) {
           <button data-x="clear" title="Borrar esta capa en esta vista" aria-label="Limpiar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M7 7l1 13h8l1-13M9.5 7V4.5h5V7"/></svg></button>
         </div>
         <p class="hint acc-hint"></p>
+        ${other ? `<p class="hint acc-fit">Dibujada sobre el cuerpo de ${esc((S3_BODY[srcB] || {}).name || srcB)}: en esta figura (${esc((S3_BODY[look.body] || {}).name || look.body)}) se acomoda sola.</p>` : ''}
       </div>
       <div class="acc-side">
         <canvas class="acc-p" width="440" height="440" aria-label="Resultado en 3D: arrástralo para girarlo"></canvas>
@@ -612,7 +750,7 @@ function openAccEditor({ look, acc, onSave, kind }) {
   const guidesFor = k => {
     if (refs['g:' + k]) return refs['g:' + k];
     const { c, s: sz } = boxOf(), h = sz / 2, out = [];
-    if (k !== 'top') for (const [n, bn, rt] of GUIDES) { const B = A.bone(bn); if (!B) continue; const w = B.getWorldPosition(new T.Vector3()), v = 64 - (w.y - c.y) / h * 64; if (v > 1 && v < 127) out.push([n, v, rt]); }
+    if (k !== 'top') for (const [n, bn, rt] of GUIDES) { const B = R.bone(bn); if (!B) continue; const w = B.getWorldPosition(new T.Vector3()), v = 64 - (w.y - c.y) / h * 64; if (v > 1 && v < 127) out.push([n, v, rt]); }
     return (refs['g:' + k] = out);
   };
   const paint = () => {
@@ -684,7 +822,7 @@ function openAccEditor({ look, acc, onSave, kind }) {
   const orb = { yaw: 35, pitch: 12, auto: true };
   let raf = 0, last = performance.now();
   const drawPrev = () => {
-    const { c, s } = boxOf(), d = s * 3.4;
+    const { c, s } = boxOf(A), d = s * 3.4;
     pcam.position.set(c.x + d * Math.cos(rad(orb.pitch)) * Math.sin(rad(orb.yaw)), c.y + d * Math.sin(rad(orb.pitch)), c.z + d * Math.cos(rad(orb.pitch)) * Math.cos(rad(orb.yaw)));
     pcam.lookAt(c);
     pg.drawImage(render(pcam, pv.width, pv.height), 0, 0);
@@ -848,7 +986,7 @@ function openAccEditor({ look, acc, onSave, kind }) {
     cancelAnimationFrame(raf); clearTimeout(rebuildT);
     removeEventListener('keydown', esc1, true); removeEventListener('keyup', keyUp, true);
     if (prevMesh) prevMesh.traverse(o => { if (o.isMesh) { accDisposeGeo(o.geometry); if (!o.userData.ol) accDisposeMat(o.material); } });
-    fig3dDispose(A); ov.remove();
+    fig3dDispose(A); if (other) fig3dDispose(R); ov.remove();
     if (typeof EDT !== 'undefined' && EDT && EDT.redraw) EDT.redraw();   // el visor vuelve a su tamaño
   };
   // con trazos o ajustes nuevos, salir sin guardar pregunta antes
@@ -872,6 +1010,7 @@ function openAccEditor({ look, acc, onSave, kind }) {
     if (!drawn()) { toast(a.kind === 'pelo' ? 'Pinta el cabello al menos en una vista (en la capa Forma).' : 'Dibuja la silueta del accesorio al menos en una vista (en la capa Forma).'); return; }
     a.name = (a.name || '').trim() || (a.kind === 'pelo' ? 'Cabello' : 'Accesorio');
     a.v = (a.v || 0) + 1;
+    a.fit = { b: srcB };   // sobre qué cuerpo se dibujó: en otros se acomoda
     close();
     onSave(a);
   });

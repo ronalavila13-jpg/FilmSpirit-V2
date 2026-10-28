@@ -7,10 +7,22 @@
      guardado, el párrafo se vuelve a dibujar.
    · Se ve también en el guion rayado (Marcar), sale en el PDF (negrita, itálica y subrayado) y en Fountain
      (**negrita**, *itálica*, _subrayado_). El resaltado es una marca de trabajo: se ve en pantalla, no se imprime.
-   · Barra de Escribir: B, I, U, resaltar y la revisión (marcar los cambios con su color).
+   · El resaltador tiene seis colores, cada uno con su letra en p.fm: h amarillo (el de siempre: lo ya resaltado sigue
+     amarillo), g verde, c celeste, r rosa, o naranja, l lila. Un tramo tiene un solo color: otro color encima lo cambia.
+     Con el guion cerrado los resaltados se ocultan (no se borran) y vuelven al reabrirlo.
+   · Barra de Escribir: B, I, U, resaltar (con su paleta en la flechita) y la revisión (marcar los cambios con su color).
    ============================================================ */
-const FMT_KEYS = ['b', 'i', 'u', 'h'];
+const FMT_KEYS = ['b', 'i', 'u', 'h', 'g', 'c', 'r', 'o', 'l'];
 const FMT_NAME = { b: 'Negrita', i: 'Itálica', u: 'Subrayado', h: 'Resaltar' };
+// los colores del resaltador: [letra en p.fm, nombre, color de la rayita del botón]
+const FMT_HL = [['h', 'Amarillo', '#F5C400'], ['g', 'Verde', '#3DB86A'], ['c', 'Celeste', '#2FA8E0'], ['r', 'Rosa', '#EC6AA4'], ['o', 'Naranja', '#F58A2E'], ['l', 'Lila', '#9B7BE0']];
+const FMT_HLK = FMT_HL.map(c => c[0]);
+const fmtHlName = k => (FMT_HL.find(c => c[0] === k) || FMT_HL[0])[1];
+const fmtHlHex = k => (FMT_HL.find(c => c[0] === k) || FMT_HL[0])[2];
+// el último color usado (se recuerda en este equipo)
+const fmtHlCur = () => { const k = ls.get('hlColor', 'h'); return FMT_HLK.includes(k) ? k : 'h'; };
+// con el guion cerrado los resaltados del guionista no se ven ni se ponen
+const fmtHlHidden = () => typeof scriptLock === 'function' && !!scriptLock();
 const fmtOn = p => !!(p && p.fm && FMT_KEYS.some(k => p.fm[k] && p.fm[k].length));
 /* une tramos que se tocan o se pisan y quita los vacíos */
 function fmtNorm(list, len) {
@@ -125,22 +137,46 @@ function edWordAt(i, o) {
   while (e < x.length && W.test(x[e])) e++;
   return e > s ? { a: { i, o: s }, b: { i, o: e } } : null;
 }
-function fmtToggle(k) {
-  if (!edEditable()) return;
-  let r = edRange();
-  if (!r) { toast('Pon el cursor en el guion o elige el texto.'); return; }
-  if (r.collapsed) { const w = edWordAt(r.a.i, r.a.o); if (!w) { toast(`Elige el texto para ${FMT_NAME[k].toLowerCase() === 'resaltar' ? 'resaltarlo' : 'darle ' + FMT_NAME[k].toLowerCase()}.`); return; } r = { ...w, collapsed: false, word: true }; }
+/* lo elegido (o la palabra del cursor) como tramos [párrafo, desde, hasta] */
+function fmtSpans(r0, what) {
+  let r = r0 || edRange();
+  if (!r) { toast('Pon el cursor en el guion o elige el texto.'); return null; }
+  if (r.collapsed) { const w = edWordAt(r.a.i, r.a.o); if (!w) { toast(`Elige el texto para ${what}.`); return null; } r = { ...w, collapsed: false, word: true }; }
   const spans = [];
   for (let i = r.a.i; i <= r.b.i; i++) { const p = P.paras[i]; if (!p) continue; const s = i === r.a.i ? r.a.o : 0, e = i === r.b.i ? r.b.o : p.x.length; if (e > s) spans.push([p, s, e]); }
-  if (!spans.length) return;
-  const on = !spans.every(([p, s, e]) => fmtCovers(p, k, s, e));
-  edPush(true);
-  for (const [p, s, e] of spans) { fmtSet(p, k, s, e, on); edRevMark(p); }
+  return spans.length ? { r, spans } : null;
+}
+function fmtAfter(r) {
   edCommit(false);
-  const sel = { a: r.a, b: r.b };
   renderEditorDoc(r.a);
-  if (!r.word) edSelectRange(sel.a, sel.b); else edSetCaret(r.a.i, r.b.o);
+  if (!r.word) edSelectRange(r.a, r.b); else edSetCaret(r.a.i, r.b.o);
   edFmtPaint();
+}
+function fmtToggle(k) {
+  if (!edEditable()) return;
+  if (FMT_HLK.includes(k)) { fmtHlApply(k); return; }
+  const x = fmtSpans(null, 'darle ' + FMT_NAME[k].toLowerCase()); if (!x) return;
+  const on = !x.spans.every(([p, s, e]) => fmtCovers(p, k, s, e));
+  edPush(true);
+  // en una revisión, el tramo con otro formato queda resaltado con el color de la revisión (guion-revision.js)
+  for (const [p, s, e] of x.spans) { fmtSet(p, k, s, e, on); edRevMark(p); rvwMark(p, s, e); }
+  fmtAfter(x.r);
+}
+/* resaltar con un color (k) o quitar el resaltado (k = null). Un color encima de otro lo cambia; el mismo color
+   sobre lo que ya lo tiene, lo quita. El resaltado no se imprime: no cuenta como cambio de la revisión */
+/* los tramos [párrafo, desde, hasta] con el color k (o sin resaltado): devuelve si quedó resaltado */
+function fmtHlPaint(spans, k) {
+  const off = !k || spans.every(([p, s, e]) => fmtCovers(p, k, s, e));
+  for (const [p, s, e] of spans) { for (const h of FMT_HLK) fmtSet(p, h, s, e, false); if (!off) fmtSet(p, k, s, e, true); }
+  return !off;
+}
+function fmtHlApply(k, r0) {
+  if (!edEditable() || fmtHlHidden()) return;
+  const x = fmtSpans(r0, k ? 'resaltarlo' : 'quitarle el resaltado'); if (!x) return;
+  edPush(true);
+  fmtHlPaint(x.spans, k);
+  if (k && k !== fmtHlCur()) { ls.set('hlColor', k); const bar = $('.ed-fmt'); if (bar) bar.outerHTML = fmtBarHTML(); }   // la rayita del botón toma el color
+  fmtAfter(x.r);
 }
 
 /* ---------- barra de Escribir ---------- */
@@ -148,30 +184,48 @@ const FMT_IC = {
   b: '<path d="M7 4.5h6a3.5 3.5 0 0 1 0 7H7zM7 11.5h7a4 4 0 0 1 0 8H7z"/>',
   i: '<path d="M10 4.5h8M6 19.5h8M14 4.5l-4 15"/>',
   u: '<path d="M7 4v7a5 5 0 0 0 10 0V4M5.5 20h13"/>',
-  h: '<path d="m14.5 4.5 5 5L11 18H6v-5z"/><path d="M4 21h16" stroke-width="3"/>',
+  h: '<path d="m14.5 4.5 5 5L11 18H6v-5z"/><path class="hl-bar" d="M4 21h16" stroke-width="3"/>',
   rev: '<path d="M12 3.5v17M5 7.5l14 9M19 7.5 5 16.5"/>',
 };
 const fmtIco = k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${FMT_IC[k]}</svg>`;
 function fmtBarHTML() {
   if (!edEditable()) return '';
   const R = P.rev || {}, L = typeof scriptLock === 'function' ? scriptLock() : null, rc = L ? (L.rev ? L.rev.c : null) : R.on ? R.c || 'azul' : null;
-  const kb = { b: 'Ctrl + B', i: 'Ctrl + I', u: 'Ctrl + U', h: '' };
-  return `<span class="ed-fmt" role="group" aria-label="Formato">${FMT_KEYS.map(k => `<button class="btn ghost icon fmt-b fmt-${k}" type="button" data-act="ed-fmt" data-k="${k}" aria-pressed="false" title="${esc(FMT_NAME[k])}${kb[k] ? ' (' + kb[k] + ')' : ''}${k === 'h' ? ' · se ve en pantalla, no se imprime' : ''}" aria-label="${esc(FMT_NAME[k])}">${fmtIco(k)}</button>`).join('')}
+  const kb = { b: 'Ctrl + B', i: 'Ctrl + I', u: 'Ctrl + U', h: '' }, hk = fmtHlCur();
+  // el resaltador: un toque resalta con el último color (la rayita de abajo); la flechita abre la paleta.
+  // Con el guion cerrado no está: sus resaltados se ocultan
+  const hl = fmtHlHidden() ? '' : `<span class="fmt-hl" style="--hl:${ea(fmtHlHex(hk))}"><button class="btn ghost icon fmt-b fmt-h" type="button" data-act="ed-fmt" data-k="${hk}" aria-pressed="false" title="${esc(`Resaltar en ${fmtHlName(hk).toLowerCase()} · se ve en pantalla, no se imprime`)}" aria-label="${esc('Resaltar en ' + fmtHlName(hk).toLowerCase())}">${fmtIco('h')}</button><button class="btn ghost fmt-hm" type="button" data-act="ed-hlmenu" aria-haspopup="menu" title="Color del resaltador" aria-label="Color del resaltador">${ICO.chev}</button></span>`;
+  return `<span class="ed-fmt" role="group" aria-label="Formato">${['b', 'i', 'u'].map(k => `<button class="btn ghost icon fmt-b fmt-${k}" type="button" data-act="ed-fmt" data-k="${k}" aria-pressed="false" title="${esc(FMT_NAME[k])}${kb[k] ? ' (' + kb[k] + ')' : ''}" aria-label="${esc(FMT_NAME[k])}">${fmtIco(k)}</button>`).join('')}${hl}
     <button class="btn ghost icon fmt-rev" type="button" data-act="ed-rev" aria-pressed="${ea(!!rc)}" style="--c:${ea(rc ? revColor(rc) : 'transparent')}" title="${esc(L ? (L.rev ? `Revisión ${revName(L.rev.c).toLowerCase()} abierta: los cambios quedan con asterisco` : 'Guion cerrado') : rc ? `Marcando los cambios en ${revName(rc).toLowerCase()}: toca para el color o para dejar de marcar` : 'Revisión: marcar los cambios con un asterisco de color')}" aria-label="Revisión" aria-haspopup="menu">${fmtIco('rev')}<i class="fmt-dot"></i></button></span>`;
 }
 /* los botones encendidos según el texto donde está el cursor (o lo elegido) */
 function edFmtPaint() {
   const bar = $('.ed-fmt'); if (!bar) return;
   const r = edRange();
-  for (const k of FMT_KEYS) {
-    const b = $(`.fmt-${k}`, bar); if (!b) continue;
-    let on = false;
-    if (r) {
-      if (r.collapsed) { const p = P.paras[r.a.i]; const o = r.a.o; on = !!(p && p.fm && (p.fm[k] || []).some(([s, e]) => s < o && e >= o || (o === 0 && s === 0 && e > 0))); }
-      else { on = true; for (let i = r.a.i; i <= r.b.i && on; i++) { const p = P.paras[i]; if (!p) continue; const s = i === r.a.i ? r.a.o : 0, e = i === r.b.i ? r.b.o : p.x.length; if (e > s && !fmtCovers(p, k, s, e)) on = false; } }
-    }
-    b.setAttribute('aria-pressed', on);
-  }
+  const has = k => {
+    if (!r) return false;
+    if (r.collapsed) { const p = P.paras[r.a.i]; const o = r.a.o; return !!(p && p.fm && (p.fm[k] || []).some(([s, e]) => s < o && e >= o || (o === 0 && s === 0 && e > 0))); }
+    let on = true; for (let i = r.a.i; i <= r.b.i && on; i++) { const p = P.paras[i]; if (!p) continue; const s = i === r.a.i ? r.a.o : 0, e = i === r.b.i ? r.b.o : p.x.length; if (e > s && !fmtCovers(p, k, s, e)) on = false; }
+    return on;
+  };
+  for (const k of ['b', 'i', 'u']) { const b = $(`.fmt-${k}`, bar); if (b) b.setAttribute('aria-pressed', has(k)); }
+  // el resaltador está encendido si lo de ahí tiene cualquier color
+  const h = $('.fmt-h', bar); if (h) h.setAttribute('aria-pressed', FMT_HLK.some(has));
+}
+/* la paleta del resaltador: seis colores y quitar el resaltado. Elegir un color resalta lo elegido (o la palabra) */
+function fmtHlMenu(btn) {
+  if (!edEditable() || fmtHlHidden()) return;
+  const r0 = edRange(), cur = fmtHlCur();
+  popover(btn, `<div class="menu hl-pick" role="menu">${FMT_HL.map(([k, n, c]) => `<button type="button" role="menuitemradio" data-hl="${k}" aria-checked="${ea(k === cur)}"><span class="hl-sw" style="--c:${ea(c)}"></span>${esc(n)}</button>`).join('')}<hr>
+    <button type="button" role="menuitem" data-hl=""><span class="hl-sw none"></span>Quitar resaltado</button></div>`, p => {
+    p.addEventListener('pointerdown', e => { if (e.target.closest('[data-hl]')) e.preventDefault(); });   // lo elegido en el guion no se pierde
+    p.addEventListener('click', e => {
+      const b = e.target.closest('[data-hl]'); if (!b) return; closePop();
+      const k = b.dataset.hl || null;
+      if (k) { ls.set('hlColor', k); const bar = $('.ed-fmt'); if (bar) { bar.outerHTML = fmtBarHTML(); edFmtPaint(); } }
+      if (r0) fmtHlApply(k, r0); else if (k) toast(`Resaltador ${fmtHlName(k).toLowerCase()}: elige el texto y tócalo.`);
+    });
+  });
 }
 function revMenu(btn) {
   const L = typeof scriptLock === 'function' ? scriptLock() : null;
@@ -180,7 +234,7 @@ function revMenu(btn) {
   popover(btn, `<h5>Revisión</h5><div class="menu rev-pick">
       <button data-rv="off" aria-pressed="${ea(!R.on)}"><span class="rv-sw" style="--c:transparent"></span>No marcar los cambios</button><hr>
       ${REV_COLORS.map(([k, n, c]) => `<button data-rv="${k}" aria-pressed="${ea(!!R.on && (R.c || 'azul') === k)}"><span class="rv-sw" style="--c:${ea(c)}"></span>${esc(n)}</button>`).join('')}</div>
-    <p class="hint" style="margin:6px 8px 2px;max-width:240px">Cada párrafo que cambies queda con un asterisco de ese color en el margen, también en el PDF.</p>`, p => p.addEventListener('click', e => {
+    <p class="hint" style="margin:6px 8px 2px;max-width:240px">Lo que cambies queda resaltado con ese color y el párrafo con un asterisco en el margen. En el PDF, solo el asterisco.</p>`, p => p.addEventListener('click', e => {
     const b = e.target.closest('[data-rv]'); if (!b) return; closePop();
     const v = b.dataset.rv;
     edPush(true);
@@ -193,6 +247,7 @@ function revMenu(btn) {
   }));
 }
 ACT['ed-fmt'] = b => fmtToggle(b.dataset.k);
+ACT['ed-hlmenu'] = b => fmtHlMenu(b);
 ACT['ed-rev'] = b => revMenu(b);
 document.addEventListener('selectionchange', () => { if (UI.tab === 'script' && UI.scriptEdit && $('#ed') && $('#ed').contains(document.activeElement)) edFmtPaint(); });
 
@@ -201,7 +256,8 @@ function fmtFountain(p) {
   const x = (p.x || '').replace(/\n/g, ' ');
   if (!fmtOn(p)) return x;
   return fmtRuns(p, 0, x.length).map(r => {
-    let t = x.slice(r.a, r.b); if (!r.f.replace('h', '')) return t;
+    // el resaltado (de cualquier color) no sale en Fountain
+    let t = x.slice(r.a, r.b); if (![...r.f].some(k => !FMT_HLK.includes(k))) return t;
     const m = t.match(/^(\s*)(.*?)(\s*)$/);
     let inner = m[2]; if (!inner) return t;
     if (r.f.includes('u')) inner = '_' + inner + '_';

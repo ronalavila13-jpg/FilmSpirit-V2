@@ -25,13 +25,19 @@ else
   OUT=dist/filmspirit.html
   mkdir -p dist
 fi
+# las letras de los PDF y los lectores 3D van aparte en el servidor, con su huella en el nombre (lib/pdf-fuentes-<huella>.js):
+# una pestaña abierta con la versión anterior nunca carga los de otra versión
+PDFF_V=$(cat src/pdf-fuente.js src/pdf-fuente-x.js | sha1sum | cut -c1-10)
+GLB_V=$(sha1sum < src/glb-lib.js | cut -c1-10)
+LIBD=server/public/app/lib
+if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIBD/glb-lib*.js; printf "'use strict';\n" > $LIBD/pdf-fuentes-$PDFF_V.js; fi
 {
   if [ "$TARGET" = desktop ]; then
     echo '<!doctype html>'
     echo '<html lang="es">'
     echo '<meta charset="utf-8">'
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
-    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:\">"
+    echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'\">"
     echo '<link rel="stylesheet" href="fonts/fonts.css">'
     sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html
     echo '<script src="lib/three.min.js"></script>'
@@ -60,18 +66,26 @@ fi
   echo "const THV = '$(cat src/s3d-*.js src/expresiones.js src/floorplan.js src/s2d-editor.js src/charphoto.js | sha1sum | cut -c1-10)';"
   # el diccionario del inglés (i18n/en.json y el glosario): lo usa i18n.js, que va primero
   if [ -f i18n/en.json ]; then node i18n/hacer.js; else echo 'const I18N_EN = { x: {}, p: [], f: {} };'; fi
-  FILES="i18n core areas marca recorte-fuente iconos sample ui imagenes ventanas cabecera pestanas proyectos importar arranque historial barra leyenda arrastre tab-script fecha guion-editor guion-revision guion-formato guion-cierre guion-margen tab-project tab-breakdown tab-board s3d-model s3d-figs expresiones s3d-figuras-datos s3d-figuras s3d-render s3d-luz s3d-entornos s3d-accesorios s3d-vehiculos s3d-animales s3d-objetos s3d-interiores s3d-vestuario s3d-pelo s3d-gente s3d-plan glb-lib modelos personajes-3d escenarios-3d planta-general floorplan charphoto shot-editor s2d-editor ficha tab-animatic tab-plan plan-dood tab-cal cal-meses tab-call tab-budget tab-gastos tab-sup sup-partes xlsx pdf-fuente pdf-fuente-x pdf pdf-rango laminas tab-build tab-scout tab-casting archivo notas inicio series"
+  FILES="i18n core areas marca recorte-fuente iconos sample ui imagenes ventanas cabecera pestanas proyectos importar arranque historial barra leyenda arrastre tab-script fecha guion-editor guion-revision guion-formato guion-cierre guion-margen guion-anotar guion-racha tab-project tab-breakdown tab-board s3d-model s3d-figs expresiones s3d-figuras-datos s3d-figuras s3d-render s3d-luz s3d-entornos s3d-accesorios s3d-vehiculos s3d-cabinas s3d-animales s3d-objetos s3d-interiores s3d-vestuario s3d-pelo s3d-gente s3d-plan glb-lib modelos personajes-3d escenarios-3d escenarios-escala escenarios-sobre planta-general floorplan charphoto shot-editor s2d-editor ficha tab-animatic tab-plan plan-columnas plan-dood tab-cal cal-meses tab-call tab-budget tab-gastos tab-sup sup-partes xlsx pdf-fuente pdf-fuente-x pdf pdf-llamado pdf-rango pdf-vista laminas tab-build historia-previa tab-scout mapa-enlace scout-mapa tab-casting archivo notas inicio series"
   # equipo: en escritorio viaja por la carpeta compartida; en la web, por la base de datos de la página
   if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes"; else FILES="$FILES share share-web"; fi
+  # la huella de las letras de los PDF y de los lectores 3D (en el servidor, parte del nombre de su archivo en lib/)
+  echo "const PDFF_V = '$PDFF_V', GLB_V = '$GLB_V';"
   for f in $FILES; do
     # en el servidor los maniquíes 3D van en archivos aparte (se descargan solo cuando se usan)
-    if [ "$TARGET" = server ] && [ "$f" = s3d-figuras-datos ]; then node server/tools/figuras.js src/s3d-figuras-datos.js server/public/app/fig; else cat src/$f.js; fi
+    if [ "$TARGET" = server ] && [ "$f" = s3d-figuras-datos ]; then node server/tools/figuras.js src/s3d-figuras-datos.js server/public/app/fig
+    # y también las letras de los PDF (unos 640 kB, se bajan al exportar: pdf.js · loadPdfLib) y los lectores de
+    # modelos 3D (unos 260 kB, al importar un modelo: modelos.js · glbLibLoad). Antes iban en app.js para todos
+    elif [ "$TARGET" = server ] && { [ "$f" = pdf-fuente ] || [ "$f" = pdf-fuente-x ]; }; then cat src/$f.js >> $LIBD/pdf-fuentes-$PDFF_V.js; echo >> $LIBD/pdf-fuentes-$PDFF_V.js
+    elif [ "$TARGET" = server ] && [ "$f" = glb-lib ]; then cp src/glb-lib.js $LIBD/glb-lib-$GLB_V.js
+    else cat src/$f.js; fi
     echo
   done
   echo 'boot();'
   echo '</script>'
 } > $OUT.tmp
 mv $OUT.tmp $OUT
+if [ "$TARGET" = server ]; then node --check $LIBD/pdf-fuentes-$PDFF_V.js && node --check $LIBD/glb-lib-$GLB_V.js; fi
 if [ "$TARGET" = desktop ] || [ "$TARGET" = server ]; then
   # en escritorio y en el servidor el código va en app.js (archivo aparte, no en línea)
   python3 - "$OUT" <<'PY'

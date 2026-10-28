@@ -5,8 +5,11 @@
 /* ---------- pestañas ---------- */
 const RENDER = {};
 function setTab(t) {
+  // (lote AD) Historia y Guion sin acceso (un enlace, una notificación): el guion se lee en el Guion rayado
+  if (typeof canSeeTab === 'function' && !canSeeTab(t) && (t === 'build' || t === 'script') && canSeeTab('lined')) t = 'lined';
   if (typeof canSeeTab === 'function' && !canSeeTab(t)) { toast('No tienes acceso a esa pestaña en este proyecto.'); return; }
   if (t !== 'animatic' && AN.playing) anPause();
+  if (t !== UI.tab && typeof histFlush === 'function') histFlush();   // (lote AH) lo pendiente queda en la pestaña donde se hizo
   scriptModeFor(t);
   tgClose();   // el menú de la etapa no queda abierto al cambiar de pestaña desde otro lado
   document.body.classList.remove('mk-on');   // el marcador vale solo en el guion rayado (al volver, se pinta de nuevo)
@@ -306,6 +309,8 @@ function sampleBanner() {
 /* el ejemplo pasa a ser un proyecto guardado (con los dibujos hechos mientras se probaba) */
 async function adoptSample() {
   if (!P || !P._sample || P._saved) return;
+  // sin cuenta (el ejemplo desde la portada): primero la cuenta; al entrar, se guarda (cuenta.js · anonAsk)
+  if (Store.kind === 'api' && APITEAM.anon) return anonAsk('save', adoptSample);
   if (typeof autoKind === 'function' && autoKind()) P._kind = autoKind();
   if (!(await canCreateProject(false, P._kind))) return;
   // web con cuentas, como guion (plan Guion o sin lugar de producción): se avisa que solo se guarda el guion
@@ -314,7 +319,7 @@ async function adoptSample() {
     const m = modal({
       title: 'Guardar el ejemplo',
       body: `<p style="margin:0">${paid ? 'Tus proyectos de producción están en uso, así que el ejemplo se guarda como guion' : 'En el plan Guion el ejemplo se guarda como guion'}: queda el texto y las notas; el desglose, el storyboard, el plan y el presupuesto del ejemplo no se guardan.</p>`,
-      foot: `<button class="btn" data-close>Cancelar</button><button class="btn" id="adPlans">${paid ? 'Ver planes' : 'Probar Pro 30 días gratis'}</button><button class="btn primary" id="adGo">Guardar como guion</button>`,
+      foot: `<button class="btn" data-close>Cancelar</button><button class="btn" id="adPlans">${paid ? 'Ver planes' : 'Ver planes de suscripción'}</button><button class="btn primary" id="adGo">Guardar como guion</button>`,
     });
     $('#adPlans', m).onclick = () => { closeModal(); freeLimitNotice('prod'); };
     $('#adGo', m).onclick = () => { closeModal(); adoptSample.ok = true; adoptSample().finally(() => { adoptSample.ok = false; }); };

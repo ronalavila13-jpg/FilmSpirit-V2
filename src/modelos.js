@@ -1,6 +1,8 @@
 /* ============================================================
    MODELOS 3D IMPORTADOS · escenarios (uno por locación) y personajes con esqueleto (en su ficha)
-   Se leen .glb, .gltf (con todo adentro), .vrm y .fbx (el de Mixamo) con los lectores de three.js (glb-lib.js).
+   Se leen .glb, .gltf (con todo adentro), .vrm y .fbx (el de Mixamo) con los lectores de three.js (glb-lib.js); los
+   escenarios, además, .kmz (SketchUp para web: el Collada con sus texturas), .dae, .obj (con su .mtl y sus texturas, si
+   se eligen junto con él) y un .zip con cualquiera de ellos.
    No se guarda el archivo original: se guarda una versión liviana en un formato propio («FSM»): gzip de
    [«FSM1»][u32 largo del encabezado][encabezado JSON][datos], con las mallas, los materiales, las texturas en WebP de
    hasta unos 170 kB (imagenes.js) y, en un personaje, su esqueleto. Viaja como una imagen más
@@ -11,6 +13,13 @@ const M3_MIME = 'model/x-fsm';
 const M3_MAX = 8 * 1024 * 1024;                        // lo que acepta el servidor por archivo
 const M3_TRIS = { set: 300000, char: 100000 };         // triángulos: más que esto se reduce
 const M3_FILES = '.glb,.gltf,.vrm,.fbx';
+// escenarios: también los de SketchUp para web y lo que acompaña a un .obj o a un .dae (su .mtl y sus texturas)
+const M3_SET_FILES = '.glb,.gltf,.kmz,.dae,.obj,.mtl,.zip,.fbx,.vrm,.png,.jpg,.jpeg,.webp,.gif,.bmp';
+const M3_ORDER = ['kmz', 'glb', 'gltf', 'vrm', 'fbx', 'dae', 'obj', 'zip'];   // el archivo del modelo, si se eligen varios
+const m3Ext = n => ((String(n || '').match(/\.(\w+)$/) || [])[1] || '').toLowerCase();
+const m3Base = n => String(n || '').split(/[\\/]/).pop().toLowerCase();
+/* entre los archivos elegidos, el del modelo (los demás son su .mtl y sus texturas) */
+const m3Main = files => { let best = null, bi = 99; for (const f of files) { const i = M3_ORDER.indexOf(m3Ext(f.name)); if (i >= 0 && i < bi) { best = f; bi = i; } } return best; };
 const M3_BIG = 'El modelo sigue pesando más de 8 MB aun aligerado. Quita lo que no sale en cámara y vuelve a exportarlo.';
 const m3Key = (kind, id) => `m3~${kind}~${id}`;        // kind: 's' escenario, 'c' personaje
 
@@ -22,15 +31,64 @@ function m3Msg(e) {
   if (/Failed to load|\.bin|fetch|404/i.test(s)) return 'Ese .gltf usa archivos aparte (.bin y texturas). Expórtalo como .glb, que lleva todo en un solo archivo.';
   if (/FBX version not supported|Unknown format|THREE\.FBXLoader/i.test(s)) return 'Ese .fbx no se puede leer (versión antigua o en texto). Descárgalo de nuevo como FBX binario o pásalo a .glb.';
   if (/grande/.test(s)) return 'El archivo pesa demasiado (más de 400 MB). Limpia el modelo antes de exportarlo.';
+  if (/m3:kmz/.test(s)) return 'Ese .kmz no trae un modelo 3D (Collada). Expórtalo de nuevo desde SketchUp (Exportar › KMZ) o como .glb.';
+  if (/m3:zip/.test(s)) return 'El .zip no trae un modelo: tiene que tener un .dae, .obj, .glb o .kmz.';
+  if (/m3:dae/.test(s)) return 'Ese .dae no se puede leer. Expórtalo de nuevo como Collada (.dae) o, mejor, como .kmz o .glb.';
+  if (/zip data|invalid zip|unexpected EOF|invalid (block|distance|length)/i.test(s)) return 'El archivo comprimido (.kmz o .zip) está dañado o incompleto. Vuelve a exportarlo.';
   return 'No se pudo leer el modelo. Prueba exportarlo de nuevo como .glb.';
 }
-async function m3Read(file) {
+/* los lectores de modelos (src/glb-lib.js, unos 260 kB): en la web con servidor van aparte (lib/glb-lib-<huella>.js, build.sh) y
+   se bajan al importar el primer modelo; en escritorio y en Claude vienen dentro */
+let GLB_P = null;
+function glbLibLoad() {
+  if (typeof glbLib === 'function') return Promise.resolve(glbLib());
+  return GLB_P || (GLB_P = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'lib/glb-lib-' + GLB_V + '.js';
+    s.onload = () => { try { if (typeof glbLib !== 'function') throw new Error('No se pudo cargar el lector de modelos 3D. Recarga la página.'); res(glbLib()); } catch (e) { GLB_P = null; rej(e); } };
+    s.onerror = () => { s.remove(); GLB_P = null; rej(new Error('No se pudo cargar el lector de modelos 3D. Revisa tu conexión.')); };
+    document.head.appendChild(s);
+  }));
+}
+/* extra: los archivos que acompañan al modelo (el .mtl de un .obj, las texturas de un .dae o de un .obj) */
+async function m3Read(file, extra) {
   if (!r3Init()) throw new Error('Este equipo no puede mostrar 3D.');
-  const L = glbLib(), name = file.name || '', buf = await file.arrayBuffer();
+  const L = await glbLibLoad();
+  let name = file.name || '', buf = await file.arrayBuffer();
   if (buf.byteLength > 400 * 1024 * 1024) throw new Error(m3Msg('grande'));
+  const res = new Map(), urls = [];
+  for (const f of extra || []) res.set(m3Base(f.name), f);
   try {
+    // un .kmz es un .zip con doc.kml, el modelo Collada y sus texturas; un .zip, lo que baja SketchUp para web cuando el
+    // modelo lleva texturas: se abre el modelo y lo demás queda a mano para el lector. (El KMZLoader de three.js arma su
+    // propio administrador de carga y no avisa cuándo llegan las texturas: se perdían; por eso se abre aquí, igual que él)
+    const ext0 = m3Ext(name);
+    if (ext0 === 'zip' || ext0 === 'kmz') {
+      const Z = L.unzipSync(new Uint8Array(buf)), ents = Object.entries(Z).filter(([k]) => !/(^|\/)(__MACOSX|\.)/.test(k));
+      const kml = Z['doc.kml'] && /<Model\b[\s\S]*?<href>\s*([^<]+?)\s*<\/href>/i.exec(new TextDecoder().decode(Z['doc.kml']));
+      const href = kml && decodeURIComponent(kml[1]).replace(/^\.\//, '');
+      const main = href && Z[href] ? { name: href } : m3Main(ents.map(([k]) => ({ name: k })).filter(f => !/^(zip|kmz)$/.test(m3Ext(f.name))));
+      if (!main) throw new Error(ext0 === 'kmz' ? 'm3:kmz' : 'm3:zip');
+      for (const [k, v] of ents) if (k !== main.name) res.set(m3Base(k), new Blob([v]));
+      const u = Z[main.name]; buf = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength); name = m3Base(main.name);
+    }
+    // lo que pide el lector (texturas, .mtl) se busca entre los archivos elegidos, por su nombre; lo que falta no se
+    // busca en internet: el material queda con su color. Se cuenta lo que empieza a cargar para esperar a que termine
+    const mgr = new THREE.LoadingManager(); let started = 0;
+    const loaded = new Promise(r => { mgr.onLoad = r; }), start0 = mgr.itemStart;
+    mgr.itemStart = u => { started++; start0.call(mgr, u); };
+    mgr.setURLModifier(url => { if (/^(blob|data):/.test(url)) return url; const f = res.get(m3Base(decodeURIComponent(String(url).split(/[?#]/)[0]))); if (!f) return 'data:,'; const u = URL.createObjectURL(f); urls.push(u); return u; });
+    const ext = m3Ext(name), text = () => new TextDecoder().decode(buf);
     let root, fmt = 'gltf', vrm = 0;
-    if (/\.fbx$/i.test(name)) { root = new L.FBXLoader().parse(buf, ''); fmt = 'fbx'; }
+    if (ext === 'fbx') { root = new L.FBXLoader().parse(buf, ''); fmt = 'fbx'; }
+    else if (ext === 'dae') { const r = new L.ColladaLoader(mgr).parse(text(), ''); if (!r || !r.scene) throw new Error(ext0 === 'kmz' ? 'm3:kmz' : 'm3:dae'); root = r.scene; fmt = ext0 === 'kmz' ? 'kmz' : 'dae'; }
+    else if (ext === 'obj') {
+      const ol = new L.OBJLoader(mgr), mf = [...res.keys()].find(k => k.endsWith('.mtl'));
+      if (mf) { const mt = new L.MTLLoader(mgr).parse(await res.get(mf).text(), ''); mt.preload(); ol.setMaterials(mt); }
+      root = ol.parse(text()); fmt = 'obj';
+      // sin su .mtl: color neutro (el lector lo deja blanco)
+      if (!mf) root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material || [])) if (m && m.color) m.color.set('#D6D1C8'); });
+    }
     else {
       const ldr = new L.GLTFLoader();
       try { await L.MeshoptDecoder.ready; ldr.setMeshoptDecoder(L.MeshoptDecoder); } catch (e) { }
@@ -41,9 +99,11 @@ async function m3Read(file) {
       root = g.scene;
     }
     root.updateMatrixWorld(true);
+    if (started) await Promise.race([loaded, new Promise(r => setTimeout(r, 15000))]);   // las texturas del .kmz, .dae u .obj
     await m3TexReady(root);
     return { root, fmt, vrm, name: name.replace(/\.[^.]+$/, ''), bytes: buf.byteLength };
   } catch (e) { console.warn('modelo 3D:', e); throw new Error(m3Msg(e)); }
+  finally { for (const u of urls) URL.revokeObjectURL(u); }
 }
 // las texturas que el lector todavía está abriendo (las del FBX llegan después)
 async function m3TexReady(root) {
@@ -83,7 +143,8 @@ function m3Tex(img, max, top) {
   if (!w0 || !h0) return null;
   const r = Math.min(1, max / Math.max(w0, h0)), c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(w0 * r)); c.height = Math.max(1, Math.round(h0 * r));
-  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height);
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+  try { g.drawImage(img, 0, 0, c.width, c.height); } catch (e) { return null; }   // una textura que no es imagen (TGA): solo el color
   const alpha = m3HasAlpha(img);
   return { bytes: m3Bytes(imgUrl(c, { alpha, top })), alpha, type: IMG_WEBP ? 'image/webp' : alpha ? 'image/png' : 'image/jpeg' };
 }
@@ -206,14 +267,18 @@ function m3Merge(parts) {
   }
   return out;
 }
-/* menos triángulos si pasa del tope (meshoptimizer); sin él, se avisa */
-async function m3Simplify(parts, budget) {
+/* menos triángulos si pasa del tope (meshoptimizer); sin él, se avisa. keep (lote W · versión liviana): las partes de
+   hasta keep triángulos no se tocan (los muros y lo simple quedan rectos) y lo que sobra se quita de las pesadas */
+async function m3Simplify(parts, budget, keep = 0) {
   const tris = parts.reduce((a, P) => a + P.idx.length / 3, 0);
   if (tris <= budget) return { tris, cut: false };
-  const S = glbLib().MeshoptSimplifier;
+  const S = (await glbLibLoad()).MeshoptSimplifier;
   try { await S.ready; } catch (e) { throw new Error(`El modelo tiene ${Math.round(tris).toLocaleString('es-PE')} triángulos y aquí se acepta hasta ${budget.toLocaleString('es-PE')}. Simplifícalo antes de exportarlo (quita lo que no sale en cámara).`); }
-  const r = budget / tris;
+  const small = keep ? parts.reduce((a, P) => a + (P.idx.length / 3 <= keep ? P.idx.length / 3 : 0), 0) : 0;
+  const lite = keep && small < budget * .5;
+  const r = lite ? (budget - small) / Math.max(1, tris - small) : budget / tris;
   for (const P of parts) {
+    if (lite && P.idx.length / 3 <= keep) continue;
     const target = Math.max(3, Math.floor(P.idx.length * r / 3) * 3);
     if (target >= P.idx.length) continue;
     const [ni] = S.simplify(P.idx, P.pos, 3, target, .02, ['LockBorder']);
@@ -228,7 +293,7 @@ async function m3Pack(root, o) {
   const R = m3Parts(root, kind);
   let parts = kind === 'set' ? m3Merge(R.parts) : R.parts;
   if (!parts.length) throw new Error('El archivo no trae mallas que se puedan mostrar.');
-  const sim = await m3Simplify(parts, o.budget || M3_TRIS[kind]);
+  const sim = await m3Simplify(parts, o.budget || M3_TRIS[kind], o.keep || 0);
   // texturas: lado mayor 1024 px y hasta unos 170 kB cada una (con muchas, menos: el total no pasa de unos 4 MB)
   const nT = R.texs.length, top = Math.min(o.texTop || IMG_TOP, Math.floor((o.texAll || 4 * 1024 * 1024) / Math.max(1, nT))), side = nT > 24 || o.texTop ? 512 : 1024;
   const texB = R.texs.map(t => m3Tex(t.img, side, top));

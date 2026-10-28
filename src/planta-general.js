@@ -18,9 +18,13 @@ const pgShort = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); ret
 /* lo que se dibuja: los planos de la escena (sin los dibujados a mano), su escena 3D (la del editor abierto, si es
    uno de ellos: live = { id, s3 }), sus cámaras, las figuras y el lugar */
 function pgData(scKey, live) {
-  const all = (D.shotsBy[scKey] || []).filter(sh => sh && sh.ws !== '2d');
-  const s3s = all.map(sh => live && live.id === sh.id ? live.s3 : s3Of(sh));
-  const base = s3s[all.findIndex(sh => sh.s3 || (live && live.id === sh.id))] || s3s[0] || null;
+  const all = (D.shotsBy[scKey] || []).filter(sh => sh && shot3D(sh));
+  // con máster (lote U): los planos que lo siguen se arman desde él; si es el del editor abierto, con sus cambios
+  const M = shotMaster(scKey), liveM = live && M && live.id === M.id ? live.s3 : null;
+  const s3s = all.map(sh => live && live.id === sh.id ? live.s3 : liveM && masterOf(sh) ? s3Follow(sh, liveM) : s3Of(sh));
+  if (typeof escLocSet === 'function') { const sc0 = sceneOfKey(scKey); for (const x of s3s) escLocSet(x, sc0 && sc0.loc); }   // lote W · la escala de la calle de la locación
+  const iM = M ? all.findIndex(sh => sh.id === M.id) : -1;
+  const base = s3s[iM >= 0 ? iM : all.findIndex(sh => sh.s3 || (live && live.id === sh.id))] || s3s[0] || null;
   const shots = all.map((sh, i) => {
     const s3 = s3s[i], code = D.code[sh.id] || '', cams = [];
     const one = (v, letter) => {
@@ -31,10 +35,10 @@ function pgData(scKey, live) {
     if (s3HasB(s3)) one(s3ForB(s3), 'B');
     return { sh, s3, code, col: pgCol(i), cams, desc: pgShort(sh.desc || [sh.size, sh.angle && sh.angle !== 'Normal' ? sh.angle : '', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean).join(' · '), 60) };
   });
-  // las figuras: una vez cada personaje (la posición del primer plano en que aparece); en los demás planos, si está en
-  // otro lugar, un punto tenue con el código; si se desplaza dentro de un plano, su recorrido
+  // las figuras: una vez cada personaje (la posición del máster o del primer plano en que aparece); en los demás planos,
+  // si está en otro lugar, un punto tenue con el código; si se desplaza dentro de un plano, su recorrido
   const figs = new Map();
-  shots.forEach(S => {
+  (iM >= 0 ? [shots[iM], ...shots.filter((x, j) => j !== iM)] : shots).forEach(S => {
     const st = s3At(S.s3, 0), ok = objKeys(S.s3);
     for (const ob of S.s3.objs) {
       if (ob.kind !== 'actor' || ob.hold) continue;
@@ -85,10 +89,10 @@ function pgDraw(ctx, W, H, G, opt = {}) {
       ctx.fillStyle = PLAN_C.muted; ctx.font = font(600, 10); ctx.textAlign = 'center'; ctx.fillText(genteLabel(ob), sx, sy + 3 * k);
       continue;
     }
-    const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };
+    const fp = propFoot(ob);   // lote W · D: la huella con la escala del objeto
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot || 0));
     ctx.fillStyle = PLAN_C.prop; ctx.strokeStyle = PLAN_C.propLine; ctx.lineWidth = 1.1 * k;
-    const w = (ob.kind === 'puerta' ? .9 : ob.kind === 'ventana' ? 1.3 : fp.w) * V.sc, d = (ob.kind === 'puerta' || ob.kind === 'ventana' ? .12 : fp.d) * V.sc;
+    const w = (ob.kind === 'puerta' ? .9 * objSc(ob) : ob.kind === 'ventana' ? 1.3 * objSc(ob) : fp.w) * V.sc, d = (ob.kind === 'puerta' || ob.kind === 'ventana' ? .12 : fp.d) * V.sc;
     ctx.fillRect(-w / 2, -d / 2, w, d); ctx.strokeRect(-w / 2, -d / 2, w, d); ctx.restore();
     if (V.sc > 14 * k && ob.kind !== 'puerta' && ob.kind !== 'ventana') { ctx.fillStyle = PLAN_C.muted; ctx.font = font(600, 10); ctx.textAlign = 'center'; ctx.fillText(fp.name || ob.name || '', sx, sy + 3 * k); }
   }
@@ -125,7 +129,7 @@ function pgDraw(ctx, W, H, G, opt = {}) {
       boxes.push([sx - 10 * k, sy - 10 * k, 20 * k, 34 * k]);
       elHits.push({ id: ob.id, x: sx, y: sy, r: 14 * k });
     } else {
-      const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind }, w = Math.max(6 * k, fp.w * V.sc), d = Math.max(6 * k, fp.d * V.sc);
+      const fp = propFoot(ob), w = Math.max(6 * k, fp.w * V.sc), d = Math.max(6 * k, fp.d * V.sc);   // lote W · D: con su escala
       ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot || 0));
       ctx.fillStyle = fp.cat === 'animal' ? '#EFE6D6' : PLAN_C.prop; ctx.strokeStyle = on ? PLAN_C.cam : PLAN_C.propLine; ctx.lineWidth = (on ? 2.4 : 1.2) * k;
       ctx.fillRect(-w / 2, -d / 2, w, d); ctx.strokeRect(-w / 2, -d / 2, w, d);
@@ -251,7 +255,7 @@ function pgFit(G, W, H, k = 1) {
 /* ---------- la ventana: planta, leyenda, resaltar, abrir y exportar ---------- */
 /* opts: { from: el editor de plano abierto (EDT), para ver sus cambios sin guardar y para pasar a otro plano } */
 /* los elementos de la escena en sus planos con puesta en escena propia (los demás los toman de P.scEls: s3Default) */
-const scElShots = scKey => (D.shotsBy[scKey] || []).filter(sh => sh && sh.ws !== '2d' && sh.s3);
+const scElShots = scKey => (D.shotsBy[scKey] || []).filter(sh => sh && shot3D(sh) && sh.s3);
 function scElAdd(scKey, ob, pos) {
   P.scEls = P.scEls || {}; (P.scEls[scKey] = P.scEls[scKey] || []).push({ ob, pos });
   for (const sh of scElShots(scKey)) scElPut(sh.s3, ob, pos);
@@ -530,10 +534,10 @@ function plantaGenCanvas(G, px, dpr = 2.5) {
 /* qué se exporta: el plano (con su escena 3D: la del editor si está abierto) o la escena entera */
 function plantaWhat(kind, o) {
   // sin plano o escena dichos: el primero que tenga planta (así el PDF sale igual desde cualquier lugar)
-  const first = () => D.sc.scenes.map(x => x.key).find(k => (D.shotsBy[k] || []).some(sh => sh.ws !== '2d'));
+  const first = () => D.sc.scenes.map(x => x.key).find(k => (D.shotsBy[k] || []).some(sh => shot3D(sh)));
   o = { ...o };
   if (kind === 'gen' && !sceneOfKey(o.sc)) o.sc = first();
-  if (kind !== 'gen' && !(o.id && P.shots[o.id])) { const k = first(); o.id = k ? D.shotsBy[k].find(sh => sh.ws !== '2d').id : null; delete o.s3; }
+  if (kind !== 'gen' && !(o.id && P.shots[o.id])) { const k = first(); o.id = k ? D.shotsBy[k].find(sh => shot3D(sh)).id : null; delete o.s3; }
   if (kind === 'gen' ? !o.sc : !o.id) throw new Error('Todavía no hay planos con planta de cámara.');
   if (kind === 'gen') {
     const s = sceneOfKey(o.sc), G = pgData(o.sc, o.live || null);
@@ -555,17 +559,17 @@ function plantaShotLines(W) {
 function pdfPlantaPage(kind, opts) {
   const W = plantaWhat(kind, opts), doc = newDoc('landscape');
   let y = docHeader(doc, W.label, W.sub);
-  doc.setFont('title', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
-  doc.text(pdfSafe(`Esc. ${W.s.key}  ·  ${W.s.heading}`), 36, y + 4); y += 16;
-  const M = 36, PH = 612, ps = Math.min(PH - y - 44, 420), side = M + ps + 22, sw = 792 - M - side;
+  // (lote AH) la escena en su cuadro; la planta y sus datos, cada uno en su cuadro; las medidas, del papel (carta o A4)
+  y = pdfSec(doc, y, `Esc. ${W.s.key}  ·  ${W.s.heading}`, { need: 0 });
+  const M = 36, PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), ps = Math.min(PH - y - 40, 420), side = M + ps + 22, sw = PW - M - 10 - side;
   const cv = kind === 'gen' ? plantaGenCanvas(W.G, 600) : plantaShotCanvas(W.s3, 600);
   try { doc.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M, y, ps, ps); } catch (e) { PDF_MISS++; }
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.6); doc.rect(M, y, ps, ps);
-  let ty = y + 10;
+  pdfBox(doc, M, y, ps, ps); pdfBox(doc, side - 10, y, PW - M - side + 10, ps);
+  let ty = y + 16;
   if (kind === 'gen') {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('PLANOS', side, ty); ty += 14;
     for (const S of W.G.shots) {
-      if (ty > PH - 50) break;
+      if (ty > y + ps - 30) break;
       doc.setFillColor(...rgb(S.col)); doc.rect(side, ty - 8, 9, 9, 'F');
       doc.setFont('title', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(pdfSafe(S.code), side + 15, ty);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
@@ -576,7 +580,7 @@ function pdfPlantaPage(kind, opts) {
     }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
     const note = doc.splitTextToSize(pdfSafe('Cada cámara lleva el código de su plano y su lente; la cámara B, el cono punteado. Las figuras van una vez; sus otras posiciones son los puntos con el código del plano. Las flechas finas: lo que se desplaza.'), sw);
-    doc.text(note, side, Math.min(PH - 40 - note.length * 9, Math.max(ty + 4, y + ps - note.length * 9)));
+    doc.text(note, side, Math.max(ty + 4, y + ps - 8 - note.length * 9));
   } else {
     doc.setFont('title', 'bold'); doc.setFontSize(20); doc.setTextColor(...INK); doc.text(pdfSafe(W.code), side, ty + 8); ty += 26;
     for (const [k, v] of plantaShotLines(W)) {

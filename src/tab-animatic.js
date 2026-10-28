@@ -171,7 +171,8 @@ function drawCard(ctx, k, W, H) {
 const AN_FC = new Map();     // id del plano → { k, cv }
 const AN_TDEP = new Set();   // claves de planos que parecían quietos pero cambian con el tiempo (lluvia, olas)
 function anStatic(sh) {
-  if (sh.ws === '2d' || (frameHas(sh.id) && !sh.refBack)) return false;   // dibujo 2D y foto: ya son baratos
+  if (!shot3D(sh) || (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref')))) return false;   // dibujo 2D y foto: ya son baratos
+  if (d2On(sh) && sh.d2.frames.length > 1) return false;   // el dibujo 2D encima cambia de cuadro
   const s3 = s3Of(sh);
   if (s3.shake) return false;
   const ks = s3.keys || [];
@@ -228,7 +229,7 @@ function anDraw(ctx, W, H, T, L, opts = {}) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (!c) return null;
   // las imágenes del clip y de los que siguen se piden antes de que lleguen
-  if (FRIDX && AN.pf !== c.i + ':' + (L.over || []).length) { AN.pf = c.i + ':' + (L.over || []).length; const ks = []; for (let i = c.i; i < Math.min(L.clips.length, c.i + 6); i++) if (L.clips[i].sh) ks.push(...frameViewKeys(L.clips[i].sh.id)); for (const o of L.over || []) if (o.sh && o.end > T && o.start < T + 20) ks.push(...frameViewKeys(o.sh.id)); framesNeed(ks); }
+  if (FRIDX && AN.pf !== c.i + ':' + (L.over || []).length) { AN.pf = c.i + ':' + (L.over || []).length; const ks = []; for (let i = c.i; i < Math.min(L.clips.length, c.i + 6); i++) if (L.clips[i].sh) ks.push(...shotViewKeys(L.clips[i].sh)); for (const o of L.over || []) if (o.sh && o.end > T && o.start < T + 20) ks.push(...shotViewKeys(o.sh)); framesNeed(ks); }
   const lt = clamp(T - c.start, 0, c.dur);
   const tr = c.tr, td = (tr.f || 12) / fpsOf();
   const prev = L.clips[c.i - 1];
@@ -335,7 +336,9 @@ function anEdit(label, ids, fn) {
   return true;
 }
 function anRestore(s, made, redo) {
+  const io = anCfg().io;   // las marcas de entrada y salida no se deshacen
   P.animatic = JSON.parse(s.an);
+  if (io) P.animatic.io = io; else delete P.animatic.io;
   for (const [id, js] of Object.entries(s.sh)) {
     if (js == null) { if (P.shots[id]) { delete P.shots[id]; delShotFrames(id); } }
     else P.shots[id] = JSON.parse(js);
@@ -380,6 +383,8 @@ const AN_IC = {
   trkv2: '<rect x="1.8" y="8.5" width="12.4" height="5" rx="1"/><rect x="4.5" y="2.5" width="9.7" height="4.2" rx="1"/>',
   trkt: '<path d="M2.5 3h11v7.5H7.2L4.2 13v-2.5H2.5z"/><path d="M5 5.9h6M5 7.9h3.8"/>',
   music: '<path d="M6.2 12.2V3.6l7-1.6v8.6"/><circle cx="4.4" cy="12.2" r="1.8"/><circle cx="11.4" cy="10.6" r="1.8"/>',
+  ioin: '<path d="M10.5 2.5C8.5 2.5 8 3.2 8 4.6v1.8C8 7.5 7.4 8 5.5 8c1.9 0 2.5.5 2.5 1.6v1.8c0 1.4.5 2.1 2.5 2.1"/>',
+  ioout: '<path d="M5.5 2.5c2 0 2.5.7 2.5 2.1v1.8C8 7.5 8.6 8 10.5 8 8.6 8 8 8.5 8 9.6v1.8c0 1.4-.5 2.1-2.5 2.1"/>',
   loop: '<path d="M11.5 1.8 13.7 4l-2.2 2.2"/><path d="M2.5 7.5V6.6A2.6 2.6 0 0 1 5.1 4h8.4"/><path d="M4.5 14.2 2.3 12l2.2-2.2"/><path d="M13.5 8.5v.9A2.6 2.6 0 0 1 10.9 12H2.5"/>',
 };
 const anIcon = k => `<svg viewBox="0 0 16 16" aria-hidden="true">${AN_IC[k]}</svg>`;
@@ -394,6 +399,7 @@ function anToolsHTML() {
     ${b('an-undo', 'undo', 'Deshacer' + (H.undo.length ? ': ' + H.undo[H.undo.length - 1].label : ''), 'Ctrl + Z', !H.undo.length)}${b('an-redo', 'redo', 'Rehacer' + (H.redo.length ? ': ' + H.redo[H.redo.length - 1].label : ''), 'Ctrl + Mayús + Z', !H.redo.length)}${sep}
     ${b('an-snap', 'snap', 'Imán: los bordes y el cabezal se pegan a los cortes', 'N', false, `aria-pressed="${ea(anSnapOn())}"`, 'Imán')}${sep}
     ${b('an-trim', 'tin', 'Quitar el comienzo hasta el cabezal', 'Q', false, 'data-s="q"')}${b('an-trim', 'tout', 'Quitar el final desde el cabezal', 'W', false, 'data-s="w"')}${sep}
+    ${b('an-io', 'ioin', 'Marcar la entrada en el cabezal', 'I', false, 'data-s="a"')}${b('an-io', 'ioout', 'Marcar la salida en el cabezal', 'O', false, 'data-s="b"')}${sep}
     ${b('an-del', 'del', 'Quitar y cerrar el hueco', 'Supr', !n)}${b('an-del', 'gap', 'Quitar y dejar un negro', 'Mayús + Supr', !n, 'data-gap="1"')}${b('an-dup', 'dup', 'Duplicar', 'Ctrl + D', !n)}${sep}
     ${b('an-card', 'title', 'Insertar un título en el cabezal', 'T', false, 'data-k="title"', 'Título')}${b('an-card', 'black', 'Insertar un negro en el cabezal', 'B', false, 'data-k="black"', 'Negro')}${sep}
     ${anTrkButtons(b)}
@@ -599,6 +605,7 @@ function timelineHTML(L) {
       <div class="trk trk-v" id="trkV">${clips}</div>
       <div class="trk trk-t">${subs}</div>
       <div class="trk trk-a" id="trkA">${au && L.locked.size ? `<span class="aname">${esc(au.name)} · sigue a cada escena en su lugar del montaje completo</span>` : au ? `<canvas id="wave" style="left:${ea((au.offset || 0) * pps)}px"></canvas><span class="aname">${esc(au.name)}${AN.audio ? '' : ' · vuelve a cargarla para escucharla'}</span>` : (ro ? '<span class="aname dim">Sin música.</span>' : '<button class="an-addmu" data-act="an-music">♪ Añadir música</button>')}</div>
+      ${anIoHTML(L, pps)}
       <div class="playhead" id="ph" style="left:${ea(AN.T * pps)}px"><i></i></div>
       <div class="bladeln" id="bladeLn" hidden><b class="tnum"></b></div>
     </div></div>`;
@@ -760,6 +767,7 @@ function anPaintSel() {
 }
 function onNlePointer(e) {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (e.target.closest('.io-x')) return;   // la × de las marcas (un clic: ACT 'an-io-x')
   const trim = e.target.closest('[data-trim]'), clip = e.target.closest('.clip');
   // cuchilla: un toque sobre un clip lo corta ahí
   if (AN.blade && clip && !trim && !UI.readOnly && !clip.classList.contains('ghost')) {
@@ -1336,17 +1344,125 @@ function musicDialog() {
   if (del) del.onclick = () => { cfg.audio = null; if (AN.audio) AN.audio.pause(); AN.audio = null; idbPut('p:' + P.id, null); changed('data'); closeModal(); render(); };
 }
 
+/* ---------- entrada y salida (I y O) ----------
+   Marcan una parte de la línea de tiempo (segundos del montaje que se ve) para exportar solo esa parte. Se guardan en
+   el proyecto (cfg.io = { a: entrada, b: salida }; puede haber una sola) y no son un paso de deshacer: deshacer una
+   edición del montaje no las mueve. */
+const anIO = () => anCfg().io || null;
+/* la parte marcada, dentro del montaje: [entrada, salida], o null (sin marcas, o fuera del montaje) */
+function anIoRange(io, total, fps) {
+  if (!io || (io.a == null && io.b == null)) return null;
+  const a = clamp(io.a ?? 0, 0, total), b = clamp(io.b ?? total, 0, total);
+  return b - a >= 1 / fps - 1e-6 ? [a, b] : null;
+}
+/* marca la entrada (k = 'a') o la salida ('b') en T, en un cuadro; la otra se quita si queda del lado equivocado */
+function anIoSet(io, k, T, fps) {
+  const o = { ...(io || {}) };
+  o[k] = +(Math.round(T * fps) / fps).toFixed(4);
+  if (o.a != null && o.b != null && o.b - o.a < 1 / fps - 1e-6) delete o[k === 'a' ? 'b' : 'a'];
+  return o;
+}
+/* lo que se graba: partes [desde, hasta] del montaje que se ve, una tras otra. Todo · de la entrada a la salida · los
+   clips de una escena (con sus títulos; si el montaje la parte en pedazos, van seguidos) */
+function anExportSegs(L, how, io, key) {
+  if (how === 'io' && io) return [[io[0], io[1]]];
+  if (how === 'sc') {
+    const out = [];
+    for (const c of L.clips) if (c.sc === key) { const l = out[out.length - 1]; if (l && Math.abs(l[1] - c.start) < 1e-6) l[1] = c.end; else out.push([c.start, c.end]); }
+    if (out.length) return out;
+  }
+  return [[0, L.total]];
+}
+const segsDur = segs => segs.reduce((s, [a, b]) => s + b - a, 0);
+/* del tiempo que lleva grabando (e) al tiempo del montaje */
+function segAt(segs, e) {
+  for (const [a, b] of segs) { if (e < b - a) return a + e; e -= b - a; }
+  return segs.length ? segs[segs.length - 1][1] : 0;
+}
+/* la parte marcada sobre la línea de tiempo: sombreada, con la × que quita las marcas */
+function anIoHTML(L, pps) {
+  const io = anIO(), r = anIoRange(io, L.total, fpsOf()); if (!r) return '';
+  const lab = `${io.a == null ? '' : tc(r[0]) + ' '}→${io.b == null ? '' : ' ' + tc(r[1])}`;   // con una sola marca, la flecha sola de su lado
+  return `<div class="io-rng${ea(io.a == null ? ' no-a' : '')}${ea(io.b == null ? ' no-b' : '')}" id="ioRng" style="left:${ea(r[0] * pps)}px;width:${ea((r[1] - r[0]) * pps)}px"><button type="button" class="io-x" data-act="an-io-x" title="Quitar las marcas de entrada y salida (${esc(lab)})" aria-label="Quitar las marcas de entrada y salida">${ICO.close}</button></div>`;
+}
+function anPaintIO() {
+  const old = $('#ioRng'); if (old) old.remove();
+  const inner = $('#nleIn'); if (inner && AN_L) inner.insertAdjacentHTML('beforeend', anIoHTML(AN_L, AN.pps));
+}
+function anIoPut(io) {
+  if (typeof histCapture === 'function') histCapture();   // lo que estaba pendiente queda en su propio paso
+  const cfg = anCfg();
+  if (io && (io.a != null || io.b != null)) cfg.io = io; else delete cfg.io;
+  changed('data');
+  if (typeof histQuiet === 'function') histQuiet('animatic');   // las marcas no son un paso de deshacer
+  anPaintIO();
+}
+/* I y O (o los botones de la barra): la marca va al cabezal */
+function anMark(k) {
+  const L = AN_L; if (!L || !L.clips.length) return;
+  const fps = fpsOf(), f = 1 / fps, T = Math.round(AN.T * fps) / fps, io = anIO() || {};
+  if (k === 'a' && T > L.total - f + 1e-6) { toast('La entrada tiene que quedar antes del final del montaje.'); return; }
+  if (k === 'b' && T < f - 1e-6) { toast('La salida tiene que quedar después del comienzo del montaje.'); return; }
+  const nx = anIoSet(io, k, T, fps);
+  anIoPut(nx);
+  if (k === 'a' && io.b != null && nx.b == null) toast('La salida quedaba antes de la entrada: se quitó.');
+  else if (k === 'b' && io.a != null && nx.a == null) toast('La entrada quedaba después de la salida: se quitó.');
+}
+/* Mayús + I y Mayús + O: el cabezal a la entrada o a la salida */
+function anIoGo(k) {
+  const L = AN_L, r = L && anIoRange(anIO(), L.total, fpsOf()); if (!r) return;
+  if (AN.playing) anPause();
+  seek(k === 'a' ? r[0] : r[1]);
+}
+
 /* ---------- exportar video ---------- */
 async function exportVideo() {
   if (!proGate('video')) return;
-  // el video recorre todo el montaje en tiempo real: sus imágenes se traen antes y no se sueltan mientras graba
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) { toast('Este navegador no puede grabar video.'); return; }
+  const L0 = anClips();
+  if (!L0.clips.length) { toast('No hay planos en el montaje.'); return; }
+  const what = await anExportAsk(L0); if (!what) return;
+  // el video recorre su parte del montaje en tiempo real: sus imágenes se traen antes y no se sueltan mientras graba
   await ensureFrames('sb');
-  return framesHold(() => exportVideo0());
+  return framesHold(() => exportVideo0(what));
 }
-async function exportVideo0() {
+/* qué parte se exporta: todo, de la entrada a la salida (si hay marcas, la de entrada) o una escena */
+function anExportAsk(L) {
+  return new Promise(res => {
+    const fps = fpsOf(), io = anIoRange(anIO(), L.total, fps);
+    const keys = [...new Set(L.clips.map(c => c.sc).filter(k => k && D.sc.byKey[k]))];
+    const cur = (clipAt(L, AN.T) || {}).sc;
+    const opt = (v, on, title, inner, dis) => `<label class="opt rg-opt"><input type="radio" name="vxw" value="${v}" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''}><span><b>${title}</b>${inner || ''}</span></label>`;
+    let done = false;
+    const m = modal({
+      title: 'Exportar video',
+      body: `<div class="rg vx-what">
+        ${opt('all', !io, 'Todo', `<span class="hint">Todo el montaje · ${tc(L.total, false)}</span>`)}
+        ${opt('io', !!io, 'De la entrada a la salida', io ? `<span class="hint">${tc(io[0])} → ${tc(io[1])} · ${tc(io[1] - io[0])}</span>` : '<span class="hint">Marca la entrada (I) y la salida (O) en la línea de tiempo.</span>', !io)}
+        ${keys.length ? opt('sc', false, 'Una escena', `<select class="vx-sc" aria-label="Escena">${keys.map(k => `<option value="${esc(k)}" ${k === cur ? 'selected' : ''}>Escena ${esc(k)} · ${esc(sceneOfKey(k).heading)} · ${tc(segsDur(anExportSegs(L, 'sc', null, k)), false)}</option>`).join('')}</select>`) : ''}
+      </div>
+      <p class="hint" style="margin:0">Se graba en tiempo real: tarda lo que dura la parte elegida.</p>`,
+      foot: `<button class="btn" data-close>Cancelar</button><button class="btn primary" id="vxGo">Exportar video</button>`,
+      dirty: () => false, onClose: () => { if (!done) res(null); },
+    });
+    const sel = $('.vx-sc', m);
+    // elegir una escena en la lista elige la opción «Una escena»
+    if (sel) for (const ev of ['change', 'focus']) sel.addEventListener(ev, () => { $('input[name=vxw][value=sc]', m).checked = true; });
+    $('#vxGo', m).onclick = () => {
+      const how = ($('input[name=vxw]:checked', m) || {}).value || 'all';
+      done = true; closeModal();
+      res({ how, key: sel ? sel.value : null });
+    };
+  });
+}
+async function exportVideo0(what = {}) {
   if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) { toast('Este navegador no puede grabar video.'); return; }
   const L = anClips();
   if (!L.clips.length) { toast('No hay planos en el montaje.'); return; }
+  const io = anIoRange(anIO(), L.total, fpsOf()), how = what.how === 'io' && !io ? 'all' : what.how || 'all';
+  const segs = anExportSegs(L, how, io, what.key), dur = segsDur(segs);
+  const tcTag = t => tc(t, false).replace(':', 'm') + 's';
+  const tag = how === 'io' ? `_${tcTag(segs[0][0])}-${tcTag(segs[0][1])}` : how === 'sc' && what.key ? '_escenas_' + String(what.key).replace(/[^\w-]/g, '') : '';   // como el PDF de unas escenas
   anPause();
   if (typeof FIG3D !== 'undefined') await FIG3D.ready(10000, fig3dBodiesOf(L.clips.filter(c => c.sh).map(c => c.sh)));   // que el video no empiece con maniquíes simples (solo los cuerpos que salen)
   const pw = peloTexReady(); if (pw) await pw;
@@ -1374,16 +1490,17 @@ async function exportVideo0() {
   const chunks = [];
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   let cancelled = false;
-  const m = modal({ title: 'Exportando video', body: `<p style="margin:0">Se graba en tiempo real: <b id="vxT">00:00</b> de ${tc(L.total, false)}.</p><div class="prog"><i id="vxP" style="width:0"></i></div><p class="hint" style="margin:0">Deja esta pestaña abierta hasta que termine.${L.locked.size ? ` Solo se exportan las escenas visibles (${L.locked.size} ${L.locked.size === 1 ? 'bloqueada' : 'bloqueadas'}).` : ''}</p>`, foot: `<button class="btn" id="vxC">Cancelar</button>`, onClose: () => { cancelled = true; }, keep: true, noEsc: true });
+  const m = modal({ title: 'Exportando video', body: `<p style="margin:0">Se graba en tiempo real: <b id="vxT">00:00</b> de ${tc(dur, false)}.</p><div class="prog"><i id="vxP" style="width:0"></i></div><p class="hint" style="margin:0">Deja esta pestaña abierta hasta que termine.${L.locked.size ? ` Solo se exportan las escenas visibles (${L.locked.size} ${L.locked.size === 1 ? 'bloqueada' : 'bloqueadas'}).` : ''}</p>`, foot: `<button class="btn" id="vxC">Cancelar</button>`, onClose: () => { cancelled = true; }, keep: true, noEsc: true });
   $('#vxC', m).onclick = () => { cancelled = true; closeModal(); };
   const ctx = cv.getContext('2d');
   rec.start(500); AN.recording = true;   // mientras graba, las viñetas pendientes esperan
   const t0 = performance.now();
-  if (AN.audio && cfg.audio) { AN.audio.currentTime = Math.max(0, -(cfg.audio.offset || 0)); }
+  if (AN.audio && cfg.audio) { AN.audio.currentTime = Math.max(0, fullT(L, segs[0][0]) - (cfg.audio.offset || 0)); }
   await new Promise(resolve => {
     const step = () => {
-      const T = (performance.now() - t0) / 1000;
-      if (cancelled || T >= L.total) { resolve(); return; }
+      const e = (performance.now() - t0) / 1000;   // lo grabado; T: el momento del montaje que le toca
+      if (cancelled || e >= dur) { resolve(); return; }
+      const T = segAt(segs, e);
       if (AN.audio && cfg.audio) {
         const at = fullT(L, T) - (cfg.audio.offset || 0);
         if (at >= 0 && at < (AN.audio.duration || 1e9)) {
@@ -1393,12 +1510,12 @@ async function exportVideo0() {
       }
       anDraw(ctx, W, H, T, L, { subs: cfg.subs, burn: cfg.burn, ahead: true });
       const pt = $('#vxT'), pp = $('#vxP');
-      if (pt) pt.textContent = tc(T, false); if (pp) pp.style.width = (T / L.total * 100) + '%';
+      if (pt) pt.textContent = tc(e, false); if (pp) pp.style.width = (e / dur * 100) + '%';
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   });
-  anDraw(ctx, W, H, L.total - 1e-3, L, { subs: cfg.subs, burn: cfg.burn });
+  anDraw(ctx, W, H, segs[segs.length - 1][1] - 1e-3, L, { subs: cfg.subs, burn: cfg.burn });
   await new Promise(r => { rec.onstop = r; rec.stop(); });
   AN.recording = false;
   if (AN.audio) AN.audio.pause();
@@ -1407,7 +1524,7 @@ async function exportVideo0() {
   cv.remove();
   if (cancelled) { toast('Exportación cancelada.'); return; }
   closeModal();
-  await offerFile(fileSafe(P.meta.title) + '_animatic.webm', new Blob(chunks, { type: 'video/webm' }));
+  await offerFile(fileSafe(P.meta.title) + '_animatic' + tag + '.webm', new Blob(chunks, { type: 'video/webm' }));
 }
 
 /* ---------- acciones ---------- */
@@ -1469,6 +1586,8 @@ Object.assign(ACT, {
     });
   },
   'an-trim': b => anTrimTo(b.dataset.s),
+  'an-io': b => anMark(b.dataset.s),
+  'an-io-x': () => anIoPut(null),
   'an-del': b => anDelete(!!b.dataset.gap),
   'an-dup': () => anDuplicate(),
   'an-card': b => anInsertCard(b.dataset.k),
@@ -1544,7 +1663,7 @@ addEventListener('keydown', e => {
   }
   if (e.altKey && k !== 'ArrowLeft' && k !== 'ArrowRight') return;
   // las letras de atajo no deben escribirse en el campo que se abre (p. ej. el texto del título)
-  if ('jklsqwtbnzc'.includes(lk) && lk.length === 1) e.preventDefault();
+  if ('jklsqwtbnzcio'.includes(lk) && lk.length === 1) e.preventDefault();
   if (k === ' ') { e.preventDefault(); AN.playing ? anPause() : anPlay(); }
   else if (lk === 'j' || lk === 'k' || lk === 'l') anJKL(lk);
   else if (k === 'ArrowRight' || k === 'ArrowLeft') {
@@ -1557,6 +1676,7 @@ addEventListener('keydown', e => {
   else if (k === 'Home') seek(0); else if (k === 'End') seek(AN_L.total);
   else if (k === '+' || k === '=') zoomTL(1.25); else if (k === '-') zoomTL(.8);
   else if (lk === 'z' && e.shiftKey) fitZoom();
+  else if (lk === 'i' || lk === 'o') e.shiftKey ? anIoGo(lk === 'i' ? 'a' : 'b') : anMark(lk === 'i' ? 'a' : 'b');
   else if (UI.readOnly) return;
   else if (lk === 's') anSplit();
   else if (lk === 'q' || lk === 'w') anTrimTo(lk);
@@ -1583,6 +1703,7 @@ HELP.animatic = [
   ['Cuchilla', 'C (o las tijeras sin nada elegido) activa la cuchilla: una línea muestra el cuadro exacto y un toque sobre un clip, en V1 o en V2, lo corta ahí. C o Esc para salir.'],
   ['Editar', 'S divide el clip en el cabezal: el plano se parte en dos planos del storyboard. Q quita el comienzo hasta el cabezal y W el final desde el cabezal. Supr quita lo elegido y cierra el hueco; Mayús + Supr deja un negro. Ctrl + D duplica. T inserta un título y B un negro. Ctrl + Z deshace y Ctrl + Mayús + Z rehace.'],
   ['Teclado', 'Espacio reproduce · J K L: atrás, pausa y adelante (otro toque dobla la velocidad) · ← → un cuadro · Mayús + ← → un segundo · Alt + ← → mueve el clip elegido · ↑ ↓ saltan de corte · + y − acercan · Mayús + Z ajusta.'],
+  ['Entrada y salida', 'I marca la entrada y O la salida en el cabezal (o los botones con llaves { } de la barra): la parte elegida se ve sombreada y su × quita las marcas. Mayús + I y Mayús + O llevan el cabezal a cada una. Al exportar el video eliges todo, de la entrada a la salida o una escena.'],
   ['Escenas', 'Toca el número de una escena, en la fila «Escenas», para bloquearla: queda oculta y no se reproduce ni se exporta. «Aislar una escena» deja solo esa.'],
   ['Música', '«Añadir música» pone una pista para medir el ritmo. Se guarda solo en este equipo.'],
 ];

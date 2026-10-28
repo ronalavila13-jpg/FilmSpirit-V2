@@ -29,7 +29,99 @@ function d2Draw(ctx, sh, t, W, H) {
   else { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); }
   return true;
 }
-const d2Sig = (sh, t) => sh.ws === '2d' && sh.d2 && sh.d2.frames ? (f => `2d:${sh.d2.rev || 0}:${f.id}:${!!cachedImg(d2CKey(sh.id, f.id))}`)(d2FrameAt(sh.d2, t)) : '';
+/* ---------- el 2D y el 3D juntos (lote U) ----------
+   La escena 3D es una capa más del dibujo: la «Viñeta 3D» (d.base '3d' se ve, 'paper' no; d.baseOp, su opacidad).
+   Las capas encima de ella se superponen; las de debajo son el fondo, detrás de las figuras. Van debajo solo las
+   imágenes que dicen «Detrás de las figuras» (L.back); el dibujo (trazos, flechas y textos) va siempre encima. Lo de
+   antes no tiene back: todo queda encima, como se veía.
+   Con una foto detrás de las figuras, la escena 3D se dibuja sin su entorno (cielo, suelo, muros, habitación), como
+   la foto de referencia «Detrás» del editor 3D: quedan las figuras y los objetos con sus sombras sobre un piso
+   invisible, y la foto hace de fondo real. Si la foto es transparente a medias, debajo se ve el papel.
+   La viñeta del storyboard, el PDF y el animatic muestran las dos cosas juntas, sin elegir entre 2D y 3D (sh.ws solo
+   dice en qué espacio se abre el plano). En el editor 3D se ven en la vista de cámara (shot-editor.js).
+   d.v = 2: dibujos guardados con este modelo. En uno anterior que se dejó en el 3D (sh.ws '3d'), la viñeta mostraba la
+   escena 3D entera: así se sigue viendo (visible y opaca) hasta que se vuelva a guardar en el 2D.
+   L.imp: la capa trajo la foto de referencia ('ref') o la anotación ('anno') del editor 3D; esas no se dibujan otra vez */
+const d2On = sh => !!(sh && sh.d2 && Array.isArray(sh.d2.frames) && sh.d2.frames.length && Array.isArray(sh.d2.layers));
+const d2Back = L => !!(L && L.back && L.kind === 'image');
+/* las capas en el orden en que se ven: primero las de fondo (detrás de las figuras), después las de encima */
+const d2Layers = d => { const L = ((d && d.layers) || []).filter(l => l && l.id); return [...L.filter(d2Back), ...L.filter(l => !d2Back(l))]; };
+const d2Old = (sh, d = sh.d2) => (d.v || 1) < 2 && sh.ws !== '2d';
+/* (lote AA) el zoom de una foto de capa (L.zoom, de 1 a 4) y su encuadre (L.zx, L.zy: cuánto se corre, en fracción del
+   ancho y del alto del cuadro). No toca la foto guardada: se aplica al dibujarla, alrededor del centro del cuadro, y el
+   corrimiento se limita para que la foto siga cubriendo lo que cubría */
+const d2ZoomOf = L => L && L.kind === 'image' ? clamp(+L.zoom || 1, 1, 4) : 1;
+const d2PanOf = (z, v) => clamp(+v || 0, -(z - 1) / 2, (z - 1) / 2);
+function d2ImgLayer(ctx, im, L, W, H) {
+  const z = d2ZoomOf(L);
+  if (z === 1) { ctx.drawImage(im, 0, 0, W, H); return; }
+  const w = W * z, h = H * z, x = (W - w) / 2 + d2PanOf(z, L.zx) * W, y = (H - h) / 2 + d2PanOf(z, L.zy) * H;
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, x, y, w, h); ctx.restore();
+}
+/* (lote AC) pone el zoom de una foto (1 = sin zoom: se borran zoom y encuadre) y ajusta su encuadre al nuevo zoom */
+function d2SetZoom(L, z) {
+  z = clamp(+z || 1, 1, 4);
+  if (z === 1) { delete L.zoom; delete L.zx; delete L.zy; return; }
+  L.zoom = z; L.zx = d2PanOf(z, L.zx); L.zy = d2PanOf(z, L.zy);
+}
+const d2ZoomSig = L => d2ZoomOf(L) > 1 ? [d2ZoomOf(L), +(+L.zx || 0).toFixed(4), +(+L.zy || 0).toFixed(4)] : [];
+/* ¿se ve la escena 3D en la viñeta? (sin dibujo 2D: si el plano no es un dibujo a mano) */
+function shot3D(sh) {
+  if (!d2On(sh)) return !sh || sh.ws !== '2d';
+  return d2Old(sh) || sh.d2.base === '3d';
+}
+const d2Op3D = sh => d2On(sh) && !d2Old(sh) ? clamp(+(sh.d2.baseOp ?? .45) || 0, 0, 1) : 1;
+/* ¿la capa trajo la imagen de referencia o la anotación del editor 3D? (las de antes se reconocen por su nombre) */
+const d2Imp = (d, k) => !!d && ((d.layers || []).some(l => l && (l.imp === k || (l.imp == null && (d.v || 1) < 2 && (k === 'ref' ? l.kind === 'image' && l.name === 'Referencia' : l.name === 'Anotaciones')))));
+/* el editor 3D cambió su referencia o su anotación: desde ahora se ve la nueva (la capa que la trajo queda como una más) */
+function d2Unimp(sh, k) {
+  const d = sh && sh.d2; if (!d || !d2Imp(d, k)) return;
+  if ((d.v || 1) < 2) d2Norm(sh, d);
+  for (const l of d.layers || []) if (l && l.imp === k) delete l.imp;
+  d.rev = (d.rev || 0) + 1;
+}
+/* un dibujo anterior al modelo de capas, puesto como se veía: la Viñeta 3D visible y opaca si se dejó en el 3D; las
+   capas que trajeron la referencia o la anotación, marcadas */
+function d2Norm(sh, d) {
+  if ((d.v || 1) >= 2) return d;
+  if (sh.ws !== '2d') { d.base = '3d'; d.baseOp = 1; }
+  for (const l of d.layers || []) if (l && l.imp == null) { if (l.kind === 'image' && l.name === 'Referencia') l.imp = 'ref'; else if (l.name === 'Anotaciones') l.imp = 'anno'; }
+  d.v = 2;
+  return d;
+}
+/* las imágenes de las capas que se ven en el cuadro del segundo t (todas las de todos los cuadros con t null) */
+function d2LayerKeys(sh, t = 0) {
+  if (!d2On(sh)) return [];
+  const d = sh.d2, Fs = t == null ? d.frames : [d2FrameAt(d, t)], out = [];
+  for (const L of d2Layers(d)) { if (!L.vis) continue; for (const k of L.shared ? [d2Key(sh.id, L.id, 'all')] : Fs.map(F => d2Key(sh.id, L.id, F.id))) if (frameHas(k) && !out.includes(k)) out.push(k); }
+  return out;
+}
+/* las que necesita la viñeta combinada (sin la Viñeta 3D la viñeta es el cuadro ya compuesto, que ya cuenta) */
+const d2ViewKeys = (sh, t = 0) => d2On(sh) && shot3D(sh) ? d2LayerKeys(sh, t) : [];
+/* las imágenes que necesita la viñeta (la del storyboard, el animatic y el PDF) */
+const shotViewKeys = (sh, t = null) => sh ? [...frameViewKeys(sh.id), ...d2ViewKeys(sh, t)] : [];
+/* ¿hay una foto detrás de las figuras en el cuadro F? */
+const d2Under = (sh, F) => d2Layers(sh.d2).some(L => d2Back(L) && L.vis && (L.op ?? 1) > 0 && frameHas(d2Key(sh.id, L.id, L.shared ? 'all' : F.id)));
+/* las capas de fondo (back) o las de encima de un cuadro, con su opacidad, en un lienzo de W×H (alineadas al cuadro) */
+function d2Paint(ctx, sh, F, W, H, back) {
+  const d = sh.d2, [DW, DH] = frameDims(1280);
+  for (const L of d2Layers(d)) {
+    if (!L.vis || d2Back(L) !== !!back) continue;
+    const fk = L.shared ? 'all' : F.id, k = d2Key(sh.id, L.id, fk), op = clamp(+(L.op ?? 1) || 0, 0, 1);
+    if (frameHas(k)) { if (!FRAMES[k]) framesNeed([k]); const im = cachedImg(k); if (im) { ctx.globalAlpha = op; d2ImgLayer(ctx, im, L, W, H); ctx.globalAlpha = 1; } }
+    const objs = d.objs && d.objs[L.id + '~' + fk];
+    if (Array.isArray(objs) && objs.length) { ctx.save(); ctx.scale(W / DW, H / DH); for (const o of objs) if (o && o.type) d2DrawObj(ctx, o, op); ctx.restore(); }
+  }
+}
+const d2Sig = (sh, t) => {
+  if (!d2On(sh)) return '';
+  const d = sh.d2, f = d2FrameAt(d, t);
+  if (!shot3D(sh)) return `2d:${d.rev || 0}:${f.id}:${!!cachedImg(d2CKey(sh.id, f.id))}`;
+  // con la escena 3D: las capas de ese cuadro (y si ya cargaron), la opacidad de la Viñeta 3D y lo que va detrás
+  return `2d3:${d.rev || 0}:${f.id}:${d2ViewKeys(sh, t).map(k => cachedImg(k) ? 1 : 0).join('')}:${d2LaySig(sh)}`;
+};
+/* lo que cambia la viñeta combinada sin depender de qué imágenes ya cargaron (la clave que se guarda en el navegador) */
+const d2LaySig = sh => d2On(sh) ? `${shot3D(sh) ? d2Op3D(sh) : 'p'}:${JSON.stringify(d2Layers(sh.d2).map(L => [L.id, !!L.vis, L.op, d2Back(L), L.imp || 0, ...d2ZoomSig(L)]))}` : '';
 /* todas las imágenes de un plano: referencia, anotación, capas 2D y cuadros compuestos */
 const shotKeys = id => frameKeysOf(id);   // cargadas o no (con el servidor llegan a medida que hacen falta)
 function delShotFrames(id) {
@@ -65,7 +157,7 @@ function deleteShot(id, loaded) {
 const D2_PAL = ['#16171B', '#4A4D55', '#8C9099', '#C9CCD2', '#FFFFFF', '#C8382C', '#E8622C', '#F2B63C', '#3E9A57', '#2E8FBF', '#2C47CF', '#7A4CC2', '#D9478F', '#7A4B2E', '#E9C7A5', '#B5835A'];
 const D2_TOOLS = [
   ['move', 'Mover', 'V'], ['pencil', 'Lápiz', 'B'], ['ink', 'Tinta', 'I'], ['brush', 'Pincel suave', 'R'], ['marker', 'Marcador', 'M'], ['eraser', 'Borrador', 'E'],
-  ['lasso', 'Lazo', 'L'], ['arrow', 'Flecha', 'A'], ['text', 'Texto', 'T'], ['persp', 'Perspectiva', 'G'], ['hand', 'Mano', 'H'],
+  ['fill', 'Bote de pintura', 'F'], ['lasso', 'Lazo', 'L'], ['arrow', 'Flecha', 'A'], ['text', 'Texto', 'T'], ['persp', 'Perspectiva', 'G'], ['hand', 'Mano', 'H'],
 ];
 const D2_BRUSH = new Set(['pencil', 'ink', 'brush', 'marker', 'eraser']);
 const D2_ARROW_RED = '#C8382C';
@@ -73,6 +165,8 @@ const D2_DEF = {
   pencil: { size: 3, op: .9, smooth: 35 }, ink: { size: 6, op: 1, smooth: 50 }, brush: { size: 46, op: .7, smooth: 25 },
   marker: { size: 20, op: .5, smooth: 40 }, eraser: { size: 30, op: 1, smooth: 25 },
   arrow: { w: 34, head: 1, tail: .55, outline: 'none', op: 1, double: false, _v2: 1 }, text: { size: 44, bold: true, bg: 'none' },
+  // (lote AD) bote de pintura: tolerancia (%), cerrar huecos (px) y solo esta capa (si no, el borde son todas las visibles)
+  fill: { tol: 20, gap: 4, own: false },
 };
 const D2_MAX = { pencil: 40, ink: 60, brush: 240, marker: 120, eraser: 240 };
 const D2_ICO = {
@@ -82,6 +176,7 @@ const D2_ICO = {
   brush: '<path d="M14.5 4.5l5 5-6.2 6.2-5-5z"/><path d="M8.3 10.7c-2.6.6-4 2.6-4.3 8.8 5.6-.2 7.7-1.7 8.3-4.3"/>',
   marker: '<path d="M8.5 13.5l7-9.5 4.5 3.3-7 9.5z"/><path d="M8.5 13.5l-2.5 2 1 2.5 3 .5 2.5-2"/><path d="M4 20.5h7"/>',
   eraser: '<path d="M4.5 15.5l9-10a2 2 0 012.8-.1l3.3 3a2 2 0 01.1 2.8L13 18.5H8.2z"/><path d="M9 9.5l6 5.5"/><path d="M8 20.5h12"/>',
+  fill: '<path d="M10.5 3.8l7.7 7.7-6.6 6.6a2 2 0 01-2.8 0l-4.9-4.9a2 2 0 010-2.8z"/><path d="M3.6 11.5h14.6"/><path d="M10.5 3.8L8.3 1.6"/><path d="M20.4 14.8c1 1.4 1.7 2.5 1.7 3.4a1.7 1.7 0 01-3.4 0c0-.9.7-2 1.7-3.4z"/>',
   lasso: '<ellipse cx="12" cy="9.5" rx="8" ry="5.2" stroke-dasharray="3.2 2.4"/><path d="M8.3 14.2c-1.6 2.4-.4 5.8 3.2 5.8"/>',
   arrow: '<path d="M3.5 19c1.6-6.6 5.8-10.4 11.5-11.2V4.8l5.5 5-5.5 5v-3.1c-4 .6-7.5 3.4-11.5 8.3z"/>',
   text: '<path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/>',
@@ -182,17 +277,162 @@ function d2TextBox(o) {
   return { x: o.x - pad, y: o.y - pad * .8, w: w + pad * 2, h: h + pad * 1.4 };
 }
 
+/* ---------- (lote AD) bote de pintura y selección del lazo: cuentas sobre los píxeles ----------
+   Máscaras: Uint8Array de W×H con 1 donde vale. Se crece en cuadrados (distancia del tablero de ajedrez): así, hacer
+   crecer una zona lo mismo que se hizo crecer el borde nunca la pasa al otro lado de una línea */
+function d2Grow(m, W, H, r) {
+  if (r <= 0) return m.slice();
+  const t = new Uint8Array(W * H), o = new Uint8Array(W * H);
+  // por filas y después por columnas, con una cuenta corrida de lo que hay en la ventana [x - r, x + r]
+  for (let y = 0; y < H; y++) {
+    const row = y * W; let c = 0;
+    for (let x = 0; x < r && x < W; x++) c += m[row + x];
+    for (let x = 0; x < W; x++) { if (x + r < W) c += m[row + x + r]; if (x > r) c -= m[row + x - r - 1]; t[row + x] = c > 0 ? 1 : 0; }
+  }
+  for (let x = 0; x < W; x++) {
+    let c = 0;
+    for (let y = 0; y < r && y < H; y++) c += t[y * W + x];
+    for (let y = 0; y < H; y++) { if (y + r < H) c += t[(y + r) * W + x]; if (y > r) c -= t[(y - r - 1) * W + x]; o[y * W + x] = c > 0 ? 1 : 0; }
+  }
+  return o;
+}
+/* lo que se alcanza desde el píxel «si» sin pasar por los bloqueados (de a tramos de fila; arriba, abajo y a los lados:
+   una línea en diagonal de un píxel no deja pasar) */
+function d2Flood(blk, W, H, si) {
+  const out = new Uint8Array(W * H);
+  if (blk[si]) return out;
+  const st = [si];
+  while (st.length) {
+    const i = st.pop(); if (out[i]) continue;
+    const y = (i / W) | 0, row = y * W; let l = i - row, r = l;
+    while (l > 0 && !blk[row + l - 1] && !out[row + l - 1]) l--;
+    while (r < W - 1 && !blk[row + r + 1] && !out[row + r + 1]) r++;
+    out.fill(1, row + l, row + r + 1);
+    for (const ny of [y - 1, y + 1]) {
+      if (ny < 0 || ny >= H) continue;
+      const nr = ny * W; let run = false;
+      for (let x = l; x <= r; x++) { const j = nr + x, ok = !blk[j] && !out[j]; if (ok && !run) st.push(j); run = ok; }
+    }
+  }
+  return out;
+}
+/* el bote de pintura. o = { W, H, line, dst, below, allow, x, y, tol, gap, rgb }
+   line: RGBA de las líneas que hacen de borde (transparente donde no hay nada); dst: RGBA de la capa que se pinta (se
+   cambia aquí mismo); below: RGBA de las líneas de las capas de debajo de esa (o null); allow: la selección del lazo
+   (o null: toda la hoja). Se rellena la zona del toque: los píxeles conectados cuyo color, con su transparencia, se
+   parece al tocado hasta tol (0 a 1). gap: cierra las aberturas de hasta ese ancho (px) para que la pintura no se
+   escape por ellas. El relleno entra 2 px bajo la línea (no queda filo blanco): por detrás de lo que ya hay en la capa;
+   donde la línea es de una capa de debajo, solo en su borde suave (la línea se sigue viendo entera).
+   Devuelve el rectángulo cambiado [x0, y0, x1, y1] (x1 e y1 fuera) o null si no hay nada que pintar */
+function d2Fill(o) {
+  const { W, H, line, dst, below, allow, rgb } = o, N = W * H, x = Math.floor(o.x), y = Math.floor(o.y);
+  if (!(x >= 0 && y >= 0 && x < W && y < H)) return null;
+  const si = y * W + x, s4 = si * 4;
+  if (allow && !allow[si]) return null;
+  // el borde: lo que no se parece al color tocado (comparado con su transparencia: lo vacío no se parece a una línea
+  // suave) y lo que queda fuera de la selección
+  const thr = Math.max(0, Math.min(1, +o.tol || 0)) * 255, sa = line[s4 + 3], sr = line[s4] * sa / 255, sg = line[s4 + 1] * sa / 255, sb = line[s4 + 2] * sa / 255;
+  const B = new Uint8Array(N);
+  for (let i = 0, j = 0; i < N; i++, j += 4) {
+    if (allow && !allow[i]) { B[i] = 1; continue; }
+    const a = line[j + 3];
+    if (Math.abs(a - sa) > thr) { B[i] = 1; continue; }
+    if (!a && !sa) continue;
+    const f = a / 255;
+    if (Math.abs(line[j] * f - sr) > thr || Math.abs(line[j + 1] * f - sg) > thr || Math.abs(line[j + 2] * f - sb) > thr) B[i] = 1;
+  }
+  // cerrar huecos: el borde engorda r px (tapa las aberturas de hasta 2r), se rellena y la zona vuelve a crecer r px hasta
+  // la línea. Si el toque cae en lo engordado (una zona angosta), se rellena sin cerrar huecos
+  let r = Math.ceil(Math.max(0, +o.gap || 0) / 2), R = null;
+  if (r) { const Bd = d2Grow(B, W, H, r); if (!Bd[si]) R = d2Grow(d2Flood(Bd, W, H, si), W, H, r); }
+  if (!R) R = d2Flood(B, W, H, si);
+  // bajo la línea: hasta 2 px desde la zona, sin llegar al borde de afuera de una línea fina (lo vacío que no se rellenó
+  // no se toca, ni el píxel de al lado: el relleno no asoma del otro lado)
+  const G = d2Grow(R, W, H, 2), Out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (!R[i] && line[i * 4 + 3] <= thr) Out[i] = 1;
+  const Od = d2Grow(Out, W, H, 1), [nr, ng, nb] = rgb, ta0 = dst[s4 + 3], tr0 = dst[s4], tg0 = dst[s4 + 1], tb0 = dst[s4 + 2];
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let i = 0, j = 0; i < N; i++, j += 4) {
+    let a;
+    if (R[i] && !B[i]) a = -1;   // la zona: el color nuevo, entero
+    else if (G[i] && B[i] && !Od[i] && line[j + 3] && (!allow || allow[i])) a = below ? 255 - below[j + 3] : 255;   // bajo la línea
+    else continue;
+    const ta = dst[j + 3];
+    if (a < 0 || !ta) { if (!a) continue; dst[j] = nr; dst[j + 1] = ng; dst[j + 2] = nb; dst[j + 3] = a < 0 ? 255 : a; }
+    // el borde de un relleno de antes en esta capa (al cambiarle el color): toma el color nuevo y conserva su transparencia
+    else if (ta0 && Math.abs(dst[j] - tr0) <= thr && Math.abs(dst[j + 1] - tg0) <= thr && Math.abs(dst[j + 2] - tb0) <= thr) { dst[j] = nr; dst[j + 1] = ng; dst[j + 2] = nb; }
+    // una línea de esta misma capa: el relleno va detrás de ella
+    else { const f = ta / 255; dst[j] = dst[j] * f + nr * (1 - f); dst[j + 1] = dst[j + 1] * f + ng * (1 - f); dst[j + 2] = dst[j + 2] * f + nb * (1 - f); dst[j + 3] = 255; }
+    const px = i % W, py = (i - px) / W;
+    if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+  }
+  return x1 < 0 ? null : [x0, y0, x1 + 1, y1 + 1];
+}
+/* el contorno de una máscara (la selección del lazo, de varias partes y con huecos): lazos cerrados que siguen el borde
+   de los píxeles, por el medio de cada borde (así las diagonales salen rectas) y sin los puntos que sobran */
+function d2Outline(m, W, H) {
+  // cada borde entre un píxel de adentro y uno de afuera, con lo de adentro a la derecha; de cada esquina, los que salen
+  const out = new Map(), K = W + 1;
+  const add = (ax, ay, bx, by) => { const k = ay * K + ax, l = out.get(k), e = [ax, ay, bx, by]; if (l) l.push(e); else out.set(k, [e]); };
+  for (let y = 0; y <= H; y++) for (let x = 0; x < W; x++) {
+    const a = y > 0 ? m[(y - 1) * W + x] : 0, b = y < H ? m[y * W + x] : 0;
+    if (!a !== !b) { if (b) add(x, y, x + 1, y); else add(x + 1, y, x, y); }
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x <= W; x++) {
+    const a = x > 0 ? m[y * W + x - 1] : 0, b = x < W ? m[y * W + x] : 0;
+    if (!a !== !b) { if (b) add(x, y + 1, x, y); else add(x, y, x, y + 1); }
+  }
+  // de esquina en esquina hasta volver a la primera (en cada esquina entran tantos bordes como salen)
+  const loops = [];
+  for (const l0 of out.values()) while (l0.length) {
+    let e = l0.pop(); const sx = e[0], sy = e[1], pts = [];
+    for (;;) {
+      pts.push([(e[0] + e[2]) / 2, (e[1] + e[3]) / 2]);
+      if (e[2] === sx && e[3] === sy) break;
+      const l = out.get(e[3] * K + e[2]);
+      if (!l || !l.length) break;
+      e = l.pop();
+    }
+    loops.push(d2Simplify(pts, .6));
+  }
+  return loops;
+}
+/* un lazo cerrado con menos puntos: los que se apartan menos de eps de la recta entre sus vecinos se van */
+function d2Simplify(pts, eps) {
+  if (pts.length < 4) return pts;
+  const open = p => {
+    const keep = new Uint8Array(p.length), st = [[0, p.length - 1]]; keep[0] = keep[p.length - 1] = 1;
+    while (st.length) {
+      const [a, b] = st.pop(), [ax, ay] = p[a], dx = p[b][0] - ax, dy = p[b][1] - ay, L = Math.hypot(dx, dy) || 1;
+      let md = 0, mi = -1;
+      for (let i = a + 1; i < b; i++) { const dd = Math.abs((p[i][0] - ax) * dy - (p[i][1] - ay) * dx) / L; if (dd > md) { md = dd; mi = i; } }
+      if (md > eps) { keep[mi] = 1; st.push([a, mi], [mi, b]); }
+    }
+    return p.filter((q, i) => keep[i]);
+  };
+  // se parte en el punto más lejano del primero: dos tramos abiertos
+  let f = 0, fd = -1;
+  pts.forEach((q, i) => { const dd = Math.hypot(q[0] - pts[0][0], q[1] - pts[0][1]); if (dd > fd) { fd = dd; f = i; } });
+  return [...open(pts.slice(0, f + 1)), ...open([...pts.slice(f), pts[0]]).slice(1, -1)];
+}
+
 /* ---------- abrir ---------- */
 let S2 = null;
+/* (lote AD) lo copiado del dibujo con el lazo (Ctrl + C o «Copiar»): se pega en cualquier plano mientras la app está abierta */
+let D2_CLIP = null;
 function d2New(sh, isNew) {
   const L = (name, o = {}) => ({ id: uid('l'), name, kind: 'draw', vis: true, op: 1, shared: false, ...o });
   const layers = [], imp = [];
-  if (FRAMES[sh.id]) { const l = L('Referencia', { kind: 'image', shared: true, op: .6 }); layers.push(l); imp.push([l.id, sh.id]); }
+  // la foto de referencia del editor 3D: detrás de las figuras si allá iba detrás (opaca, como se veía); delante, para
+  // calcar sobre papel (tapaba la escena)
+  const ref = !!FRAMES[sh.id], back = ref && !!sh.refBack;
+  if (ref) { const l = L('Referencia', { kind: 'image', shared: true, op: back ? 1 : .6, imp: 'ref', ...(back ? { back: true } : {}) }); layers.push(l); imp.push([l.id, sh.id]); }
   const fondo = L('Fondo', { shared: true }), dib = L('Dibujo');
   layers.push(fondo, dib);
-  if (FRAMES[sh.id + '~a']) { const l = L('Anotaciones', { shared: true }); layers.push(l); imp.push([l.id, sh.id + '~a']); }
+  if (FRAMES[sh.id + '~a']) { const l = L('Anotaciones', { shared: true, imp: 'anno' }); layers.push(l); imp.push([l.id, sh.id + '~a']); }
+  // la Viñeta 3D entra entera (es una capa más del cuadro); su opacidad se baja en Capas para calcar
   return {
-    v: 1, rev: 0, base: isNew || FRAMES[sh.id] ? 'paper' : '3d', baseOp: .45, layers, frames: [{ id: uid('f'), hold: 2 }], fps: 12, loop: true,
+    v: 2, rev: 0, base: isNew || (ref && !back) ? 'paper' : '3d', baseOp: 1, layers, frames: [{ id: uid('f'), hold: 2 }], fps: 12, loop: true,
     objs: {}, guides: { type: 'none', vp: null, snap: false, show: true }, onion: { on: false, prev: 1, next: 1, op: .4 }, act: dib.id, _imp: imp,
   };
 }
@@ -207,7 +447,7 @@ async function openShot2D(id, isNew) {
   await framesNeed(frameKeysOf(id));
   const [DW, DH] = frameDims(1280);
   const fresh = !sh.d2;
-  const d = fresh ? d2New(sh, isNew) : JSON.parse(JSON.stringify(sh.d2));
+  const d = fresh ? d2New(sh, isNew) : d2Norm(sh, JSON.parse(JSON.stringify(sh.d2)));
   if (!d.frames || !d.frames.length) d.frames = [{ id: uid('f'), hold: 2 }];
   if (!d.layers || !d.layers.length) d.layers = [{ id: uid('l'), name: 'Dibujo', kind: 'draw', vis: true, op: 1, shared: false }];
   d.objs = d.objs || {}; d.guides = d.guides || { type: 'none', vp: null, snap: false, show: true }; d.onion = d.onion || { on: false, prev: 1, next: 1, op: .32 };
@@ -219,9 +459,14 @@ async function openShot2D(id, isNew) {
     id, sh, s, isNew, fresh, d, DW, DH, R: new Map(), saved: false, fi: 0, tool: ls.get('d2tool', 'pencil'), T: tools,
     color: ls.get('d2color', '#16171B'), recent: ls.get('d2recent', []), sel: null, float: null, lasso: null, stroke: null, text: null, drag: null,
     // las flechas recuerdan su propio color (rojo de entrada); lápices, pinceles y textos comparten el otro
-    colors: { draw: ls.get('d2color', '#16171B'), arrow: ls.get('d2acolor', D2_ARROW_RED) }, mask: null, bsz: null, alt: false,
-    V: { z: 1, x: 0, y: 0 }, hist: [], redo: [], dirty: false, playing: false, BG: null, ver: 0, hover: null, space: false, ro: UI.readOnly,
+    colors: { draw: ls.get('d2color', '#16171B'), arrow: ls.get('d2acolor', D2_ARROW_RED) }, bsz: null, alt: false,
+    // (lote AD) la selección del lazo: los lazos que suman y restan (selOps), su máscara (selM), su contorno (selLoops) y
+    // su rectángulo (selBB); lmode: qué hace el próximo lazo en el celular (sin Ctrl); touchy: hay pantalla táctil
+    selOps: [], selM: null, selLoops: null, selPath: null, selBB: null, lmode: 'add', ants: 0,
+    touchy: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+    V: { z: 1, x: 0, y: 0 }, hist: [], redo: [], dirty: false, playing: false, BGs: new Map(), v3sel: false, ver: 0, hover: null, space: false, ro: UI.readOnly,
   };
+  d.layers = d2Layers(d);   // las de fondo (detrás de las figuras) primero: el orden de la lista es el que se ve
   if (!D2_TOOLS.some(t => t[0] === E.tool)) E.tool = 'pencil';
   E.color = E.colors[E.tool === 'arrow' ? 'arrow' : 'draw'];
   const list = D.shotsBy[sh.sc] || [];
@@ -255,6 +500,8 @@ async function openShot2D(id, isNew) {
   const mk = (w = DW, h = DH) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c._v = 0; return c; };
   const cloneC = c => { const n = mk(c.width, c.height); n.getContext('2d').drawImage(c, 0, 0); return n; };
   const TMP = mk(), tctx = TMP.getContext('2d'), TMP2 = mk(), SCR = mk(), sctx = SCR.getContext('2d');
+  // (lote AD) la máscara de la selección, la sombra de lo de afuera y el trazo recortado a la selección (al usarse)
+  let SELC = null, SHADE = null, MSK = null;
   EDT = { saveNow: () => save(), redraw: () => req(), is2d: true };
 
   /* ---------- datos ---------- */
@@ -274,14 +521,20 @@ async function openShot2D(id, isNew) {
   const putC = (k, src) => { let c = E.R.get(k); if (!c) { c = mk(); E.R.set(k, c); } const g = c.getContext('2d'); g.clearRect(0, 0, DW, DH); g.drawImage(src, 0, 0); c._v++; };
   const snap = () => ({ d: JSON.stringify({ ...d, _imp: undefined }), R: new Map(E.R), fi: E.fi });
   function restore(st) { const nd = JSON.parse(st.d); for (const k of Object.keys(d)) delete d[k]; Object.assign(d, nd); E.R = new Map(st.R); E.fi = clamp(st.fi, 0, d.frames.length - 1); E.sel = null; }
-  function structural(fn) { applyFloat(); commitText(); const a = snap(); fn(); const b = snap(); push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); }
+  function structural(fn) { applyFloat(); commitText(); const a = snap(); fn(); d.layers = d2Layers(d); const b = snap(); push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); }
   function objEdit(before) { const after = JSON.stringify(d.objs); if (after === before) return; push({ undo: () => { d.objs = JSON.parse(before); }, redo: () => { d.objs = JSON.parse(after); } }); }
+  /* (lote AD) un cambio de la selección también se deshace, pero no cuenta como un cambio del dibujo */
+  function pushSel(a, b) {
+    if (JSON.stringify(a) === JSON.stringify(b)) return;
+    E.hist.push({ sel: true, undo: () => setSel(a), redo: () => setSel(b) }); if (E.hist.length > 60) E.hist.shift(); E.redo = [];
+    syncHist(); insp(); req();
+  }
   function undo() {
     if (E.text) { commitText(); }
     if (E.float) { cancelFloat(); touched(); insp(); syncHist(); return; }
-    const h = E.hist.pop(); if (!h) return; h.undo(); E.redo.push(h); afterHist();
+    const h = E.hist.pop(); if (!h) return; h.undo(); E.redo.push(h); if (h.sel) { syncHist(); insp(); req(); } else afterHist();
   }
-  function redo() { if (E.float) applyFloat(); const h = E.redo.pop(); if (!h) return; h.redo(); E.hist.push(h); afterHist(); }
+  function redo() { if (E.float) applyFloat(); const h = E.redo.pop(); if (!h) return; h.redo(); E.hist.push(h); if (h.sel) { syncHist(); insp(); req(); } else afterHist(); }
   function afterHist() { E.sel = E.sel && findObj(E.sel) ? E.sel : null; touched(); fullRefresh(); }
 
   /* ---------- vista ---------- */
@@ -321,7 +574,7 @@ async function openShot2D(id, isNew) {
     const c = mk(), g = c.getContext('2d');
     for (const L of d.layers) {
       if (!L.vis || L.shared) continue;
-      const r = ras(L, F); if (r) { g.globalAlpha = L.op; g.drawImage(r, 0, 0); g.globalAlpha = 1; }
+      const r = ras(L, F); if (r) { g.globalAlpha = L.op; d2ImgLayer(g, r, L, DW, DH); g.globalAlpha = 1; }
       for (const o of objsOf(L, F)) d2DrawObj(g, o, L.op);
     }
     g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, DW, DH);
@@ -350,27 +603,44 @@ async function openShot2D(id, isNew) {
     if (c) sctx.drawImage(c, 0, 0); else sctx.clearRect(0, 0, DW, DH);
     sctx.globalCompositeOperation = 'source-over';
     const st = E.stroke;
-    if (st) { sctx.save(); if (st.mask) sctx.clip(st.mask); sctx.globalAlpha = st.T.op; if (st.tool === 'eraser') sctx.globalCompositeOperation = 'destination-out'; sctx.drawImage(strokeImg(st), 0, 0); sctx.restore(); }
+    if (st) { sctx.save(); sctx.globalAlpha = st.T.op; if (st.tool === 'eraser') sctx.globalCompositeOperation = 'destination-out'; sctx.drawImage(maskedImg(st), 0, 0); sctx.restore(); }
     return SCR;
   }
+  /* (lote AD) con una selección, el trazo solo queda dentro de ella (la selección puede tener varias partes y huecos) */
+  function maskedImg(st) {
+    const im = strokeImg(st);
+    if (!st.mask) return im;
+    const g = (MSK || (MSK = mk())).getContext('2d');
+    g.globalCompositeOperation = 'copy'; g.drawImage(im, 0, 0);
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(st.mask, 0, 0); g.globalCompositeOperation = 'source-over';
+    return MSK;
+  }
   function drawFloat(g, f) { g.save(); g.translate(f.cx, f.cy); g.rotate(f.rot); g.scale(f.sx, f.sy); g.imageSmoothingQuality = 'high'; g.drawImage(f.c, -f.w / 2, -f.h / 2); g.restore(); }
-  /* un cuadro completo: papel, fondo 3D, capas con su opacidad y sus flechas y textos */
+  /* un cuadro completo: papel, las fotos de fondo, la Viñeta 3D (capa de la escena) y encima las demás capas con su
+     opacidad y sus flechas y textos */
   function compose(g, F, o = {}) {
     g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, DW, DH);
-    if (d.base === '3d' && E.BG) { g.globalAlpha = d.baseOp ?? .45; g.drawImage(E.BG, 0, 0, DW, DH); g.globalAlpha = 1; }
-    let onion = o.onion;
-    for (const L of d.layers) {
-      if (!L.vis) continue;
+    const lays = d2Layers(d), nb = lays.filter(d2Back).length;
+    let onion = o.onion, did3 = false;
+    const v3 = () => { did3 = true; if (d.base !== '3d') return; const bg = bgOf(F, plateOf(F)); if (bg) { g.globalAlpha = d.baseOp ?? .45; g.drawImage(bg, 0, 0, DW, DH); g.globalAlpha = 1; } };
+    lays.forEach((L, i) => {
+      if (i === nb) v3();
+      if (!L.vis) return;
       if (onion && !L.shared) { drawOnion(g, F); onion = false; }
       const live = o.live && L.id === d.act && F === curF();
       let src = ras(L, F);
       if (live && E.stroke) src = liveLayer(src);
-      if (src) { g.globalAlpha = L.op; g.drawImage(src, 0, 0); g.globalAlpha = 1; }
+      if (src) { g.globalAlpha = L.op; d2ImgLayer(g, src, L, DW, DH); g.globalAlpha = 1; }
       if (live && E.float && E.float.k === rk(L, F)) { g.globalAlpha = L.op; drawFloat(g, E.float); g.globalAlpha = 1; }
       for (const ob of objsOf(L, F)) if (!(o.live && E.text && E.text.id === ob.id)) d2DrawObj(g, ob, L.op);
-    }
+    });
+    if (!did3) v3();
     if (onion) drawOnion(g, F);
   }
+  /* ¿hay una foto detrás de las figuras en el cuadro F? (entonces la escena 3D va sin su entorno) */
+  const plateOf = F => d.layers.some(L => d2Back(L) && L.vis && L.op > 0 && (ras(L, F) || (E.float && E.float.k === rk(L, F))));
+  /* el segundo del plano en que empieza el cuadro F (para ver la escena 3D en ese momento) */
+  const fStart = F => { let n = 0; for (const f of d.frames) { if (f === F) break; n += f.hold || 1; } return Math.max(0, n / (d.fps || 12) - (d.t0 || 0)); };
   function draw() {
     raf = 0;
     const g = cx, z = E.V.z;
@@ -444,17 +714,17 @@ async function openShot2D(id, isNew) {
       g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `800 ${9 / z}px ${D2_FONT()}`; g.fillText(String(i + 1), 0, .5 / z);
       g.restore();
     });
-    // lazo en curso
-    if (E.lasso && E.lasso.length > 1) {
-      g.save(); g.lineWidth = 1.5 / z; g.beginPath(); E.lasso.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y));
-      g.strokeStyle = '#FFFFFF'; g.stroke(); g.setLineDash([5 / z, 4 / z]); g.strokeStyle = '#16171B'; g.stroke(); g.restore();
+    // la selección: lo de afuera en sombra (ahí no se pinta) y su contorno de hormigas, que camina (también si tiene
+    // varias partes o huecos)
+    if (E.selPath && !E.float) {
+      g.save(); g.drawImage(SHADE, 0, 0); g.lineWidth = 1.4 / z; g.strokeStyle = '#FFFFFF'; g.stroke(E.selPath);
+      g.setLineDash([5 / z, 4 / z]); g.lineDashOffset = -(E.ants % 9) / z; g.strokeStyle = '#16171B'; g.stroke(E.selPath); g.restore();
     }
-    // máscara activa: borde punteado y lo de afuera en sombra (fuera de ella no se pinta)
-    if (E.mask && !E.float && E.mask.length > 2) {
-      g.save(); g.lineWidth = 1.4 / z; const mp = maskPath(E.mask);
-      const out = new Path2D(); out.rect(0, 0, DW, DH); out.addPath(mp);
-      g.fillStyle = 'rgba(22,23,27,.24)'; g.fill(out, 'evenodd');
-      g.strokeStyle = '#FFFFFF'; g.stroke(mp); g.setLineDash([6 / z, 4 / z]); g.strokeStyle = '#2E8FBF'; g.stroke(mp); g.restore();
+    // lazo en curso (el que resta, en rojo)
+    if (E.lasso && E.lasso.length > 1) {
+      const sub = E.drag && E.drag.sub;
+      g.save(); g.lineWidth = 1.5 / z; g.beginPath(); E.lasso.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y));
+      g.strokeStyle = '#FFFFFF'; g.stroke(); g.setLineDash([5 / z, 4 / z]); g.strokeStyle = sub ? '#C8382C' : '#16171B'; g.stroke(); g.restore();
     }
     // selección flotante
     if (E.float) {
@@ -545,12 +815,11 @@ async function openShot2D(id, isNew) {
   function strokeStart(e, p) {
     const L = actL();
     if (e.altKey && E.tool !== 'eraser') { pickColor(p); return false; }
-    if (!L.vis) { toast(`La capa «${L.name}» está oculta. Muéstrala para dibujar en ella.`); return false; }
-    if (L.lock) { lockedMsg(L); return false; }
+    if (!writable(L, `La capa «${L.name}» está oculta. Muéstrala para dibujar en ella.`)) return false;
     applyFloat(); commitText(); E.sel = null;
     tctx.clearRect(0, 0, DW, DH);
     const pr = prOf(e);
-    const st = E.stroke = { tool: E.tool, T: E.T[E.tool], pen: e.pointerType === 'pen', p0: p, last: p, sm: { ...p }, bb: [p.x, p.y, p.x, p.y], pr, line: e.shiftKey, dir: null, mask: E.mask ? maskPath(E.mask) : null };
+    const st = E.stroke = { tool: E.tool, T: E.T[E.tool], pen: e.pointerType === 'pen', p0: p, last: p, sm: { ...p }, bb: [p.x, p.y, p.x, p.y], pr, line: e.shiftKey, dir: null, mask: E.selM ? SELC : null };
     seg(st, p, p, widthOf(st, pr), pr);
     req();
     return true;
@@ -594,11 +863,20 @@ async function openShot2D(id, isNew) {
     const x0 = clamp(Math.floor(st.bb[0]), 0, DW), y0 = clamp(Math.floor(st.bb[1]), 0, DH), x1 = clamp(Math.ceil(st.bb[2]), 0, DW), y1 = clamp(Math.ceil(st.bb[3]), 0, DH);
     if (x1 - x0 < 1 || y1 - y0 < 1) { req(); return; }
     const before = g.getImageData(x0, y0, x1 - x0, y1 - y0);
-    g.save(); if (st.mask) g.clip(st.mask); g.globalAlpha = st.T.op; if (st.tool === 'eraser') g.globalCompositeOperation = 'destination-out'; g.drawImage(strokeImg(st), 0, 0); g.restore();
+    g.save(); g.globalAlpha = st.T.op; if (st.tool === 'eraser') g.globalCompositeOperation = 'destination-out'; g.drawImage(maskedImg(st), 0, 0); g.restore();
     const after = g.getImageData(x0, y0, x1 - x0, y1 - y0);
     c._v++;
     push({ undo: () => putPx(k, x0, y0, before), redo: () => putPx(k, x0, y0, after) });
     if (st.tool !== 'eraser') useColor(E.color);
+  }
+  /* (lote AC) ¿se puede pintar o mover lo de la capa? Visible, sin candado y (lote AA) sin zoom: una foto con zoom se ve
+     más grande de lo que está guardada; para pintarla o moverla con el lazo, el zoom vuelve a 100 % (o se dibuja en otra
+     capa). Si no, avisa por qué */
+  function writable(L, hidden) {
+    if (!L.vis) { toast(hidden || `La capa «${L.name}» está oculta.`); return false; }
+    if (L.lock) { lockedMsg(L); return false; }
+    if (d2ZoomOf(L) > 1) { toast(`«${L.name}» tiene zoom: dibuja en otra capa, o vuelve su zoom a 100 % para pintar sobre la foto o moverla con el lazo.`, 5200); return false; }
+    return true;
   }
   function pickColor(p) {
     const c = mk(1, 1), g = c.getContext('2d');
@@ -607,76 +885,170 @@ async function openShot2D(id, isNew) {
     setColor('#' + [r, gg, b].map(v => v.toString(16).padStart(2, '0')).join(''));
   }
 
-  /* ---------- lazo y selección flotante ----------
-     La selección también es una máscara: mientras está activa, lápices, pinceles y borrador pintan solo dentro.
-     Esc, Ctrl + D o un toque fuera con el lazo la quitan. */
-  function maskPts() {
-    const f = E.float;
-    if (!f) return E.mask;
-    if (!f.path0) return null;
-    const c = Math.cos(f.rot), s = Math.sin(f.rot);
-    return f.path0.map(p => { const x = (p.x - f.ox) * f.sx, y = (p.y - f.oy) * f.sy; return { x: f.cx + x * c - y * s, y: f.cy + x * s + y * c }; });
-  }
-  const maskPath = pts => { const p = new Path2D(); pts.forEach((q, i) => i ? p.lineTo(q.x, q.y) : p.moveTo(q.x, q.y)); p.closePath(); return p; };
-  function clearMask() { if (!E.mask && !E.float) return false; applyFloat(); E.mask = null; insp(); req(); return true; }
-  function floatFrom(path, rect) {
-    applyFloat(); commitText();
+  /* ---------- (lote AD) bote de pintura ----------
+     Rellena en la capa activa la zona cerrada por líneas que se toca. El borde son las líneas de las capas de dibujo
+     visibles y la misma capa activa (así el contorno va en una capa y la pintura en otra, debajo); las fotos y la Viñeta
+     3D son de referencia y no cuentan. Con «Solo esta capa», el borde es solo lo de la capa activa. Con una selección,
+     rellena solo dentro de ella */
+  function layerInto(g, L, F) { const r = ras(L, F), os = objsOf(L, F); if (r) d2ImgLayer(g, r, L, DW, DH); for (const o of os) d2DrawObj(g, o); return !!r || os.length > 0; }
+  function fillAt(p) {
     const L = actL(), F = curF();
-    if (!L.vis) { toast(`La capa «${L.name}» está oculta.`); return; }
-    if (L.lock) { lockedMsg(L); return; }
-    const k = rk(L, F), c = ras(L, F, true);
-    let x0, y0, x1, y1;
-    if (rect) [x0, y0, x1, y1] = rect;
-    else { x0 = Math.min(...path.map(p => p.x)); y0 = Math.min(...path.map(p => p.y)); x1 = Math.max(...path.map(p => p.x)); y1 = Math.max(...path.map(p => p.y)); }
-    x0 = clamp(Math.floor(x0), 0, DW); y0 = clamp(Math.floor(y0), 0, DH); x1 = clamp(Math.ceil(x1), 0, DW); y1 = clamp(Math.ceil(y1), 0, DH);
-    const w = x1 - x0, h = y1 - y0;
-    if (w < 2 || h < 2) return;
-    const fc = mk(w, h), fg = fc.getContext('2d');
-    fg.save(); fg.translate(-x0, -y0);
-    if (path) { fg.beginPath(); path.forEach((p, i) => i ? fg.lineTo(p.x, p.y) : fg.moveTo(p.x, p.y)); fg.closePath(); fg.clip(); }
-    fg.drawImage(c, 0, 0); fg.restore();
-    const px = fg.getImageData(0, 0, w, h).data;
-    let any = false; for (let i = 3; i < px.length; i += 16) if (px[i]) { any = true; break; }
-    const shape = path ? path.map(p => ({ ...p })) : [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-    if (!any) { E.mask = shape; insp(); req(); return; }   // zona vacía: queda solo la máscara para pintar dentro
-    const before = cloneC(c), g = c.getContext('2d');
-    g.save(); g.beginPath();
-    if (path) { path.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); } else g.rect(x0, y0, w, h);
-    g.clip(); g.clearRect(x0, y0, w, h); g.restore(); c._v++;
-    E.mask = null;
-    E.float = { c: fc, k, before, cx: x0 + w / 2, cy: y0 + h / 2, w, h, sx: 1, sy: 1, rot: 0, path0: shape, ox: x0 + w / 2, oy: y0 + h / 2 };
-    insp(); syncHist(); req();
+    if (!writable(L, `La capa «${L.name}» está oculta. Muéstrala para dibujar en ella.`)) return;
+    applyFloat(); commitText(); E.sel = null;
+    const T = E.T.fill, lays = d2Layers(d).filter(l => l.vis), ti = lays.indexOf(L);
+    // las líneas (a opacidad entera: una capa de boceto clarita también es borde), en los lienzos de los trazos
+    const comp = (c, list) => { const g = c.getContext('2d'); g.clearRect(0, 0, DW, DH); let any = false; for (const l of list) any = layerInto(g, l, F) || any; return any ? g.getImageData(0, 0, DW, DH).data : null; };
+    const line = comp(TMP, T.own ? [L] : lays.filter(l => l === L || l.kind !== 'image')) || new Uint8ClampedArray(DW * DH * 4);
+    const below = T.own ? null : comp(TMP2, lays.filter((l, i) => i < ti && l.kind !== 'image'));
+    tctx.clearRect(0, 0, DW, DH); TMP2.getContext('2d').clearRect(0, 0, DW, DH);
+    const k = rk(L, F), c = ras(L, F, true), g = c.getContext('2d'), im = g.getImageData(0, 0, DW, DH);
+    const bb = d2Fill({ W: DW, H: DH, line, dst: im.data, below, allow: E.selM, x: p.x, y: p.y, tol: T.tol / 100, gap: T.gap, rgb: hexRGB(E.color) });
+    if (!bb) { if (E.selM && p.x >= 0 && p.y >= 0 && p.x < DW && p.y < DH) toast('Toca dentro de la selección para rellenar.'); return; }
+    const [x0, y0, x1, y1] = bb, before = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+    g.putImageData(im, 0, 0, x0, y0, x1 - x0, y1 - y0);
+    const after = g.getImageData(x0, y0, x1 - x0, y1 - y0); c._v++;
+    push({ undo: () => putPx(k, x0, y0, before), redo: () => putPx(k, x0, y0, after) });
+    useColor(E.color);
   }
+
+  /* ---------- lazo y selección (lote AD) ----------
+     El lazo siempre dibuja: cada lazo nuevo se suma a la selección; con Ctrl apretado antes de empezar a trazar (o con
+     «Restar» en el celular) resta. Ctrl + clic sin arrastrar sobre la selección (o «Expandir») suelta lo de la capa
+     activa con la caja para agrandar, achicar, girar y mover; Intro o Esc terminan. Un clic sin arrastrar fuera de la
+     selección, Esc o Ctrl + D la quitan. Mientras hay una selección, lápices, pinceles, borrador y bote pintan solo dentro,
+     y copiar, cortar, borrar y mover toman lo de adentro. Cambiar la selección se deshace como un trazo */
+  const selOn = () => !!E.selM;
+  const maskPath = pts => { const p = new Path2D(); pts.forEach((q, i) => i ? p.lineTo(q.x, q.y) : p.moveTo(q.x, q.y)); p.closePath(); return p; };
+  const opsCopy = ops => (ops || []).map(o => ({ sub: !!o.sub, pts: o.pts.map(q => ({ x: q.x, y: q.y })) }));
+  /* arma la máscara (sin bordes suaves: lo que se suelta y se vuelve a poner no deja costura), su contorno y su sombra */
+  function setSel(ops) {
+    E.selOps = opsCopy(ops); E.selM = E.selLoops = E.selPath = E.selBB = null;
+    if (E.selOps.length) {
+      SELC = SELC || mk(); SHADE = SHADE || mk();
+      const g = SELC.getContext('2d'); g.clearRect(0, 0, DW, DH); g.fillStyle = '#000';
+      for (const o of E.selOps) { g.globalCompositeOperation = o.sub ? 'destination-out' : 'source-over'; g.fill(maskPath(o.pts)); }
+      g.globalCompositeOperation = 'source-over';
+      const im = g.getImageData(0, 0, DW, DH), px = im.data, M = new Uint8Array(DW * DH);
+      let x0 = DW, y0 = DH, x1 = -1, y1 = -1;
+      for (let i = 0, j = 3; i < M.length; i++, j += 4) {
+        if (px[j] < 128) { px[j] = 0; continue; }
+        px[j] = 255; M[i] = 1; const x = i % DW, y = (i - x) / DW;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      if (x1 < 0) E.selOps = [];   // lo que se restó se llevó todo
+      else {
+        g.putImageData(im, 0, 0);
+        E.selM = M; E.selBB = [x0, y0, x1 + 1, y1 + 1]; E.selLoops = d2Outline(M, DW, DH);
+        const path = new Path2D(); for (const lp of E.selLoops) { lp.forEach(([x, y], i) => i ? path.lineTo(x, y) : path.moveTo(x, y)); path.closePath(); } E.selPath = path;
+        const sg = SHADE.getContext('2d'); sg.clearRect(0, 0, DW, DH); sg.fillStyle = 'rgba(22,23,27,.24)'; sg.fillRect(0, 0, DW, DH);
+        sg.globalCompositeOperation = 'destination-out'; sg.drawImage(SELC, 0, 0); sg.globalCompositeOperation = 'source-over';
+      }
+    }
+    req();
+  }
+  function changeSel(ops) { const a = opsCopy(E.selOps); setSel(ops); pushSel(a, opsCopy(E.selOps)); }
+  function addLasso(path, sub) { if (sub && !selOn()) { toast('No hay una selección de la que restar: primero rodea una zona.'); return; } changeSel([...E.selOps, { sub, pts: path }]); }
+  function clearSel() { if (E.float) applyFloat(); if (!selOn()) return false; changeSel([]); return true; }
+  const selHas = p => { const x = Math.floor(p.x), y = Math.floor(p.y); return !!E.selM && x >= 0 && y >= 0 && x < DW && y < DH && !!E.selM[y * DW + x]; };
   function contentBox(c) {
     const W = c.width, H = c.height, px = c.getContext('2d').getImageData(0, 0, W, H).data;
     let x0 = W, y0 = H, x1 = -1, y1 = -1;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px[(y * W + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
     return x1 < 0 ? null : [x0, y0, x1 + 1, y1 + 1];
   }
+  /* lo de la capa dentro de la selección, recortado a lo que tiene dibujo: { c, x, y } (o null si ahí no hay nada) */
+  function liftSel(c) {
+    const [bx, by, bx1, by1] = E.selBB, t = mk(bx1 - bx, by1 - by), g = t.getContext('2d');
+    g.drawImage(c, -bx, -by); g.globalCompositeOperation = 'destination-in'; g.drawImage(SELC, -bx, -by);
+    const b = contentBox(t); if (!b) return null;
+    const o = mk(b[2] - b[0], b[3] - b[1]); o.getContext('2d').drawImage(t, -b[0], -b[1]);
+    return { c: o, x: bx + b[0], y: by + b[1] };
+  }
+  const emptyMsg = L => toast(`No hay dibujo dentro de la selección en la capa «${L.name}».`);
+  /* Ctrl + clic sobre la selección o «Expandir»: lo de adentro queda suelto, con la caja para agrandar, girar y mover */
+  function floatFromSel() {
+    if (E.float || !selOn()) return;
+    commitText();
+    const L = actL(), F = curF();
+    if (!writable(L)) return;
+    const c = ras(L, F), lf = c && liftSel(c);
+    if (!lf) { emptyMsg(L); return; }
+    const before = cloneC(c), g = c.getContext('2d');
+    g.globalCompositeOperation = 'destination-out'; g.drawImage(SELC, 0, 0); g.globalCompositeOperation = 'source-over'; c._v++;
+    const w = lf.c.width, h = lf.c.height, cx = lf.x + w / 2, cy = lf.y + h / 2;
+    E.float = { c: lf.c, k: rk(L, F), before, cx, cy, w, h, sx: 1, sy: 1, rot: 0, ox: cx, oy: cy, ops: opsCopy(E.selOps), ops0: opsCopy(E.selOps) };
+    insp(); syncHist(); req();
+  }
+  /* Ctrl + A: la selección rodea lo dibujado en la capa activa */
   function selectAll() {
+    if (!writable(actL())) return;
     if (E.float) applyFloat();
-    const c = ras(actL(), curF());
-    const b = c && contentBox(c);
+    const c = ras(actL(), curF()), b = c && contentBox(c);
     if (!b) { toast(`La capa «${actL().name}» está vacía en este cuadro.`); return; }
-    setTool('lasso', true); floatFrom(null, b);
+    setTool('lasso', true);
+    changeSel([{ pts: [{ x: b[0], y: b[1] }, { x: b[2], y: b[1] }, { x: b[2], y: b[3] }, { x: b[0], y: b[3] }] }]);
+  }
+  /* los lazos de la selección, llevados adonde quedó lo que se movió, agrandó o giró */
+  function floatOps(f) {
+    if (!f.ops) return [];
+    const c = Math.cos(f.rot), s = Math.sin(f.rot);
+    return f.ops.map(o => ({ sub: o.sub, pts: o.pts.map(p => { const x = (p.x - f.ox) * f.sx, y = (p.y - f.oy) * f.sy; return { x: f.cx + x * c - y * s, y: f.cy + x * s + y * c }; }) }));
   }
   function applyFloat() {
     const f = E.float;
     if (!f) return;
-    const m = maskPts();
-    E.float = null; E.mask = m;
+    E.float = null;
     let c = E.R.get(f.k); if (!c) { c = mk(); E.R.set(f.k, c); }
     drawFloat(c.getContext('2d'), f); c._v++;
-    const after = cloneC(c);
-    push({ undo: () => putC(f.k, f.before), redo: () => putC(f.k, after) });
+    endFloat(f, cloneC(c));
+  }
+  /* la caja termina: el cambio de la capa y la selección (que acompaña a lo que se movió) se deshacen juntos */
+  function endFloat(f, after) {
+    const a = f.ops0 || opsCopy(E.selOps), b = floatOps(f);
+    setSel(b);
+    push({ undo: () => { putC(f.k, f.before); setSel(a); }, redo: () => { putC(f.k, after); setSel(b); } });
     insp();
   }
-  function cancelFloat() { const f = E.float; if (!f) return; E.float = null; E.mask = null; putC(f.k, f.before); insp(); req(); }
-  function dropFloat() {
-    const f = E.float; if (!f) return; const m = maskPts(); E.float = null; E.mask = m;
-    const c = E.R.get(f.k), after = cloneC(c);
-    push({ undo: () => putC(f.k, f.before), redo: () => putC(f.k, after) });
-    insp();
+  function cancelFloat() { const f = E.float; if (!f) return; E.float = null; putC(f.k, f.before); insp(); req(); }
+  function dropFloat() { const f = E.float; if (!f) return; E.float = null; endFloat(f, cloneC(E.R.get(f.k) || mk())); }
+  /* copiar, cortar, borrar y pegar lo de dentro de la selección, en la capa activa. Lo copiado sirve en cualquier plano */
+  function copySel(quiet) {
+    if (E.float) applyFloat();
+    if (!selOn()) return false;
+    const L = actL(), c = ras(L, curF());
+    if (!L.vis || d2ZoomOf(L) > 1) { writable(L); return false; }
+    const lf = c && liftSel(c);
+    if (!lf) { emptyMsg(L); return false; }
+    D2_CLIP = { ...lf, ops: opsCopy(E.selOps) };
+    if (!quiet) toast(E.touchy ? 'Copiado. «Pegar» lo pone en la capa activa.' : 'Copiado. Ctrl + V lo pega en la capa activa.');
+    insp(); return true;
+  }
+  function eraseSel() {
+    if (E.ro) return;
+    if (E.float) { dropFloat(); req(); return; }
+    const L = actL(), F = curF();
+    if (!selOn() || !writable(L)) return;
+    const c = ras(L, F); if (!c) return;
+    const [x0, y0, x1, y1] = E.selBB, k = rk(L, F), g = c.getContext('2d'), before = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+    g.globalCompositeOperation = 'destination-out'; g.drawImage(SELC, 0, 0); g.globalCompositeOperation = 'source-over'; c._v++;
+    const after = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+    push({ undo: () => putPx(k, x0, y0, before), redo: () => putPx(k, x0, y0, after) });
+  }
+  function cutSel() {
+    if (E.float) applyFloat();
+    if (!selOn() || !writable(actL()) || !copySel(true)) return false;
+    eraseSel(); toast(E.touchy ? 'Cortado. «Pegar» lo pone en la capa activa.' : 'Cortado. Ctrl + V lo pega en la capa activa.');
+    return true;
+  }
+  /* lo pegado queda suelto, con la caja, en el mismo lugar de donde se copió */
+  function pasteClip() {
+    const C0 = D2_CLIP, L = actL(), F = curF();
+    if (!C0 || E.ro || !writable(L)) return;
+    applyFloat(); commitText(); E.sel = null;
+    setTool('lasso', true);
+    const c = ras(L, F, true), w = C0.c.width, h = C0.c.height, cx = C0.x + w / 2, cy = C0.y + h / 2;
+    E.float = { c: cloneC(C0.c), k: rk(L, F), before: cloneC(c), cx, cy, w, h, sx: 1, sy: 1, rot: 0, ox: cx, oy: cy, ops: opsCopy(C0.ops), ops0: opsCopy(E.selOps) };
+    insp(); syncHist(); req();
   }
   function stampFloat() { const f = E.float; if (!f) return; const c = E.R.get(f.k); drawFloat(c.getContext('2d'), f); c._v++; touched(); f.cx += 24; f.cy += 24; req(); }
   function floatHit(p) {
@@ -804,6 +1176,8 @@ async function openShot2D(id, isNew) {
     }
     if (PTR.size > 1) return;
     e.preventDefault();
+    // (lote AD) con el dedo, el panel muestra los botones del celular (Sumar, Restar, Expandir); con el mouse, las teclas
+    if ((e.pointerType === 'touch') !== E.touchy && e.pointerType !== 'pen') { E.touchy = e.pointerType === 'touch'; insp(); }
     const p = toDoc(e);
     if (e.button === 1 || E.space || E.tool === 'hand') { E.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, V: { ...E.V } }; stage.classList.add('panning'); return; }
     // Alt + clic derecho y arrastrar: a los lados el tamaño del pincel, arriba y abajo su opacidad
@@ -813,9 +1187,13 @@ async function openShot2D(id, isNew) {
     }
     const tool = E.tool;
     if (D2_BRUSH.has(tool)) { if (strokeStart(e, p)) E.drag = { kind: 'stroke' }; return; }
+    // (lote AD) el bote rellena al soltar (con dos dedos es pellizcar: no rellena); Alt + clic toma un color de la hoja
+    if (tool === 'fill') { if (e.altKey) pickColor(p); else E.drag = { kind: 'fill', p }; return; }
     if (tool === 'lasso') {
       if (E.float) { const h = floatHit(p); if (h) { E.drag = { kind: 'float', fn: floatDrag(h, p) }; return; } applyFloat(); }
-      E.lasso = [p]; E.drag = { kind: 'lasso' }; return;
+      // (lote AD) siempre dibuja un lazo: suma, o resta si Ctrl estaba apretado al empezar (o «Restar» en el celular)
+      const ctrl = e.ctrlKey || e.metaKey;
+      E.lasso = [p]; E.drag = { kind: 'lasso', ctrl, sub: ctrl || E.lmode === 'sub', sx: e.clientX, sy: e.clientY, far: false }; req(); return;
     }
     if (tool === 'persp') {
       const G = d.guides;
@@ -841,10 +1219,18 @@ async function openShot2D(id, isNew) {
       E.drag = { kind: 'obj', before, fn: objDrag(hit, 'body', p) }; req(); return;
     }
     if (E.text) { commitText(); if (tool === 'text') return; }
+    // (lote AA) con Mover, arrastrar sobre la foto activa con zoom corre su encuadre (qué parte se ve)
+    if (tool === 'move' && !E.v3sel && d2ZoomOf(actL()) > 1) {
+      const L = actL();
+      if (L.lock) { lockedMsg(L); return; }
+      if (E.sel) { E.sel = null; insp(); }
+      E.drag = { kind: 'zpan', L, before: snap(), p0: p, zx: +L.zx || 0, zy: +L.zy || 0 }; stage.classList.add('panning'); C.style.cursor = 'grabbing'; return;
+    }
     if ((tool === 'arrow' || tool === 'text') && actL().lock) { lockedMsg(actL()); return; }
     if (tool === 'arrow') {
       const A = E.T.arrow;
-      const o = newObj({ id: uid('o'), type: 'arrow', p0: p, p1: { ...p }, h1: { ...p }, h2: { ...p }, w: A.w, head: A.head, tail: A.tail, outline: A.outline, op: A.op, double: A.double, color: E.color });
+      // (lote AD) sin contorno, aunque la anterior lo tuviera
+      const o = newObj({ id: uid('o'), type: 'arrow', p0: p, p1: { ...p }, h1: { ...p }, h2: { ...p }, w: A.w, head: A.head, tail: A.tail, outline: 'none', op: A.op, double: A.double, color: E.color });
       E.sel = o.id; E.drag = { kind: 'newArrow', before, o, p0: p }; insp(); return;
     }
     if (tool === 'text') {
@@ -866,7 +1252,7 @@ async function openShot2D(id, isNew) {
     const p = toDoc(e);
     if (e.pointerType !== 'touch') { if (E.alt !== e.altKey && !E.drag) setAlt(e.altKey); E.hover = p; if (!E.drag && D2_BRUSH.has(E.tool)) req(); }
     const dr = E.drag;
-    if (!dr) { hoverCursor(p); return; }
+    if (!dr) { hoverCursor(p, e); return; }
     if (dr.kind === 'pan') { E.V.x = dr.V.x + e.clientX - dr.sx; E.V.y = dr.V.y + e.clientY - dr.sy; placeText(); req(); return; }
     if (dr.kind === 'bsz') {
       const B = E.bsz, T = E.T[E.tool], dx = e.clientX - B.sx, dy = e.clientY - B.sy;
@@ -875,8 +1261,13 @@ async function openShot2D(id, isNew) {
       req(); return;
     }
     if (dr.kind === 'stroke') { const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : []; strokeMove(e, (evs.length ? evs : [e]).map(toDoc)); return; }
-    if (dr.kind === 'lasso') { const l = E.lasso[E.lasso.length - 1]; if (Math.hypot(l.x - p.x, l.y - p.y) > 2 / E.V.z) E.lasso.push(p); req(); return; }
+    if (dr.kind === 'lasso') {
+      if (!E.lasso) return;
+      if (Math.hypot(e.clientX - dr.sx, e.clientY - dr.sy) > 5) dr.far = true;   // ya no es un clic
+      const l = E.lasso[E.lasso.length - 1]; if (Math.hypot(l.x - p.x, l.y - p.y) > 2 / E.V.z) E.lasso.push(p); req(); return;
+    }
     if (dr.kind === 'float' || dr.kind === 'obj') { dr.moved = true; dr.fn(p, e); return; }
+    if (dr.kind === 'zpan') { const z = d2ZoomOf(dr.L); dr.L.zx = d2PanOf(z, dr.zx + (p.x - dr.p0.x) / DW); dr.L.zy = d2PanOf(z, dr.zy + (p.y - dr.p0.y) / DH); ONION.clear(); req(); return; }
     if (dr.kind === 'newArrow') { const o = dr.o; o.p1 = p; o.h1 = { x: o.p0.x + (p.x - o.p0.x) / 3, y: o.p0.y + (p.y - o.p0.y) / 3 }; o.h2 = { x: o.p0.x + (p.x - o.p0.x) * 2 / 3, y: o.p0.y + (p.y - o.p0.y) * 2 / 3 }; req(); return; }
     if (dr.kind === 'vp' || dr.kind === 'hz') {
       const G = d.guides, dy = p.y - dr.p0.y, dx = p.x - dr.p0.x;
@@ -893,8 +1284,19 @@ async function openShot2D(id, isNew) {
     const p = toDoc(e);
     if (dr.kind === 'bsz') { E.bsz = null; stage.classList.remove('sizing'); saveTools(); insp(); req(); return; }
     if (dr.kind === 'stroke') strokeEnd(e, e.type === 'pointercancel' ? null : p);
-    else if (dr.kind === 'lasso') { const path = E.lasso; E.lasso = null; if (path && path.length > 2) floatFrom(path); else if (E.mask) { E.mask = null; insp(); } req(); }
+    else if (dr.kind === 'fill') { if (e.type !== 'pointercancel') fillAt(dr.p); }
+    else if (dr.kind === 'lasso') {
+      const path = E.lasso; E.lasso = null;
+      if (path && e.type !== 'pointercancel') {
+        if (dr.far && path.length > 2) addLasso(path, dr.sub);
+        // un clic sin arrastrar: con Ctrl sobre la selección, la caja; sin Ctrl fuera de ella, la quita
+        else if (dr.ctrl) { if (selHas(path[0])) floatFromSel(); else if (!selOn()) toast('Primero rodea una zona con el lazo; después Ctrl + clic sobre ella muestra la caja para agrandar, girar y mover.', 4200); }
+        else if (!selHas(path[0])) clearSel();
+      }
+      req();
+    }
     else if (dr.kind === 'float') { E.dirty = true; req(); }
+    else if (dr.kind === 'zpan') { const b = snap(); if (dr.before.d !== b.d) { const a = dr.before; push({ undo: () => restore(a), redo: () => restore(b) }); } layerThumbs(); req(); }
     else if (dr.kind === 'obj') { if (dr.moved) objEdit(dr.before); insp(); req(); }
     else if (dr.kind === 'newArrow') {
       const o = dr.o;
@@ -913,19 +1315,31 @@ async function openShot2D(id, isNew) {
     if (e.ctrlKey || e.metaKey) zoomAt(Math.exp(-e.deltaY * .0022), e.clientX - r.left, e.clientY - r.top);
     else { E.V.x -= e.deltaX; E.V.y -= e.deltaY; placeText(); req(); }
   }, { passive: false });
-  function hoverCursor(p) {
+  function hoverCursor(p, e) {
     let cur = '';
     if (E.tool === 'lasso' && E.float) { const h = floatHit(p); cur = !h ? 'crosshair' : h.kind === 'move' ? 'move' : h.kind === 'rot' ? 'grab' : 'nwse-resize'; }
+    else if (E.tool === 'lasso' && e && (e.ctrlKey || e.metaKey) && selHas(p)) cur = 'move';   // (lote AD) Ctrl + clic: la caja
     else if (E.tool === 'move' || E.tool === 'arrow' || E.tool === 'text') { const so = E.sel && findObj(E.sel); const h = so && objHandle(so.o, p); const o = h ? null : hitObj(p); cur = h ? (h === 'size' ? 'nwse-resize' : 'grab') : o && (E.tool === 'move' || o.type === E.tool) ? 'move' : ''; }
     else if (E.tool === 'persp' && d.guides.vp && d.guides.show !== false) cur = d.guides.vp.some(v => { const s = vpShown(v); return Math.hypot(s.x - p.x, s.y - p.y) < HS() * 2.2; }) ? 'grab' : Math.abs(p.y - d.guides.vp[0].y) < HS() * 1.6 ? 'ns-resize' : '';
+    // (lote AA) con Mover, sobre la foto activa con zoom: la mano para correr su encuadre
+    if (!cur && E.tool === 'move' && !E.v3sel && d2ZoomOf(actL()) > 1) cur = 'grab';
     C.style.cursor = cur;
   }
   /* soltar o pegar una imagen la pone en una capa nueva */
   stage.addEventListener('dragover', e => { if ([...(e.dataTransfer.items || [])].some(i => i.kind === 'file')) { e.preventDefault(); stage.classList.add('drop'); } });
   stage.addEventListener('dragleave', () => stage.classList.remove('drop'));
   stage.addEventListener('drop', e => { e.preventDefault(); stage.classList.remove('drop'); const f = [...e.dataTransfer.files].find(f => /^image\//.test(f.type)); if (f) addImage(f); });
-  const onPaste = e => { if (!$('#s2Modal') || E.text) return; const it = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => /^image\//.test(i.type)); if (it) { e.preventDefault(); addImage(it.getAsFile()); } };
+  // (lote AD) si no hay una imagen copiada de afuera, Ctrl + V pega lo último copiado del dibujo con el lazo
+  const onPaste = e => {
+    if (!$('#s2Modal') || E.text || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) return;
+    clearTimeout(E.pasteT); E.pasteT = 0;
+    const it = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => /^image\//.test(i.type));
+    if (it) { e.preventDefault(); addImage(it.getAsFile()); } else if (D2_CLIP) { e.preventDefault(); pasteClip(); }
+  };
   document.addEventListener('paste', onPaste);
+  // al copiar del dibujo, el portapapeles del equipo deja de tener lo de antes (si era una imagen, Ctrl + V la pegaría a ella)
+  const onCopy = e => { if (!E.clipKey || !ov.isConnected) return; E.clipKey = false; try { e.clipboardData.setData('text/plain', 'FilmSpirit · dibujo copiado'); e.preventDefault(); } catch (er) { } };
+  document.addEventListener('copy', onCopy); document.addEventListener('cut', onCopy);
 
   /* ---------- imágenes de referencia ---------- */
   function addImage(file) {
@@ -937,17 +1351,17 @@ async function openShot2D(id, isNew) {
       const fc = mk(w, h); fc.getContext('2d').drawImage(im, 0, 0, w, h);
       URL.revokeObjectURL(url);
       let L;
+      // una foto nueva va detrás de las figuras (de fondo), arriba de las otras fotos de fondo; en Capas se pasa delante
       structural(() => {
-        L = { id: uid('l'), name: (file.name || 'Imagen').replace(/\.[^.]+$/, '').slice(0, 40) || 'Imagen', kind: 'image', vis: true, op: .5, shared: true };
-        const ai = d.layers.findIndex(l => l.id === d.act);
-        d.layers.splice(ai >= 0 ? ai + 1 : d.layers.length, 0, L);
-        d.act = L.id;
+        L = { id: uid('l'), name: (file.name || 'Imagen').replace(/\.[^.]+$/, '').slice(0, 40) || 'Imagen', kind: 'image', vis: true, op: .5, shared: true, back: true };
+        d.layers.splice(d.layers.filter(d2Back).length, 0, L);
+        d.act = L.id; E.v3sel = false;
       });
       const k = rk(L, curF()); if (!E.R.get(k)) E.R.set(k, mk());
       setTool('lasso', true);
       E.float = { c: fc, k, before: mk(), cx: DW / 2, cy: DH / 2, w, h, sx: s / Math.min(1.6, s * 1.6), sy: s / Math.min(1.6, s * 1.6), rot: 0 };
       insp(); syncHist(); req();
-      toast('Imagen en una capa nueva al 50 %. Muévela o escálala y pulsa Intro; su opacidad se ajusta en Capas.', 4600);
+      toast('Imagen en una capa nueva al 50 %, detrás de las figuras. Muévela o escálala y pulsa Intro; en Capas cambias su opacidad o la pasas delante.', 5200);
     };
     im.onerror = () => { URL.revokeObjectURL(url); toast('No se pudo leer esa imagen. Prueba con un JPG o un PNG.'); };
     im.src = url;
@@ -965,12 +1379,29 @@ async function openShot2D(id, isNew) {
       const T = E.T[t];
       h += rr('Tamaño', 'size', T.size, 1, D2_MAX[t], 1, T.size + ' px') + rr(t === 'eraser' ? 'Fuerza' : 'Opacidad', 'op', T.op, .05, 1, .05, Math.round(T.op * 100) + ' %') + rr('Estabilizador', 'smooth', T.smooth, 0, 95, 5, T.smooth + ' %');
       h += `<p class="hint">${t === 'eraser' ? 'Borra en la capa activa.' : 'Mayúsculas traza una recta. Mantén Alt para tomar un color de la hoja.'} Alt + clic derecho y arrastrar: a los lados cambia el tamaño, arriba y abajo la ${t === 'eraser' ? 'fuerza' : 'opacidad'}.${d.guides.snap && d.guides.type !== 'none' ? ' Los trazos se ajustan a las guías de perspectiva.' : ''}</p>`;
-      if (E.mask || E.float) h += `<div class="s2-mask"><span>Selección activa: solo se pinta dentro.</span><button class="btn ghost sm" data-a="sel-none">Quitar <kbd>Esc</kbd></button></div>`;
+      if (E.selM) h += `<div class="s2-mask"><span>Selección activa: solo se pinta dentro.</span><button class="btn ghost sm" data-a="sel-none">Quitar <kbd>Esc</kbd></button></div>`;
+    } else if (t === 'fill') {
+      // (lote AD) bote de pintura
+      const T = E.T.fill;
+      h += rr('Tolerancia', 'f-tol', T.tol, 0, 100, 1, T.tol + ' %') + rr('Cerrar huecos', 'f-gap', T.gap, 0, 24, 1, T.gap + ' px');
+      h += `<label class="opt-in" title="Si no, el borde son las líneas de todas las capas visibles"><input type="checkbox" data-k="f-own" ${T.own ? 'checked' : ''}> Solo esta capa</label>`;
+      // (cada parte que cambia en su <span>: así cada frase se traduce sola)
+      h += `<p class="hint">Toca dentro de una zona cerrada por líneas para rellenarla con el color elegido, en la capa activa. <span>${T.own ? 'El borde son solo las líneas de esta capa.' : 'El borde son las líneas de todas las capas visibles: dibuja el contorno en una capa y pinta en otra, debajo.'}</span> «Tolerancia» toma también los colores parecidos; si la pintura se escapa por una abertura de la línea, sube «Cerrar huecos».${E.touchy ? '' : ' <span>Alt + clic toma un color de la hoja.</span>'}</p>`;
+      if (E.selM) h += `<div class="s2-mask"><span>Selección activa: solo se rellena dentro.</span><button class="btn ghost sm" data-a="sel-none">Quitar <kbd>Esc</kbd></button></div>`;
     } else if (t === 'lasso') {
-      h += E.float ? `<div class="s2-btns"><button class="btn primary sm" data-a="fl-ok">Aplicar <kbd>Intro</kbd></button><button class="btn sm" data-a="fl-x">Cancelar <kbd>Esc</kbd></button></div>
+      // (lote AD) en el celular y la tableta (sin Ctrl): Sumar, Restar y Expandir; sin las teclas al lado de cada botón
+      const kb = s => E.touchy ? '' : ` <kbd>${s}</kbd>`;
+      if (E.float) h += `<div class="s2-btns"><button class="btn primary sm" data-a="fl-ok">Aplicar${kb('Intro')}</button><button class="btn sm" data-a="fl-x">Cancelar</button></div>
         <div class="s2-btns"><button class="btn sm" data-a="fl-fh">Voltear ↔</button><button class="btn sm" data-a="fl-fv">Voltear ↕</button><button class="btn sm" data-a="fl-dup">Estampar copia</button><button class="btn sm danger" data-a="fl-del">Borrar</button></div>
-        <p class="hint">Arrastra dentro para mover, las esquinas para escalar (Mayúsculas deforma libre), los lados para estirar y el círculo de arriba para girar.</p>`
-        : `<p class="hint">Rodea una zona de la capa activa para moverla, escalarla o girarla. Mientras la selección está activa, los pinceles pintan solo dentro de ella.</p><div class="s2-btns"><button class="btn sm" data-a="sel-all">Seleccionar todo <kbd>Ctrl+A</kbd></button>${E.mask ? '<button class="btn sm" data-a="sel-none">Quitar la selección <kbd>Esc</kbd></button>' : ''}</div>`;
+        <p class="hint">Arrastra dentro para mover, las esquinas para escalar (Mayúsculas deforma libre), los lados para estirar y el círculo de arriba para girar. <span>${E.touchy ? '«Aplicar» termina.' : 'Intro o Esc terminan.'}</span></p>`;
+      else {
+        const on = selOn();
+        if (E.touchy) h += `<div class="s2-lm">${segH('l-mode', [['add', 'Sumar'], ['sub', 'Restar']], E.lmode)}<button class="btn sm" data-a="sel-exp" ${on ? '' : 'disabled'}>Expandir</button></div>`;
+        h += `<p class="hint"><span>${E.touchy ? 'Rodea una zona para seleccionarla. Con «Sumar», cada lazo nuevo se agrega a la selección; con «Restar», la recorta. «Expandir» muestra la caja para agrandar, achicar, girar y mover. Un toque fuera de la selección la quita.' : 'Rodea una zona para seleccionarla; cada lazo nuevo se suma. Con Ctrl apretado antes de empezar a trazar, el lazo resta. Ctrl + clic sobre la selección muestra la caja para agrandar, achicar, girar y mover. Un clic fuera o Esc quitan la selección.'}</span> Con una selección, los pinceles y el bote pintan solo dentro de ella.</p>`;
+        const b1 = (on ? `<button class="btn sm" data-a="sel-copy">Copiar${kb('Ctrl+C')}</button><button class="btn sm" data-a="sel-cut">Cortar${kb('Ctrl+X')}</button>` : '') + (D2_CLIP ? `<button class="btn sm" data-a="sel-paste">Pegar${kb('Ctrl+V')}</button>` : '') + (on ? `<button class="btn sm danger" data-a="sel-del">Borrar${kb('Supr')}</button>` : '');
+        if (b1) h += `<div class="s2-btns">${b1}</div>`;
+        h += `<div class="s2-btns"><button class="btn sm" data-a="sel-all">Seleccionar todo${kb('Ctrl+A')}</button>${on ? `<button class="btn sm" data-a="sel-none">Quitar la selección${kb('Esc')}</button>` : ''}</div>`;
+      }
     } else if (t === 'persp') {
       const G = d.guides;
       if (G.type !== 'none') h = h.replace('</div>', `<button class="icbtn s2-gv" data-a="g-vis" aria-pressed="${ea(G.show !== false)}" title="${ea(G.show !== false ? 'Ocultar las guías y los puntos de fuga (la perspectiva se conserva)' : 'Mostrar las guías y los puntos de fuga')}" aria-label="${ea(G.show !== false ? 'Ocultar las guías' : 'Mostrar las guías')}">${d2Ico(G.show !== false ? 'eye' : 'eyeoff')}</button></div>`);
@@ -982,15 +1413,16 @@ async function openShot2D(id, isNew) {
       } else h += '<p class="hint">Elige 1, 2 o 3 puntos de fuga para dibujar fondos y objetos en perspectiva.</p>';
     } else if (t === 'hand') h += '<p class="hint">Arrastra para mover la hoja. Ctrl + rueda, o pellizcar, acerca y aleja. La barra espaciadora mueve la hoja con cualquier herramienta.</p>';
     if (o && o.type === 'arrow') {
-      h += `<div class="s2-h sub"><b>Flecha</b><button class="btn ghost sm danger" data-a="obj-del">Eliminar</button></div>` + arrowCtl(o);
-    } else if (t === 'arrow') h += arrowCtl(E.T.arrow) + '<p class="hint">Arrastra para trazar la flecha. Sus dos puntos cuadrados la doblan (en arco o en ese); Mayúsculas los mueve juntos. Los extremos la estiran y giran.</p>';
+      h += `<div class="s2-h sub"><b>Flecha</b><button class="btn ghost sm danger" data-a="obj-del">Eliminar</button></div>` + arrowCtl(o, true);
+    } else if (t === 'arrow') h += arrowCtl(E.T.arrow) + '<p class="hint">Arrastra para trazar la flecha. Sus dos puntos cuadrados la doblan (en arco o en ese); Mayúsculas los mueve juntos. Los extremos la estiran y giran. <span>Cada flecha nueva sale sin contorno: si quieres uno, elígelo en la flecha después de trazarla.</span></p>';
     if (o && o.type === 'text') h += `<div class="s2-h sub"><b>Texto</b><button class="btn ghost sm danger" data-a="obj-del">Eliminar</button></div>` + textCtl(o) + '<p class="hint">Doble clic para cambiar lo que dice. La esquina inferior derecha cambia el tamaño.</p>';
     else if (t === 'text') h += textCtl(E.T.text) + '<p class="hint">Toca la hoja para escribir. Ctrl + Intro o Esc termina.</p>';
     if (t === 'move' && !o) h += '<p class="hint">Toca una flecha o un texto para moverlo o cambiarlo. Para mover dibujos usa el Lazo.</p>';
     return h;
   }
-  const arrowCtl = A => rr('Grosor', 'a-w', A.w, 6, 160, 1, A.w + ' px') + rr('Punta', 'a-head', A.head, .5, 2.2, .1, A.head.toFixed(1) + '×') + (A.double ? '' : rr('Cola', 'a-tail', A.tail, .1, 1, .05, Math.round(A.tail * 100) + ' %')) + rr('Opacidad', 'a-op', A.op, .1, 1, .05, Math.round(A.op * 100) + ' %') +
-    `<div class="fld"><span>Contorno</span>${segH('a-outline', [['none', 'Sin'], ['white', 'Blanco'], ['dark', 'Oscuro']], A.outline)}</div><label class="opt-in"><input type="checkbox" data-k="a-double" ${A.double ? 'checked' : ''}> Punta en los dos extremos</label>`;
+  // (lote AD) el contorno se elige en cada flecha: las nuevas salen siempre sin él (no copian el de la anterior)
+  const arrowCtl = (A, one) => rr('Grosor', 'a-w', A.w, 6, 160, 1, A.w + ' px') + rr('Punta', 'a-head', A.head, .5, 2.2, .1, A.head.toFixed(1) + '×') + (A.double ? '' : rr('Cola', 'a-tail', A.tail, .1, 1, .05, Math.round(A.tail * 100) + ' %')) + rr('Opacidad', 'a-op', A.op, .1, 1, .05, Math.round(A.op * 100) + ' %') +
+    (one ? `<div class="fld"><span>Contorno</span>${segH('a-outline', [['none', 'Sin'], ['white', 'Blanco'], ['dark', 'Oscuro']], A.outline || 'none')}</div>` : '') + `<label class="opt-in"><input type="checkbox" data-k="a-double" ${A.double ? 'checked' : ''}> Punta en los dos extremos</label>`;
   const textCtl = T => rr('Tamaño', 't-size', T.size, 10, 220, 1, T.size + ' px') + `<div class="fld"><span>Fondo</span>${segH('t-bg', [['none', 'Sin'], ['white', 'Caja'], ['dark', 'Oscura'], ['halo', 'Borde']], T.bg)}</div><label class="opt-in"><input type="checkbox" data-k="t-bold" ${T.bold ? 'checked' : ''}> Negrita</label>`;
   function colorHTML() {
     return `<div class="s2-h"><b>Color</b><input type="text" class="hexin s2-hexin" data-k="hex" value="${esc(E.color.toUpperCase())}" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Código del color (hexadecimal)" title="Escribe un código como #C8382C y pulsa Intro"></div>
@@ -998,12 +1430,24 @@ async function openShot2D(id, isNew) {
         <label class="sw sw-pick" style="--sw:${ea(E.color)}" title="Otro color"><input type="color" value="${ea(E.color)}" data-k="col" data-nohex aria-label="Elegir otro color"></label></div>
       ${E.recent.length ? `<div class="s2-rec"><span class="hint">Recientes</span>${E.recent.map(c => `<button class="sw" style="--sw:${ea(c)}" data-col="${ea(c)}" aria-label="Color ${ea(colorName(c))}"></button>`).join('')}</div>` : ''}`;
   }
+  /* (lote AA) el zoom de una foto: de 100 % a 400 %; con zoom, la flecha (Mover) arrastra la foto para elegir qué se ve */
+  function zoomHTML(L) {
+    const z = d2ZoomOf(L), on = z > 1 || +L.zx || +L.zy;
+    return `${rr('Zoom', 'ly-zoom', Math.round(z * 100), 100, 400, 5, Math.round(z * 100) + ' %')}
+      ${z > 1 ? `<p class="hint s2-zh">Con Mover (la flecha, V), arrastra la foto para elegir qué parte se ve.</p>` : ''}
+      ${on ? `<div class="s2-btns"><button class="btn sm" data-a="ly-z0" ${L.lock ? 'disabled' : ''}>Encuadre original</button></div>` : ''}`;
+  }
   function layersHTML() {
     const F = curF();
-    return `<div class="s2-h"><b>Capas</b><span class="s2-lbtn"><button class="icbtn" data-a="ly-add" title="Capa nueva" aria-label="Capa nueva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="icbtn" data-a="ly-img" title="Cargar una imagen para calcar" aria-label="Cargar una imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg></button></span></div>
-      <div class="s2-lys">${d.layers.slice().reverse().map(L => {
-      const a = L.id === d.act;
-      return `<div class="s2-ly${ea(a ? ' on' : '')}${ea(L.vis ? '' : ' off')}" data-l="${ea(L.id)}">
+    // (lote AD) «Agregar imagen» a la vista, arriba de la lista (antes era un ícono chico junto al «+»)
+    return `<div class="s2-h"><b>Capas</b><span class="s2-lbtn"><button class="icbtn" data-a="ly-add" title="Capa nueva" aria-label="Capa nueva"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></span></div>
+      <button class="btn s2-addimg" data-a="ly-img" title="Cargar una imagen: queda de fondo, detrás de las figuras (en la capa se pasa delante o se baja para calcar)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg>Agregar imagen</button>
+      <p class="hint s2-addh">También puedes arrastrarla a la hoja o pegarla con Ctrl+V</p>
+      <div class="s2-lys">${(() => {
+      // la lista va de arriba abajo: las capas de encima, la Viñeta 3D y las fotos de fondo (detrás de las figuras)
+      const lays = d2Layers(d), row = L => {
+        const a = L.id === d.act && !E.v3sel;
+        return `<div class="s2-ly${ea(a ? ' on' : '')}${ea(L.vis ? '' : ' off')}" data-l="${ea(L.id)}">
           <button class="s2-eye" data-a="ly-vis" aria-pressed="${ea(L.vis)}" aria-label="${ea(L.vis ? 'Ocultar' : 'Mostrar')} «${esc(L.name)}»" title="${ea(L.vis ? 'Ocultar' : 'Mostrar')}">${d2Ico(L.vis ? 'eye' : 'eyeoff')}</button>
           <canvas class="s2-lth" width="64" height="${Math.round(64 / ar)}" data-lth="${ea(L.id)}"></canvas>
           <span class="s2-lnm" title="Doble clic para cambiar el nombre">${esc(L.name)}</span>
@@ -1011,11 +1455,20 @@ async function openShot2D(id, isNew) {
           <button class="s2-lk${ea(L.lock ? ' on' : '')}" data-a="ly-lock" aria-pressed="${ea(!!L.lock)}" title="${ea(L.lock ? 'Desbloquear la capa' : 'Bloquear la capa: no se pinta, borra ni mueve')}" aria-label="${ea(L.lock ? 'Desbloquear' : 'Bloquear')} «${esc(L.name)}»">${d2Ico(L.lock ? 'lock' : 'unlock')}</button>
           <span class="s2-lop">${Math.round(L.op * 100)}%</span>
         </div>${a ? `<div class="s2-lyx">${rr('Opacidad', 'ly-op', L.op, 0, 1, .05, Math.round(L.op * 100) + ' %')}
+          ${L.kind === 'image' ? zoomHTML(L) : ''}
+          ${L.kind === 'image' ? `<label class="opt-in" title="La foto queda de fondo: las figuras y los objetos de la escena 3D se ven encima, con sus sombras"><input type="checkbox" data-k="ly-back" ${d2Back(L) ? 'checked' : ''}> Detrás de las figuras</label>` : ''}
           <div class="s2-lyb"><label class="opt-in"><input type="checkbox" data-k="ly-sh" ${L.shared ? 'checked' : ''}> Igual en todos los cuadros</label>
           <span class="s2-lya"><button class="icbtn" data-a="ly-dup" title="Duplicar la capa" aria-label="Duplicar la capa">${d2Ico('dup')}</button><button class="icbtn" data-a="ly-clear" ${L.lock ? 'disabled' : ''} title="Vaciar la capa en este cuadro" aria-label="Vaciar la capa">${d2Ico('clear')}</button><button class="icbtn danger" data-a="ly-del" ${d.layers.length < 2 || L.lock ? 'disabled' : ''} title="Eliminar la capa" aria-label="Eliminar la capa">${d2Ico('trash')}</button></span></div></div>` : ''}`;
-    }).join('')}
-        <div class="s2-ly base" title="Lo que hay debajo de todas las capas">${segH('base', [['paper', 'Papel'], ['3d', 'Viñeta 3D']], d.base)}</div>
-        ${d.base === '3d' ? `<div class="s2-lyx">${rr('Opacidad', 'base-op', d.baseOp ?? .45, .05, 1, .05, Math.round((d.baseOp ?? .45) * 100) + ' %')}<p class="hint">La escena 3D del plano, debajo de tus capas, para dibujar encima.</p></div>` : ''}
+      };
+      const on3 = d.base === '3d', op3 = d.baseOp ?? .45, backs = lays.filter(d2Back);
+      const v3 = `<div class="s2-ly v3d${ea(E.v3sel ? ' on' : '')}${ea(on3 ? '' : ' off')}" data-v3="1" title="La escena 3D del plano: las capas de encima se superponen; las de abajo quedan de fondo">
+          <button class="s2-eye" data-a="v3-vis" aria-pressed="${ea(on3)}" aria-label="${ea(on3 ? 'Ocultar la Viñeta 3D' : 'Mostrar la Viñeta 3D')}" title="${ea(on3 ? 'Ocultar la escena 3D (queda el papel)' : 'Mostrar la escena 3D')}">${d2Ico(on3 ? 'eye' : 'eyeoff')}</button>
+          <canvas class="s2-lth" width="64" height="${Math.round(64 / ar)}" data-lth3="1"></canvas>
+          <span class="s2-lnm">Viñeta 3D</span><i></i><i></i>
+          <span class="s2-lop">${on3 ? Math.round(op3 * 100) + '%' : 'Papel'}</span>
+        </div>${E.v3sel ? `<div class="s2-lyx">${on3 ? rr('Opacidad', 'base-op', op3, .05, 1, .05, Math.round(op3 * 100) + ' %') : ''}<p class="hint">${on3 ? 'La escena 3D del plano. Las capas de encima se superponen; las imágenes «Detrás de las figuras» quedan debajo, de fondo.' : 'Oculta: se ve el papel. El ojo la vuelve a mostrar.'}</p></div>` : ''}`;
+      return lays.filter(L => !d2Back(L)).reverse().map(row).join('') + v3 + backs.slice().reverse().map(row).join('');
+    })()}
       </div>`;
   }
   function insp() {
@@ -1031,20 +1484,27 @@ async function openShot2D(id, isNew) {
       const L = d.layers.find(l => l.id === cv.dataset.lth); if (!L) continue;
       const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
       g.save(); g.scale(cv.width / DW, cv.height / DH);
-      const r = ras(L, F); if (r) g.drawImage(r, 0, 0);
+      const r = ras(L, F); if (r) d2ImgLayer(g, r, L, DW, DH);
       if (E.float && E.float.k === rk(L, F)) drawFloat(g, E.float);
       for (const o of objsOf(L, F)) d2DrawObj(g, o);
       g.restore();
     }
+    // la de la Viñeta 3D: la escena (sin su entorno si hay una foto detrás)
+    const c3 = ov.querySelector('[data-lth3]');
+    if (c3) { const g = c3.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c3.width, c3.height); const bg = bgOf(F, plateOf(F)); if (bg) g.drawImage(bg, 0, 0, c3.width, c3.height); }
   }
   const setLive = (el, txt) => { const o = el.parentElement.querySelector('output'); if (o) o.textContent = txt; el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%'); };
-  let objBefore = null, docBefore = null;
-  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); } });
+  let objBefore = null, docBefore = null, docVer = -1, kbdRange = null;
+  // (lote AB) un deslizador movido con las flechas del teclado recupera el foco después de rearmarse el panel; con el
+  // mouse no (así las letras de las herramientas siguen funcionando)
+  $o('#s2In').addEventListener('keydown', e => { if (e.target.matches('input[type=range]')) kbdRange = e.target.dataset.k; });
+  $o('#s2In').addEventListener('pointerdown', e => { if (e.target.matches('input[type=range]')) { objBefore = JSON.stringify(d.objs); docBefore = snap(); docVer = E.ver; kbdRange = null; } });
   $o('#s2In').addEventListener('input', e => {
     const el = e.target, k = el.dataset.k; if (!k) return;
     const v = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
     const so = E.sel && findObj(E.sel), o = so && so.o;
     if (D2_BRUSH.has(E.tool) && ['size', 'op', 'smooth'].includes(k)) { E.T[E.tool][k] = v; setLive(el, k === 'op' ? Math.round(v * 100) + ' %' : k === 'size' ? v + ' px' : v + ' %'); saveTools(); req(); return; }
+    if (k === 'f-tol' || k === 'f-gap') { E.T.fill[k.slice(2)] = v; setLive(el, v + (k === 'f-tol' ? ' %' : ' px')); saveTools(); return; }
     if (k === 'col') { setColor(v, true); return; }
     if (k.startsWith('a-') || k.startsWith('t-')) {
       const prop = k.slice(2), tgt = o && (o.type === 'arrow') === k.startsWith('a-') ? o : E.T[k.startsWith('a-') ? 'arrow' : 'text'];
@@ -1053,6 +1513,11 @@ async function openShot2D(id, isNew) {
       if (o && E.text === o) placeText();
       req(); return;
     }
+    // (lote AB) con el teclado (flechas) no hay pointerdown: el estado de antes se toma al primer cambio, así el cambio
+    // queda para deshacer y la viñeta se vuelve a armar al guardar
+    // (si quedó uno de antes de otro cambio, se toma de nuevo: E.ver cuenta los pasos)
+    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k) && (!docBefore || docVer !== E.ver)) { docBefore = snap(); docVer = E.ver; }
+    if (k === 'ly-zoom') { const L = actL(); if (L.lock) { lockedMsg(L); el.value = Math.round(d2ZoomOf(L) * 100); return; } d2SetZoom(L, v / 100); setLive(el, Math.round(v) + ' %'); ONION.clear(); req(); return; }
     if (k === 'ly-op') { actL().op = v; setLive(el, Math.round(v * 100) + ' %'); const t = ov.querySelector('.s2-ly.on .s2-lop'); if (t) t.textContent = Math.round(v * 100) + '%'; ONION.clear(); req(); return; }
     if (k === 'base-op') { d.baseOp = v; setLive(el, Math.round(v * 100) + ' %'); req(); return; }
     if (k === 'g-sp') { const G = d.guides, c = DW / 2, s = v / 100 * DW; G.vp[0].x = c - s; G.vp[1].x = c + s; setLive(el, v + ' %'); req(); return; }
@@ -1062,6 +1527,7 @@ async function openShot2D(id, isNew) {
     const v = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
     const so = E.sel && findObj(E.sel), o = so && so.o;
     if (k === 'col') { setColor(v); return; }
+    if (k === 'f-own') { E.T.fill.own = v; saveTools(); insp(); return; }
     if (k === 'hex') { const h = normHex(v); if (h) setColor(h); else el.value = E.color.toUpperCase(); return; }
     if (k.startsWith('a-') || k.startsWith('t-')) {
       const prop = k.slice(2), tgt = o && (o.type === 'arrow') === k.startsWith('a-') ? o : E.T[k.startsWith('a-') ? 'arrow' : 'text'];
@@ -1071,8 +1537,11 @@ async function openShot2D(id, isNew) {
       if (o && E.text === o) placeText();
       insp(); req(); return;
     }
-    if (k === 'ly-op' || k === 'base-op' || k === 'g-sp') { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); return; }
+    // (lote AB) el panel se vuelve a armar: si se movió con el teclado, el deslizador recupera el foco (las flechas siguen)
+    if (['ly-zoom', 'ly-op', 'base-op', 'g-sp'].includes(k)) { const a = docBefore || snap(); docBefore = null; const b = snap(); if (a.d !== b.d) push({ undo: () => restore(a), redo: () => restore(b) }); fullRefresh(); if (kbdRange === k) { const i = $o(`#s2In input[data-k="${k}"]`); if (i) i.focus(); } kbdRange = null; return; }
     if (k === 'ly-sh') { toggleShared(actL(), v); return; }
+    // una imagen detrás de las figuras (de fondo) o encima de la escena 3D
+    if (k === 'ly-back') { structural(() => { const L = actL(); if (v && L.kind === 'image') L.back = true; else delete L.back; }); ensureBG(); return; }
     if (k === 'g-snap' || k === 'g-show') { structural(() => { d.guides[k === 'g-snap' ? 'snap' : 'show'] = v; }); return; }
   });
   $o('#s2In').addEventListener('click', e => {
@@ -1082,7 +1551,7 @@ async function openShot2D(id, isNew) {
     if (b.dataset.k) {
       const k = b.dataset.k, v = b.dataset.v;
       if (k === 'g-type') { structural(() => { d.guides.type = v; d.guides.vp = v === 'none' ? null : defaultVP(v); }); return; }
-      if (k === 'base') { structural(() => { d.base = v; }); if (v === '3d') ensureBG(); return; }
+      if (k === 'l-mode') { E.lmode = v; insp(); return; }
       const prop = k.slice(2), tgt = o && (o.type === 'arrow') === k.startsWith('a-') ? o : E.T[k.startsWith('a-') ? 'arrow' : 'text'];
       const before = JSON.stringify(d.objs);
       tgt[prop] = v;
@@ -1093,6 +1562,7 @@ async function openShot2D(id, isNew) {
     const a = b.dataset.a; if (!a) return;
     const row = b.closest('[data-l]');
     if (a === 'ly-vis' && row) { structural(() => { const L = d.layers.find(l => l.id === row.dataset.l); L.vis = !L.vis; }); return; }
+    if (a === 'v3-vis') { structural(() => { d.base = d.base === '3d' ? 'paper' : '3d'; if (!(d.baseOp > 0)) d.baseOp = 1; }); ensureBG(); return; }
     if (a === 'ly-lock' && row) { structural(() => { const L = d.layers.find(l => l.id === row.dataset.l); L.lock = !L.lock; }); return; }
     if (a === 'fl-ok') { applyFloat(); req(); return; }
     if (a === 'fl-x') { cancelFloat(); return; }
@@ -1101,14 +1571,20 @@ async function openShot2D(id, isNew) {
     if (a === 'fl-fv') { E.float.sy *= -1; req(); return; }
     if (a === 'fl-dup') { stampFloat(); return; }
     if (a === 'sel-all') { selectAll(); return; }
-    if (a === 'sel-none') { clearMask(); return; }
+    if (a === 'sel-none') { clearSel(); return; }
+    if (a === 'sel-exp') { floatFromSel(); return; }
+    if (a === 'sel-copy') { copySel(); return; }
+    if (a === 'sel-cut') { cutSel(); return; }
+    if (a === 'sel-del') { eraseSel(); return; }
+    if (a === 'sel-paste') { pasteClip(); return; }
     if (a === 'obj-del' && o) { const before = JSON.stringify(d.objs); if (E.text) { E.text = null; TX.hidden = true; } delObj(o.id); E.sel = null; objEdit(before); insp(); req(); return; }
     if (a === 'g-vis') { structural(() => { d.guides.show = d.guides.show === false; }); return; }
-    if (a === 'ly-add') { structural(() => { const L = { id: uid('l'), name: 'Capa ' + (d.layers.length + 1), kind: 'draw', vis: true, op: 1, shared: false }; d.layers.splice(d.layers.indexOf(actL()) + 1, 0, L); d.act = L.id; }); return; }
+    if (a === 'ly-add') { structural(() => { const L = { id: uid('l'), name: 'Capa ' + (d.layers.length + 1), kind: 'draw', vis: true, op: 1, shared: false }; d.layers.splice(d.layers.indexOf(actL()) + 1, 0, L); d.act = L.id; E.v3sel = false; }); return; }
     if (a === 'ly-img') { pickImage(); return; }
+    if (a === 'ly-z0') { if (actL().lock) { lockedMsg(actL()); return; } structural(() => d2SetZoom(actL(), 1)); return; }
     if (a === 'ly-dup') {
       structural(() => {
-        const L = actL(), N = { ...L, id: uid('l'), name: L.name + ' (copia)' };
+        const L = actL(), N = { ...L, id: uid('l'), name: L.name + ' (copia)' }; delete N.imp;
         d.layers.splice(d.layers.indexOf(L) + 1, 0, N);
         for (const [k, c] of [...E.R]) if (k.startsWith(L.id + '~')) E.R.set(N.id + k.slice(L.id.length), cloneC(c));
         for (const [k, arr] of Object.entries(d.objs)) if (k.startsWith(L.id + '~')) d.objs[N.id + k.slice(L.id.length)] = arr.map(x => ({ ...JSON.parse(JSON.stringify(x)), id: uid('o') }));
@@ -1124,9 +1600,12 @@ async function openShot2D(id, isNew) {
     }
   });
   $o('#s2In').addEventListener('pointerdown', e => {
+    // la Viñeta 3D: se elige para ver su opacidad (no se dibuja en ella ni se mueve)
+    const r3 = e.target.closest('.s2-ly.v3d');
+    if (r3 && !e.target.closest('button,input')) { E.v3sel = !E.v3sel; insp(); return; }
     const row = e.target.closest('.s2-ly[data-l]');
     if (!row || e.target.closest('button,input')) return;
-    if (row.dataset.l !== d.act) { applyFloat(); commitText(); d.act = row.dataset.l; E.sel = null; insp(); req(); }
+    if (row.dataset.l !== d.act || E.v3sel) { applyFloat(); commitText(); d.act = row.dataset.l; E.v3sel = false; E.sel = null; insp(); req(); }
     if (E.ro || e.button) return;
     // como las tiras del plan: con el ratón, presionar y mover la arrastra; con el dedo, mantener y arrastrar
     const id = row.dataset.l;
@@ -1134,13 +1613,14 @@ async function openShot2D(id, isNew) {
   });
   function layerDrag(e, id) {
     const box = $o('.s2-lys'), row = box.querySelector(`.s2-ly[data-l="${CSS.escape(id)}"]`); if (!row) return;
-    box.querySelectorAll('.s2-lyx').forEach(x => { if (x.previousElementSibling && x.previousElementSibling.dataset.l) x.remove(); });
+    box.querySelectorAll('.s2-lyx').forEach(x => x.remove());
     const rect = row.getBoundingClientRect(), ghost = row.cloneNode(true);
     ghost.classList.add('s2-ghost'); Object.assign(ghost.style, { width: rect.width + 'px', left: rect.left + 'px', top: rect.top + 'px' });
     document.body.appendChild(ghost); row.classList.add('ph');
     const dy = e.clientY - rect.top, sc = $o('#s2In');
     let lastY = e.clientY, raf = 0;
-    const rows = () => [...box.querySelectorAll('.s2-ly[data-l]')].filter(r => r !== row);
+    // la Viñeta 3D también cuenta como lugar: soltar una imagen debajo de ella la deja detrás de las figuras
+    const rows = () => [...box.querySelectorAll('.s2-ly[data-l], .s2-ly.v3d')].filter(r => r !== row);
     const place = y => {
       ghost.style.top = (y - dy) + 'px';
       const rs = rows(), next = rs.find(r => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2; });
@@ -1155,9 +1635,18 @@ async function openShot2D(id, isNew) {
     const up = () => {
       cancelAnimationFrame(raf); removeEventListener('pointermove', move, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true);
       ghost.remove(); row.classList.remove('ph'); flipClear(rows());
-      const order = [...box.querySelectorAll('.s2-ly[data-l]')].map(r => r.dataset.l).reverse();   // la lista va de arriba (última capa) a abajo
-      if (order.join() !== d.layers.map(l => l.id).join()) structural(() => { d.layers.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); });
-      else insp();
+      // la lista va de arriba (última capa) a abajo; lo que quedó bajo la Viñeta 3D va detrás de las figuras (solo las
+      // imágenes: un dibujo que se suelta ahí queda justo encima de la escena)
+      const all = [...box.querySelectorAll('.s2-ly[data-l], .s2-ly.v3d')], i3 = all.findIndex(r => r.classList.contains('v3d'));
+      const byId = id => d.layers.find(l => l.id === id), top = all.slice(0, i3).map(r => byId(r.dataset.l)), bot = all.slice(i3 + 1).map(r => byId(r.dataset.l));
+      const botImg = bot.filter(L => L.kind === 'image'), botDraw = bot.filter(L => L.kind !== 'image');
+      const order = [...botImg.slice().reverse(), ...botDraw.slice().reverse(), ...top.slice().reverse()].map(L => L.id);
+      const backs = new Set(botImg.map(L => L.id));
+      if (order.join() !== d.layers.map(l => l.id).join() || d.layers.some(L => d2Back(L) !== backs.has(L.id))) {
+        structural(() => { for (const L of d.layers) { if (backs.has(L.id)) L.back = true; else delete L.back; } d.layers.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); });
+        ensureBG();
+        if (botDraw.length) toast('El dibujo va siempre encima de las figuras: detrás solo van imágenes.', 3600);
+      } else insp();
     };
     addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
   }
@@ -1307,7 +1796,7 @@ async function openShot2D(id, isNew) {
   function stopPlay() { E.playing = false; cancelAnimationFrame(playRaf); frames(); insp(); req(); }
 
   /* ---------- teclado ---------- */
-  const setAlt = on => { if (E.alt === on) return; E.alt = on; stage.classList.toggle('picking', on && D2_BRUSH.has(E.tool) && E.tool !== 'eraser'); req(); };
+  const setAlt = on => { if (E.alt === on) return; E.alt = on; stage.classList.toggle('picking', on && ((D2_BRUSH.has(E.tool) && E.tool !== 'eraser') || E.tool === 'fill')); req(); };
   addEventListener('blur', () => setAlt(false));
   const onKey = e => {
     if (!ov.isConnected || $('#modal')) return;
@@ -1321,11 +1810,16 @@ async function openShot2D(id, isNew) {
     else if (mod && k.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     else if (mod && k.toLowerCase() === 'a') { e.preventDefault(); selectAll(); }
     else if (mod && k.toLowerCase() === 's') { e.preventDefault(); save(); }
-    else if (mod && k.toLowerCase() === 'd') { e.preventDefault(); clearMask(); }
+    else if (mod && k.toLowerCase() === 'd') { e.preventDefault(); clearSel(); }
+    // (lote AD) copiar y cortar lo de la selección (sin preventDefault: el evento «copy» deja el portapapeles del equipo
+    // sin la imagen de antes); pegar: si el evento «paste» no llega, lo copiado del dibujo se pega igual
+    else if (mod && (k.toLowerCase() === 'c' || k.toLowerCase() === 'x')) { if ((selOn() || E.float) && (k.toLowerCase() === 'c' ? copySel() : cutSel())) { E.clipKey = true; setTimeout(() => { E.clipKey = false; }, 0); } }
+    else if (mod && k.toLowerCase() === 'v') { if (D2_CLIP) { clearTimeout(E.pasteT); E.pasteT = setTimeout(() => { E.pasteT = 0; pasteClip(); }, 120); } }
     else if (mod) used = false;
-    else if (k === 'Escape') { closePop(); if (E.float) cancelFloat(); else if (E.lasso) { E.lasso = null; } else if (E.mask) { E.mask = null; insp(); } else if (E.sel) { E.sel = null; insp(); } else if (E.playing) stopPlay(); req(); }
+    // (lote AD) Esc termina la caja (como Intro); si no hay caja, quita la selección
+    else if (k === 'Escape') { closePop(); if (E.float) applyFloat(); else if (E.lasso) { E.lasso = null; E.drag = null; } else if (selOn()) clearSel(); else if (E.sel) { E.sel = null; insp(); } else if (E.playing) stopPlay(); req(); }
     else if (k === 'Enter') { if (E.float) { applyFloat(); req(); } else used = false; }
-    else if (k === 'Delete' || k === 'Backspace') { if (E.float) { dropFloat(); req(); } else if (E.sel) { const before = JSON.stringify(d.objs); delObj(E.sel); E.sel = null; objEdit(before); insp(); } else used = false; }
+    else if (k === 'Delete' || k === 'Backspace') { if (E.float) { dropFloat(); req(); } else if (E.sel) { const before = JSON.stringify(d.objs); delObj(E.sel); E.sel = null; objEdit(before); insp(); } else if (selOn()) eraseSel(); else used = false; }
     else if (k === ' ') { e.preventDefault(); if (!E.space) { E.space = true; stage.classList.add('space'); } }
     else if (k === '[' || k === ']') { if (D2_BRUSH.has(E.tool)) { const T = E.T[E.tool]; T.size = clamp(Math.round(T.size * (k === ']' ? 1.2 : 1 / 1.2) + (k === ']' ? 1 : -1)), 1, D2_MAX[E.tool]); saveTools(); insp(); req(); } }
     else if (k === ',' || k === '.') goFrame(E.fi + (k === ',' ? -1 : 1));
@@ -1352,12 +1846,13 @@ async function openShot2D(id, isNew) {
     else if (a === 'next' && list[idx + 1]) save(() => openShotEditor(list[idx + 1].id));
     else if (a === 'more') popover(b, `<div class="menu"><button data-m="dup">Duplicar plano</button><button data-m="del">Eliminar plano</button></div>`, p => p.addEventListener('click', ev => {
       const m = ev.target.closest('[data-m]'); if (!m) return; closePop();
-      if (m.dataset.m === 'dup') save(async () => { const nsh = P.shots[id], next = (D.shotsBy[nsh.sc] || [])[(D.shotsBy[nsh.sc] || []).indexOf(nsh) + 1]; const copy = { ...JSON.parse(JSON.stringify(nsh)), id: uid('s'), ord: next ? (nsh.ord + next.ord) / 2 : nsh.ord + 1, done: false }; P.shots[copy.id] = copy; await copyShotFrames(id, copy.id); changed('data'); derive(); render(); openShotEditor(copy.id); toast('Plano duplicado.'); });
+      if (m.dataset.m === 'dup') save(async () => { const nsh = P.shots[id], next = (D.shotsBy[nsh.sc] || [])[(D.shotsBy[nsh.sc] || []).indexOf(nsh) + 1]; const copy = { ...JSON.parse(JSON.stringify(nsh)), id: uid('s'), ord: next ? (nsh.ord + next.ord) / 2 : nsh.ord + 1, done: false }; if (isMaster(nsh) || copy.master) copy.master = false; P.shots[copy.id] = copy; await copyShotFrames(id, copy.id); changed('data'); derive(); render(); openShotEditor(copy.id); toast('Plano duplicado.'); });
       if (m.dataset.m === 'del') { close(true); deleteShot(id); }
     }));
   });
   function close(keepShot) {
     removeEventListener('keydown', onKey, true); removeEventListener('keyup', onKey, true); document.removeEventListener('paste', onPaste);
+    document.removeEventListener('copy', onCopy); document.removeEventListener('cut', onCopy); clearInterval(antsT); clearTimeout(E.pasteT);
     cancelAnimationFrame(raf); cancelAnimationFrame(playRaf); E.playing = false;
     roObs.disconnect(); ov.remove(); closePop();
     if (S2 === E) S2 = null;
@@ -1423,16 +1918,27 @@ async function openShot2D(id, isNew) {
     if (after) after();
   }
 
-  /* ---------- fondo 3D ---------- */
-  function ensureBG() {
-    if (E.BG) { req(); return; }
-    const c = mk(), g = c.getContext('2d');
-    try { r3Init(); if (!r3Draw(g, s3Of(sh), 0, DW, DH, sh.noNames ? { labels: false } : {})) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
-    catch (e) { drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
-    E.BG = c; thumbsSoon(); req();
+  /* ---------- la Viñeta 3D ----------
+     La escena del plano en el segundo en que empieza el cuadro (si se mueve) y, con una foto detrás de las figuras,
+     sin su entorno (plate). Se dibuja una vez por momento y modo, y se guarda mientras el editor está abierto */
+  function bgOf(F, plate) {
+    const s3 = s3Of(sh), still = (s3.keys || []).length < 2 && !s3.shake, t = still ? 0 : round2(fStart(F)), key = (plate ? 'p' : 'n') + t;
+    let c = E.BGs.get(key);
+    if (c) return c;
+    c = mk(); const g = c.getContext('2d');
+    const o = { plate, atm: typeof sceneOfKey === 'function' ? envFromScene(sceneOfKey(sh.sc)).atm : null };
+    if (sh.noNames) o.labels = false;
+    try { r3Init(); if (!r3Draw(g, s3, t, DW, DH, o) && !plate) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
+    catch (e) { if (!plate) drawAutoFrame(g, DW, DH, shotSketchInfo(sh)); }
+    E.BGs.set(key, c); if (E.BGs.size > 24) E.BGs.delete(E.BGs.keys().next().value);
+    thumbsSoon();
+    return c;
   }
+  function ensureBG() { if (d.base === '3d') { bgOf(curF(), plateOf(curF())); req(); } }
 
   /* ---------- arranque ---------- */
+  // (lote AD) las hormigas del contorno de la selección caminan
+  const antsT = setInterval(() => { if (E.selPath && !E.float && !E.playing && !document.hidden) { E.ants = (E.ants + 1) % 900; req(); } }, 120);
   const roObs = new ResizeObserver(() => sizeStage());
   roObs.observe(stage);
   E.saved_ = new Map();
@@ -1453,6 +1959,8 @@ async function openShot2D(id, isNew) {
     E.dirty = true;
   }
   delete d._imp;
+  // la Viñeta 3D se dibuja una vez por momento: antes, que lleguen las figuras articuladas (si no, quedaría el maniquí simple)
+  if (typeof FIG3D !== 'undefined' && FIG3D.ready && !FIG3D.failed) { try { await FIG3D.ready(6000, fig3dBodiesOf([{ ...sh, ws: '3d', d2: null }])); } catch (e) { } E.BGs.clear(); }
   if (d.base === '3d') ensureBG();
   $o('#s2Ld').remove();
   // los cuadros cargados quedan marcados como guardados

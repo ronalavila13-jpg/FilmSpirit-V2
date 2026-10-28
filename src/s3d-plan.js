@@ -46,7 +46,10 @@ function measClean(list) {
 const PLAN_C = { bg: '#F7F6F2', grid: '#E7E4DD', grid5: '#D5D0C6', wall: '#AFA798', road: '#E3E0D9', prop: '#E4DED2', propLine: '#968E80', ink: '#2A2D33', muted: '#7B8089', cam: '#2C47CF', camFill: 'rgba(44,71,207,.10)' };
 /* el lugar en la planta: interior con sus muros, calle, playa o mar, auto y el plano de planta importado (lo mismo
    en la planta del plano y en la planta general de la escena) */
-function planDrawSet(ctx, s3, V, toS, redraw) {
+function planDrawSet(ctx, s3, V, toS0, redraw) {
+  // lote W · la calle, los jardines y los paisajes, a la escala de su locación (el escenario 3D y el plano de planta
+  // llevan la suya: usan toS0)
+  const ke = typeof envEscOf === 'function' ? envEscOf(s3) : 1, toS = ke === 1 ? toS0 : (x, z) => toS0(x * ke, z * ke);
   // set
   if (s3.set === 'int') {
     const R = roomOf(s3);
@@ -79,20 +82,15 @@ function planDrawSet(ctx, s3, V, toS, redraw) {
       const [a, b] = toS(-1.15, -2.4), [c, d] = toS(1.15, 3.2);
       ctx.fillStyle = '#E2D2BC'; ctx.strokeStyle = '#8B6F4E'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, 8) : ctx.rect(a, b, c - a, d - b); ctx.fill(); ctx.stroke();
     }
-  } else if (s3.set === 'auto') {
-    const [a, b] = toS(-.81, -1.6), [c, d] = toS(.81, 2);
-    ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, 14) : ctx.rect(a, b, c - a, d - b); ctx.stroke();
-    ctx.fillStyle = 'rgba(80,84,92,.18)';
-    for (const [x, z, w, h] of [[-.37, .2, .52, .5], [.37, .2, .52, .5], [0, 1.15, 1.34, .52], [0, -.8, 1.56, .5]]) { const [p, q] = toS(x - w / 2, z - h / 2), [r, t] = toS(x + w / 2, z + h / 2); ctx.fillRect(p, q, r - p, t - q); }
-    ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Frente', (a + c) / 2, b - 6);
-  } else if (s3.set === 'calle') {
+  } else if (s3.set === 'auto' && typeof carPlan === 'function') planCar(ctx, carPlan(s3), V, toS);
+  else if (s3.set === 'calle') {
     const [, r0] = toS(0, -9), [, r1] = toS(0, -2);
     ctx.fillStyle = PLAN_C.road; ctx.fillRect(0, r0, V.W, r1 - r0);
     ctx.strokeStyle = '#C9C4BA'; ctx.setLineDash([12, 10]); const [, rm] = toS(0, -5.5); ctx.beginPath(); ctx.moveTo(0, rm); ctx.lineTo(V.W, rm); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#E9E5DD'; const [, b0] = toS(0, -17.5), [, b1] = toS(0, -11.5); ctx.fillRect(0, b0, V.W, b1 - b0);
     const [, c0] = toS(0, 8.5), [, c1] = toS(0, 14.5); ctx.fillRect(0, c0, V.W, c1 - c0);
   }
-  if (typeof set3dDrawPlan === 'function') set3dDrawPlan(ctx, s3, toS, redraw);   // la planta de un escenario 3D
+  if (typeof set3dDrawPlan === 'function') set3dDrawPlan(ctx, s3, toS0, redraw);   // la planta de un escenario 3D
   const pl = planOf(s3);
   if (pl) {
     const W = planWorld(pl), im = planPic(pl, redraw);
@@ -101,6 +99,27 @@ function planDrawSet(ctx, s3, V, toS, redraw) {
     ctx.fillStyle = '#5B6070';
     for (const [x, y, w, h] of pl.rects) { const [a, b] = toS(W.x(x), W.z(y)); ctx.fillRect(a, b, Math.max(1, w * W.k * V.sc), Math.max(1, h * W.k * V.sc)); }
   }
+}
+/* el vehículo del interior visto desde arriba (carPlan, s3d-entornos.js): ruedas, contorno de la carrocería, cabina
+   (y la tolva de la pick-up), tablero, asientos, volante, espejos; en el bus, la puerta a la derecha y el chofer */
+function planCar(ctx, Q, V, toS) {
+  const box = (r, rad = 0) => { const [a, b] = toS(r[0], r[1]), [c, d] = toS(r[2], r[3]); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, Math.min(rad, (c - a) / 2, (d - b) / 2)) : ctx.rect(a, b, c - a, d - b); return [a, b, c, d]; };
+  ctx.save();
+  ctx.fillStyle = '#5B6070'; for (const w of Q.wheels) { box(w, 2); ctx.fill(); }
+  const [a, b, c] = box(Q.body, Q.rad * V.sc);
+  ctx.fillStyle = 'rgba(80,84,92,.06)'; ctx.fill(); ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 2; ctx.stroke();
+  for (const m of Q.mirrors) { box(m, 2); ctx.fillStyle = PLAN_C.wall; ctx.fill(); }
+  if (Q.cabin) { box(Q.cabin, .12 * V.sc); ctx.strokeStyle = PLAN_C.propLine; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]); }
+  if (Q.bed) { box(Q.bed, 3); ctx.strokeStyle = PLAN_C.wall; ctx.lineWidth = 1.2; ctx.stroke(); }
+  ctx.fillStyle = 'rgba(80,84,92,.18)';
+  box(Q.dash, 3); ctx.fill();
+  for (const s of Q.seats) { box(s, 3); ctx.fill(); }
+  if (Q.wheel) { const [x, y] = toS(Q.wheel[0], Q.wheel[1]); ctx.beginPath(); ctx.arc(x, y, Math.max(3, Q.wr * V.sc), 0, Math.PI * 2); ctx.strokeStyle = PLAN_C.muted; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = PLAN_C.muted;
+  if (Q.door) { const [p, q, r, s] = box(Q.door); ctx.fillStyle = PLAN_C.bg; ctx.fillRect(p - 2, q, r - p + 4, s - q); ctx.fillStyle = PLAN_C.muted; ctx.save(); ctx.translate(r + 8, (q + s) / 2); ctx.rotate(Math.PI / 2); ctx.fillText('Puerta', 0, 0); ctx.restore(); }
+  if (Q.driver) { const [x, y] = toS(Q.driver[0], Q.driver[1]); ctx.beginPath(); ctx.arc(x, y, Math.max(4, .2 * V.sc), 0, Math.PI * 2); ctx.fillStyle = '#B4B9C1'; ctx.fill(); ctx.fillStyle = PLAN_C.muted; ctx.fillText('Chofer', x, y + Math.max(4, .2 * V.sc) + 11); }
+  ctx.fillStyle = PLAN_C.muted; ctx.fillText('Frente', (a + c) / 2, b - 6);
+  ctx.restore();
 }
 function makePlan(canvas, ed, opt = {}) {
   const ctx = canvas.getContext('2d');
@@ -123,6 +142,7 @@ function makePlan(canvas, ed, opt = {}) {
     for (const m of s3.meas || []) for (const q of [m.a, m.b]) if (q && typeof q.x === 'number') pts.push([q.x, q.z]);
     const fb = typeof set3dOf === 'function' && set3dFitBox(set3dOf(s3));
     if (fb) pts.push([fb[0], fb[1]], [fb[2], fb[3]]);
+    if (s3.set === 'auto' && typeof carPlan === 'function') { const cb = carPlan(s3).body; pts.push([cb[0], cb[1]], [cb[2], cb[3]]); }   // el vehículo entero
     if (!pts.length) pts.push([0, 0]);
     let x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), z0 = Math.min(...pts.map(p => p[1])), z1 = Math.max(...pts.map(p => p[1]));
     // un metro de aire alrededor y, además, un margen en pantalla: la cámara y su lente no quedan cortadas por el
@@ -204,7 +224,7 @@ function makePlan(canvas, ed, opt = {}) {
     for (const ob of s3.objs.filter(o => o.kind === 'luz')) drawLight(ob, st.o[ob.id], st);
     for (const ob of s3.objs.filter(o => o.kind !== 'actor' && o.kind !== 'luz' && !o.hold)) {
       const p = st.o[ob.id]; if (!p) continue;
-      const fp = S3_PROPS[ob.kind] || { w: .5, d: .5, name: ob.kind };
+      const fp = objFoot(ob);   // lote W · con su escala
       const [sx, sy] = toS(p.x, p.z);
       // extras en grupo: un punto por persona dentro de su área (punteada) y un solo nombre
       if (ob.kind === 'gente') {
@@ -227,7 +247,7 @@ function makePlan(canvas, ed, opt = {}) {
       }
       if (ob.kind === 'puerta' || ob.kind === 'ventana') {
         ctx.save(); ctx.translate(sx, sy); ctx.rotate(-rad(p.rot));
-        const w = (ob.kind === 'puerta' ? .9 : 1.3) * V.sc;
+        const w = (ob.kind === 'puerta' ? .9 : 1.3) * objSc(ob) * V.sc;
         ctx.fillStyle = PLAN_C.bg; ctx.fillRect(-w / 2 - 2, -Math.max(3, .15 * V.sc) / 2 - 1, w + 4, Math.max(3, .15 * V.sc) + 2);
         ctx.strokeStyle = sel === ob.id ? PLAN_C.cam : PLAN_C.ink; ctx.lineWidth = sel === ob.id ? 2.2 : 1.3;
         if (ob.kind === 'puerta') {
@@ -247,7 +267,7 @@ function makePlan(canvas, ed, opt = {}) {
       ctx.fillStyle = PLAN_C.prop; ctx.strokeStyle = sel === ob.id ? PLAN_C.cam : PLAN_C.propLine; ctx.lineWidth = sel === ob.id ? 2.4 : 1.2;
       ctx.fillRect(-fp.w * V.sc / 2, -fp.d * V.sc / 2, fp.w * V.sc, fp.d * V.sc); ctx.strokeRect(-fp.w * V.sc / 2, -fp.d * V.sc / 2, fp.w * V.sc, fp.d * V.sc);
       ctx.restore();
-      if (V.sc > 14) { ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(fp.name, sx, sy + 3); }
+      if (V.sc > 14) { ctx.fillStyle = PLAN_C.muted; ctx.font = '600 10px Archivo, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(fp.name + (objSc(ob) !== 1 ? ` · ${Math.round(objSc(ob) * 100)} %` : ''), sx, sy + 3); }
       if (sel === ob.id) handle(ob, p);
     }
     for (const ob of s3.objs.filter(o => o.kind === 'actor')) {
@@ -284,10 +304,11 @@ function makePlan(canvas, ed, opt = {}) {
       const a = st.o[ed.s3.aim];
       if (a) { const [ax, ay] = toS(a.x, a.z); ctx.strokeStyle = CC; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ax, ay); ctx.stroke(); ctx.setLineDash([]); }
     }
-    // con desenfoque: la zona nítida alrededor de quien se enfoca
+    // con desenfoque: la zona nítida alrededor de quien se enfoca (lote W: o a la distancia a mano; la línea se arrastra)
+    foLine = null;
     if (s3.dof && !(s3.meas || []).length) {
       const fp = dofFocus(s3, st), s = fp && Math.hypot(fp.x - cam.x, fp.z - cam.z, fp.y - cam.h);
-      if (s) dofBand(cam, [fp.x, fp.z], s, dofOf(clamp(cam.lens, 8, 600), dofF(s3), cam.sw || 36, s));
+      if (s) dofBand(cam, [fp.x, fp.z], s, dofOf(clamp(cam.lens, 8, 600), dofF(s3), cam.sw || 36, s), !opt.static && !!ed.focusDrag);
     }
     drawMeas(st);
     // escala
@@ -345,7 +366,8 @@ function makePlan(canvas, ed, opt = {}) {
   }
   /* la zona nítida en el cono de la cámara: una franja de la distancia cercana a la lejana (llevadas al piso, a lo largo
      del eje de la cámara) y una raya en el plano de foco, a la altura del sujeto */
-  function dofBand(cam, p, s, Z) {
+  let foLine = null;
+  function dofBand(cam, p, s, Z, grab) {
     if (Math.abs(cam.pitch) >= 80) return;
     const fx = -Math.sin(rad(cam.yaw)), fz = -Math.cos(rad(cam.yaw)), ax = (p[0] - cam.x) * fx + (p[1] - cam.z) * fz;
     const t = (cam.sw || 36) / 2 / clamp(cam.lens, 8, 600);   // la mitad del ancho del cuadro por metro
@@ -359,8 +381,20 @@ function makePlan(canvas, ed, opt = {}) {
     ctx.strokeStyle = planRGBA(PLAN_MEAS, .6); ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
     for (const a of isFinite(Z.far) ? [near, far] : [near]) { const [p0, p1] = [at(a, -1), at(a, 1)]; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
     ctx.setLineDash([]); ctx.lineWidth = 1.6; ctx.strokeStyle = planRGBA(PLAN_MEAS, .85);
-    { const [p0, p1] = [at(ax, -1), at(ax, 1)]; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke(); }
+    { const [p0, p1] = [at(ax, -1), at(ax, 1)]; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      // lote W · la línea de foco se arrastra: un tirador chico al medio
+      if (grab) {
+        const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+        ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = planRGBA(PLAN_MEAS, .9); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(mx, my, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        foLine = { a: p0, b: p1, k: ax / s, fx, fz };
+      } }
     ctx.restore();
+  }
+  // ¿el puntero sobre la línea de foco? (a lo largo de ella, a 9 px)
+  function foHit(sx, sy) {
+    const F = foLine; if (!F) return false;
+    const [ax, ay] = F.a, [bx, by] = F.b, vx = bx - ax, vy = by - ay, L2 = vx * vx + vy * vy || 1, u = clamp(((sx - ax) * vx + (sy - ay) * vy) / L2, 0, 1);
+    return Math.hypot(sx - (ax + vx * u), sy - (ay + vy * u)) < 9;
   }
   // dónde cae una punta: en la cámara, en una figura, un objeto o una luz (los sigue), o en el piso
   function measSnap(sx, sy, e) {
@@ -507,6 +541,8 @@ function makePlan(canvas, ed, opt = {}) {
     const h = hit(sx, sy);
     canvas.setPointerCapture(e.pointerId);
     e.preventDefault();
+    // lote W · la línea de foco (si no se tocó algo encima): acercar o alejar el foco
+    if ((!h || h.t === 'cam') && foHit(sx, sy)) { drag = { t: 'focus', k: foLine.k, fx: foLine.fx, fz: foLine.fz }; return; }
     if (!h) { drag = { t: 'pan', sx, sy, vx: V.x, vz: V.z }; return; }
     if (h.t === 'cam2') { drag = null; if (ed.switchCam) ed.switchCam(); return; }
     if (h.t === 'obj' || h.t === 'rot') ed.select(h.id);
@@ -517,11 +553,17 @@ function makePlan(canvas, ed, opt = {}) {
     drag = { ...h, ox: wx - base.x, oz: wz - base.z, moved: false };
   });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) return;
+    if (!drag) { if (e.pointerType === 'mouse') { const r = canvas.getBoundingClientRect(); canvas.style.cursor = foHit(e.clientX - r.left, e.clientY - r.top) ? 'grab' : ''; } return; }
     const r = canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     if (drag.t === 'meas') { if (mLive) { mLive.b = measSnap(sx, sy, e); drag.moved = Math.hypot(sx - drag.sx, sy - drag.sy) > 6; draw(); } return; }
     if (drag.t === 'pan') { if (Math.hypot(sx - drag.sx, sy - drag.sy) > 3) drag.moved = true; V.x = drag.vx - (sx - drag.sx) / V.sc; V.z = drag.vz - (sy - drag.sy) / V.sc; draw(); return; }
+    if (drag.t === 'focus') {
+      // la distancia en el piso, a lo largo del eje de la cámara, llevada a la del eje (con la cámara inclinada es más larga)
+      const c = ed.state().cam, [wx, wz] = toW(sx, sy), a = (wx - c.x) * drag.fx + (wz - c.z) * drag.fz;
+      drag.moved = true; ed.focusDrag(Math.max(.3, a / (drag.k || 1)));
+      return;
+    }
     const [wx, wz] = toW(sx, sy);
     const k = ed.editKey();
     if (drag.t === 'obj') {
@@ -545,7 +587,9 @@ function makePlan(canvas, ed, opt = {}) {
       else draw();
       return;
     }
-    if (drag && drag.t === 'pan') { if (!drag.moved && ed.tapEmpty) ed.tapEmpty(); drag = null; return; } if (drag && drag.moved) ed.commit(); drag = null; };
+    if (drag && drag.t === 'pan') { if (!drag.moved && ed.tapEmpty) ed.tapEmpty(); drag = null; return; }
+    if (drag && drag.t === 'focus') { if (drag.moved) ed.focusDrag(null); drag = null; return; }
+    if (drag && drag.moved) ed.commit(); drag = null; };
   canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', e => {
     e.preventDefault();

@@ -481,7 +481,7 @@ function removeLight(L, k) {
 const _m4 = () => new THREE.Matrix4();
 function syncPlan(s3) {
   const pl = planOf(s3), T = THREE;
-  const key = pl ? pl.id + ':' + pl.v + ':' + (s3.planFloor !== false) + ':' + !!planPic(pl) : '';
+  const key = pl ? pl.id + ':' + pl.v + ':' + (pl.esc || 1) + ':' + (s3.planFloor !== false) + ':' + !!planPic(pl) : '';
   if (R3.planKey === key) { if (R3.planG) R3.planG.visible = !!pl; return; }
   if (R3.planG) { R3.sets.int.remove(R3.planG); R3.planG.traverse(o => { if (disposable(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); }); R3.planG = null; }
   R3.planKey = key;
@@ -509,6 +509,9 @@ function r3Sync(s3, st, opts) {
   let vis = s3.set === 'plano' ? 'int' : s3.set === 'modelo' ? (typeof set3dSync === 'function' && set3dSync(s3) ? 'modelo' : 'ext') : s3.set;
   if (!R3.sets[vis] && !(envGroup(vis))) vis = 'ext';   // entornos: se arman la primera vez
   for (const k in R3.sets) R3.sets[k].visible = k === vis;
+  // lote W · la calle, los jardines y los paisajes a la escala de su locación (escenarios-escala.js)
+  if (typeof ENV_ESC_SETS !== 'undefined' && ENV_ESC_SETS.includes(vis) && R3.sets[vis]) R3.sets[vis].scale.setScalar(envEscOf(s3));
+  if (typeof sobreSync === 'function') sobreSync(s3, vis);   // (lote AD) un escenario importado sobre el entorno (escenarios-sobre.js)
   if (R3.room) R3.room.visible = s3.set === 'int';
   syncPlan(s3);
   const T = THREE;
@@ -552,7 +555,7 @@ function r3Sync(s3, st, opts) {
     // sobre el suelo que tiene debajo (la vereda) más lo que se subió a mano (figuras y objetos pequeños)
     E.root.position.set(p.x, liftOf(s3, p, !!(S3_PROPS[ob.kind] || {}).small || ob.kind === 'actor'), p.z);
     E.root.rotation.set(0, rad(p.rot || 0), 0);
-    E.root.scale.setScalar(1);
+    E.root.scale.setScalar(objSc(ob));   // lote W · la escala del objeto (1 en figuras y extras)
     E.blob.visible = !sim;
     if (E.kind === 'actor' && E.cut) { E.look = look; }
     else if (E.kind === 'actor') {
@@ -592,7 +595,7 @@ function r3Sync(s3, st, opts) {
     const m = _m4().multiplyMatrices(anchor.matrixWorld, off);
     const pos = new T.Vector3(), q = new T.Quaternion(), sc = new T.Vector3();
     m.decompose(pos, q, sc);
-    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(1);
+    E.root.position.copy(pos); E.root.quaternion.copy(q); E.root.scale.setScalar(objSc(ob));   // lote W · con su escala
     E.blob.visible = false; E.sel.visible = false;
     if (E.parts.hg) objLay(E.parts, true);
   }
@@ -608,8 +611,8 @@ function r3Viewport(W, H) {
 /* lo que cambia las sombras: objetos, posturas, luces, escenario y figuras (no la cámara) */
 function r3ShadowSig(s3, st) {
   const { keys, objs, aim, shake, ...scene } = s3;     // todo lo del escenario (set, atmósfera, sol, habitación, plano, luz) menos la cámara
-  let k = JSON.stringify(scene) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
-  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
+  let k = JSON.stringify(scene) + '|' + (typeof sceneEsc === 'function' ? sceneEsc(s3) : 1) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
+  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.sc ? 's' + o.sc : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
   return k;
 }
 function r3Draw(ctx, s3, t, W, H, opts = {}) {
@@ -805,6 +808,21 @@ function r3Pick(px, py, W, H, s3) {
   return null;
 }
 
+/* lote W · lo que hay bajo un punto de la viñeta, para enfocar ahí (obs. 8): la distancia sobre el eje de la cámara
+   (la que usa el desenfoque) hasta lo primero visible: figuras, objetos, decorado o piso. Sin nada (el cielo), null */
+function r3DepthAt(px, py, W, H) {
+  if (!R3.scene || !R3.cam) return null;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(px / W * 2 - 1, -(py / H) * 2 + 1), R3.cam);
+  const vis = o => { for (let q = o; q; q = q.parent) if (q.visible === false) return false; return true; };
+  const skip = m => !m || m === R3.mats.blob || m === R3.mats.sel || m.isShadowMaterial || m.transparent && m.opacity < .2;
+  // (los contornos son una copia hacia atrás de cada malla: se saltan con sus caras de atrás)
+  const hit = ray.intersectObjects(R3.scene.children, true).find(h => h.object.isMesh && vis(h.object) && !skip(h.object.material) && h.object.material.side !== THREE.BackSide);
+  let p = hit ? hit.point : null;
+  if (!p) { const f = r3FloorAt(px, py, W, H); if (f) p = new THREE.Vector3(f.x, 0, f.z); }
+  if (!p) return null;
+  const v = p.clone().applyMatrix4(R3.cam.matrixWorldInverse), d = -v.z;
+  return d > .05 && isFinite(d) ? Math.round(d * 100) / 100 : null;
+}
 /* parte del cuerpo de una figura bajo el puntero (para doblarla) */
 function r3PickPart(px, py, W, H, id) {
   const E = R3.objs.get(id);
@@ -840,20 +858,30 @@ const TH_BASE = 480;
 const thBase = b => Math.max(TH_BASE, b || TH_BASE);
 /* viñeta del plano en el tiempo t: referencia o escena 3D, con la capa de dibujo encima */
 function drawShotFrame(ctx, sh, t, W, H, opts = {}) {
-  if (sh.ws === '2d' && d2Draw(ctx, sh, t, W, H)) return;
+  // un dibujo 2D sin la Viñeta 3D: su cuadro ya compuesto. Con ella, el dibujo y la escena 3D juntos (s2d-editor.js):
+  // el papel, las fotos de fondo, la escena (sin su entorno si hay una foto detrás) y encima el dibujo
+  const two = typeof d2On === 'function' && d2On(sh);
+  if (two && !shot3D(sh) && d2Draw(ctx, sh, t, W, H)) return;
+  const F = two ? d2FrameAt(sh.d2, t) : null;
   // la referencia o la anotación que existen pero aún no llegan: se piden y, mientras, un fondo neutro (no la escena 3D)
-  const hasRef = frameHas(sh.id), ref = hasRef ? cachedImg(sh.id) : null, blank = shotBlank(sh);
+  const hasRef = frameHas(sh.id) && !(two && d2Imp(sh.d2, 'ref')), ref = hasRef ? cachedImg(sh.id) : null, blank = shotBlank(sh);
   if (hasRef && !FRAMES[sh.id]) framesNeed([sh.id]);
+  if (two) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); d2Paint(ctx, sh, F, W, H, true); }
   if (ref) ctx.drawImage(ref, 0, 0, W, H);
   else if (hasRef) { ctx.fillStyle = '#E4E2DD'; ctx.fillRect(0, 0, W, H); }
   else if (blank) { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H); }   // en blanco: la hoja vacía (la anotación va encima)
   // la foto puede ir delante (tapa la escena) o detrás de las figuras y objetos (sh.refBack)
-  const back = !!(ref && sh.refBack) && !blank;
+  const back = !!(ref && sh.refBack) && !blank, under = two && d2Under(sh, F);
   if ((!hasRef && !blank) || back) {
-    const o2 = { ...opts, plate: back, atm: typeof sceneOfKey === 'function' ? envFromScene(sceneOfKey(sh.sc)).atm : null };
+    const o2 = { ...opts, plate: back || under, atm: typeof sceneOfKey === 'function' ? envFromScene(sceneOfKey(sh.sc)).atm : null };
     if (sh.noNames) o2.labels = false;
-    if (!r3Draw(ctx, s3Of(sh), t, W, H, o2) && !back) drawAutoFrame(ctx, W, H, shotSketchInfo(sh));
+    const op = two ? d2Op3D(sh) : 1;
+    if (op < 1) ctx.globalAlpha = op;   // la Viñeta 3D con su opacidad sobre el papel
+    if (!r3Draw(ctx, s3Of(sh), t, W, H, o2) && !back && !under) drawAutoFrame(ctx, W, H, shotSketchInfo(sh));
+    ctx.globalAlpha = 1;
   }
+  if (two) d2Paint(ctx, sh, F, W, H, false);
+  if (two && d2Imp(sh.d2, 'anno')) return;
   if (frameHas(sh.id + '~a') && !FRAMES[sh.id + '~a']) framesNeed([sh.id + '~a']);
   const an = FRAMES[sh.id + '~a'] ? cachedImg(sh.id + '~a') : null;
   if (an) ctx.drawImage(an, 0, 0, W, H);
@@ -862,10 +890,11 @@ const looksKey = sh => JSON.stringify((sh.s3 ? sh.s3.objs : sh.chars || []).map(
 /* cuerpos articulados ya cargados para las figuras del plano: si cambia, la miniatura se rehace (solo esa) */
 // (y los modelos 3D importados: el del personaje y el del escenario, modelos.js)
 const figSig = sh => {
-  if (typeof FIG3D === 'undefined' || sh.ws === '2d') return '';
+  if (typeof FIG3D === 'undefined' || !shot3D(sh)) return '';
   const s3 = s3Of(sh); let k = '';
   for (const o of s3.objs) if (o.kind === 'actor') { const lk = lookOf(o); k += FIG3D.tpl[fig3dBody(lk.body)] ? 1 : 0; if (lk.model && lk.key) k += m3Ready(m3Key('c', lk.key)) ? 1 : 0; }
   if (s3.set === 'modelo' && typeof set3dKey === 'function') k += m3Ready(set3dKey(s3)) ? 1 : 0;
+  const ks = typeof sobreKey === 'function' && sobreKey(s3); if (ks) k += m3Ready(ks) ? 1 : 0;   // (lote AD) el que está sobre el entorno
   return k;
 };
 /* atmósfera que propone el guion (día, noche…): cambia la viñeta aunque el plano no cambie */
@@ -894,18 +923,20 @@ function framePSig(k) {
    sabe qué imágenes tiene el proyecto) */
 function thumbKeys(sh, t = 0, base = TH_BASE) {
   const s3 = s3Of(sh);
-  const common = [sh.id, P.meta.aspect, t, thBase(base), looksKey(sh), JSON.stringify(s3), sh.noNames ? 'nn' : '', sh.refBack ? 'rb' : '', atmKey(sh), P.meta.hair || '', typeof set3dSig === 'function' ? set3dSig(s3) : '', shotBlank(sh) ? 'bl' : ''].join('|');
+  // (lo que dibuja la escena 3D solo cuenta si se ve: un dibujo 2D sobre papel no cambia si se mueve el máster)
+  const common = [sh.id, P.meta.aspect, t, thBase(base), looksKey(sh), shot3D(sh) ? JSON.stringify(s3) : '2d', sh.noNames ? 'nn' : '', sh.refBack ? 'rb' : '', atmKey(sh), P.meta.hair || '', typeof set3dSig === 'function' ? set3dSig(s3) : '', shotBlank(sh) ? 'bl' : ''].join('|');
   const d2 = typeof d2Sig === 'function' ? d2Sig(sh, t) : '';
   const fk = common + '|' + [planSig(sh), figSig(sh), frameSig(sh.id), frameSig(sh.id + '~a'), !!cachedImg(sh.id), !!cachedImg(sh.id + '~a'), d2].join('|');
   let pk = null;
   if (P && FR_KNOWN === P.id) {
     const ks = [sh.id, sh.id + '~a'];
-    const two = sh.ws === '2d' && sh.d2 && sh.d2.frames && sh.d2.frames.length;
-    if (two) ks.push(d2CKey(sh.id, d2FrameAt(sh.d2, t).id));
+    // el dibujo 2D: su cuadro compuesto o, con la Viñeta 3D, las capas de ese cuadro (s2d-editor.js)
+    const two = d2On(sh);
+    if (two) { if (shot3D(sh)) ks.push(...d2ViewKeys(sh, t)); else ks.push(d2CKey(sh.id, d2FrameAt(sh.d2, t).id)); }
     const fs = ks.map(framePSig);
     if (!fs.includes(null)) {
       const pl = typeof planOf === 'function' ? planOf(s3) : null;
-      pk = [typeof THV !== 'undefined' ? THV : '', common, fs.join(','), pl ? pl.id + ':' + pl.v + ':' + (s3.planFloor !== false) : '', facesSig(), two ? 'd' + (sh.d2.rev || 0) : ''].join('|');
+      pk = [typeof THV !== 'undefined' ? THV : '', common, fs.join(','), pl ? pl.id + ':' + pl.v + ':' + (s3.planFloor !== false) : '', facesSig(), two ? 'd' + (sh.d2.rev || 0) + ':' + d2LaySig(sh) : ''].join('|');
     }
   }
   return { fk, pk };
@@ -915,7 +946,7 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAI
 /* figuras articuladas que necesita la miniatura: se pide su carga y se espera (si no, se dibujaría primero el
    maniquí simple y después otra vez) */
 function thumbFigsReady(sh) {
-  if (typeof FIG3D === 'undefined' || FIG3D.failed || sh.ws === '2d' || (frameHas(sh.id) && !sh.refBack)) return null;
+  if (typeof FIG3D === 'undefined' || FIG3D.failed || !shot3D(sh) || (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref')))) return null;
   const pend = [];
   for (const o of s3Of(sh).objs) if (o.kind === 'actor') {
     const b = fig3dBody(lookOf(o).body);
@@ -928,6 +959,7 @@ function thumbFigsReady(sh) {
   const s3x = s3Of(sh);
   for (const o of s3x.objs) if (o.kind === 'actor') { const lk = lookOf(o); if (lk.model && lk.key) m3w(m3Key('c', lk.key)); }
   if (s3x.set === 'modelo' && typeof set3dKey === 'function') m3w(set3dKey(s3x));
+  if (typeof sobreKey === 'function') m3w(sobreKey(s3x));   // (lote AD) el escenario importado sobre el entorno
   // las hebras del pelo (se preparan en los ratos libres): así la viñeta no traba la pantalla al dibujarlas
   if (peloInShot(sh)) { const w = peloTexReady(); if (w) pend.push(w); }
   return pend.length ? Promise.all(pend).catch(() => { }) : null;
@@ -1010,8 +1042,8 @@ async function thumbLoad(shots, t = 0) {
 /* imágenes de la viñeta (referencia, anotación, cuadro 2D, fotos de los personajes): descargadas y listas para
    dibujar. null si ya lo están (así no se dibuja primero sin la foto y después otra vez con ella) */
 function thumbImgKeys(sh) {
-  const ks = frameViewKeys(sh.id);
-  if (sh.ws !== '2d') for (const o of s3Of(sh).objs) if (o.kind === 'actor' && o.el && P.elements[o.el] && P.elements[o.el].look && P.elements[o.el].look.photo) ks.push(...frameKeysOf('ph~' + o.el));
+  const ks = shotViewKeys(sh, 0);
+  if (shot3D(sh)) for (const o of s3Of(sh).objs) if (o.kind === 'actor' && o.el && P.elements[o.el] && P.elements[o.el].look && P.elements[o.el].look.photo) ks.push(...frameKeysOf('ph~' + o.el));
   return ks;
 }
 function thumbImgsReady(sh) {
@@ -1025,8 +1057,9 @@ function thumbImgsReady(sh) {
     }
     return ps.length ? Promise.all(ps).then(() => { }) : null;
   };
-  const w = framesReady(sh);
-  return w ? w.then(dec) : dec();
+  // las capas del dibujo 2D que se ven con la escena 3D no son de la viñeta de siempre: se piden aparte
+  const w = framesReady(sh), ex = d2ViewKeys(sh, 0).filter(k => !FRAMES[k]), w2 = ex.length ? framesNeed(ex) : null;
+  return w || w2 ? Promise.all([w, w2]).then(dec) : dec();
 }
 /* versión chica de una viñeta (PDF del animatic): se achica la de 480, sin volver a dibujar la escena */
 const THUMB_SM = new Map();
@@ -1068,7 +1101,7 @@ function hydrateThumbs() {
       const vis = list.filter(e => e.isIntersecting).map(e => e.target);
       for (const el of vis) HYD_IO.unobserve(el);
       // las imágenes de esas viñetas se piden juntas (un solo viaje al servidor)
-      if (FRIDX) framesNeed(vis.flatMap(el => P.shots[el.dataset.thumb] ? frameViewKeys(el.dataset.thumb) : []));
+      if (FRIDX) framesNeed(vis.flatMap(el => P.shots[el.dataset.thumb] ? shotViewKeys(P.shots[el.dataset.thumb], 0) : []));
       // las que están dentro de la pantalla, antes que las que están por aparecer
       vis.sort((a, b) => { const r = x => { const q = x.getBoundingClientRect(); return q.bottom > 0 && q.top < innerHeight && q.right > 0 && q.left < innerWidth ? 0 : 1; }; return r(a) - r(b); });
       HYD_Q.push(...vis);
@@ -1139,8 +1172,8 @@ function shotThumb(sh, t = 0, base = TH_BASE) {
 }
 /* ¿lo dibujado es la versión final? (figuras articuladas y planta cargadas, 3D disponible) */
 function thumbFinal(sh) {
-  if (sh.ws === '2d' && sh.d2 && sh.d2.frames && sh.d2.frames.length) return true;
-  if (frameHas(sh.id) && !sh.refBack) return true;          // la foto tapa la escena
+  if (d2On(sh) && !shot3D(sh)) return true;                 // dibujo 2D sobre papel: su cuadro compuesto
+  if (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref'))) return true;   // la foto tapa la escena
   if (!R3.r) return false;                                  // sin 3D: el boceto de respaldo no se guarda
   if (typeof FIG3D !== 'undefined' && (FIG3D.failed || figSig(sh).includes('0'))) return false;
   const ps = planSig(sh);

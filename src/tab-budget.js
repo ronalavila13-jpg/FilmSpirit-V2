@@ -216,12 +216,9 @@ RENDER.budget = function () {
   const cur = P.budget.currency;
   const fx = planAllows('usd') ? budgetFx(P) : 0;
   const secs = BUD_SECTIONS.map(s => ({ ...s, lines: P.budget.lines.filter(l => l.sec === s.id), total: T.bySec[s.id] || 0 }));
-  const max = Math.max(1, ...secs.map(s => s.total));
   const open = ls.get('budOpen', ['cast', 'crew']);
   const st = budgetStats(P, D.sc, D.sem);
   const dis = ed ? '' : 'disabled';
-  const tn = taxName(P);
-  const u = x => fx ? `<span class="usd">${esc(usd(x / fx))}</span>` : '';
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
       <span class="grow"></span>
@@ -230,12 +227,7 @@ RENDER.budget = function () {
     </div>
     <div class="scroller pad" data-keep="bud"><div class="bud">
       ${budHeadHTML(T, st, fx, ed)}
-      <div class="bud-top">
-        ${hdGroup('Resumen', hdRow('Subtotal', `${esc(money(T.sub))}${u(T.sub)}`) + hdRow(`Imprevistos (${P.budget.contingency} %)`, `${esc(money(T.cont))}${u(T.cont)}`)
-          + (P.budget.igv ? hdRow(`${esc(tn)} (${P.budget.igvRate} %)`, `${esc(money(T.igv))}${u(T.igv)}`) : '') + hdRow('Jornadas de rodaje', String(st.shoot))
-          + hdRow('Costo por jornada', st.shoot ? esc(money(['cast', 'extras', 'crew', 'camera', 'sound', 'loc', 'trans', 'food'].reduce((a, k) => a + (T.bySec[k] || 0), 0) / st.shoot)) : 'Sin jornadas', { lab: 'Solo lo del rodaje', st: st.shoot ? '' : 'ph' }), { cls: 'bud-sum' })}
-        <div class="hd-g bud-bars"><h3 class="bud-bh">Por partida</h3><div ${mfold('bud-sec', 'hd-box')}><div class="mf-h"><h3>Por partida</h3></div><div class="bars">${secs.filter(s => s.total > 0).sort((a, b) => b.total - a.total).map(s => `<div class="barrow"><span class="lab">${esc(s.name)}</span><span class="track"><span class="fill" style="width:${ea((s.total / max * 100).toFixed(1))}%;display:block"></span></span><span class="v">${T.sub ? Math.round(s.total / T.sub * 100) : 0}%</span></div>`).join('') || '<span class="hint">Sin montos todavía.</span>'}</div></div></div>
-      </div>
+      <div class="bud-top">${budTopHTML(T, st, fx)}</div>
       ${secs.map(s => `<details class="sec${s.total ? '' : ' z'}" data-sec="${ea(s.id)}" ${open.includes(s.id) ? 'open' : ''}><summary><span class="code">${s.code}</span>${esc(s.name)}<span class="count">${s.lines.length} ${s.lines.length === 1 ? 'línea' : 'líneas'}</span>${GT ? gaBudSecHTML(GT, s.id, s.total) : ''}<span class="st">${esc(money(s.total))}${fx ? ` <small class="usd">${esc(usd(s.total / fx))}</small>` : ''}</span></summary>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th style="min-width:200px">Concepto</th><th class="num">Cant.</th><th>Unidad</th><th class="num">Días / sem.</th><th class="num">Tarifa</th><th class="num">Total</th>${fx ? '<th class="num">Total US$</th>' : ''}${GT ? '<th class="num">Gastado</th>' : ''}<th></th></tr></thead><tbody>
         ${s.lines.map(l => `<tr data-id="${ea(l.id)}" data-note="line:${ea(l.id)}"><td><input type="text" value="${esc(l.name)}" data-bind="bu" data-f="name" data-id="${ea(l.id)}" aria-label="Concepto" ${dis}>${linkLabel(l) ? `<span class="link${ea(l.gone ? ' gone' : '')}" title="${ea(l.gone ? 'Su elemento se quitó del guion o del desglose. La línea se conservó con tu tarifa; bórrala si ya no va.' : 'Se actualiza con «Actualizar desde plan y desglose»')}">${esc(linkLabel(l))}</span>` : ''}</td>
@@ -252,12 +244,26 @@ RENDER.budget = function () {
   $$('details.sec[data-sec]', v).forEach(d => d.addEventListener('toggle', () => ls.set('budOpen', $$('details.sec[data-sec][open]', v).map(x => x.dataset.sec))));
   const acc = $('details.bud-acc', v); if (acc) acc.addEventListener('toggle', () => ls.set('budAcc', acc.open));
 };
+/* (lote AH) el resumen y las barras «Por partida»: los arma la pestaña y los vuelve a armar refreshBudgetTotals al escribir */
+function budTopHTML(T, st, fx) {
+  const tn = taxName(P), u = x => fx ? `<span class="usd">${esc(usd(x / fx))}</span>` : '';
+  const secs = BUD_SECTIONS.map(s => ({ name: s.name, total: T.bySec[s.id] || 0 })), max = Math.max(1, ...secs.map(s => s.total));
+  return hdGroup('Resumen', hdRow('Subtotal', `${esc(money(T.sub))}${u(T.sub)}`) + hdRow(`Imprevistos (${P.budget.contingency} %)`, `${esc(money(T.cont))}${u(T.cont)}`)
+      + (P.budget.igv ? hdRow(`${esc(tn)} (${P.budget.igvRate} %)`, `${esc(money(T.igv))}${u(T.igv)}`) : '') + hdRow('Jornadas de rodaje', String(st.shoot))
+      + hdRow('Costo por jornada', st.shoot ? esc(money(['cast', 'extras', 'crew', 'camera', 'sound', 'loc', 'trans', 'food'].reduce((a, k) => a + (T.bySec[k] || 0), 0) / st.shoot)) : 'Sin jornadas', { lab: 'Solo lo del rodaje', st: st.shoot ? '' : 'ph' }), { cls: 'bud-sum' })
+    + `<div class="hd-g bud-bars"><h3 class="bud-bh">Por partida</h3><div ${mfold('bud-sec', 'hd-box')}><div class="mf-h"><h3>Por partida</h3></div><div class="bars">${secs.filter(s => s.total > 0).sort((a, b) => b.total - a.total).map(s => `<div class="barrow"><span class="lab">${esc(s.name)}</span><span class="track"><span class="fill" style="width:${ea((s.total / max * 100).toFixed(1))}%;display:block"></span></span><span class="v">${T.sub ? Math.round(s.total / T.sub * 100) : 0}%</span></div>`).join('') || '<span class="hint">Sin montos todavía.</span>'}</div></div></div>`;
+}
 function refreshBudgetTotals() {
   const T = budgetTotals(P), fx = planAllows('usd') ? budgetFx(P) : 0;
   $$('[data-total]').forEach(td => { const l = P.budget.lines.find(x => x.id === td.dataset.total); if (l) td.textContent = money(lineTotal(l)); });
   $$('[data-usd]').forEach(td => { const l = P.budget.lines.find(x => x.id === td.dataset.usd); if (l && fx) td.textContent = usd(lineTotal(l) / fx); });
-  const tot = $('.bud .total'); if (tot) tot.textContent = money(T.total);
-  $$('details.sec[data-sec]').forEach(d => { const st = $('.st', d); if (st) st.innerHTML = esc(money(T.bySec[d.dataset.sec] || 0)) + (fx ? ` <small class="usd">${esc(usd((T.bySec[d.dataset.sec] || 0) / fx))}</small>` : ''); });
+  $$('details.sec[data-sec]').forEach(d => { const st = $('.st', d); if (st) st.innerHTML = esc(money(T.bySec[d.dataset.sec] || 0)) + (fx ? ` <small class="usd">${esc(usd((T.bySec[d.dataset.sec] || 0) / fx))}</small>` : ''); d.classList.toggle('z', !(T.bySec[d.dataset.sec] || 0)); });
+  // (lote AH) el total general de la cabecera, el resumen y «Por partida» también: antes se buscaba «.bud .total», que la
+  // cabecera nueva ya no tiene, y esos montos no cambiaban hasta salir y volver a la pestaña. Solo se rehacen esos bloques:
+  // la tabla queda, y con ella el campo que se está escribiendo
+  const sts = budgetStats(P, D.sc, D.sem);
+  const hd = $('#view .bud .bud-hd'); if (hd) hd.outerHTML = budHeadHTML(T, sts, fx, budEditable());
+  const top = $('#view .bud .bud-top'); if (top) top.innerHTML = budTopHTML(T, sts, fx);
 }
 const fmtV = (f, v) => f === 'rate' ? money(num(v)) : String(v);
 Object.assign(ACT, {
@@ -265,7 +271,7 @@ Object.assign(ACT, {
   'bu-add': b => { const l = { id: uid('b'), sec: b.dataset.sec, name: 'Nueva línea', qty: 1, unit: 'día', mult: 1, rate: 0, link: null, qlink: null, note: '' }; P.budget.lines.push(l); budLog(`Añadió una línea en «${(BUD_SECTIONS.find(s => s.id === l.sec) || {}).name}»`); const o = ls.get('budOpen', []); if (!o.includes(b.dataset.sec)) ls.set('budOpen', o.concat(b.dataset.sec)); changed('data'); render(); },
   'bu-del': b => { const l = P.budget.lines.find(x => x.id === b.dataset.id); if (l) histNote(`Eliminar «${l.name}»`); P.budget.lines = P.budget.lines.filter(x => x.id !== b.dataset.id); if (l) budLog(`Eliminó «${l.name}» (${money(lineTotal(l))})`); changed('data'); render(); if (l) toastUndo(`«${l.name}» eliminada del presupuesto.`); },
   'bu-note': () => { UI.budNote = false; ls.set('budNote', false); render(); },
-  'bu-note-pop': b => popover(b, `<h3 class="hd-poph">Tarifas de ejemplo</h3><p class="hd-popp">Las tarifas de partida son de ejemplo. Reemplázalas por tus cotizaciones; los días se calculan solos desde el stripboard.</p><footer class="hd-popf"><span></span>${hdBtn('pri', 'Entendido', { sm: true, attrs: 'data-x="1"' })}</footer>`,
+  'bu-note-pop': b => popover(b, `<h3 class="hd-poph">Tarifas de ejemplo</h3><p class="hd-popp">Las tarifas de partida son de ejemplo. Reemplázalas por tus cotizaciones; los días se calculan solos desde el plan de rodaje.</p><footer class="hd-popf"><span></span>${hdBtn('pri', 'Entendido', { sm: true, attrs: 'data-x="1"' })}</footer>`,
     p => p.addEventListener('click', e => { if (e.target.closest('[data-x]')) { closePop(); ACT['bu-note'](); } })),
   'bu-lock': () => { BUDS.who = null; render(); toast('Presupuesto bloqueado.'); },
   'bu-protect': () => { if (proGate('budlock')) budProtectDialog(); },
@@ -318,7 +324,7 @@ SETTINGS.budget = () => {
 };
 HELP.budget = [
   ['Partidas', 'Abre cada partida para ver sus líneas. Cantidad × días o semanas × tarifa da el total de la línea.'],
-  ['Días automáticos', 'Las líneas enlazadas (etiqueta azul) toman sus días del stripboard y del desglose. Pulsa «Actualizar desde plan y desglose» después de cambiar el plan.'],
+  ['Días automáticos', 'Las líneas enlazadas (etiqueta azul) toman sus días del plan de rodaje y del desglose. Pulsa «Actualizar desde plan y desglose» después de cambiar el plan.'],
   ['Moneda, impuesto y dólares', 'En Ajustes («⋯» al final de la barra): moneda, imprevistos, nombre y porcentaje del impuesto, y la columna en dólares con tu tipo de cambio.'],
   ['Protección', 'Ajustes › Proteger con código deja el presupuesto solo para producción. Cada cambio queda registrado con el nombre de quien lo hizo.'],
 ];

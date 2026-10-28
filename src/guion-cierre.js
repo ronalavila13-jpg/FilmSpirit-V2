@@ -206,7 +206,7 @@ function lkCloseDialog() {
 async function lkDoClose({ name, role, pin, members }) {
   if (UI.scriptEdit && typeof edDerive === 'function') edDerive();
   edLockKeys(); edFixKeys();
-  for (const p of P.paras) { delete p.rv; delete p.lpg; }
+  for (const p of P.paras) { delete p.rv; delete p.lpg; rvwClear(p); }   // la versión cerrada empieza sin marcas de revisión
   if (P.rev) P.rev.on = false;
   // cada página guarda dónde empieza (en el guion AV no hay páginas fijas)
   const pages = layoutScript(P.paras);
@@ -238,7 +238,7 @@ function lkRevOpen(c) {
   lkLog(`Abrió la revisión ${revName(c).toLowerCase()}`);
   lkSettle();
   if (UI.tab !== 'script') setTab('script');   // se escribe en la pestaña Guion
-  toast(`Revisión ${revName(c).toLowerCase()} abierta: cada párrafo que cambies queda con un asterisco.`, 4500);
+  toast(`Revisión ${revName(c).toLowerCase()} abierta: lo que cambies queda resaltado con su color y con un asterisco.`, 4500);
 }
 function lkRevClose() {
   const L = scriptLock(), w = lockWho(); if (!L || !w || !L.rev) return;
@@ -383,7 +383,7 @@ function lkPanel() {
     title: 'Guion cerrado',
     wide: true,
     body: `<div class="lk-head"><span class="lk-ico" aria-hidden="true">${ICO.lock}</span><div><b>Guion final cerrado el ${esc(lkDay(L.at))}</b><span class="hint">por ${esc(L.by || '—')} · ${L.base ? `${L.base.pages} págs. · ${L.base.scenes} escenas al cerrar` : ''}</span></div></div>
-      ${L.rev ? `<p class="lk-now" style="--c:${ea(revColor(L.rev.c))}"><b>Revisión ${esc(revName(L.rev.c).toLowerCase())} abierta</b> desde el ${esc(revDate(L.rev.date))} por ${esc(L.rev.by || '')}. Cada párrafo que cambie queda con un asterisco de este color.</p>` : '<p class="hint" style="margin:0">Nadie puede cambiar el texto sin abrir una revisión.</p>'}
+      ${L.rev ? `<p class="lk-now" style="--c:${ea(revColor(L.rev.c))}"><b>Revisión ${esc(revName(L.rev.c).toLowerCase())} abierta</b> desde el ${esc(revDate(L.rev.date))} por ${esc(L.rev.by || '')}. Lo que cambie queda resaltado con este color y con un asterisco.</p>` : '<p class="hint" style="margin:0">Nadie puede cambiar el texto sin abrir una revisión.</p>'}
       <div class="lk-acts">${act}${w ? `<span class="grow"></span><span class="bud-who">${esc(w.name)}</span><button class="btn ghost sm" data-lk="lock" title="Olvida tu código en esta sesión">Salir</button>` : ''}</div>
       ${revs.length ? `<div class="fld"><span>Revisiones</span><div class="lk-revs">${revs.map(r => `<div>${chip(r.c, revName(r.c))}<span class="tnum">${esc(lkDay(r.end || r.at))}</span><span>${esc(r.by || '')}</span><span class="hint">${r.n} ${r.n === 1 ? 'párrafo' : 'párrafos'}${r.sc && r.sc.length ? ' · esc. ' + esc(r.sc.slice(0, 8).join(', ')) + (r.sc.length > 8 ? '…' : '') : ''}</span></div>`).join('')}</div></div>` : ''}
       <div class="fld"><span>Pueden abrir revisiones</span><div class="bud-people">${(L.people || []).map(person).join('')}${adm ? '<button class="btn sm" data-lk="add">+ Autorizar</button>' : ''}</div></div>
