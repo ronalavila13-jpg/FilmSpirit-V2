@@ -2014,5 +2014,17 @@
 "Dos chongitos": "Space buns",
 "Ver todos ({0})": "Show all ({0})",
 "Ver menos": "Show less",
-"Dibujada sobre el cuerpo de {0}: en esta figura ({1}) se acomoda sola.": "Drawn on the {0} figure: on this one ({1}) it adjusts by itself."
+"Dibujada sobre el cuerpo de {0}: en esta figura ({1}) se acomoda sola.": "Drawn on the {0} figure: on this one ({1}) it adjusts by itself.",
+"// lote AH · plan": "El documento exportado se llama «Plan de rodaje» (Shooting Schedule), en cuadro con líneas negras; «Miniaturas del storyboard» en Exportar; «Tiempo aprox.» (27-oct-2026)",
+"Tiempo aprox.": "Approx. time",
+"Plan de rodaje (PDF)": "Shooting Schedule (PDF)",
+"· Plan de rodaje": "· Shooting Schedule",
+"Miniaturas del storyboard": "Storyboard thumbnails",
+"En el plan de rodaje (PDF y Excel): debajo de cada escena, sus planos con su viñeta": "In the shooting schedule (PDF and Excel): under each scene, its shots with their frame",
+"Miniaturas en el plan exportado": "Thumbnails in the exported schedule",
+"Plan exportado sin miniaturas": "Exported schedule without thumbnails",
+"El plan de rodaje, las locaciones y el DOOD, cada uno en su hoja, para seguir editándolos en Excel": "The shooting schedule, locations and DOOD, each on its own sheet, to keep editing in Excel",
+"Solo en tu pantalla: el PDF y el Excel llevan todas las columnas (también la figuración). Las miniaturas del documento se eligen en Exportar.": "Only on your screen: the PDF and Excel include every column (background too). The document's thumbnails are chosen in Export.",
+"Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo aproximado y las notas. Clic derecho en una escena (en una pantalla táctil, su ⋮) abre sus opciones y su hoja de desglose; en la barra de cierre, las opciones del cierre.": "Each scene is a full-width strip in the standard color: day interior white, day exterior yellow, night interior blue, night exterior green, and dawn or dusk pink (change the colors in the legend; a highlight color overrides the strip). Columns: number, I/E, the script location with its synopsis, D/N, the cast as numbers, the shooting location, the pages (in eighths), the page where it starts, the approximate time and the notes. Right-click a scene (on a touch screen, its ⋮) for its options and its breakdown sheet; on the wrap bar, the wrap options.",
+"Exportar › Plan de rodaje (PDF) es la tabla de jornadas lista para imprimir, en cuadro con líneas negras; Plan de rodaje (Excel), la misma tabla con las locaciones y el DOOD en sus hojas. La casilla «Miniaturas del storyboard», arriba del menú, decide si debajo de cada escena van sus planos con su viñeta, como en la hoja de llamado; se guarda en el proyecto. «Elegir…» exporta solo algunas jornadas.": "Export › Shooting Schedule (PDF) is the table of shoot days ready to print, boxed in black lines; Shooting Schedule (Excel) is the same table with the locations and the DOOD on their own sheets. The “Storyboard thumbnails” checkbox at the top of the menu decides whether each scene's shots go under it with their frame, as on the call sheet; it's saved in the project. “Choose…” exports only some shoot days."
 }

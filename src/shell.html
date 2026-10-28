@@ -2936,6 +2936,14 @@ body.an-trimming,body.an-trimming *{cursor:ew-resize !important}
 .xmenu .xrow>[data-x]{flex:1;min-width:0}
 .pop .xmenu .xpart{flex:none;align-self:center;justify-items:center;align-items:center;font-size:var(--fs-3);font-weight:600;color:var(--muted);padding:6px 10px;border:var(--l1) solid var(--line);border-radius:var(--r-sm);background:none;white-space:nowrap}
 .pop .xmenu .xpart:hover{color:var(--ink);background:var(--fill)}
+/* (lote AH) una casilla del documento arriba del menú Exportar (las miniaturas del plan de rodaje) */
+.xmenu .xopt,.xmenu .xopt:has(input:checked){margin:0 0 4px;padding:8px 10px 10px;gap:9px;max-width:340px;border:0;border-bottom:var(--l1) solid var(--line);border-radius:0;background:none}
+.xmenu .xopt:hover,.xmenu .xopt:has(input:checked):hover{background:var(--fill)}
+.xmenu .xopt:has(input:disabled):hover{background:none}
+.xmenu .xopt input{flex:none;margin:2px 0 0}
+.xmenu .xopt b{font-size:var(--fs-3)}
+.xmenu .xopt .hint{display:block;font-size:var(--fs-2);line-height:1.4}
+.xmenu .xopt:has(input:disabled){cursor:default;opacity:.7}
 .rg{display:grid;gap:8px}
 .rg-opt>span{display:grid;gap:6px;flex:1;min-width:0}
 .rg-f{display:flex;gap:8px;flex-wrap:wrap;align-items:center}

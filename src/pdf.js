@@ -845,21 +845,50 @@ function pdfOneLine(doc, t, w, fs, st) {
   while (lo < hi) { const m = (lo + hi + 1) >> 1; if (doc.getTextWidth(t.slice(0, m).trimEnd() + '...') <= w) lo = m; else hi = m - 1; }
   return t.slice(0, lo).trimEnd() + '...';
 }
-/* el stripboard (lote U): las columnas y los colores de la pantalla, cada escena una tira a todo el ancho */
+/* el plan de rodaje (lote U: el stripboard): las columnas y los colores de la pantalla, cada escena una tira a todo el
+   ancho. (lote AH) El documento se llama «Plan de rodaje» (Shooting Schedule); va en cuadro, tipo Excel: líneas negras
+   completas en todas las celdas (las tiras y las barras de jornada y de cierre conservan sus colores) y la leyenda y el
+   reparto de abajo, cada uno en su cuadro. Con «Miniaturas del storyboard» (Exportar, P.schedule.noThumbs), debajo de
+   cada escena sus planos con su viñeta, como la hoja de llamado */
 function pdfPlan() {
   const doc = newDoc('landscape');
-  const S = P.schedule;
+  const S = P.schedule, LAB = 'Plan de rodaje';
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
-  let y = docHeader(doc, 'Stripboard', `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`);
-  y = pdfLegend(doc, y, lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk))), 30) + 4;
+  let y = docHeader(doc, LAB, `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`);
+  // (lote AH) la rejilla negra, bien visible, en todas las celdas, y los cuadros de la leyenda y del reparto
+  const W = doc.internal.pageSize.getWidth(), M = 30, GRID = PDF_BLACK, GW = .7, LINE = { lineColor: GRID, lineWidth: GW };
+  const box = (y0, y1) => { doc.setDrawColor(...GRID); doc.setLineWidth(GW); doc.rect(M, y0, W - 2 * M, y1 - y0, 'S'); };
+  const lg = lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk)));
+  if (lg.length) { const y0 = y; y = pdfLegend(doc, y + 2, lg, M + 8); box(y0, y - 1); y += 6; } else y += 4;
   const NC = 12, INKP = INK;   // sin columna de fecha: la jornada va en su barra, como en la app
   const shade = (hex, k) => rgb(hex).map(v => Math.round(v * k));
-  // (lote K) 8,4 pt (el plan es la tabla más larga). (lote U) Entre tira y tira una línea gris fina: la de interior de día es blanca
+  // (lote K) 8,4 pt (el plan es la tabla más larga)
   const FS = 8.4, bar = (txt, fill, color, extra) => [{ content: pdfSafe(txt), colSpan: NC, styles: { fillColor: fill, textColor: color || INKP, fontStyle: 'bold', ...(extra || {}) } }];
-  // los anchos: todas fijas salvo la locación del guion (se estira)
-  const CW = { 0: 30, 1: 26, 3: 50, 4: 62, 5: 30, 6: 88, 7: 36, 8: 30, 9: 42, 10: 86, 11: 80 };
-  const W = doc.internal.pageSize.getWidth(), setW = W - 60 - Object.values(CW).reduce((a, v) => a + v, 0) - 10;
+  // los anchos: todas fijas salvo la locación del guion (se estira). (lote AH) «Tiempo aprox.» entra entero en su título
+  // (con la letra de la persona y en inglés, «Approx. time»); las notas ceden un poco
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(TBL.headStyles.fontSize || PF.head);
+  const tW = Math.max(42, Math.ceil(doc.getTextWidth('Tiempo aprox.')) + 13);
+  const CW = { 0: 30, 1: 26, 3: 50, 4: 62, 5: 30, 6: 88, 7: 36, 8: 30, 9: tW, 10: 80, 11: 76 };
+  const setW = W - 2 * M - Object.values(CW).reduce((a, v) => a + v, 0) - 10;
+  // (lote AH) los planos del storyboard de cada escena (tab-plan.js): el plano, su viñeta con la descripción técnica y la
+  // acción (bajo I/E, Locación y D/N), los personajes (bajo Reparto), el lente y el sonido (bajo Notas técnicas) y sus
+  // notas (bajo Observaciones). Las filas en blanco, con una franja del color de la tira a la izquierda
+  const shotsOn = typeof planDocThumbs === 'function' && planDocThumbs();
+  const ar = ASPECTS[P.meta.aspect] || 16 / 9, TH = Math.min(46 / ar, 34), TW = TH * ar;
+  const SP = { top: 3.5, bottom: 3.5, left: 5, right: 5 }, SS = { fontSize: PF.small, textColor: INK, fillColor: PDF_WHITE, cellPadding: SP };
+  const shotRows = it => {
+    const s = sceneOfKey(it.k), sb = mixc(pdfHl(it) || rgb(stripColor(s)), INK, .85);
+    return planDocShotsOf(it).map(sh => {
+      const x = shotCallInfo(sh), u = thumbCached(sh), det = x.det.map(v => tr(v)).join(' · '), e = { content: '', styles: SS };
+      return [{ content: pdfSafe(x.code), styles: { ...SS, fontStyle: 'bold', halign: 'center', cellPadding: { ...SP, left: 7 } }, _bar: sb },
+        { ...pdfRich([{ fs: PF.small, segs: [{ t: x.size || '', st: 'bold' }, ...(det ? [{ t: (x.size ? ' · ' : '') + det, col: MUTED, tr: false }] : [])] }, x.act ? { t: x.act, fs: PF.small, tr: false } : null],
+          { ...SS, colSpan: 3, cellPadding: { ...SP, left: u ? TW + 10 : SP.left }, ...(u ? { minCellHeight: TH + 7 } : {}) }), _img: u },
+        { content: pdfSafe(x.cast.join(', ')), styles: { ...SS, fontStyle: 'bold' } }, e, e, e, e, e,
+        x.lens || x.snd ? pdfRich([x.lens ? { t: x.lens, fs: PF.small, tr: false } : null, x.snd ? { t: x.snd, fs: PF.small, col: MUTED } : null], SS) : e,
+        { content: pdfSafe(sh.notes || ''), styles: SS }];
+    });
+  };
   const rowCells = i => {
     const it = S.items[i];
     if (it.e) {
@@ -884,17 +913,26 @@ function pdfPlan() {
       pgs, { content: String(D.metrics.page[s.idx]), styles: { ...st, halign: 'right' } }, { content: fmtDur(num(it.dur) || rowEstDur(it)), styles: st },
       { content: pdfSafe(it.tech || ''), styles: st }, { content: pdfSafe(it.obs || ''), styles: st }];
   };
+  // (lote AH) cada escena con sus planos; con los planos, cada escena es un bloque (pdfBlocks): si no cabe al pie de la
+  // página, pasa entera a la siguiente (la barra de la jornada va con la primera y el cierre con la última). Sin los
+  // planos, como siempre: la jornada entera es un bloque
+  const chunk = i => [rowCells(i), ...(shotsOn && S.items[i] && S.items[i].k ? shotRows(S.items[i]) : [])];
+  const put = (head, chunks, tail) => {
+    if (!chunks.length) chunks = [[]];
+    if (shotsOn) { chunks[0] = [...head, ...chunks[0]]; chunks[chunks.length - 1] = [...chunks[chunks.length - 1], ...tail]; blocks.push(...chunks); }
+    else blocks.push([...head, ...chunks.flat(), ...tail]);
+  };
   const stages = S.stages || [];
   let lastStage;
   const lastN = days.reduce((a, d, n) => pdfDayOk(n) ? n : a, -1), bankOn = !(PDF_SEL && PDF_SEL.days);
   const blocks = [];
   days.forEach((d, n) => {
     if (!pdfDayOk(n)) return;
-    const body = [];
+    const head = [];
     const tone = stageTone(P, d.stage);
     if (stages.length && d.stage !== lastStage) {
       const st = stages.find(x => x.id === d.stage);
-      if (st) body.push(bar(`Etapa ${stages.indexOf(st) + 1}${st.name ? ' · ' + st.name : ''}${st.place ? '   ' + st.place : ''}`, shade(tone, .86), INKP));
+      if (st) head.push(bar(`Etapa ${stages.indexOf(st) + 1}${st.name ? ' · ' + st.name : ''}${st.place ? '   ' + st.place : ''}`, shade(tone, .86), INKP));
     }
     lastStage = d.stage;
     const done = dayDone(d), dt = dates[n];
@@ -904,29 +942,36 @@ function pdfPlan() {
     const tot = planDayTimes(d).total;
     const nsc = d.rows.filter(i => S.items[i] && S.items[i].k).length;
     const jtxt = [`Jornada ${n + 1}`, dt ? cap1(fmtDate(dt)) : 'Sin fecha', nsc ? `${nsc} ${nsc === 1 ? 'escena' : 'escenas'}` : '', tot ? fmtDur(tot) : '', done ? 'Completada' : ''].filter(Boolean).join('   ·   ');
-    body.push(bar(jtxt, jc, jdark ? (done ? [150, 222, 176] : [242, 242, 242]) : (done ? OKC : INKP), { font: 'title', fontSize: 9.2, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 } }));
-    if (!d.rows.length) body.push([{ content: 'Jornada sin escenas', colSpan: NC, styles: { textColor: MUTED } }]);
-    d.rows.forEach(i => body.push(rowCells(i)));
-    const inf = dayInfo(d.keys, d.rows);
+    head.push(bar(jtxt, jc, jdark ? (done ? [150, 222, 176] : [242, 242, 242]) : (done ? OKC : INKP), { font: 'title', fontSize: 9.2, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 } }));
+    const chunks = d.rows.map(chunk);
+    if (!d.rows.length) chunks.push([[{ content: 'Jornada sin escenas', colSpan: NC, styles: { textColor: MUTED } }]]);
+    const inf = dayInfo(d.keys, d.rows), tail = [];
     const cast = [...inf.cast].map(id => S.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
-    body.push(bar(`Cierre de jornada ${n + 1} de ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
+    tail.push(bar(`Cierre de jornada ${n + 1} de ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
       jc, jdark ? [242, 242, 242] : INKP, { fontSize: PF.small }));
-    // un poco de aire entre jornada y jornada
-    if (n < lastN || (bankOn && bankRows.length)) body.push([{ content: '', colSpan: NC, styles: { fillColor: PDF_WHITE, minCellHeight: 10, cellPadding: 0, lineWidth: 0 } }]);
-    blocks.push(body);
+    // un poco de aire entre jornada y jornada (sin rejilla: cada jornada queda en su cuadro)
+    if (n < lastN || (bankOn && bankRows.length)) tail.push([{ content: '', colSpan: NC, styles: { fillColor: PDF_WHITE, minCellHeight: 10, cellPadding: 0, lineWidth: 0 } }]);
+    put(head, chunks, tail);
   });
-  if (bankOn && bankRows.length) blocks.push([bar(`Sin programar (${bank.length})`, PT.fill2, INKP), ...bankRows.map(i => rowCells(i))]);
-  y = pdfBlocks(doc, y, { ...TBL, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo', 'Notas técnicas', 'Observaciones']],
-    margin: { left: 30, right: 30, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
-    styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, lineColor: mixc(INK, PDF_WHITE, .2), lineWidth: { top: 0, right: 0, bottom: .6, left: 0 } },
-    columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])) }, blocks);
+  if (bankOn && bankRows.length) put([bar(`Sin programar (${bank.length})`, PT.fill2, INKP)], bankRows.map(chunk), []);
+  y = pdfBlocks(doc, y, { ...TBL, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo aprox.', 'Notas técnicas', 'Observaciones']],
+    margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
+    styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, ...LINE },
+    headStyles: { ...TBL.headStyles, ...LINE },
+    columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])),
+    // la franja de la tira y la viñeta de cada plano
+    didDrawCell: d => {
+      const r = d.cell.raw; if (d.section !== 'body' || !r) return;
+      if (r._bar) { doc.setFillColor(...r._bar); doc.rect(d.cell.x + GW / 2, d.cell.y + GW / 2, 2.4, d.cell.height - GW, 'F'); }
+      if (r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 5, d.cell.y + 3.5, TW, TH); } catch (e) { PDF_MISS++; } }
+    } }, blocks);
   if (S.castMode !== 'name') {
     const legend = Object.entries(D.castNum).sort((a, b) => a[1] - b[1]).map(([id, n]) => [String(n), pdfSafe(titleCase(P.elements[id].name))]);
-    // los números del reparto en una línea (antes, una tabla que sola pasaba a otra página)
-    if (legend.length) doc.autoTable({ ...TBL, startY: y + 6, margin: { left: 30, right: 30, bottom: 44, top: 38 },
-      body: [[pdfRich([{ segs: [{ t: 'Reparto   ', st: 'bold', tr: 1 }, ...legend.flatMap(([n, nm], i) => [{ t: n + ' ', st: 'bold' }, { t: nm + (i < legend.length - 1 ? '   ·   ' : ''), col: MUTED }])] }], { lineWidth: 0, cellPadding: { top: 3, bottom: 2, left: 0, right: 0 } })]] });
+    // los números del reparto en una línea (antes, una tabla que sola pasaba a otra página); (lote AH) en su cuadro
+    if (legend.length) doc.autoTable({ ...TBL, startY: y + 8, margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...LINE },
+      body: [[pdfRich([{ segs: [{ t: 'Reparto   ', st: 'bold', tr: 1 }, ...legend.flatMap(([n, nm], i) => [{ t: n + ' ', st: 'bold' }, { t: nm + (i < legend.length - 1 ? '   ·   ' : ''), col: MUTED }])] }], { cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } })]] });
   }
-  pageNumbers(doc, 'Stripboard');
+  pageNumbers(doc, LAB);
   return { doc, name: fileSafe(P.meta.title) + '_plan_de_rodaje.pdf' };
 }
 
@@ -1142,6 +1187,8 @@ async function pdfWarm(kind, opts) {
   else if (kind === 'animatic' && typeof anClips === 'function') all = anClips().clips.filter(c => c.sh).map(c => c.sh);
   // (lote U) las miniaturas de los planos de la hoja de llamado (la de esta jornada o todas)
   else if (kind === 'call' && typeof callThumbs === 'function' && callThumbs()) { const { days } = callDays(); all = (opts && opts.all ? days : [days[UI.callDay || 0]]).filter(Boolean).flatMap(d => d.keys.flatMap(k => D.shotsBy[k] || [])); }
+  // (lote AH) las de los planos del plan de rodaje (con «Miniaturas del storyboard»; las jornadas elegidas o todas)
+  else if (kind === 'plan' && typeof planDocShots === 'function') all = planDocShots(opts && opts.sel);
   if (!all.length) return true;
   await ensureFrames('index');   // qué imágenes tiene el proyecto (sin bajarlas): para reconocer las viñetas guardadas
   await thumbLoad(all);
