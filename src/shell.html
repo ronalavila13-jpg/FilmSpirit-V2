@@ -6550,6 +6550,118 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
   .cs.cl .cl-hg{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cs.cl .cl-tools{margin-bottom:-4px}
 }
+/* ============ (lote AI) la hoja de llamado en estilo Apple (.cl-ap: el de entrada; .cl-xl, el de arriba) ============
+   La misma hoja del lote AH (los mismos bloques, en el mismo orden) con la forma de los lotes Y a AG: sin marcos ni
+   rejilla; la escala de letras y los grises de la hoja (CL_SCALE, CL_TONE); cada bloque con su título y una regla fina de
+   tinta; las filas con aire y una línea fina entre ellas; la cabecera en tres columnas separadas por una línea fina; la
+   nota al centro, en su recuadro amarillo redondeado; el centro de salud y la radio bajo una regla, como el pie de antes.
+   El botón «Excel | Apple» de la barra cambia de uno a otro (tab-call.js); el PDF, igual (pdf-llamado.js) */
+.cs.cl.cl-ap{--cl-ln:var(--cl-sep)}
+.cs.cl.cl-ap .cl-doc{gap:34px;padding:26px var(--cl-px) 36px}
+.cs.cl.cl-ap .cl-doc>.cl-hd{gap:26px}
+.cs.cl.cl-ap .cl-acts{border-bottom:1px solid var(--cl-sep);padding-bottom:14px}
+.cs.cl.cl-ap .cl-box{border:0;background:none;overflow:visible}
+/* cada bloque, una sección: el título con su dato en gris y una regla fina de tinta debajo */
+.cs.cl.cl-ap .cl-bh{background:none;border-bottom:1px solid var(--ink);padding:0 0 8px;min-height:0;align-items:baseline}
+.cs.cl.cl-ap .cl-bh h3{font:650 var(--cl-h3)/1.25 var(--font-ui);letter-spacing:-.012em}
+.cs.cl.cl-ap .cl-bh .cs-add{align-self:center}
+.cs.cl.cl-ap .cl-bb{padding:10px 0 0}
+/* la cabecera: tres columnas con aire, una línea fina entre ellas; los datos sin celdas */
+.cs.cl.cl-ap .cl-top{gap:32px;align-items:start}
+.cs.cl.cl-ap :is(.cl-c1,.cl-c3){gap:12px}
+.cs.cl.cl-ap .cl-c2{gap:4px;border-inline:1px solid var(--cl-sep);padding-inline:28px}
+.cs.cl.cl-ap .cl-c3{border-left:0}
+.cs.cl.cl-ap .cl-cell{padding:0;border-top:0}
+.cs.cl.cl-ap .cl-c2>.cl-cell{gap:3px}
+.cs.cl.cl-ap .cl-callg{margin-top:10px;padding:0}
+.cs.cl.cl-ap .cl-c2>.cl-times{margin-top:6px;width:min(100%,420px);justify-self:center}
+.cs.cl.cl-ap .cl-tc{padding:2px 3px}
+.cs.cl.cl-ap .cl-tc+.cl-tc{border-left:0}
+.cs.cl.cl-ap .cl-sum{margin-top:4px}
+/* las tablas: sin rejilla; los títulos de las columnas chicos y en el gris más claro; una línea fina entre las filas */
+.cs.cl.cl-ap .cl-g :is(th,td){border:0}
+.cs.cl.cl-ap .cl-g tbody td{border-top:1px solid var(--cl-sep)}
+:root[data-tone="light"] .cs.cl.cl-ap .cl-g tr.cl-lsc>td{border-top-color:color-mix(in oklab,var(--ink) 28%,transparent)}
+.cs.cl.cl-ap .cl-g thead th{background:none;color:var(--cl-3);padding:10px 10px 6px}
+.cs.cl.cl-ap .cl-g thead tr:last-child th{border-bottom:0;padding-bottom:6px}
+.cs.cl.cl-ap .cl-list td{padding:11px 10px}
+.cs.cl.cl-ap .cl-g tr.cl-lsh td{border-top-color:var(--cl-sep2);padding-block:8px}
+.cs.cl.cl-ap .cl-lsc .cl-ln,.cs.cl.cl-ap .cl-lsh .cl-ln{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--rc) 85%,var(--ink));padding-left:14px}
+.cs.cl.cl-ap .cl-lsc.cl-free .cl-ln,.cs.cl.cl-ap .cl-lsh.cl-free .cl-ln{box-shadow:none;padding-left:10px}
+.cs.cl.cl-ap .cl-g tr.cl-lend td{border-top:1px solid var(--ink);padding-block:10px}
+/* el avance: el título de cada jornada con su regla, como una sección */
+.cs.cl.cl-ap .cl-adv{display:grid;gap:26px}
+.cs.cl.cl-ap .cl-g th.cl-advh{background:none;padding:0 0 8px;border-bottom:1px solid var(--ink);color:var(--ink)}
+.cs.cl.cl-ap .cl-advhd{align-items:baseline}
+.cs.cl.cl-ap .cl-advhd b{font:650 var(--cl-h3)/1.25 var(--font-ui);letter-spacing:-.012em}
+.cs.cl.cl-ap .cl-adv .cl-advt+.cl-advt{border-top:0}
+.cs.cl.cl-ap .cl-g tr.cl-advtot td{border-top:0;padding:8px 10px 0}
+.cs.cl.cl-ap .cl-adv .cl-fin{padding:12px 0 4px}
+/* los jefes de área, sin celdas */
+.cs.cl.cl-ap .cl-hg{margin:12px 0 0;gap:12px 24px}
+.cs.cl.cl-ap .cl-hc{border:0;padding:0}
+/* los talentos y el equipo técnico: el área, chica y en el gris más claro, con su citación (sin banda) */
+.cs.cl.cl-ap .cl-ptbl td{padding:4px 8px}
+.cs.cl.cl-ap .cl-g tr.cl-sep td{background:none;padding:16px 10px 4px !important;font-size:var(--cl-cap);font-weight:600;color:var(--cl-3);border-top:0}
+/* la nota para el equipo: al centro, en su recuadro amarillo de esquinas redondeadas (lote Y) */
+.cs.cl.cl-ap .cl-box.cl-note{justify-self:center;width:min(100%,760px);background:color-mix(in srgb,var(--lg-note,#FFE9A0) 42%,var(--surface));border:1px solid color-mix(in srgb,var(--lg-note,#FFE9A0) 70%,var(--card-line));border-radius:12px;padding:14px 22px 16px;text-align:center}
+.cs.cl.cl-ap .cl-note .cl-bh{background:none;border:0;padding:0 0 4px;justify-content:center}
+.cs.cl.cl-ap .cl-note .cl-bh h3{font:650 var(--cl-bd)/1.3 var(--font-ui);text-align:center}
+.cs.cl.cl-ap .cl-note textarea{text-align:center;padding:2px 0;font-size:14px;line-height:1.5;background:transparent}
+:root[data-tone="dark"] .cs.cl.cl-ap .cl-box.cl-note{background:color-mix(in srgb,var(--lg-note,#FFE9A0) 11%,var(--surface));border-color:color-mix(in srgb,var(--lg-note,#FFE9A0) 28%,var(--surface))}
+:root[data-tone="dark"] .cs.cl.cl-ap .cl-note .cl-bh{background:none}
+.cs.cl.cl-ap>.cl-doc>.cl-noteadd{justify-self:center;width:min(100%,560px)}
+/* lo demás: la movilidad sin celdas; el centro de salud y la radio bajo una regla de tinta, como el pie de antes */
+.cs.cl.cl-ap .cl-mov .cl-veh{padding:8px 0;border-top:1px solid var(--cl-sep)}
+.cs.cl.cl-ap .cl-mov .cs-none,.cs.cl.cl-ap .cl-mov .cl-free{margin:8px 0}
+.cs.cl.cl-ap .cl-hr{gap:28px;border-top:1px solid var(--ink);padding-top:14px}
+.cs.cl.cl-ap .cl-hr>:is(.cl-fh,.cl-fr){padding:0}
+.cs.cl.cl-ap .cl-hr>.cl-fr{border-left:0}
+@media (max-width:760px){
+  .cs.cl.cl-ap .cl-doc{padding:14px var(--cl-px) 24px;gap:28px}
+  .cs.cl.cl-ap .cl-top{gap:18px}
+  .cs.cl.cl-ap .cl-c2{border-inline:0;border-bottom:1px solid var(--cl-sep);padding:0 0 16px}
+  .cs.cl.cl-ap .cl-c3{border-top:0}
+  .cs.cl.cl-ap .cl-tc:nth-child(n+3){border-top:0}
+  .cs.cl.cl-ap .cl-g tbody>tr{border-top:var(--l1) solid var(--line-2)}
+  .cs.cl.cl-ap .cl-g tbody td,.cs.cl.cl-ap .cl-g tr.cl-lend td{border-top:0}
+  .cs.cl.cl-ap .cl-g tbody>tr.cl-lend{border-top:1px solid var(--ink)}
+  .cs.cl.cl-ap .cl-list thead th.cl-advh{border-bottom:1px solid var(--ink)}
+  .cs.cl.cl-ap .cl-hr>.cl-fr{border-top:0}
+  .cs.cl.cl-ap .cl-hr{gap:16px}
+}
+/* ============ (lote AI) el plan de rodaje en estilo Excel (.pl.xl; el de entrada, Apple, es el de siempre) ============
+   Las columnas y las filas con líneas bien visibles, como una hoja de cálculo: cada jornada en su cuadro de borde negro,
+   una línea negra entre las filas y otra entre las columnas, de arriba abajo; los títulos de las columnas en su fila,
+   con fondo gris y sus divisiones, pegados a la primera jornada. En la apariencia oscura, las líneas en el color de la
+   letra. Lo cambia el botón «Excel | Apple» de la barra del plan (tab-plan.js), igual que el PDF del plan y del DOOD */
+.pl.xl{--xl-ln:var(--ink);--vline:var(--xl-ln)}
+.pl.xl .pday{border:1.5px solid var(--xl-ln);border-radius:0;box-shadow:none}
+.pl.xl .pday.done{border-color:var(--ok-text)}
+.pl.xl .pday-rows>.prow:is(.sc,.ev,.empty){border-top:1px solid var(--xl-ln)}
+.pl.xl .pday-rows>.prow:is(.sc,.ev,.empty):first-child{border-top:0}
+.pl.xl .prow.brk.white,.pl.xl .pstart.white{border-color:var(--xl-ln)}
+@media (min-width:761px){
+  .pl.xl .prow.ev>:not(:last-child){position:relative}
+  .pl.xl .prow.sc>:is(.c-esc,.c-ie,.c-set,.c-dn,.c-cast,.c-fig,.c-loc,.c-pgs,.c-pg,.c-t,.c-tech)::after,
+  .pl.xl .prow.ev>:is(.c-evn,.c-evd,.c-t,.c-tech)::after{content:"";position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--xl-ln);pointer-events:none}
+  .pl.xl .pl-head{background:color-mix(in srgb,var(--ink) 7%,var(--surface));border:1.5px solid var(--xl-ln);border-bottom:0;margin:2px 0 -12px;color:var(--ink)}
+  .pl.xl .pl-head>:is(.c-esc,.c-ie,.c-set,.c-dn,.c-cast,.c-fig,.c-loc,.c-pgs,.c-pg,.c-t,.c-tech){box-shadow:inset -1px 0 0 var(--xl-ln);height:32px;line-height:32px}
+  .pl.xl .pl-head .srt{height:32px;border-radius:0;color:var(--ink)}
+}
+@media (max-width:760px){
+  .pl.xl .pday{border-width:1px}
+}
+/* (lote AI) el estilo en el «⋯» del teléfono: el elegido, marcado */
+.pop .menu.hd-stm button{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:baseline;white-space:normal;height:auto;padding:8px 10px}
+.pop .menu.hd-stm button small{color:var(--muted);line-height:1.35}
+.pop .menu.hd-stm button[aria-current="true"]{background:var(--fill)}
+.pop .menu.hd-stm button[aria-current="true"] b::after{content:" ✓";color:var(--accent-text)}
+/* (lote AI) los días por actor en la pantalla, con el plan en Excel: la rejilla en negro */
+.dd-card.xl{border:1.5px solid var(--ink);border-radius:0;box-shadow:none}
+.dd-card.xl table.dood :is(th,td){border:1px solid var(--ink)}
+.dd-card.xl table.dood .dd-gap{border-block:0}
+.dd-card.xl .dd-key{border-top:1px solid var(--ink)}
 </style>
 
 <div id="app">

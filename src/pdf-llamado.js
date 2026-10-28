@@ -10,7 +10,13 @@
    (sin título: la cabecera de sus columnas basta); el avance; los talentos y el equipo técnico, cada uno en su cuadro;
    y al final la utilería especial, el punto de encuentro, la movilidad, el centro de salud y los canales de radio.
    Las tablas llevan líneas entre las columnas y las escenas el color de su tira. No depende del estilo de las tablas
-   de los demás PDF (TBL): lleva el suyo */
+   de los demás PDF (TBL): lleva el suyo.
+   (lote AI) Dos estilos con la misma estructura (P.call.style, el botón «Excel | Apple» de la barra; callXL, tab-call.js):
+   Excel, lo de arriba; Apple (el de entrada), la forma de los lotes Y a AG: la escala de letras (CL_SCALE) y los grises
+   (CL_TONE) de la pantalla, sin rejilla ni marcos negros: la cabecera en tres columnas separadas por una línea fina, cada
+   sección con su título y una regla fina de tinta (pdfSec), las filas con aire y una línea fina debajo, la nota en su
+   recuadro amarillo redondeado y, al final, el centro de salud y los canales de radio bajo una regla, como el pie de
+   antes (pero una sola vez, al final de la hoja: sin pie de página) */
 let PDF_CALL_DONE = null;   // las hojas y versiones del último PDF de llamado (se guardan si el archivo salió)
 const CL_CEL = [221, 239, 252];   // la banda celeste de los traslados
 const CL_M = 30;                  // (lote AH) el margen de la página (sin encabezado ni pie)
@@ -67,10 +73,11 @@ function clPairs(doc, pairs, { x, y, w, fs = CLF.ft, gap = 14, lh = 11, center =
 }
 /* (lote AH) la cabecera, encerrada entera: tres columnas de celdas con líneas negras (cada dato en su celda; la última
    de cada columna llega hasta abajo). Cada celda es fn(draw, x, y, w) → su alto: primero se mide todo y después se
-   dibuja. Devuelve dónde sigue la página */
-function pdfCallHead(doc, X, V, y0) {
+   dibuja. Devuelve dónde sigue la página. (lote AI) ap: en estilo Apple, las mismas celdas sin líneas ni marco, con más
+   aire entre ellas, y una línea fina entre las columnas */
+function pdfCallHead(doc, X, V, y0, ap) {
   const W = doc.internal.pageSize.getWidth(), M = CL_M, TBC = 'Por confirmar', K = clTones(), raw = doc._raw || doc;
-  const rw = clRawW(doc), lab = (t, x, y, al) => clLab(doc, t, x, y, al), P6 = 6;
+  const rw = clRawW(doc), lab = (t, x, y, al) => clLab(doc, t, x, y, al), P6 = ap ? 7 : 6;
   const wL = 166, wR = 166, wC = W - 2 * M - wL - wR, xs = [M, M + wL, M + wL + wC], ws = [wL, wC, wR];
   const cols = [[], [], []];
   // una línea de texto (o hasta max) que no pasa de w; devuelve cuántas usó
@@ -136,7 +143,7 @@ function pdfCallHead(doc, X, V, y0) {
     const cw = w / 4, h = P6 + CLF.cap + CLF.h3 + P6;
     if (draw) four.forEach(([l, v], i) => {
       const cx = x + cw * i + cw / 2;
-      if (i) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
+      if (i && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
       lab(l, cx, y + P6 + CLF.cap * .78, 'center');
       if (v) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); doc.setTextColor(...INK); doc.text(pdfSafe(v), cx, y + P6 + CLF.cap + CLF.h3 * .82, { align: 'center' }); }
     });
@@ -184,14 +191,42 @@ function pdfCallHead(doc, X, V, y0) {
     let y = y0;
     c.forEach((f, j) => {
       const h = j === c.length - 1 ? y0 + H - y : hs[i][j];
-      if (j) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(xs[i], y, xs[i] + ws[i], y); }
+      if (j && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(xs[i], y, xs[i] + ws[i], y); }
       f(true, xs[i], y, ws[i], h); y += h;
     });
   });
+  // (lote AI) Apple: solo una línea fina (el gris de los separadores) entre las columnas, sin el marco
+  if (ap) { doc.setDrawColor(...K.sep); doc.setLineWidth(.5); doc.line(xs[1], y0 + 2, xs[1], y0 + H - 2); doc.line(xs[2], y0 + 2, xs[2], y0 + H - 2); doc.setTextColor(...INK); return y0 + H + 6; }
   doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(xs[1], y0, xs[1], y0 + H); doc.line(xs[2], y0, xs[2], y0 + H);
   doc.setLineWidth(CL_LW.out); doc.rect(M, y0, W - 2 * M, H, 'S');
   doc.setTextColor(...INK);
   return y0 + H;
+}
+/* (lote AI) Apple: el centro de salud y los canales de radio al final de la hoja, como el pie de antes (lotes Y a AG):
+   bajo una regla fina de tinta, cada uno con su ícono, su etiqueta y su dato. draw: false, solo lo mide. Devuelve dónde
+   sigue */
+function pdfCallHR(doc, X, y, draw = true) {
+  const W = doc.internal.pageSize.getWidth(), M = CL_M, K = clTones(), raw = doc._raw || doc, h = X.hosp;
+  const lab = (t, x, yy) => clLab(doc, t, x, yy), xr = M + Math.round((W - 2 * M) * .55), w1 = xr - M - 30, w2 = W - M - xr - 16;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd);
+  const nm = h.name ? doc.splitTextToSize(pdfSafe(h.name), w1).slice(0, 2) : [];
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft);
+  const sub = [h.phone, h.addr].filter(Boolean).map(pdfSafe).join('     '), sl = sub ? doc.splitTextToSize(sub, w1).slice(0, 2) : [];
+  doc.setFontSize(CLF.bd);
+  const rl = X.radio ? doc.splitTextToSize(pdfSafe(X.radio), w2).slice(0, 4) : [];
+  const y0 = y + 12, nl = Math.max(1, nm.length), hL = 18 + nl * CLF.bd * 1.2 + sl.length * CLF.ft * 1.3, hR = 18 + Math.max(1, rl.length) * CLF.bd * 1.25;
+  if (draw) {
+    doc.setDrawColor(...INK); doc.setLineWidth(.6); doc.line(M, y, W - M, y);
+    pdfCallIco(doc, 'hosp', M, y0 + 1, 9, K.c3); lab('Centro de salud', M + 16, y0 + 7);
+    doc.setFont('helvetica', nm.length ? 'bold' : 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(nm.length ? INK : K.c2));
+    nm.length ? raw.text(nm, M + 16, y0 + 18) : doc.text('Por confirmar', M + 16, y0 + 18);
+    if (sl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); raw.text(sl, M + 16, y0 + 18 + nl * CLF.bd * 1.2 + 1); }
+    pdfCallIco(doc, 'radio', xr, y0 + 1, 9, K.c3); lab('Canales de radio', xr + 16, y0 + 7);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.bd); doc.setTextColor(...(rl.length ? INK : K.c2));
+    rl.length ? raw.text(rl, xr + 16, y0 + 18) : doc.text('Por confirmar', xr + 16, y0 + 18);
+    doc.setTextColor(...INK);
+  }
+  return y0 + Math.max(hL, hR) + 4;
 }
 function pdfCall(opts = {}) {
   const doc = newDoc();
@@ -204,29 +239,42 @@ function pdfCall(opts = {}) {
   const rec = !(PDF_SEL && PDF_SEL.pages) && !(typeof OFFER_CAPTURE !== 'undefined' && OFFER_CAPTURE);
   const vers = Object.fromEntries(list.map(n => [n, callVer(n, cd, rec)]));
   PDF_CALL_DONE = { list, vers };
-  const K = clTones(), GAP = 8, MG = { left: M, right: M, top: M, bottom: M };
+  // (lote AI) el estilo de la hoja: Apple (el de entrada) o Excel
+  const AP = !(typeof callXL === 'function' && callXL());
+  const K = clTones(), GAP = AP ? 12 : 8, MG = { left: M, right: M, top: M, bottom: M };
   // (lote AH) las tablas de la hoja, como una planilla: líneas negras entre filas y columnas, cada tabla encerrada con
   // una línea más gruesa; el título de cada cuadro en una banda gris y la cabecera de sus columnas en gris muy claro
-  const PAD = { top: 3.8, bottom: 3.8, left: 5, right: 5 };
-  const TB = { theme: 'grid', styles: { font: 'helvetica', fontSize: CLF.bd, textColor: INK, lineColor: CL_LINE, lineWidth: CL_LW.in, cellPadding: PAD, overflow: 'linebreak', valign: 'top', fillColor: PDF_WHITE },
+  const PAD = AP ? { top: 4.6, bottom: 4.6, left: 6, right: 6 } : { top: 3.8, bottom: 3.8, left: 5, right: 5 };
+  // (lote AI) Apple, como en los lotes Y a AG: sin fondo en los títulos de las columnas (chicos y en el gris más claro) y
+  // filas con aire separadas por una línea fina; sin rejilla ni marco
+  const HL = { top: 0, right: 0, bottom: .5, left: 0 };
+  const TB = AP ? { theme: 'plain', styles: { font: 'helvetica', fontSize: CLF.bd, textColor: INK, lineColor: K.sep, lineWidth: HL, cellPadding: PAD, overflow: 'linebreak', valign: 'top' },
+    headStyles: { fillColor: false, textColor: K.c3, fontStyle: 'bold', fontSize: CLF.cap, lineColor: K.sep, lineWidth: HL, cellPadding: { top: 5, bottom: 4, left: 6, right: 6 }, valign: 'bottom' },
+    bodyStyles: {}, alternateRowStyles: { fillColor: PDF_WHITE }, margin: MG, showHead: 'everyPage' }
+    : { theme: 'grid', styles: { font: 'helvetica', fontSize: CLF.bd, textColor: INK, lineColor: CL_LINE, lineWidth: CL_LW.in, cellPadding: PAD, overflow: 'linebreak', valign: 'top', fillColor: PDF_WHITE },
     headStyles: { fillColor: CL_HEADF, textColor: INK, fontStyle: 'bold', fontSize: CLF.cap, lineColor: CL_LINE, lineWidth: CL_LW.in, cellPadding: { top: 3.4, bottom: 3, left: 5, right: 5 }, valign: 'bottom' },
     bodyStyles: {}, alternateRowStyles: { fillColor: PDF_WHITE }, tableLineColor: CL_LINE, tableLineWidth: CL_LW.out, margin: MG, showHead: 'everyPage' };
   const bandC = (t, cs, st) => ({ content: t, colSpan: cs, styles: { fillColor: CL_BAND, fontSize: CLF.bd, fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 4, bottom: 4, left: 6, right: 6 }, ...(st || {}) } });
   const withLine = (c, col) => c && typeof c === 'object' ? { ...c, styles: { ...(c.styles || {}), lineColor: col } } : { content: c || '', styles: { lineColor: col } };
+  // (lote AI) Apple: los títulos de sección como en la pantalla, en la letra de la app, con su dato en gris a la derecha y
+  // una regla fina de tinta (pdfSec sin cuadro)
+  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: INK, lw: .6, gap: 6, after: 10, box: false };
   list.forEach((n, pi) => {
     if (pi) doc.addPage();
     const X = callSheetData(n), m = X.meet;
-    let y = pdfCallHead(doc, X, vers[n], M) + GAP;
+    let y = pdfCallHead(doc, X, vers[n], M, AP) + GAP;
     // una tabla (o un cuadro): si su comienzo no entra en lo que queda de la página, empieza en la siguiente
     const need = h => { if (y + h > H - M) { doc.addPage(); y = M; } };
     const T = (o, min = 50) => { need(min); doc.autoTable({ ...TB, startY: y, ...o, styles: { ...TB.styles, ...(o.styles || {}) }, headStyles: { ...TB.headStyles, ...(o.headStyles || {}) } }); y = doc.lastAutoTable.finalY + GAP; };
+    // (lote AI) Apple: una sección con su título y su regla (lo que sigue, debajo); min: lo que necesita para empezar
+    const sec = (title, right, min = 70) => { need(min); y = pdfSec(doc, y, title, { x0: M, x1: W - M, right, need: 0, st: CL_SEC }); };
     const sub = (t, col, tr0, st) => ({ t, fs: CLF.ft, col: col || K.c2, ...(st ? { st } : {}), ...(tr0 === false ? { tr: false } : {}) });
     const TBC = 'Por confirmar';
     // la franja de la tira a lo alto de cada fila de la escena y sus planos, y los enlaces (mapa, punto de encuentro)
     const hooks = {
       didDrawCell: d => {
         const r = d.cell.raw; if (d.section !== 'body' || !r) return;
-        if (r._bar) { doc.setFillColor(...r._bar); doc.rect(d.cell.x + .3, d.cell.y + .3, 2.4, d.cell.height - .6, 'F'); }
+        if (r._bar) { doc.setFillColor(...r._bar); if (AP) doc.rect(d.cell.x, d.cell.y, 2.2, d.cell.height, 'F'); else doc.rect(d.cell.x + .3, d.cell.y + .3, 2.4, d.cell.height - .6, 'F'); }
         if (r._url) doc.link(d.cell.x, d.cell.y, d.cell.width, d.cell.height, { url: r._url });
       },
     };
@@ -238,11 +286,16 @@ function pdfCall(opts = {}) {
       const cells = X.heads.map(h => pdfRich([{ t: h.role, fs: CLF.cap, st: 'bold', col: K.c3 }, { t: h.name, st: 'bold', fs: CLF.bd, tr: false }, h.phone ? { t: h.phone, fs: CLF.ft, col: K.c2, tr: false } : null]));
       const body = []; for (let i = 0; i < cells.length; i += 4) body.push([0, 1, 2, 3].map(j => cells[i + j] || ''));
       const cw = (W - 2 * M) / 4;
-      T({ head: [[bandC('Jefes de área', 4)]], body, columnStyles: { 0: { cellWidth: cw }, 1: { cellWidth: cw }, 2: { cellWidth: cw }, 3: { cellWidth: cw } } });
+      if (AP) { sec('Jefes de área', '', 60); T({ body, styles: { lineWidth: 0, cellPadding: { top: 3, bottom: 6, left: 6, right: 6 } }, columnStyles: { 0: { cellWidth: cw }, 1: { cellWidth: cw }, 2: { cellWidth: cw }, 3: { cellWidth: cw } } }, 0); }
+      else T({ head: [[bandC('Jefes de área', 4)]], body, columnStyles: { 0: { cellWidth: cw }, 1: { cellWidth: cw }, 2: { cellWidth: cw }, 3: { cellWidth: cw } } });
     }
-    // 2. la nota del 1.er asistente, en su cuadro amarillo
+    // 2. la nota del 1.er asistente, en su cuadro amarillo. (lote AI) Apple: al centro, en su recuadro amarillo de esquinas
+    // redondeadas, con el título adentro (como en los lotes Y a AG)
     const notes = (X.dd.notes || '').trim();
-    if (notes) T({ head: [[bandC('Nota para el equipo', 1, { fillColor: YEL })]], body: [[pdfRich(notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: CLF.bd, tr: false })), { fillColor: YEL2 })]] });
+    if (notes && AP) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: CLF.bd, tr: 1 }, ...notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: 14 * CLK, tr: false }))], { halign: 'center', lineWidth: 0, cellPadding: { top: 9, bottom: 10, left: 14, right: 14 } })]],
+      margin: { ...MG, left: M + 64, right: M + 64 },
+      willDrawCell: d => { if (d.section !== 'body') return; d.cell.styles.fillColor = false; doc.setFillColor(...YEL); doc.setDrawColor(...mixc(YEL, INK, .9)); doc.setLineWidth(.5); doc.roundedRect(d.cell.x, d.cell.y, d.cell.width, d.cell.height, 7, 7, 'FD'); } });
+    else if (notes) T({ head: [[bandC('Nota para el equipo', 1, { fillColor: YEL })]], body: [[pdfRich(notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: CLF.bd, tr: false })), { fillColor: YEL2 })]] });
     // 3. el cronograma: la hora (eventos) o el número de escena con su hora; el encabezado, la sinopsis y el reparto con
     // su número; D/N y las páginas. Los traslados, una banda celeste con su dirección y el mapa. Debajo de cada escena,
     // sus planos: el plano con su hora, la miniatura, la descripción técnica y la acción, el lente y el sonido, y los
@@ -250,12 +303,13 @@ function pdfCall(opts = {}) {
     // (lote AH) Sin el título «Cronograma» y con lo cambiado en la hoja (lo escrito a mano no se traduce)
     const all = [...X.sched.rows, ...X.sched.close], blocks = [];
     const th = callThumbs() && typeof thumbCached === 'function', TW = 48, TH = TW * 9 / 16;
-    const PS = { top: 5, bottom: 5, left: 5, right: 5 }, PSH = { top: 3.5, bottom: 3.5, left: 5, right: 5 };
+    const PS = AP ? { top: 6, bottom: 6, left: 6, right: 6 } : { top: 5, bottom: 5, left: 5, right: 5 }, PSH = AP ? { top: 4, bottom: 4, left: 6, right: 6 } : { top: 3.5, bottom: 3.5, left: 5, right: 5 };
+    const CL0 = AP ? 10 : 8;   // el aire a la izquierda del número (la franja de la tira va ahí)
     const ovT = (o, f, x) => ({ ...x, t: o.v[f], ...(o.ov[f] ? { tr: false } : {}) });
     all.forEach((r, j) => {
       if (r.free) {
         // (lote AH) una fila libre: lo que se escribió, sin el color de una tira
-        blocks.push([[richOr([r.v.code ? { t: r.v.code, st: 'bold', fs: CLF.h3, tr: false } : null, r.x.t ? sub(r.x.t, INK, false, 'bold') : null], { cellPadding: { ...PS, left: 8, right: 4 } }),
+        blocks.push([[richOr([r.v.code ? { t: r.v.code, st: 'bold', fs: CLF.h3, tr: false } : null, r.x.t ? sub(r.x.t, INK, false, 'bold') : null], { cellPadding: { ...PS, left: CL0, right: 4 } }),
           { content: pdfSafe(r.v.ie || ''), styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } },
           richOr([r.v.set ? { t: r.v.set, st: 'bold', fs: CLF.bd, tr: false } : null, r.v.syn ? sub(r.v.syn, K.c2, false) : null, r.v.cast ? { t: r.v.cast, fs: CLF.ft, st: 'bold', tr: false } : null], { cellPadding: PS }),
           { content: pdfSafe(r.v.dn || ''), styles: { fontSize: CLF.ft, fontStyle: 'bold', cellPadding: PS } }, { content: pdfSafe(r.v.pages || ''), styles: { fontStyle: 'bold', halign: 'right', cellPadding: PS } }]]);
@@ -270,7 +324,7 @@ function pdfCall(opts = {}) {
       const col = rgb(r.col), V = r.v, bar = barOfRGB(col);
       // (lote Z) la fila de la escena a todo color, como su tira en el plan de rodaje (los planos de debajo, en blanco)
       const SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS }, ink = inkOn(col), mut = mutedOn(col);
-      const rows = [[{ ...pdfRich([{ t: V.code, st: 'bold', fs: CLF.h3, tr: false, col: ink }, (r.t0 || r.t) ? sub(r.t0 || r.t, ink, false, 'bold') : null], { ...SC, cellPadding: { ...PS, left: 8, right: 4 } }), _bar: bar },
+      const rows = [[{ ...pdfRich([{ t: V.code, st: 'bold', fs: CLF.h3, tr: false, col: ink }, (r.t0 || r.t) ? sub(r.t0 || r.t, ink, false, 'bold') : null], { ...SC, cellPadding: { ...PS, left: CL0, right: 4 } }), _bar: bar },
         { content: V.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
         pdfRich([{ ...ovT(r, 'set'), t: V.set + (r.it.sp && !r.ov.set ? ` (parte ${r.it.sp})` : ''), st: 'bold', fs: CLF.bd, col: ink }, V.syn ? sub(V.syn, mut, r.ov.syn ? false : undefined) : null, V.cast ? { t: V.cast, fs: CLF.ft, st: 'bold', col: ink, tr: false } : null], SC),
         { content: V.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(V.pages), styles: { ...SC, fontStyle: 'bold', halign: 'right' } }]];
@@ -279,41 +333,53 @@ function pdfCall(opts = {}) {
         // el set del plano solo si no es ya la locación que dice la escena
         const setX = !x.free && r.set && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? r.set : '';
         const desc = x.free || x.ov.desc ? [{ t: xv.desc, st: 'bold', tr: false }] : [{ t: x.size || '', st: 'bold' }, ...(x.det.length ? [{ t: (x.size ? ' · ' : '') + x.det.join(' · '), col: K.c2 }] : [])];
-        rows.push([{ ...pdfRich([{ t: x.code || '', st: 'bold', fs: CLF.ft, tr: false }, X.shotT && x.t0 ? { t: x.t0, fs: CLF.cap, col: K.c2, tr: false } : null], { cellPadding: { ...PSH, left: 8, right: 4 } }), _bar: bar },
+        rows.push([{ ...pdfRich([{ t: x.code || '', st: 'bold', fs: CLF.ft, tr: false }, X.shotT && x.t0 ? { t: x.t0, fs: CLF.cap, col: K.c2, tr: false } : null], { cellPadding: { ...PSH, left: CL0, right: 4 } }), _bar: bar },
           { ...pdfRich([{ fs: CLF.ft, segs: desc.filter(s => s.t) }, xv.act ? { t: xv.act, fs: CLF.ft, tr: false } : null, setX ? { fs: CLF.cap, segs: [{ t: 'Set: ', col: K.c3 }, { t: setX, col: K.c2, tr: false }] } : null].filter(p => p && (p.t || (p.segs && p.segs.length))),
-            { colSpan: 2, cellPadding: { ...PSH, left: u ? TW + 12 : 5 }, ...(u ? { minCellHeight: TH + 8 } : {}) }), _img: u },
+            { colSpan: 2, cellPadding: { ...PSH, left: u ? TW + 12 : PSH.left }, ...(u ? { minCellHeight: TH + 8 } : {}) }), _img: u },
           xv.lens || xv.snd ? pdfRich([xv.lens ? { t: xv.lens, fs: CLF.ft, tr: false } : null, xv.snd ? { t: SND_NAME[xv.snd] || xv.snd, fs: CLF.cap, col: K.c2 } : null], { cellPadding: PSH }) : { content: '', styles: { cellPadding: PSH } },
           { content: pdfSafe(xv.cast || ''), styles: { fontSize: CLF.ft, halign: 'right', cellPadding: PSH } }]);
       }
-      blocks.push(rows);
+      // (lote AI) Apple: entre la escena y sus planos, y entre los planos, la línea más clara; la de abajo del último, la
+      // de siempre
+      blocks.push(AP ? rows.map((rw, i) => i < rows.length - 1 ? rw.map(c => withLine(c, K.sep2)) : rw) : rows);
     });
     if (!all.length) blocks.push([[{ content: X.free ? 'Sin filas.' : 'Jornada sin escenas.', colSpan: 5, styles: { textColor: K.c2 } }]]);
     const inf = dayInfo(X.de.keys, X.de.rows), nSc = X.free ? (X.dd.xrows || []).length : X.de.keys.length;
-    blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', cellPadding: PS } }, pdfRich([{ segs: [{ t: 'Wrap · fin de jornada', st: 'bold' }, { t: '  ·  ' + tr(X.free ? `${nSc} ${nSc === 1 ? 'fila' : 'filas'}` : `${nSc} ${nSc === 1 ? 'escena' : 'escenas'}`), col: K.c2 }] }], { colSpan: 3, cellPadding: PS }),
-      X.free ? { content: '', styles: { cellPadding: PS } } : pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', cellPadding: PS })]]);
-    // con planos, una segunda fila de títulos: lo que dice cada columna en las filas de los planos
-    const two = X.sched.byShot, h2 = { fontStyle: 'normal', fillColor: PDF_WHITE };
-    const head = [[{ content: 'Hora · Esc.' }, { content: 'I/E' }, { content: 'Escena' }, { content: 'D/N' }, { content: 'Págs.', styles: { halign: 'right' } }],
+    // el wrap; (lote AI) en Apple, sobre una línea de tinta (como «Fin de jornada» antes)
+    const LE = AP ? { lineWidth: { top: .6, right: 0, bottom: 0, left: 0 }, lineColor: INK } : {};
+    blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', cellPadding: PS, ...LE } }, pdfRich([{ segs: [{ t: 'Wrap · fin de jornada', st: 'bold' }, { t: '  ·  ' + tr(X.free ? `${nSc} ${nSc === 1 ? 'fila' : 'filas'}` : `${nSc} ${nSc === 1 ? 'escena' : 'escenas'}`), col: K.c2 }] }], { colSpan: 3, cellPadding: PS, ...LE }),
+      X.free ? { content: '', styles: { cellPadding: PS, ...LE } } : pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', cellPadding: PS, ...LE })]]);
+    // con planos, una segunda fila de títulos: lo que dice cada columna en las filas de los planos. (lote AI) En Apple, la
+    // línea va debajo de la última fila de títulos
+    const two = X.sched.byShot, h1 = AP && two ? { lineWidth: 0, cellPadding: { top: 5, bottom: 1.5, left: 6, right: 6 } } : {};
+    const h2 = AP ? { fontStyle: 'normal', cellPadding: { top: 0, bottom: 4, left: 6, right: 6 } } : { fontStyle: 'normal', fillColor: PDF_WHITE };
+    const head = [[{ content: 'Hora · Esc.', styles: h1 }, { content: 'I/E', styles: h1 }, { content: 'Escena', styles: h1 }, { content: 'D/N', styles: h1 }, { content: 'Págs.', styles: { ...h1, halign: 'right' } }],
       ...(two ? [[{ content: 'Plano', styles: h2 }, { content: 'Descripción y acción', colSpan: 2, styles: h2 }, { content: 'Lente · Sonido', styles: h2 }, { content: 'Personajes', styles: { ...h2, halign: 'right' } }]] : [])];
     need(90);
     y = pdfBlocks(doc, y, { ...TB, margin: MG, head, rowPageBreak: 'avoid', ...hooks,
-      didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 5, d.cell.y + 4, TW, TH); } catch (e) { PDF_MISS++; } } },
-      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: 62 }, 4: { cellWidth: 52, halign: 'right' } } }, blocks) + GAP;
+      didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + PSH.left, d.cell.y + 4, TW, TH); } catch (e) { PDF_MISS++; } } },
+      columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: AP ? 66 : 62 }, 4: { cellWidth: AP ? 56 : 52, halign: 'right' } } }, blocks) + GAP;
     // 4. el avance: las jornadas elegidas (de entrada, la siguiente) o «Fin de rodaje»
     for (const A of X.advs) {
-      const title = trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + '   ' + trDone([A.call ? tr(`Llamado general ${A.call}`) : tr('Llamado por confirmar'), ...A.locs].join('  ·  '));
+      const tl = trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), tx = trDone([A.call ? tr(`Llamado general ${A.call}`) : tr('Llamado por confirmar'), ...A.locs].join('  ·  '));
       // (lote Z) cada escena del avance a todo color, como en el cronograma
       const ab = A.rows.map(r => { const col = rgb(r.col), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
-        return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: 8, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
+        return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: CL0, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
           pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd, col: inkOn(col) }, r.syn ? sub(r.syn, mutedOn(col)) : null], SC), { content: r.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(r.cast.join(', ')), styles: { ...SC, fontStyle: 'bold' } }, { content: fmtEighths(r.e8), styles: { ...SC, halign: 'right', fontStyle: 'bold' } }]; });
       if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);
-      ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', fontSize: CLF.ft })]);
-      T({ head: [[bandC(pdfSafe(title), 6)], ['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }]], body: ab, rowPageBreak: 'avoid', ...hooks,
-        columnStyles: { 0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 52 } } }, 80);
+      ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', fontSize: CLF.ft, ...(AP ? { lineWidth: 0 } : {}) })]);
+      const cols = ['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }], cs = { 0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 52 } };
+      // (lote AI) Apple: el título de la jornada en su sección, con el llamado y las locaciones a la derecha
+      if (AP) { sec(tl, tx, 80); T({ head: [cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 0); }
+      else T({ head: [[bandC(pdfSafe(tl + '   ' + tx), 6)], cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 80);
     }
-    if (!X.advs.length && X.lastDay) T({ head: [[bandC('Avance de la jornada siguiente', 1)]], body: [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center' } }]] });
+    if (!X.advs.length && X.lastDay) {
+      const fin = [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center', ...(AP ? { lineWidth: 0 } : {}) } }]];
+      if (AP) { sec('Avance de la jornada siguiente', '', 50); T({ body: fin }, 0); } else T({ head: [[bandC('Avance de la jornada siguiente', 1)]], body: fin });
+    }
     // 5. (lote AH) la citación en dos cuadros: primero los talentos (el reparto), con sus horarios; después el equipo
-    // técnico por área (el área, una fila gris con su citación). El teléfono con el correo debajo, más chico
+    // técnico por área (el área, una fila gris con su citación). El teléfono con el correo debajo, más chico.
+    // (lote AI) Apple: dos secciones con su título y su regla; el área, chica y en el gris más claro, con su citación
     const CC = { halign: 'center' }, tmc = (v, b) => ({ content: v || '', styles: { ...CC, ...(b ? { fontStyle: 'bold' } : {}) } });
     const telMail = (t, e) => { t = (t || '').trim(); e = (e || '').trim(); if (!t && !e) return ''; const at = e.indexOf('@'), long = e.length > 22 && at > 0;
       return pdfRich([t ? { t, fs: CLF.bd, tr: false } : null, ...(e ? (long ? [{ t: e.slice(0, at), fs: CLF.cap, col: K.c2, tr: false }, { t: e.slice(at), fs: CLF.cap, col: K.c2, tr: false }] : [{ t: e, fs: CLF.cap, col: K.c2, tr: false }]) : [])]); };
@@ -322,28 +388,34 @@ function pdfCall(opts = {}) {
       tmc(r.pu), tmc(r.call || X.call, true), tmc(r.ves), tmc(r.mq), tmc(r.ready), telMail(r.phone, r.email), { content: pdfSafe(r.obs || ''), styles: { fontSize: CLF.ft } }]);
     if (!tb.length) tb.push([{ content: 'Sin reparto.', colSpan: 9, styles: { textColor: K.c2 } }]);
     if (X.fig) tb.push([{ content: pdfSafe(`Figuración: ${X.fig}`), colSpan: 9, styles: { textColor: K.c2, fontSize: CLF.ft } }]);
-    const TC = { cellPadding: { top: 3.8, bottom: 3.8, left: 1, right: 1 }, halign: 'center' }, HC = { halign: 'center', cellPadding: { top: 3.4, bottom: 3, left: 1, right: 1 } };
-    T({ head: [[bandC(trDone(tr('Talentos')) + (X.talent.length ? '  ·  ' + tr(`${X.talent.length} ${X.talent.length === 1 ? 'persona' : 'personas'}`) : ''), 9)], ['Nombre', 'Personaje', ...['Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos'].map(t => ({ content: t, styles: HC })), 'Teléfono', 'Observaciones']],
-      body: tb, rowPageBreak: 'avoid', columnStyles: { 0: { cellWidth: 94 }, 1: { cellWidth: 94 }, 2: { cellWidth: 34, ...TC }, 3: { cellWidth: 38, ...TC }, 4: { cellWidth: 32, ...TC }, 5: { cellWidth: 32, ...TC }, 6: { cellWidth: 34, ...TC }, 7: { cellWidth: 90 } } }, 60);
+    const TC = { cellPadding: AP ? { top: 4.6, bottom: 4.6, left: 2, right: 2 } : { top: 3.8, bottom: 3.8, left: 1, right: 1 }, halign: 'center' }, HC = { halign: 'center', cellPadding: AP ? { top: 5, bottom: 4, left: 1, right: 1 } : { top: 3.4, bottom: 3, left: 1, right: 1 } };
+    const talH = ['Nombre', 'Personaje', ...['Recojo', 'Llamado', 'Vest.', 'Maq.', 'Listos'].map(t => ({ content: t, styles: HC })), 'Teléfono', 'Observaciones'];
+    const talCS = { 0: { cellWidth: 94 }, 1: { cellWidth: 94 }, 2: { cellWidth: 34, ...TC }, 3: { cellWidth: 38, ...TC }, 4: { cellWidth: 32, ...TC }, 5: { cellWidth: 32, ...TC }, 6: { cellWidth: 34, ...TC }, 7: { cellWidth: 90 } };
+    const nTal = X.talent.length ? tr(`${X.talent.length} ${X.talent.length === 1 ? 'persona' : 'personas'}`) : '';
+    if (AP) { sec('Talentos', trDone(nTal), 70); T({ head: [talH], body: tb, rowPageBreak: 'avoid', columnStyles: talCS }, 0); }
+    else T({ head: [[bandC(trDone(tr('Talentos')) + (nTal ? '  ·  ' + nTal : ''), 9)], talH], body: tb, rowPageBreak: 'avoid', columnStyles: talCS }, 60);
     const eb = [];
     for (const [name, l, dc] of X.crew) {
-      eb.push([{ content: pdfSafe(name), colSpan: 2, styles: { fontSize: CLF.ft, fontStyle: 'bold', fillColor: CL_BAND } }, { content: dc || '', styles: { fontSize: CLF.ft, fontStyle: 'bold', halign: 'center', fillColor: CL_BAND } }, { content: '', colSpan: 3, styles: { fillColor: CL_BAND } }]);
+      if (AP) eb.push([{ content: pdfSafe(name), colSpan: 2, styles: { fontSize: CLF.cap, fontStyle: 'bold', textColor: K.c3, cellPadding: { top: 9, bottom: 2, left: 6, right: 6 } } }, { content: dc || '', styles: { fontSize: CLF.ft, fontStyle: 'bold', textColor: K.c2, halign: 'center', cellPadding: { top: 9, bottom: 2, left: 2, right: 2 } } }, { content: '', colSpan: 3 }]);
+      else eb.push([{ content: pdfSafe(name), colSpan: 2, styles: { fontSize: CLF.ft, fontStyle: 'bold', fillColor: CL_BAND } }, { content: dc || '', styles: { fontSize: CLF.ft, fontStyle: 'bold', halign: 'center', fillColor: CL_BAND } }, { content: '', colSpan: 3, styles: { fillColor: CL_BAND } }]);
       for (const c of l) eb.push([{ content: pdfSafe(c.name || ''), styles: { fontStyle: 'bold' } }, { content: pdfSafe(c.role || ''), styles: { textColor: K.c2 } }, tmc(c.call, true), { content: pdfSafe(c.phone || '') }, { content: pdfSafe(c.email || ''), styles: { fontSize: CLF.ft } }, { content: pdfSafe(c.obs || ''), styles: { fontSize: CLF.ft } }]);
     }
     if (!eb.length) eb.push([{ content: TBC, colSpan: 6, styles: { textColor: K.c2 } }]);
-    const nCrew = X.crew.reduce((a, [, l]) => a + l.length, 0);
-    T({ head: [[bandC(trDone(tr('Equipo técnico')) + (nCrew ? '  ·  ' + tr(`${nCrew} ${nCrew === 1 ? 'persona' : 'personas'}`) : ''), 6)], ['Nombre', 'Cargo', { content: 'Llamado', styles: HC }, 'Teléfono', 'Correo', 'Observaciones']],
-      body: eb, rowPageBreak: 'avoid', columnStyles: { 0: { cellWidth: 112 }, 1: { cellWidth: 112 }, 2: { cellWidth: 44, halign: 'center' }, 3: { cellWidth: 84 }, 4: { cellWidth: 110 } } }, 60);
-    // 6. (lote AH) al final, lo demás, cada cosa en su cuadro: la utilería especial (antes, bajo la cabecera)…
-    if (X.propsTxt) T({ head: [[bandC('Utilería especial', 1)]], body: [[{ content: pdfSafe(X.propsTxt) }]] });
+    const nCrew = X.crew.reduce((a, [, l]) => a + l.length, 0), nCr = nCrew ? tr(`${nCrew} ${nCrew === 1 ? 'persona' : 'personas'}`) : '';
+    const crH = ['Nombre', 'Cargo', { content: 'Llamado', styles: HC }, 'Teléfono', 'Correo', 'Observaciones'], crCS = { 0: { cellWidth: 112 }, 1: { cellWidth: 112 }, 2: { cellWidth: 44, halign: 'center' }, 3: { cellWidth: 84 }, 4: { cellWidth: 110 } };
+    if (AP) { sec('Equipo técnico', trDone(nCr), 70); T({ head: [crH], body: eb, rowPageBreak: 'avoid', columnStyles: crCS }, 0); }
+    else T({ head: [[bandC(trDone(tr('Equipo técnico')) + (nCr ? '  ·  ' + nCr : ''), 6)], crH], body: eb, rowPageBreak: 'avoid', columnStyles: crCS }, 60);
+    // 6. (lote AH) al final, lo demás, cada cosa en su cuadro (lote AI: en Apple, en su sección): la utilería especial
+    // (antes, bajo la cabecera)…
+    if (X.propsTxt) { if (AP) { sec('Utilería especial', '', 50); T({ body: [[{ content: pdfSafe(X.propsTxt), styles: { lineWidth: 0, cellPadding: { top: 2, bottom: 2, left: 6, right: 6 } } }]] }, 0); } else T({ head: [[bandC('Utilería especial', 1)]], body: [[{ content: pdfSafe(X.propsTxt) }]] }); }
     // …el punto de encuentro (antes, en la cabecera): su dirección, su referencia, los enlaces (por su nombre, se tocan) y
     // hasta dos fotos chicas
     const mAddr = (m.addr || '').trim(), mNote = (m.note || '').trim(), mLinks = (m.links || []).map(safeUrl).filter(Boolean);
     const mPh = (m.ph || []).filter(q => FRAMES[clPhKey(X.d.id, q.id)]).slice(0, 2);
     if (mAddr || mNote || mLinks.length || mPh.length) {
-      const PW = 84, PH = PW * .75, txt = richOr([mAddr ? { t: mAddr, st: 'bold', tr: false } : null, mNote ? { t: mNote, fs: CLF.ft, col: K.c2, tr: false } : null, mLinks.length ? { t: mLinks.map(linkName).join('   '), fs: CLF.ft, st: 'bold', col: K.acc, tr: false } : null]);
-      const row = mPh.length ? [{ ...txt, _links: mLinks }, { content: '', styles: { minCellHeight: PH + 8 }, _ph: mPh }] : [{ ...txt, _links: mLinks }];
-      T({ head: [[bandC('Punto de encuentro', row.length)]], body: [row], ...(mPh.length ? { columnStyles: { 1: { cellWidth: mPh.length * (PW + 4) + 8 } } } : {}),
+      const PW = 84, PH = PW * .75, NL = AP ? { lineWidth: 0 } : {}, txt = richOr([mAddr ? { t: mAddr, st: 'bold', tr: false } : null, mNote ? { t: mNote, fs: CLF.ft, col: K.c2, tr: false } : null, mLinks.length ? { t: mLinks.map(linkName).join('   '), fs: CLF.ft, st: 'bold', col: K.acc, tr: false } : null], NL);
+      const row = mPh.length ? [{ ...txt, _links: mLinks }, { content: '', styles: { minCellHeight: PH + 8, ...NL }, _ph: mPh }] : [{ ...txt, _links: mLinks }];
+      const mo = { body: [row], ...(mPh.length ? { columnStyles: { 1: { cellWidth: mPh.length * (PW + 4) + 8 } } } : {}),
         didDrawCell: d => {
           const r = d.cell.raw; if (d.section !== 'body' || !r) return;
           // los enlaces por su nombre («Google Maps   Waze»): cada uno se toca (en la última línea de la celda)
@@ -351,15 +423,22 @@ function pdfCall(opts = {}) {
             r._links.forEach(u => { const t = linkName(u), w = rw(t); doc.link(xx, yy, w, CLF.ft * 1.2, { url: u }); xx += w + rw('   '); }); }
           if (r._ph) r._ph.forEach((q, i) => { const k2 = Math.min(PW / (q.w || 4), PH / (q.h || 3)), iw = (q.w || 4) * k2, ih = (q.h || 3) * k2, xx = d.cell.x + 4 + i * (PW + 4);
             try { doc.addImage(photoForPdf(clPhKey(X.d.id, q.id)), 'JPEG', xx + (PW - iw) / 2, d.cell.y + 4 + (PH - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; } });
-        } });
+        } };
+      if (AP) { sec('Punto de encuentro', '', 60); T(mo, 0); } else T({ head: [[bandC('Punto de encuentro', row.length)]], ...mo });
     }
     // …la movilidad (lote W)…
-    if (X.mov.length) T({ head: [[bandC(trDone(tr('Movilidad')) + '  ·  ' + tr(`${X.mov.length} ${X.mov.length === 1 ? 'vehículo' : 'vehículos'}`), 3)], ['Vehículo', 'Conductor', 'Pasajeros']],
-      body: X.mov.map((x, i) => [pdfRich([{ segs: [{ t: `${i + 1}  `, st: 'bold', col: K.c2, tr: false }, { t: x.name || 'Vehículo', st: 'bold', tr: !x.name }] }]), pdfSafe(x.driver || ''), pdfSafe(x.pax.join(', '))]),
-      rowPageBreak: 'avoid', columnStyles: { 0: { cellWidth: 140 }, 1: { cellWidth: 130 } } });
-    // …y el centro de salud y los canales de radio (lote AH: antes, al pie de cada página)
+    if (X.mov.length) {
+      const nV = tr(`${X.mov.length} ${X.mov.length === 1 ? 'vehículo' : 'vehículos'}`), mvH = ['Vehículo', 'Conductor', 'Pasajeros'];
+      const mv = { body: X.mov.map((x, i) => [pdfRich([{ segs: [{ t: `${i + 1}  `, st: 'bold', col: K.c2, tr: false }, { t: x.name || 'Vehículo', st: 'bold', tr: !x.name }] }]), pdfSafe(x.driver || ''), pdfSafe(x.pax.join(', '))]),
+        rowPageBreak: 'avoid', columnStyles: { 0: { cellWidth: 140 }, 1: { cellWidth: 130 } } };
+      if (AP) { sec('Movilidad', trDone(nV), 60); T({ head: [mvH], ...mv }, 0); } else T({ head: [[bandC(trDone(tr('Movilidad')) + '  ·  ' + nV, 3)], mvH], ...mv });
+    }
+    // …y el centro de salud y los canales de radio (lote AH: antes, al pie de cada página). (lote AI) En Apple, bajo una
+    // regla de tinta, como el pie de antes
     const h = X.hosp;
-    T({ head: [['Centro de salud', 'Canales de radio']], body: [[pdfRich([h.name ? { t: h.name, st: 'bold', tr: false } : { t: TBC, col: K.c2 }, ...[h.phone, h.addr].filter(Boolean).map(t => ({ t, fs: CLF.ft, col: K.c2, tr: false }))]),
+    // (como el pie que era, puede bajar hasta casi el borde de la hoja: así no pasa sola a una página nueva por unos puntos)
+    if (AP) { if (y + pdfCallHR(doc, X, 0, false) > H - 14) { doc.addPage(); y = M; } y = pdfCallHR(doc, X, y); }
+    else T({ head: [['Centro de salud', 'Canales de radio']], body: [[pdfRich([h.name ? { t: h.name, st: 'bold', tr: false } : { t: TBC, col: K.c2 }, ...[h.phone, h.addr].filter(Boolean).map(t => ({ t, fs: CLF.ft, col: K.c2, tr: false }))]),
       X.radio ? { content: pdfSafe(X.radio) } : pdfRich([{ t: TBC, col: K.c2 }])]], columnStyles: { 0: { cellWidth: (W - 2 * M) * .55 } } }, 44);
   });
   const one = callSheet(list[0], cd);
