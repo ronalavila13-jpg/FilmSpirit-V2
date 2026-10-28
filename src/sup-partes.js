@@ -62,21 +62,23 @@ function hsCtx() {
 /* la cabecera de la jornada (se repite en cada hoja): título, jornada, fecha, llamado; a la derecha, Script y
    Cámara / Sonido con su línea para escribir (en la hoja llena, lo anotado) */
 function hsHead(doc, X, kick, fill) {
-  const W = doc.internal.pageSize.getWidth(), x0 = HS_M, x1 = W - HS_M, y = HS_M;
-  hsFont(doc, 'bold', 9); hsTx(doc, hsU(kick), x0, y + 7, { charSpace: .9 });
-  hsFont(doc, 'bold', 13.5, HS_K, 'title'); hsTx(doc, hsFit(doc, X.title, x1 - x0 - 190), x0, y + 23);
+  const W = doc.internal.pageSize.getWidth(), x0 = HS_M, x1 = W - HS_M, y = HS_M, tx = x0 + 7;
+  hsFont(doc, 'bold', 9); hsTx(doc, hsU(kick), tx, y + 7, { charSpace: .9 });
+  hsFont(doc, 'bold', 13.5, HS_K, 'title'); hsTx(doc, hsFit(doc, X.title, x1 - tx - 190), tx, y + 23);
   hsFont(doc, 'normal', 9, HS_G);
-  hsTx(doc, hsFit(doc, [pdfSafe(P.meta.title), X.call ? hsL('Llamado') + ' ' + X.call : '', X.loc ? hsL('Locación') + ': ' + pdfSafe(X.loc) : ''].filter(Boolean).join(' · '), x1 - x0 - 190), x0, y + 35);
+  hsTx(doc, hsFit(doc, [pdfSafe(P.meta.title), X.call ? hsL('Llamado') + ' ' + X.call : '', X.loc ? hsL('Locación') + ': ' + pdfSafe(X.loc) : ''].filter(Boolean).join(' · '), x1 - tx - 190), tx, y + 35);
   if (X.lines !== false) {
     const rows = [['Script', fill ? P.sup.supervisor || '' : ''], ['Cámara / Sonido', fill ? [supRolls(X.shots).join(', '), supRolls(X.shots, 's').join(', ')].filter(Boolean).join(' / ') : '']];
     rows.forEach(([lab, v], i) => {
-      const ly = y + 21 + i * 14.5, lx = x1 - 82;
+      const ly = y + 21 + i * 14.5, lx = x1 - 88;
       hsFont(doc, 'normal', 9, HS_G); hsTx(doc, hsL(lab), lx - 6, ly - 1.5, { align: 'right' });
-      hsLine(doc, lx, ly, x1, ly, HS_K, .75);
-      if (v) { hsFont(doc, 'bold', 8.5); hsTx(doc, hsFit(doc, pdfSafe(v), 80), lx + 1, ly - 2.5); }
+      hsLine(doc, lx, ly, x1 - 7, ly, HS_K, .75);
+      if (v) { hsFont(doc, 'bold', 8.5); hsTx(doc, hsFit(doc, pdfSafe(v), 78), lx + 1, ly - 2.5); }
     });
+    hsLine(doc, x1 - 170, y - 6, x1 - 170, y + 42, HS_K, 1.1);
   }
-  hsLine(doc, x0, y + 42, x1, y + 42, HS_K, 1.5);
+  // (lote AH) la cabecera en un cuadro cerrado con líneas negras (antes, solo una raya debajo: «a medias»)
+  doc.setDrawColor(...HS_K); doc.setLineWidth(1.1); doc.rect(x0, y - 6, x1 - x0, 48);
   return y + 51;
 }
 /* la cabecera de la escena: su número sobre el color de su tira, el encabezado, INT/EXT · DÍA/NOCHE · páginas ·
@@ -189,12 +191,13 @@ function hsFeet(doc, feet) {
   for (let i = 1; i <= n; i++) {
     const f = feet[i - 1]; if (!f) continue;
     doc.setPage(i);
-    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), y = H - HS_FOOT - 13;
-    hsLine(doc, HS_M, y, W - HS_M, y, HS_L, .75);
+    // (lote AH) lo de abajo también en cuadro, pegado al recuadro de la escena (antes, una raya gris encima)
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), y = H - HS_FOOT - 22, fh = 17;
+    doc.setDrawColor(...HS_K); doc.setLineWidth(1.1); doc.rect(HS_M, y, W - 2 * HS_M, fh);
     hsFont(doc, 'normal', 9, HS_G);
     const right = (f.k != null ? hsL(`Escena ${f.k}`) + ' · ' : '') + hsL(`Página ${i} de ${n}`);
-    hsTx(doc, hsFit(doc, hsL(f.left), W - 2 * HS_M - hsW(doc, right) - 18), HS_M, y + 11.5);
-    hsTx(doc, right, W - HS_M, y + 11.5, { align: 'right' });
+    hsTx(doc, hsFit(doc, hsL(f.left), W - 2 * HS_M - hsW(doc, right) - 28), HS_M + 7, y + 11.5);
+    hsTx(doc, right, W - HS_M - 7, y + 11.5, { align: 'right' });
   }
 }
 /* ---------- la hoja de script: para imprimir (en blanco) o llena ---------- */

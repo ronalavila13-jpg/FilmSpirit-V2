@@ -184,7 +184,7 @@ function pdfCasting(opts = {}) {
   const doc = newDoc('portrait'), roles = castingRoles().filter(e => caRole(e.id).cands.length || caRole(e.id).brief.trim());
   const label = opts.picked ? 'Reparto elegido' : 'Casting';
   PDF_CAND_HEAD = [label, `${roles.length} personajes`];
-  let y = docHeader(doc, ...PDF_CAND_HEAD);
+  let y = docHeader(doc, ...PDF_CAND_HEAD, { x0: 40 });
   try {
     if (!roles.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Aún no hay candidatos.', 40, y + 10); }
     for (const e of roles) {

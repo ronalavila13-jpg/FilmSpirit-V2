@@ -559,17 +559,17 @@ function plantaShotLines(W) {
 function pdfPlantaPage(kind, opts) {
   const W = plantaWhat(kind, opts), doc = newDoc('landscape');
   let y = docHeader(doc, W.label, W.sub);
-  doc.setFont('title', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
-  doc.text(pdfSafe(`Esc. ${W.s.key}  ·  ${W.s.heading}`), 36, y + 4); y += 16;
-  const M = 36, PH = 612, ps = Math.min(PH - y - 44, 420), side = M + ps + 22, sw = 792 - M - side;
+  // (lote AH) la escena en su cuadro; la planta y sus datos, cada uno en su cuadro; las medidas, del papel (carta o A4)
+  y = pdfSec(doc, y, `Esc. ${W.s.key}  ·  ${W.s.heading}`, { need: 0 });
+  const M = 36, PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), ps = Math.min(PH - y - 40, 420), side = M + ps + 22, sw = PW - M - 10 - side;
   const cv = kind === 'gen' ? plantaGenCanvas(W.G, 600) : plantaShotCanvas(W.s3, 600);
   try { doc.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M, y, ps, ps); } catch (e) { PDF_MISS++; }
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.6); doc.rect(M, y, ps, ps);
-  let ty = y + 10;
+  pdfBox(doc, M, y, ps, ps); pdfBox(doc, side - 10, y, PW - M - side + 10, ps);
+  let ty = y + 16;
   if (kind === 'gen') {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('PLANOS', side, ty); ty += 14;
     for (const S of W.G.shots) {
-      if (ty > PH - 50) break;
+      if (ty > y + ps - 30) break;
       doc.setFillColor(...rgb(S.col)); doc.rect(side, ty - 8, 9, 9, 'F');
       doc.setFont('title', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(pdfSafe(S.code), side + 15, ty);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
@@ -580,7 +580,7 @@ function pdfPlantaPage(kind, opts) {
     }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
     const note = doc.splitTextToSize(pdfSafe('Cada cámara lleva el código de su plano y su lente; la cámara B, el cono punteado. Las figuras van una vez; sus otras posiciones son los puntos con el código del plano. Las flechas finas: lo que se desplaza.'), sw);
-    doc.text(note, side, Math.min(PH - 40 - note.length * 9, Math.max(ty + 4, y + ps - note.length * 9)));
+    doc.text(note, side, Math.max(ty + 4, y + ps - 8 - note.length * 9));
   } else {
     doc.setFont('title', 'bold'); doc.setFontSize(20); doc.setTextColor(...INK); doc.text(pdfSafe(W.code), side, ty + 8); ty += 26;
     for (const [k, v] of plantaShotLines(W)) {

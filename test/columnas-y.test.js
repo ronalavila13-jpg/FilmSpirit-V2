@@ -22,11 +22,11 @@ vm.runInContext([
 ].join('\n').replace(/^const /gm, 'var '), c);
 const SRC = f => fs.readFileSync(R + '/' + f, 'utf8');
 
-// la plantilla de antes del lote Y (planColsCSS del lote W), para comparar
+// la plantilla de antes del lote Y (planColsCSS del lote W), para comparar. (lote AH) «Tiempo aprox.»: 92 px (antes 68)
 const OLD = (C, used) => {
   const w = f => used[f] ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)';
-  const cols = ['52px', '42px', `minmax(${C.thumb ? 280 : 220}px,1.7fr)`, '78px', '112px', C.fig && '46px', 'minmax(150px,1fr)', '58px', '40px', '68px', C.tech && w('tech'), C.obs && w('obs')].filter(Boolean);
-  const min = 52 + 42 + (C.thumb ? 280 : 220) + 78 + 112 + (C.fig ? 46 : 0) + 150 + 58 + 40 + 68 + (C.tech ? 130 : 0) + (C.obs ? 130 : 0);
+  const cols = ['52px', '42px', `minmax(${C.thumb ? 280 : 220}px,1.7fr)`, '78px', '112px', C.fig && '46px', 'minmax(150px,1fr)', '58px', '40px', '92px', C.tech && w('tech'), C.obs && w('obs')].filter(Boolean);
+  const min = 52 + 42 + (C.thumb ? 280 : 220) + 78 + 112 + (C.fig ? 46 : 0) + 150 + 58 + 40 + 92 + (C.tech ? 130 : 0) + (C.obs ? 130 : 0);
   return { cols: cols.join(' '), min };
 };
 const combos = [];
@@ -90,8 +90,8 @@ test('las clases del tablero: .set-nt y .loc-np con la Locación o la de rodaje 
 test('planColsCSS lleva los anchos del proyecto a --pl-cols y --pl-min', () => {
   c.P.schedule = { items: [{ k: '1', obs: 'lluvia' }], colW: { loc: 140, cast: 60 } };
   const S = c.planColsCSS();
-  assert.match(S.style, /^--pl-cols:52px 42px minmax\(280px,1\.7fr\) 78px 60px 140px 58px 40px 68px minmax\(130px,\.45fr\) minmax\(140px,1fr\);--pl-min:\d+px$/);
-  assert.strictEqual(+/--pl-min:(\d+)px/.exec(S.style)[1], 1140 - 112 + 60 - 150 + 140);
+  assert.match(S.style, /^--pl-cols:52px 42px minmax\(280px,1\.7fr\) 78px 60px 140px 58px 40px 92px minmax\(130px,\.45fr\) minmax\(140px,1fr\);--pl-min:\d+px$/);
+  assert.strictEqual(+/--pl-min:(\d+)px/.exec(S.style)[1], 1164 - 112 + 60 - 150 + 140);
   assert.strictEqual(S.cls, ' no-fig');   // (lote AC) sin clases por columna: las celdas llevan data-cw
   c.P.schedule = { items: [] };
 });

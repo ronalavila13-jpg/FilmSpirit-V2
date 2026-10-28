@@ -75,8 +75,9 @@ function dayDone(d) {
    sus opciones (con «Abrir hoja de desglose»). El menú ⋮ del final queda solo en las pantallas táctiles (shell.html) */
 const PL_COLS = [['esc', 'Esc.', 'c-esc', 1], ['ie', 'I/E', 'c-ie', 1], ['set', 'Locación', 'c-set', 1], ['dn', 'D/N', 'c-dn', 1],
   ['cast', 'Reparto', 'c-cast'], ['fig', 'Fig.', 'c-fig r'], ['loc', 'Locación de rodaje', 'c-loc', 1], ['pgs', 'Págs.', 'c-pgs r', 1], ['pg', 'Pág.', 'c-pg r'],
-  ['t', 'Tiempo', 'c-t'], ['tech', 'Notas técnicas', 'c-tech'], ['obs', 'Observaciones', 'c-obs'], ['more', '', 'c-more']];
-const PL_TIP = { 'Tiempo': 'Tiempo estimado de rodaje de cada escena: escríbelo para cambiarlo (45, 1 h 15, 1:30)', 'Fig.': 'Figuración: cuántos extras', 'Págs.': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza', 'Locación': 'El lugar del encabezado de la escena, con su sinopsis', 'Locación de rodaje': 'El lugar real donde se rueda', 'D/N': 'Día, noche, amanecer o atardecer' };
+  ['t', 'Tiempo aprox.', 'c-t'], ['tech', 'Notas técnicas', 'c-tech'], ['obs', 'Observaciones', 'c-obs'], ['more', '', 'c-more']];
+// (lote AH) «Tiempo aprox.»: es un estimado (en la pantalla, el PDF y el Excel)
+const PL_TIP = { 'Tiempo aprox.': 'Tiempo estimado de rodaje de cada escena: escríbelo para cambiarlo (45, 1 h 15, 1:30)', 'Fig.': 'Figuración: cuántos extras', 'Págs.': 'Largo de la escena en octavos de página', 'Pág.': 'Página del guion donde empieza', 'Locación': 'El lugar del encabezado de la escena, con su sinopsis', 'Locación de rodaje': 'El lugar real donde se rueda', 'D/N': 'Día, noche, amanecer o atardecer' };
 /* el orden por columna (tocando su título): la última columna elegida y su sentido, para la flechita */
 const PL_SORT = { c: null, dir: 1, pid: null };
 function plHeadHTML() {
@@ -1072,6 +1073,34 @@ Object.assign(BIND, {
     if (ev === 'change' && (f === 'fig' || f === 't' || f === 'dur')) render();
   },
 });
+/* ---------- (lote AH) el plan exportado: los planos del storyboard con su viñeta ----------
+   Como en la hoja de llamado: debajo de cada escena, sus planos con su miniatura, en el PDF y el Excel del plan de
+   rodaje. Se elige en Exportar (casilla «Miniaturas del storyboard») y se guarda en el proyecto, igual para todo el
+   equipo: P.schedule.noThumbs = true, sin los planos; sin el dato, con ellos (como P.call.noThumbs). La miniatura de la
+   pantalla (Ajustes › Columnas en pantalla) es aparte: cada persona elige la suya */
+const planDocThumbs = () => !(P.schedule && P.schedule.noThumbs) && typeof thumbCached === 'function';
+/* los planos de una fila en el documento: solo bajo la escena (no bajo sus partes divididas ni bajo los eventos) */
+const planDocShotsOf = it => it && it.k && !it.sp ? (D.shotsBy[it.k] || []) : [];
+/* los planos cuyas viñetas necesita el documento (pdfWarm, el Excel): los de las jornadas (las elegidas en «Elegir…» o
+   todas, con las escenas sin programar) */
+function planDocShots(sel) {
+  if (!planDocThumbs()) return [];
+  const S = P.schedule, { days, bankRows } = scheduleDays(P, D.sc), ds = sel && sel.days;
+  return [...days.flatMap((d, n) => !ds || ds.has(n) ? d.rows : []), ...(ds ? [] : bankRows)].flatMap(i => planDocShotsOf(S.items[i]));
+}
+/* al abrir el proyecto (normalizeProject) o al llegar el plan de otra persona: noThumbs solo como true */
+function planDocNorm(S) { if (S && S.noThumbs !== true) delete S.noThumbs; }
+/* la casilla, arriba del menú Exportar del plan: se ve al momento de exportar y no ocupa lugar en la pantalla. Solo
+   quien puede editar el plan la cambia (los demás exportan con lo que eligió el equipo). Sin planos en el storyboard,
+   no sale (como la de la hoja de llamado) */
+EXPORTS_NOTE.plan = () => !P.schedule.items.some(it => planDocShotsOf(it).length) ? '' : `<label class="opt xopt"><input type="checkbox" data-pl-thumbs ${planDocThumbs() ? 'checked' : ''} ${planEditable() ? '' : 'disabled'}><span><b>Miniaturas del storyboard</b><span class="hint">En el plan de rodaje (PDF y Excel): debajo de cada escena, sus planos con su viñeta</span></span></label>`;
+document.addEventListener('change', e => {
+  const el = e.target; if (!el || !el.matches || !el.matches('#pop input[data-pl-thumbs]') || !P) return;
+  if (!planEditable()) { el.checked = planDocThumbs(); return; }
+  histNote(el.checked ? 'Miniaturas en el plan exportado' : 'Plan exportado sin miniaturas');
+  if (el.checked) delete P.schedule.noThumbs; else P.schedule.noThumbs = true;
+  changed('data');
+});
 /* ---------- Excel: la misma tabla del PDF, con la fecha en celdas combinadas ---------- */
 function planSheets() {
   const S = P.schedule, M = P.meta, br = M.brand || {};
@@ -1084,17 +1113,20 @@ function planSheets() {
   const full = (v, s, h) => row([{ v, cs: NC, s }], h);
   const people = (l, lab) => { const n = (l || []).map(personName).filter(Boolean); return n.length ? lab + ': ' + n.join(', ') : ''; };
   // encabezado del documento (nombre del proyecto y de la empresa, si están activados)
-  full([br.project !== false ? M.title : '', 'Stripboard'].filter(Boolean).join(' · '), { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false }, 30);
+  // (lote AH) el documento se llama «Plan de rodaje» (en inglés, Shooting Schedule): en el título y en el nombre de la hoja
+  full([br.project !== false ? M.title : '', 'Plan de rodaje'].filter(Boolean).join(' · '), { bold: true, size: 16, font: 'title', fill: T.bar, color: T.ink, border: false, wrap: false }, 30);
   const sub = [br.company !== false ? M.company : '', people(M.directors, 'Dirección'), people(M.producers, 'Producción'),
     `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`].filter(Boolean).join('   ·   ');
   full(sub, { color: T.ink, fill: T.bar, border: false, wrap: false }, 18);
   full('', { fill: T.c, border: false }, 4);
-  // (lote U) las columnas del stripboard de la pantalla (y la fecha, como siempre, en la primera)
-  const COLS = [12, 6, 5, 40, 10, 14, 6, 22, 7, 6, 8, 28, 28];
+  // (lote U) las columnas del stripboard de la pantalla (y la fecha, como siempre, en la primera). (lote AH) «Tiempo aprox.»
+  // entra en su columna; con los planos, la I/E es más ancha: ahí va la viñeta de cada plano
+  const shotsOn = planDocThumbs(), IMG = [], ar = ASPECTS[P.meta.aspect] || 16 / 9;
+  const COLS = [12, 6, shotsOn ? 10 : 5, 40, 10, 14, 6, 22, 7, 6, 12, 28, 28];
   const lg = xlLegend(lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk))), COLS);
   if (lg.length) { row([], 6); rows.push(...lg); row([], 6); }
   const headAt = rows.length + 1;
-  const HEAD = ['Fecha', 'Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo', 'Notas técnicas', 'Observaciones'];
+  const HEAD = ['Fecha', 'Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo aprox.', 'Notas técnicas', 'Observaciones'];
   row(HEAD.map((v, j) => ({ v, s: { bold: true, fill: T.bar, color: T.ink, line: '#5A5A5A', h: j === 1 || j === 6 || j === 8 || j === 9 ? 'center' : 'left' } })), 22);
   const castOf = s => { const list = sceneCast(s.idx); return S.castMode === 'name' ? list.map(e => titleCase(e.name)).join(', ') : list.map(e => D.castNum[e.id]).filter(Boolean).join(', '); };
   const cells = (i, tone) => {
@@ -1120,6 +1152,22 @@ function planSheets() {
       { v: it.obs || '', s: { ...st, v: 'top' } },
     ];
   };
+  /* (lote AH) los planos de una escena, como en el PDF: el plano, su viñeta (en la columna I/E), la descripción técnica y
+     la acción (en Locación y D/N), los personajes (en Reparto), el lente y el sonido (en Notas técnicas) y sus notas (en
+     Observaciones). La viñeta va encima de su celda (xlsx.js, images): la fila tiene su alto */
+  const IW = Math.min(68, Math.round(38 * ar)), IH = Math.round(IW / ar);   // en píxeles
+  const shotLines = i => !shotsOn ? [] : planDocShotsOf(S.items[i]).map(sh => {
+    const x = shotCallInfo(sh), u = thumbCached(sh), st = { line: '#5A5A5A', size: 9, v: 'top' }, e = { v: '', s: st };
+    const det = x.det.map(v => tr(v)).join(' · '), d1 = (x.size ? tr(x.size) : '') + (x.size && det ? ' · ' : '') + det;
+    return { img: u, cells: [{ v: x.code, s: { ...st, bold: true, h: 'center' } }, e,
+      { v: d1 + (x.act ? '\n' + x.act : ''), cs: 2, s: st, runs: [{ t: x.size ? tr(x.size) : '', b: true }, { t: (x.size && det ? ' · ' : '') + det, color: '#5A6070' }, { t: x.act ? (d1 ? '\n' : '') + x.act : '' }] },
+      { v: x.cast.join(', '), s: { ...st, bold: true } }, e, e, e, e, e, { v: [x.lens, x.snd].filter(Boolean).join(' · '), s: st }, { v: sh.notes || '', s: st }] };
+  });
+  // las filas de una jornada (o de «Sin programar»): cada escena y debajo sus planos; first, la celda de la fecha
+  const putRows = (list, first) => list.forEach((x, j) => {
+    if (x.img) IMG.push({ r: rows.length, c: 2, x: 4, y: 4, w: IW, h: IH, data: x.img });
+    rows.push({ cells: j ? x.cells : [first, ...x.cells], ...(x.img ? { min: Math.ceil((IH + 8) * .75) } : {}) });
+  });
   const spacer = () => full('', { border: false }, 7);
   const stages = S.stages || [];
   let lastStage;
@@ -1134,9 +1182,10 @@ function planSheets() {
     const dateTxt = (dt ? `${dt.getDate()}\n${dt.toLocaleDateString('es-PE', { weekday: 'short' }).replace('.', '')} ${dt.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '')}\n` : '') + `Jornada ${n + 1}` + (done ? '\nCOMPLETADA' : '');
     // la jornada en negro, como su barra en la app
     const jc = hlc(d.brk) || lgCol('plan', 'brk'), jdark = lgInk(jc) === '#FFFFFF';   // la jornada en su color de la leyenda
-    const dateCell = { v: dateTxt, rs: Math.max(1, d.rows.length), s: { fill: jc, bold: true, font: 'title', h: 'center', color: jdark ? (done ? '#96DEB0' : '#F2F2F2') : (done ? '#1F6B3E' : INK), size: 10, line: '#5A5A5A' } };
+    const list = d.rows.flatMap(i => [{ cells: cells(i, tone) }, ...shotLines(i)]);
+    const dateCell = { v: dateTxt, rs: Math.max(1, list.length), s: { fill: jc, bold: true, font: 'title', h: 'center', color: jdark ? (done ? '#96DEB0' : '#F2F2F2') : (done ? '#1F6B3E' : INK), size: 10, line: '#5A5A5A' } };
     if (!d.rows.length) row([dateCell, { v: 'Jornada sin escenas', cs: NC - 1, s: { italic: true, color: '#6B7480' } }]);
-    d.rows.forEach((i, j) => row(j ? cells(i, tone) : [dateCell, ...cells(i, tone)]));
+    putRows(list, dateCell);
     const inf = dayInfo(d.keys, d.rows);
     const cast = [...inf.cast].map(id => S.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
     const black = jdark;
@@ -1146,7 +1195,8 @@ function planSheets() {
   });
   if (bankRows.length) {
     full(`SIN PROGRAMAR (${bank.length})`, { fill: T.fill2, bold: true, color: INK }, 20);
-    bankRows.forEach((i, j) => row(j ? cells(i, STAGE_TONES[0]) : [{ v: '-', rs: bankRows.length, s: { fill: T.fill2, h: 'center' } }, ...cells(i, STAGE_TONES[0])]));
+    const list = bankRows.flatMap(i => [{ cells: cells(i, STAGE_TONES[0]) }, ...shotLines(i)]);
+    putRows(list, { v: '-', rs: list.length, s: { fill: T.fill2, h: 'center' } });
   }
   // reparto numerado
   const legend = Object.entries(D.castNum).sort((a, b) => a[1] - b[1]);
@@ -1155,7 +1205,7 @@ function planSheets() {
     row([{ v: '#', s: { bold: true, fill: T.bar, color: T.ink, h: 'center', line: T.line } }, { v: 'Reparto', s: { bold: true, fill: T.bar, color: T.ink, line: T.line } }], 20);
     for (const [id, n] of legend) row([{ v: n, s: { h: 'center', line: T.line } }, { v: titleCase(P.elements[id].name), s: { line: T.line } }]);
   }
-  const plan = { name: 'Stripboard', cols: COLS, rows, freeze: headAt, landscape: true, printRows: `${headAt}:${headAt}` };
+  const plan = { name: 'Plan de rodaje', cols: COLS, rows, freeze: headAt, landscape: true, printRows: `${headAt}:${headAt}`, ...(IMG.length ? { images: IMG } : {}) };
   // hoja de locaciones: dirección, escenas y jornadas de cada una
   const byLoc = new Map();
   const touch = n => { if (!byLoc.has(n)) byLoc.set(n, { esc: [], days: new Set() }); return byLoc.get(n); };
@@ -1184,10 +1234,14 @@ const rgbOf = hex => { const h = String(hex).replace('#', ''); return [0, 2, 4].
 async function exportPlanXLSX() {
   if (!proGate('excel')) return;
   if (!D.sc.scenes.length) { toast('Primero escribe o importa el guion.'); return; }
+  // (lote AH) con «Miniaturas del storyboard», las viñetas listas antes (como para el PDF: con su avance y «Cancelar»)
+  if (typeof FR_HOLD !== 'undefined') FR_HOLD++;
   try {
+    if (typeof pdfWarm === 'function' && planDocThumbs() && !(await pdfWarm('plan'))) { toast('Exportación cancelada.'); return; }
     const bytes = xlsxBook(planSheets(), { title: P.meta.title + ' · Plan de rodaje' });
     await offerFile(fileSafe(P.meta.title) + '_plan_de_rodaje.xlsx', new Blob([bytes], { type: XLSX_MIME }));
   } catch (e) { console.error(e); toast('No se pudo crear el Excel. Vuelve a intentarlo; si se repite, escribe a soporte desde Ayuda.'); }
+  finally { if (typeof FR_HOLD !== 'undefined') { FR_HOLD--; if (typeof frameTrim === 'function') frameTrim(); } }
 }
 
 /* ---------- ajustes, ayuda y exportar ---------- */
@@ -1195,7 +1249,7 @@ SETTINGS.plan = () => {
   const S = P.schedule, ed = planEditable(), off = new Set(S.off || []);
   return `<div class="fld"><span>Días sin rodaje</span><div class="daytoggle">${[1, 2, 3, 4, 5, 6, 0].map(d => `<label title="${ea(['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d])}"><input type="checkbox" aria-label="${ea(['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][d])}" data-bind="pl-off" value="${ea(d)}" ${off.has(d) ? 'checked' : ''} ${ed ? '' : 'disabled'}>${WEEKDAYS[d]}</label>`).join('')}</div></div>
     <div class="fld"><span>Reparto</span><div class="seg" role="group" aria-label="Reparto"><button data-act="pl-cast" data-v="num" aria-pressed="${ea(S.castMode !== 'name')}">Por número</button><button data-act="pl-cast" data-v="name" aria-pressed="${ea(S.castMode === 'name')}">Por nombre</button></div></div>
-    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración (Fig.)'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">El PDF y el Excel siempre las incluyen (también la figuración).</span>
+    <div class="fld"><span>Columnas en pantalla</span><div class="pl-cols">${[['thumb', 'Miniatura del storyboard'], ['fig', 'Figuración (Fig.)'], ['tech', 'Notas técnicas'], ['obs', 'Observaciones']].map(([k, l]) => `<button class="chip" data-act="pl-col" data-c="${k}" aria-pressed="${ea(planCols()[k])}">${planCols()[k] ? '✓ ' : ''}${l}</button>`).join('')}</div><span class="hint">Solo en tu pantalla: el PDF y el Excel llevan todas las columnas (también la figuración). Las miniaturas del documento se eligen en Exportar.</span>
       ${ed ? `<span class="hint pl-rzhint">Arrastra el borde derecho del título de una columna para cambiar su ancho (doble clic: ancho automático). Se guarda en el proyecto, para todo el equipo.</span>${S.colW ? '<button class="btn sm" data-act="pl-colw0" style="justify-self:start">Restaurar el ancho de las columnas</button>' : ''}` : ''}</div>
     <div class="fld"><span>Horas estimadas</span><label class="inl"><input type="number" min="5" max="240" step="5" value="${ea(minPerPage())}" data-bind="pl-mpp" aria-label="Minutos por página" ${ed ? '' : 'disabled'}><span>minutos por página de guion</span></label><span class="hint">Cada escena muestra su hora de inicio y su duración estimada desde el llamado. Una hora escrita a mano manda.</span></div>
     <div class="fld"><span>Sugerir jornadas</span><label class="inl"><input type="number" min="0.5" max="20" step="0.5" value="${ea(num(S.pagesPerDay) || 4.5)}" data-bind="pl-ppd" aria-label="Páginas por jornada" ${ed ? '' : 'disabled'}><span>páginas por jornada</span></label><span class="hint">≈ ${esc(fmtDur(Math.round((num(S.pagesPerDay) || 4.5) * minPerPage())))} de rodaje por jornada, con los minutos por página de arriba.</span></div>
@@ -1204,12 +1258,12 @@ SETTINGS.plan = () => {
 // en el teléfono la barra no muestra «Locaciones…» ni «+ Etapa»: van en su «⋯»
 TOOLS_EXTRA.plan = () => planEditable() ? [[ICO.pin, 'Locaciones de rodaje…', () => locsDialog()], [ICO.plus, 'Etapa de rodaje…', () => stagesDialog(true)], ...(isSeries(P) ? [[ICO.plus, 'Bloque de episodios…', () => planBlockDialog()]] : [])] : [];
 HELP.plan = [
-  ['Stripboard', 'Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo y las notas. Clic derecho en una escena (en una pantalla táctil, su ⋮) abre sus opciones y su hoja de desglose; en la barra de cierre, las opciones del cierre.'],
+  ['Stripboard', 'Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo aproximado y las notas. Clic derecho en una escena (en una pantalla táctil, su ⋮) abre sus opciones y su hoja de desglose; en la barra de cierre, las opciones del cierre.'],
   ['Ancho de las columnas', 'En la computadora, arrastra el borde derecho del título de una columna para hacerla más angosta o más ancha; doble clic en ese borde la devuelve a su ancho automático. El texto que no cabe se corta con «…» y se lee entero al pasar el mouse. El ancho se guarda en el proyecto: todo el equipo lo ve igual. «Restaurar el ancho de las columnas», en Ajustes › Columnas en pantalla, las devuelve todas. El PDF y el Excel no cambian.'],
   ['Ordenar', 'Toca el título de una columna (Esc., I/E, Locación, D/N, Locación de rodaje o Págs.) para ordenar las escenas dentro de cada jornada y en «Sin programar»; otra vez, al revés. Ninguna escena cambia de jornada y los eventos se quedan en su lugar. Se deshace con Deshacer.'],
   ['Mover escenas', 'Presiona cualquier parte de una escena (fuera de los campos) y arrástrala: las demás le hacen espacio y los cambios se aplican al soltar. En el teléfono, mantén el dedo un instante antes de arrastrar. También: clic derecho › Mover a. Esc cancela.'],
   ['Elegir varias', 'Clic en una escena la elige y otro clic la suelta; Ctrl o ⌘ suma o quita, Mayús elige un tramo. Arrastra desde un espacio vacío para elegir varias con un recuadro, y luego arrastra una para moverlas juntas. Un clic en un espacio vacío (o Esc) quita la selección.'],
-  ['Tiempo', 'Cada escena muestra su tiempo estimado (en gris), según sus octavos y los minutos por página de Ajustes. Escribe otro para cambiarlo (45, 1 h 15, 1:30). Las horas de cada escena y de cada plano se escriben en la hoja de llamado.'],
+  ['Tiempo aprox.', 'Cada escena muestra su tiempo estimado (en gris), según sus octavos y los minutos por página de Ajustes. Escribe otro para cambiarlo (45, 1 h 15, 1:30). Las horas de cada escena y de cada plano se escriben en la hoja de llamado.'],
   ['Jornadas', 'Cada jornada empieza con su barra (número, fecha, llamado, escenas y duración estimada) y termina con la barra de cierre. Clic derecho en una barra (en el teléfono, mantén el dedo y suelta) abre sus opciones: color, completada, insertar jornada o quitar el corte; su «+» agrega eventos con hora. «Cortar la jornada aquí» (clic derecho en una escena) parte una jornada en dos.'],
   ['Mover jornadas', 'Arrastra la barra de inicio de la jornada (en el teléfono, mantén el dedo y arrastra), o usa sus opciones › Subir / Bajar jornada. La fecha fijada a mano viaja con la jornada; las automáticas siguen el nuevo orden al soltar. Su hoja de llamado va con ella.'],
   ['Fechas', 'Toca la fecha en la barra de la jornada para cambiarla. Las siguientes de la misma etapa se corren con ella; las de otras etapas no. El llamado se escribe en la misma barra.'],
@@ -1219,6 +1273,8 @@ HELP.plan = [
   ['Eventos', 'El «+» de la barra de cada jornada agrega traslados, comidas o ensayos con hora.'],
   ['La leyenda', 'Arriba de la tabla: qué significa cada color (día, noche, jornada y cierre, evento y los tuyos). Toca un color para cambiarlo en todo el proyecto, en los PDF y en los Excel; «+ Color» suma uno con nombre. Para resaltar una escena, un evento o una jornada, en sus opciones (clic derecho) elige un color de la leyenda.'],
   ['Personalización', 'En «⋯» de las pestañas (en el teléfono, en el menú de arriba › Personalización). En «Tu pantalla», solo para ti: el modo claro u oscuro, las pestañas visibles, el color de las etapas, la letra, las barras y las líneas. En «Colores del proyecto», para todo el equipo y los PDF: la paleta (Estándar, Original, Sobria, Alto contraste, Escala de grises), cada color y tus paletas guardadas para usarlas en otro proyecto. La leyenda también lleva ahí.'],
+  ['Exportar', 'Exportar › Plan de rodaje (PDF) es la tabla de jornadas lista para imprimir, en cuadro con líneas negras; Plan de rodaje (Excel), la misma tabla con las locaciones y el DOOD en sus hojas. La casilla «Miniaturas del storyboard», arriba del menú, decide si debajo de cada escena van sus planos con su viñeta, como en la hoja de llamado; se guarda en el proyecto. «Elegir…» exporta solo algunas jornadas.'],
   ['DOOD', 'Muestra qué jornadas trabaja cada actor: I inicio, T trabaja, E en espera (entre su primera y su última jornada, sin escenas), F fin, IF un solo día. Al lado, sus jornadas de trabajo, de espera y el total de su contrato. Sale del plan y del desglose; toca el número de una jornada para verla en el plan. Exportar › Días por actor (PDF); también va en el Excel del plan.'],
 ];
-EXPORTS.plan = () => [pdfItem('Stripboard (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('DOOD (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Plan de rodaje (Excel)', hint: 'El stripboard, las locaciones y el DOOD, cada uno en su hoja, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];
+// (lote AH) lo exportado se llama «Plan de rodaje» (Shooting Schedule); la vista de la pantalla sigue siendo «Stripboard»
+EXPORTS.plan = () => [pdfItem('Plan de rodaje (PDF)', 'plan', 'Una tabla por jornada, lista para imprimir'), pdfItem('DOOD (PDF)', 'dood', 'Qué jornadas trabaja cada actor: inicio, trabajo, espera y fin'), { label: 'Plan de rodaje (Excel)', hint: 'El plan de rodaje, las locaciones y el DOOD, cada uno en su hoja, para seguir editándolos en Excel', run: () => exportPlanXLSX(), pro: 'excel' }];
