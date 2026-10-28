@@ -42,8 +42,24 @@ Lo que pediste: **«Historial por pestaña y que se pueda deshacer algo individu
   ejemplo «No se puede deshacer «Jornada 2: llamado 07:00 → 06:30»: lo volviste a cambiar después (Jornada 2: llamado
   06:30 → 06:00)». En el panel ese cambio aparece en gris, sin botón, con la razón debajo. Si deshaces primero el de
   después, el de antes vuelve a poder deshacerse.
-- Lo que se borró y se devuelve vuelve **a su lugar**, junto al que tenía al lado (aunque después agregaste o moviste
-  otros).
+- Lo que se borró y se devuelve vuelve **a su lugar**, entre los que tenía al lado. Deshacer y rehacer enseguida deja
+  siempre exactamente el mismo orden.
+- **Lo que no se deshace suelto** (después de la revisión; en todos los casos se dice por qué y, deshaciendo primero lo
+  de después, se puede):
+  - **Marcas del desglose y planos, si el guion cambió después.** Una marca guarda en qué párrafo y en qué letras
+    está; un plano, qué tramo del guion cubre. Si después se escribió en el guion (o llegó un cambio del guion de tu
+    equipo), devolver una marca quitada o un plano eliminado la pondría sobre otro texto («Bolsa» sobre «agas »), así
+    que no se hace: «No se puede deshacer «Quitar «Bolsa» de la escena»: el guion cambió después». Lo que solo quita
+    (deshacer una marca agregada) sí se deshace.
+  - **Lo que todavía se usa.** Si deshacer haría desaparecer algo que otra cosa usa ahora, no se hace: marcar «Termo»
+    en la escena 1 (crea el elemento) y después en la escena 2, y deshacer lo de la escena 1, dice «todavía se usa en
+    lo que hiciste después («Termo» (atrezzo) en la escena 2)». Igual una jornada nueva a la que ya le pusiste llamado
+    en la hoja, o rehacer un borrado de algo que después volviste a usar.
+  - **En el plan, una escena que no tiene adónde volver.** Vuelve entre sus vecinas de antes; si ya no están juntas,
+    junto a la que siga en su jornada (o junto al cierre de su jornada); si ninguna sigue en su jornada, no se mueve:
+    «lo que tenía al lado cambió después». Así una escena nunca vuelve a otra jornada. Ejemplo: escena 4 a la jornada
+    1 y después escena 3 a la jornada 1; deshacer lo de la 4 la devuelve a la jornada 2 (antes quedaba detrás de la 3,
+    en la jornada 1).
 - **Ctrl + Z y los botones de arriba** deshacen **lo último de la pestaña abierta** (en el presupuesto, lo último del
   presupuesto; no lo de otra pestaña). Ctrl + Mayús + Z rehace lo último que deshiciste en esa pestaña.
 - Las imágenes que se recuperan al deshacer (por ejemplo, al borrar un plano) y las versiones ya enviadas de la hoja
@@ -79,8 +95,19 @@ Lo que pediste: **«Historial por pestaña y que se pueda deshacer algo individu
   calzan (una toma sin su plano). Se avisa qué choca y, deshaciendo primero lo de después, se puede.
 - **Mover cuenta como «lo mismo» solo para el mismo elemento.** Cada elemento de una lista recuerda a sus vecinos y su
   lugar tiene una «versión», como un dato más: mover la escena 7 no impide deshacer el movimiento de la escena 4, pero
-  mover dos veces la escena 4 sí (primero se deshace el último). Al devolverla, vuelve justo después de la que tenía
-  antes. En el plan, cuando no se sabe si se movió la escena o la jornada, se toma que se movió la escena.
+  mover dos veces la escena 4 sí (primero se deshace el último). Al devolverla, vuelve entre las que tenía al lado; en
+  las listas donde el orden no dice nada (marcas, líneas, equipo), si ya no están juntas, junto a la de antes; en el
+  plan, solo dentro de su jornada (si no, es un choque). En el plan, cuando no se sabe si se movió la escena o la
+  jornada, se toma que se movió la escena.
+- **(revisión) Lo atado al texto del guion.** Las marcas del desglose (párrafo y letras) y los planos (su tramo p0-p1)
+  son lo que depende de `paras` sin arreglarse solo; las notas y anotaciones del guion rayado guardan además el texto
+  citado y se vuelven a ubicar solas, así que no se bloquean. Cada paso guarda una huella del texto del guion antes y
+  después; deshacer o rehacer que vuelva a poner esos lugares exige el mismo texto. Es por dirección: deshacer una
+  marca agregada (solo la quita) sigue pudiéndose.
+- **(revisión) Lo que todavía se usa.** Los ids son únicos: se cuenta cuántas veces está el id entre comillas en el
+  proyecto (una sola pasada por versión del proyecto, ~10 ms en uno de 420 000 caracteres), menos las que se van con
+  el paso y más las que vuelven; si queda alguna, choca. Vale para todo lo que tiene «id» (elementos, marcas, planos,
+  líneas, personas, tareas…) y para las jornadas y eventos del plan (su corte o su evento).
 - **Listas sin identidad.** Las que tienen elementos repetidos (por ejemplo, un guion con varios «CORTE A:») son una sola
   ruta, como pide el encargo; si son largas, el paso guarda solo el tramo que cambió y una huella de la lista entera, y
   solo se deshace si la lista sigue igual. Las que no tienen id pero ningún elemento repetido (los días de descanso, el
@@ -117,15 +144,25 @@ Lo que pediste: **«Historial por pestaña y que se pueda deshacer algo individu
   y con choque, desde otra pestaña, Ctrl + Z por pestaña, agregar/quitar/mover en listas con id, rehacer, pasos del
   guion al escribir, cambios del equipo, versiones enviadas de la hoja, imágenes, guion largo con repetidos, el peso de
   un paso, las descripciones, el cambio de pestaña y 600 historias al azar: nunca se traba, deshacer en orden inverso
-  es exacto y nunca se pierde nada).
-- Todas las de antes, ya unido con `lote-ah` (frentes «pdf» y «plan»): app 50 bien (solo falla `test/pdf.test.js`, que
+  es exacto y nunca se pierde nada). Con la revisión, 37: deshacer y rehacer enseguida dejan el mismo orden (también
+  400 historias al azar en el plan), marcas y planos con el guion cambiado (al escribir y desde el equipo), lo que
+  solo quita sí se deshace, el elemento con marcas de después, rehacer un borrado, la jornada con datos en la hoja, la
+  escena que vuelve a su jornada y la que no tiene adónde volver.
+- Las pruebas de la revisión (`…/scratchpad/revision/`, copiadas a `…/scratchpad/historial/rev/` para que lean este
+  `src/historial.js`): h1-tags, h1-remote y h4-shots quedan bloqueados («el guion cambió después»); h3-el, bloqueado
+  («todavía se usa…»); h2-plan, la escena 4 vuelve a la jornada 2. fuzz2 (y con otro generador al azar, 4 semillas):
+  0 diferencias de orden, 0 de contenido, 0 filas perdidas.
+- Todas las de antes, ya unido con `lote-ah` (los cuatro frentes): app 51 bien (solo falla `test/pdf.test.js`, que
   ya fallaba por el módulo canvas); servidor 20 archivos bien.
 - En el navegador (proyecto de ejemplo, sin errores en la consola): cambios en plan, hoja de llamado (escribiendo en
   su campo), desglose y presupuesto (escribiendo en su campo); el historial de la pestaña y de todas; deshacer uno del
   medio (el de la hoja de llamado) y comprobar que lo de antes y lo de después quedó; choque en el presupuesto (la
   misma tarifa dos veces) y su aviso; Ctrl + Z y Ctrl + Mayús + Z; Ctrl + Z en otra pestaña; animatic y guion al
   escribir; un panel a la vez; Inicio sin margen; Esc; la vista previa de un PDF abierta con el historial (Ctrl + Z no
-  deshace, Esc cierra solo la vista previa). En 1366 y 390 px, claro y oscuro, español e inglés.
+  deshace, Esc cierra solo la vista previa). En 1366 y 390 px, claro y oscuro, español e inglés. Con la revisión, los
+  tres casos en la app (nav-h1, nav-h2, nav-h3 en el puerto de este frente) y el panel con 60 pasos en un proyecto
+  grande: 11 ms para pintarlo.
 - Capturas en `…/scratchpad/historial/capturas/`: `antes-barra-*.png` y `antes-plan-*.png` (antes), `despues-barra-1366`,
   `panel-plan-*`, `panel-todas-*`, `panel-deshecho-*` (1366 y 390, claro, oscuro e inglés), `choque-1366`,
-  `choque-despues-1366`, `animatic-1366`, `menu-telefono-390`, `vista-previa-con-historial-1366`.
+  `choque-despues-1366`, `animatic-1366`, `menu-telefono-390`, `vista-previa-con-historial-1366`; de la revisión,
+  `revision-desglose-1366`, `revision-se-usa-1366`, `revision-plan-antes-1366` y `revision-plan-despues-1366`.

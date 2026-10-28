@@ -10,6 +10,10 @@
    ninguno se repite) se comparan elemento por elemento: agregar, quitar y mover (el elemento recuerda a sus vecinos y
    su lugar tiene versión, como un valor más) no chocan con lo que se hace con otros elementos. Las demás listas son
    una sola ruta (las largas guardan solo el tramo que cambió, con la huella de la lista entera).
+   (revisión) Tampoco se deshace suelto: lo que vuelve a poner marcas del desglose o planos sobre el texto del guion si
+   el guion cambió después (sus lugares son párrafo y letras de ese texto); lo que haría desaparecer algo con id que
+   todavía se usa (un elemento con marcas de después, una jornada con datos en la hoja); y lo que vuelve a una lista
+   cuando su vecindario de antes ya no está (en el plan, nunca a otra jornada).
    Ctrl+Z y los botones de arriba deshacen lo último de la pestaña abierta; el panel «Historial» (el reloj, junto a
    deshacer) lista los cambios de la pestaña (o de todas) y deshace o rehace cualquiera.
    El guion (al escribir) y el animatic tienen su propio deshacer: sus pasos no se deshacen desde aquí, pero sí
@@ -131,8 +135,11 @@ function histListDiff(A, B, p, out) {
   }
   const lp = p.slice(), ia = new Map(K.a.map((id, i) => [id, i])), ib = new Map(K.b.map((id, i) => [id, i]));
   const m = id => ({ i: id, k: K.k }), nb = (ids, i) => [i > 0 ? ids[i - 1] : null, i < ids.length - 1 ? ids[i + 1] : null];
-  K.a.forEach((id, i) => { if (!ib.has(id)) { const [ap, an] = nb(K.a, i); out.push({ p: lp, m: m(id), a: JSON.stringify(A[i]), ai: i, ap, an }); } });
-  K.b.forEach((id, j) => { if (!ia.has(id)) { const [bp, bn] = nb(K.b, j); out.push({ p: lp, m: m(id), b: JSON.stringify(B[j]), bi: j, bp, bn }); } });
+  // en el plan, además, la jornada de cada fila (el corte que la cierra; '' : sin programar), antes y después
+  const sg = K.k === 'it' ? ids => { const o = new Array(ids.length); let cur = ''; for (let i = ids.length - 1; i >= 0; i--) { if (ids[i][0] === 'd') cur = ids[i]; o[i] = cur; } return o; } : null;
+  const sa = sg && sg(K.a), sb = sg && sg(K.b), segs = (e, i, j) => { if (sg) { if (i != null) e.as = sa[i]; if (j != null) e.bs = sb[j]; } return e; };
+  K.a.forEach((id, i) => { if (!ib.has(id)) { const [ap, an] = nb(K.a, i); out.push(segs({ p: lp, m: m(id), a: JSON.stringify(A[i]), ai: i, ap, an }, i, null)); } });
+  K.b.forEach((id, j) => { if (!ia.has(id)) { const [bp, bn] = nb(K.b, j); out.push(segs({ p: lp, m: m(id), b: JSON.stringify(B[j]), bi: j, bp, bn }, null, j)); } });
   if (K.k !== 'js') K.a.forEach((id, i) => { const j = ib.get(id); if (j !== undefined && A[i] !== B[j]) { p.push(m(id)); histDiff(A[i], B[j], p, out); p.pop(); } });
   // los que cambiaron de lugar: en el plan pesan más las jornadas y los eventos (se mueve la escena, no la jornada)
   const com = K.a.filter(id => ib.has(id)), rk = new Map(K.b.filter(id => ia.has(id)).map((id, r) => [id, r]));
@@ -140,7 +147,7 @@ function histListDiff(A, B, p, out) {
   com.forEach((id, x) => {
     if (keep.has(x)) return;
     const i = ia.get(id), j = ib.get(id), [ap, an] = nb(K.a, i), [bp, bn] = nb(K.b, j);
-    out.push({ p: lp, m: m(id), mv: 1, ai: i, ap, an, bi: j, bp, bn });
+    out.push(segs({ p: lp, m: m(id), mv: 1, ai: i, ap, an, bi: j, bp, bn }, i, j));
   });
 }
 /* las diferencias de las partes que cambiaron (sus fotos en JSON); O y N: las partes de antes y de después */
@@ -216,6 +223,14 @@ function histMiss(R, ch, side, later = []) {
       if (!same || (r.miss && e[put] !== undefined)) bad.push(e);
     }
   }
+  // (lote AH) lo que vuelve a una lista: ¿su vecindario de antes sigue en pie? (si no, en el plan, no hay dónde)
+  const lists = new Map();
+  for (const e of ch) if (e.m && !bad.includes(e) && (e.mv || e[put] !== undefined)) { const k = histPs(e.p); if (!lists.has(k)) lists.set(k, []); lists.get(k).push(e); }
+  bad.pos = [];
+  for (const es of lists.values()) {
+    const L = histAt(R, es[0].p).v, all = ch.filter(e => e.m && histPs(e.p) === histPs(es[0].p));
+    for (const e of histListPlan(histIdx(L, es[0].m.k).ids, all, put, es[0].m.k === 'it').bad) { bad.push(e); bad.pos.push(e); }
+  }
   return bad;
 }
 function histSet(R, p, j) {
@@ -227,20 +242,56 @@ function histSet(R, p, j) {
   const s = p[p.length - 1];
   if (j === undefined) delete o[s]; else o[s] = JSON.parse(j);
 }
-/* agregar, quitar y mover en una lista: primero salen los que se van o se mueven; después entran, en el orden del lado de
-   destino, junto a su vecino de antes (si ya no está, junto al de después; si tampoco, en su lugar) */
-function histListPut(L, es, side) {
-  const f = HIST_IK[es[0].m.k], go = new Set(es.filter(e => e.mv || e[side] === undefined).map(e => e.m.i)), took = new Map();
-  for (let j = L.length - 1; j >= 0; j--) { const id = f(L[j]); if (go.has(id)) { took.set(id, L[j]); L.splice(j, 1); } }
-  const ids = L.map(f);
-  for (const e of es.filter(e => e.mv || e[side] !== undefined).sort((x, y) => x[side + 'i'] - y[side + 'i'])) {
-    const v = e.mv ? took.get(e.m.i) : JSON.parse(e[side]); if (v === undefined) continue;
-    // justo después del que tenía antes (lo que se movió ahí después se queda donde lo pusieron); si era el primero, al
-    // comienzo; si su vecino de antes ya no está, justo antes del de después; si tampoco, en su lugar
-    const pv = e[side + 'p'], nx = e[side + 'n'], a = pv == null ? -1 : ids.indexOf(pv), b = nx == null ? -1 : ids.indexOf(nx);
-    const at = a >= 0 ? a + 1 : pv == null ? 0 : b >= 0 ? b : Math.min(e[side + 'i'], L.length);
-    L.splice(at, 0, v); ids.splice(at, 0, e.m.i);
+/* (lote AH) el orden nuevo de una lista: salen los que se van o se mueven y entran, en el orden del lado de destino
+   (side), los que vuelven. Cada uno vuelve a su lugar solo si su vecindario de antes sigue en pie: su vecino de antes y
+   el de después siguen juntos (contando como «después» al siguiente que no vuelve con este mismo paso). Si no:
+   · en el plan (sched), si su vecino de antes o el de después sigue en la misma jornada (o en «sin programar»), junto a
+     él; si tampoco, no hay dónde: es un choque (así una escena no vuelve a otra jornada);
+   · en las demás listas, donde el orden no dice nada (marcas, líneas, equipo), junto al de antes, al comienzo si era el
+     primero, junto al de después o en su lugar.
+   ids: las identidades de ahora (no se toca). Devuelve { ids: el orden nuevo, bad: las entradas sin lugar } */
+const histSegOf = (ids, j) => { for (let k = j; k < ids.length; k++) if (ids[k] != null && ids[k][0] === 'd') return ids[k]; return ''; };
+function histListPlan(ids0, es, side, sched) {
+  const go = new Set(es.filter(e => e.mv || e[side] === undefined).map(e => e.m.i));
+  const ids = ids0.filter(id => !go.has(id)), bad = [];
+  const ins = es.filter(e => e.mv || e[side] !== undefined).sort((x, y) => x[side + 'i'] - y[side + 'i']);
+  const pend = new Set(ins.map(e => e.m.i)), byId = new Map(ins.map(e => [e.m.i, e]));
+  // sus vecinos: los de donde estaba la última vez que salió (x: deshacer y rehacer enseguida son exactos) y los de
+  // cuando se hizo el paso
+  const cands = e => [e['x' + side], { p: e[side + 'p'], n: e[side + 'n'], s: e[side + 's'] }].filter(Boolean);
+  const nextOf = (e, c) => { let nx = c.n; while (nx != null && pend.has(nx)) { const f = byId.get(nx), x = f['x' + side] || {}; nx = 'n' in x ? x.n : f[side + 'n']; } return nx; };
+  for (const e of ins) {
+    pend.delete(e.m.i);
+    let k = -1;
+    const C = cands(e).map(c => { const nx = nextOf(e, c); return { c, nx, a: c.p == null ? -1 : ids.indexOf(c.p), b: nx == null ? ids.length : ids.indexOf(nx) }; });
+    for (const { c, a, b } of C) if ((c.p == null || a >= 0) && b >= 0 && b === a + 1) { k = b; break; }   // sus dos vecinos siguen juntos: exacto
+    if (k < 0 && sched) {
+      for (const { c, nx, a, b } of C) {
+        if (c.s === undefined) continue;
+        if (a >= 0 && histSegOf(ids, a + 1) === c.s) k = a + 1;
+        else if (nx != null && b >= 0 && histSegOf(ids, b) === c.s) k = b;
+        else if (c.p == null && histSegOf(ids, 0) === c.s) k = 0;
+        if (k >= 0) break;
+      }
+    } else if (k < 0) { const { c, nx, a, b } = C[C.length - 1]; k = a >= 0 ? a + 1 : c.p == null ? 0 : nx != null && b >= 0 ? b : Math.min(e[side + 'i'], ids.length); }
+    if (k < 0) { bad.push(e); continue; }
+    ids.splice(k, 0, e.m.i);
   }
+  return { ids, bad };
+}
+/* agregar, quitar y mover en una lista (ya revisado con histMiss). Lo que sale recuerda dónde estaba (sus vecinos, su
+   lugar y su jornada) como su lugar del otro lado: así deshacer y rehacer enseguida dejan exactamente el mismo orden */
+function histListPut(L, es, side) {
+  const k = es[0].m.k, f = HIST_IK[k], o = side === 'a' ? 'b' : 'a', sched = k === 'it', cur = L.map(f), objs = new Map();
+  L.forEach((x, j) => objs.set(cur[j], x));
+  for (const e of es) {
+    const j = cur.indexOf(e.m.i);
+    if (j < 0 || !(e.mv || e[side] === undefined)) continue;
+    e['x' + o] = { p: j > 0 ? cur[j - 1] : null, n: j < cur.length - 1 ? cur[j + 1] : null, s: sched ? histSegOf(cur, j) : undefined };
+  }
+  const { ids } = histListPlan(cur, es, side, sched);
+  for (const e of es) if (!e.mv && e[side] !== undefined) objs.set(e.m.i, JSON.parse(e[side]));
+  L.splice(0, L.length, ...ids.map(id => objs.get(id)).filter(x => x !== undefined));
   if (HIST_C) HIST_C.delete(L);
 }
 const histPs = p => p.map(s => typeof s === 'string' ? s : '\u0001' + s.i).join('\u0000');
@@ -495,7 +546,7 @@ function histCapture() {
   clearTimeout(HIST.timer); HIST.wait = false;
   if (typeof P === 'undefined' || !P || !HIST.base) return null;
   const now = histSnap(P), keys = [...new Set([...Object.keys(HIST.base), ...Object.keys(now)])].filter(k => HIST.base[k] !== now[k]);
-  const { ch, O, N } = keys.length ? histChanges(HIST.base, now, keys) : { ch: [] };
+  const { ch, O, N } = keys.length ? histChanges(HIST.base, now, keys) : { ch: [] }, oldParas = HIST.base.paras;
   HIST.base = now;
   if (keys.length) HIST.ver++;
   const tab = HIST.tab || UI.tab, label = HIST.label, frames = HIST.frames;
@@ -503,6 +554,9 @@ function histCapture() {
   if (!ch.length && !frames) return null;
   for (const e of ch) if (e.m) { const k = histPk(e); e.av = HIST.pos.get(k); e.pv = ++HIST.pn; HIST.pos.set(k, e.pv); }
   const st = { id: uid('h'), t: Date.now(), ch, tab, label, frames, own: histOwn(tab), seq: ++HIST.seq, n: ch.reduce((a, e) => a + histN(e), 0) };
+  // (lote AH) si deshacer o rehacer vuelve a poner lugares del texto del guion (marcas, planos): con qué texto valen
+  const ua = ch.some(e => histOnText(e, 'a')), ub = ch.some(e => histOnText(e, 'b'));
+  if (ua || ub) { const pa = String(oldParas || ''), pb = String(now.paras || ''); st.tx = { a: histHash(pa), b: pa === pb ? null : histHash(pb), ua, ub }; if (st.tx.b === null) st.tx.b = st.tx.a; }
   // las palabras se arman ahora, con el antes y el después a mano
   if (!label) { try { st.d = histDescribe(ch, O || {}, N || {}, tab); } catch (e) { st.d = null; } }
   HIST.undo.push(st); HIST.chars += st.n;
@@ -555,17 +609,84 @@ const histQ = t => EN ? '“' + t + '”' : '«' + t + '»';
 const histName = s => trDone(histText(s) + (s.tab && TAB_NAME[s.tab] && s.tab !== UI.tab ? ` (${tr(TAB_NAME[s.tab])})` : ''));
 const histLast = tab => { for (let i = HIST.undo.length - 1; i >= 0; i--) { const s = HIST.undo[i]; if (!s.own && s.tab === tab) return s; } return null; };
 const histLastRedo = tab => HIST.redo.filter(s => s.tab === tab && s.useq > (HIST.cut[tab] || 0)).sort((a, b) => b.useq - a.useq)[0] || null;
-/* ¿se puede deshacer (on: está hecho) o rehacer? null si se puede; { by } si algo posterior tocó lo mismo (by: ese paso,
-   si se sabe cuál). Se guarda hasta que el proyecto vuelva a cambiar */
+/* ¿se puede deshacer (on: está hecho) o rehacer? null si se puede; si no, { why, by }: por qué y, si se sabe, el paso
+   posterior que lo impide. why: 'val' (lo mismo cambió después), 'pos' (lo que tenía al lado cambió: no hay dónde
+   volver), 'txt' (el guion cambió y lo que vuelve tiene lugares en su texto) o 'ref' (lo que se quitaría todavía se usa).
+   Se guarda hasta que el proyecto vuelva a cambiar */
 function histBlock(s, on) {
   if (s._v === HIST.ver && s._on === on) return s._b;
   const mine = !HIST_C; if (mine) HIST_C = new WeakMap();
   let b = null;
-  try { const after = on ? s.seq : s.useq, bad = histMiss(P, s.ch, on ? 'b' : 'a', HIST.undo.filter(x => x !== s && x.seq > after)); if (bad.length) b = { by: histBy(s, bad, on) }; }
-  catch (e) { b = { by: null }; }
+  try {
+    const after = on ? s.seq : s.useq, later = HIST.undo.filter(x => x !== s && x.seq > after), put = on ? 'a' : 'b';
+    const bad = histMiss(P, s.ch, on ? 'b' : 'a', later);
+    if (bad.length) b = { why: bad.pos.length === bad.length ? 'pos' : 'val', by: histBy(s, bad, on) };
+    // las marcas del desglose y los planos tienen lugares en el texto del guion (párrafo y letras, p0-p1): vuelven solo
+    // sobre el mismo texto con que se hizo el paso
+    else if (s.tx && s.tx['u' + put] && histParasHash() !== s.tx[on ? 'b' : 'a']) b = { why: 'txt', by: [...later].reverse().find(x => x.ch.some(e => e.p[0] === 'paras')) || null };
+    else { const id = histOrphan(s, put); if (id) b = { why: 'ref', by: [...later].reverse().find(x => x.ch.some(e => e.p.includes(id) || [e.a, e.b].some(j => j && j.includes('"' + id + '"')))) || null }; }
+  }
+  catch (e) { b = { why: 'val', by: null }; }
   finally { if (mine) HIST_C = null; }
   s._v = HIST.ver; s._on = on; s._b = b;
   return b;
+}
+/* (lote AH) el texto del guion de ahora, en huella (la de la foto, si no hay cambios por anotar) */
+function histParasHash() {
+  const j = String((!HIST.wait && HIST.base ? HIST.base.paras : JSON.stringify(P.paras)) || '');
+  if (HIST._ph && HIST._ph.j === j) return HIST._ph.h;
+  HIST._ph = { j, h: histHash(j) };
+  return HIST._ph.h;
+}
+/* ¿deshacer (put 'a') o rehacer (put 'b') vuelve a poner lugares del texto del guion? */
+function histOnText(e, put) {
+  const k = e.p[0], v = e[put];
+  if (k === 'tags') {
+    if (e.m && !e.mv) { if (v === undefined) return false; const t = JSON.parse(v); return !!t && t.p >= 0; }
+    if (e.p.length === 1 || 'sp' in e) return v !== undefined;
+    return e.p.length === 3 && ['p', 's', 'e'].includes(e.p[2]);
+  }
+  if (k === 'shots') {
+    if (e.p.length === 1) return v !== undefined;
+    if (e.p.length === 2) { if (v === undefined) return false; const x = JSON.parse(v); return !!x && x.p0 != null; }
+    return e.p[2] === 'p0' || e.p[2] === 'p1';
+  }
+  return false;
+}
+/* (lote AH) ¿lo que desaparecería al deshacer (put 'a') o rehacer (put 'b') todavía se usa? Los ids son únicos: se
+   cuenta cuántas veces está su id entre comillas en el proyecto (una sola pasada por versión), menos las que se van
+   con este paso y más las que vuelven. Devuelve el primer id que quedaría usado, o null */
+const histIdsIn = j => { const o = new Set(); if (j) for (const x of j.matchAll(/"id":"([^"\\]{1,80})"/g)) o.add(x[1]); return o; };
+const histOcc = (j, id) => j ? j.split('"' + id + '"').length - 1 : 0;
+function histOrphan(s, put) {
+  const o = put === 'a' ? 'b' : 'a', gone = new Set();
+  for (const e of s.ch) {
+    if (e[o] === undefined) continue;
+    const keep = histIdsIn(e[put]);
+    for (const id of histIdsIn(e[o])) if (!keep.has(id)) gone.add(id);
+    // las jornadas y los eventos del plan no tienen «id», sino su corte o su evento
+    if (e.m && e.m.k === 'it' && !e.mv && e[put] === undefined && (e.m.i[0] === 'd' || e.m.i[0] === 'e')) gone.add(e.m.i.slice(2));
+  }
+  if (!gone.size) return null;
+  const refs = histRefs();
+  for (const id of gone) {
+    let n = refs.get(id) || 0;
+    for (const e of s.ch) {
+      const last = e.p[e.p.length - 1], key = !e.m && !('sp' in e) && last === id;
+      n -= histOcc(e[o], id) + (key && e[o] !== undefined && e[put] === undefined ? 1 : 0);
+      n += histOcc(e[put], id) + (key && e[put] !== undefined && e[o] === undefined ? 1 : 0);
+    }
+    if (n > 0) return id;
+  }
+  return null;
+}
+// cuántas veces está cada texto corto entre comillas en el proyecto (ids y claves); una pasada por versión
+function histRefs() {
+  if (HIST._refs && HIST._refs.v === HIST.ver && !HIST.wait) return HIST._refs.m;
+  const snap = !HIST.wait && HIST.base ? HIST.base : histSnap(P), m = new Map(), rx = /"([\w:|.-]{1,80})"/g;
+  for (const j of Object.values(snap)) if (j) for (const x of j.matchAll(rx)) m.set(x[1], (m.get(x[1]) || 0) + 1);
+  if (!HIST.wait) HIST._refs = { v: HIST.ver, m };
+  return m;
 }
 // el paso posterior que tocó lo mismo (el más reciente); si no hay, el que tocó la misma lista
 function histBy(s, bad, on) {
@@ -573,10 +694,14 @@ function histBy(s, bad, on) {
   for (const list of [false, true]) for (let i = later.length - 1; i >= 0; i--) if (later[i].ch.some(e => bad.some(b => (!list || b.m) && histOver(e, b, list)))) return later[i];
   return null;
 }
-/* qué choca, en palabras: «No se puede deshacer «X»: lo volviste a cambiar después (Y).» */
+/* qué choca, en palabras: «No se puede deshacer «X»: lo volviste a cambiar después (Y).» short: para el panel */
 function histWhy(s, b, on, short) {
-  const L = b && b.by;
-  const why = !L ? tr(short ? 'Se cambió después' : 'eso cambió después')
+  const L = b && b.by, w = b && b.why, named = L && !L.own ? ' (' + histText(L) + ')' : '';
+  let why;
+  if (w === 'txt') why = tr('el guion cambió después') + named;
+  else if (w === 'ref') why = tr(L ? 'todavía se usa en lo que hiciste después' : 'todavía se usa en el proyecto') + named;
+  else if (w === 'pos') why = tr('lo que tenía al lado cambió después') + (L ? ' (' + histText(L) + ')' : '');
+  else why = !L ? tr(short ? 'Se cambió después' : 'eso cambió después')
     : L.own ? tr(L.tab === 'animatic' ? 'después lo cambiaste en el animatic' : 'después lo cambiaste al escribir el guion')
     : (L.tab === s.tab ? tr('lo volviste a cambiar después') : tr('después lo cambiaste en') + ' ' + tr(TAB_NAME[L.tab] || 'otra pestaña')) + ' (' + histText(L) + ')';
   if (short) return trDone(why.charAt(0).toUpperCase() + why.slice(1));

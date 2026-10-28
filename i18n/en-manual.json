@@ -2305,5 +2305,9 @@
 "Formato de imagen": "Aspect ratio",
 "{0} agregados": "{0} added",
 "{0} quitados": "{0} removed",
-"Un cambio": "A change"
+"Un cambio": "A change",
+"el guion cambió después": "the script changed afterward",
+"todavía se usa en lo que hiciste después": "it's still used by what you did afterward",
+"todavía se usa en el proyecto": "it's still used in the project",
+"lo que tenía al lado cambió después": "what was next to it changed afterward"
 }
