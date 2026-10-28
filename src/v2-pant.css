@@ -87,11 +87,13 @@
 :root[data-v2][data-tab="plan"] #view .plan{display:block;max-width:none}
 :root[data-v2][data-tab="plan"] #view .plan>.tip,:root[data-v2][data-tab="plan"] #view .pl-legend,:root[data-v2][data-tab="plan"] #view .pl-stage:not(.bank){display:none}
 .v2-kpis{display:flex;gap:12px;margin:0 0 20px}
-.v2-kpi{display:grid;align-content:start;width:180px;height:110px;box-sizing:border-box;padding:14px 16px 0;background:var(--surface);border:1px solid var(--line);border-radius:3px}
+.v2-kpi{display:grid;align-content:start;width:180px;min-height:110px;box-sizing:border-box;padding:14px 16px 12px;background:var(--surface);border:1px solid var(--line);border-radius:3px}
 .v2-kpi>span{font:400 12.5px/16px var(--font-ui);color:var(--muted)}
 .v2-kpi>b{margin-top:3px;font:700 25px/28px var(--v2-disp);letter-spacing:-.01em;color:var(--ink)}
 .v2-kpi>small{margin-top:3px;font:400 12.5px/16px var(--font-ui);color:var(--muted)}
 .v2-kpi>p{margin:4px 0 0;font:400 13px/19.5px var(--font-ui);color:var(--ink)}
+/* el reparto se ensancha con muchos personajes y la fila entera crece con él (no se sale de la caja) */
+.v2-kpi.cast{width:auto;flex:0 1 auto;min-width:180px;max-width:440px}
 .v2-kpi.k{background:var(--v2-black);border-color:var(--v2-black)}
 .v2-kpi.k>span{color:#D8D8D4}.v2-kpi.k>b{color:#fff}.v2-kpi.k>small{color:var(--v2-yellow)}
 .v2-tiras{display:flex;align-items:center;gap:15px;height:40px;margin:0 0 15px}
@@ -109,9 +111,9 @@
 .v2-tiras .v2-hint{margin:0 3px 0 13px}
 .v2-btn.sm2{width:40px;height:40px}
 :root[data-v2] .pl-scroll{overflow:visible}
-:root[data-v2][data-tab="plan"] #board.pl{display:block;min-width:0;width:auto;--v2cols:63px 49px 58px 86px minmax(0,1fr) 63px 86px 83px}
+:root[data-v2][data-tab="plan"] #board.pl{display:block;min-width:0;width:auto;--v2cols:63px 49px 58px 100px minmax(0,1fr) 63px 86px 83px}
 :root[data-v2][data-tab="plan"] #board .v2-plh{display:grid;grid-template-columns:var(--v2cols);align-items:start;padding:0 11px;margin:0 0 29px;background:none;border:0;position:static;font:600 11px/17px var(--font-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-:root[data-v2][data-tab="plan"] #board .v2-plh.noth,:root[data-v2][data-tab="plan"] #board .v2-prow.noth{--v2cols:49px 58px 86px minmax(0,1fr) 63px 86px 83px}
+:root[data-v2][data-tab="plan"] #board .v2-plh.noth,:root[data-v2][data-tab="plan"] #board .v2-prow.noth{--v2cols:49px 58px 100px minmax(0,1fr) 63px 86px 83px}
 :root[data-v2][data-tab="plan"] #board .v2-plh>span{white-space:normal;padding:0;background:none}
 :root[data-v2][data-tab="plan"] #board .pday{display:block;margin:0 0 26px;background:none;border:0;box-shadow:none;padding:0}
 :root[data-v2][data-tab="plan"] #board .pday-rows{display:grid;gap:5px;background:none;border:0}
@@ -124,6 +126,8 @@
 .v2-prow .v2-shot{display:inline-grid;place-items:center;width:44px;height:26px;margin-top:-3px;border:1px solid #D6D7D1;border-radius:3px;background:#E2E3DE;font:600 10px/1 var(--font-ui);color:var(--muted)}
 .v2-prow .v2-pe{font:700 16px/22px var(--font-ui)}
 .v2-prow .v2-pi,.v2-prow .v2-pm{font:600 13px/22px var(--font-ui);white-space:nowrap}
+/* «AMANECER (…)» y otros momentos largos: en dos líneas dentro de su columna, sin pisar la locación */
+.v2-prow .v2-pm{white-space:normal;overflow-wrap:break-word;line-height:18px;padding:2px 6px 0 0 !important}
 .v2-prow .v2-ps{display:grid;gap:3px;padding-right:20px !important}
 .v2-prow .v2-ps b{font:700 13px/18px var(--font-ui);text-transform:uppercase}
 .v2-prow .v2-ps small{font:400 12.5px/17px var(--font-ui);color:var(--v2k-4a4a46)}
@@ -133,6 +137,23 @@
 .v2-prow .v2-pt input.dur::placeholder{color:var(--v2-black);font-style:normal;opacity:1}
 .v2-prow .v2-pt input.dur:focus{background:var(--surface);outline:1px solid var(--ink)}
 :root[data-v2][data-tab="plan"] #board .v2-pbrk{display:flex;align-items:center;gap:16px;height:40px;box-sizing:border-box;margin-top:-1px;padding:0 16px;border:0;border-radius:3px;background:var(--v2-black);color:#fff}
+/* estilo Excel (el botón de cuadros de «Tiras»): como en la v1, la rejilla negra también en la pantalla, no solo en el
+   PDF: las columnas y las filas con líneas bien visibles, sin esquinas redondeadas */
+:root[data-v2][data-tab="plan"] #board.xl .v2-pbrk,:root[data-v2][data-tab="plan"] #board.xl .prow{border-radius:0}
+@media (min-width:761px){
+  :root[data-v2][data-tab="plan"] #board.pl.xl{--v2cols:63px 49px 58px 108px minmax(0,1fr) 63px 86px 83px}
+  :root[data-v2][data-tab="plan"] #board.xl :is(.v2-plh,.v2-prow).noth{--v2cols:49px 58px 108px minmax(0,1fr) 63px 86px 83px}
+  :root[data-v2][data-tab="plan"] #board.xl .v2-plh{margin-bottom:18px;padding:0;border:1.5px solid var(--xl-ln);background:color-mix(in srgb,var(--ink) 7%,var(--surface));color:var(--ink)}
+  :root[data-v2][data-tab="plan"] #board.xl .v2-plh>span{padding:7px 8px;box-shadow:inset -1px 0 0 var(--xl-ln)}
+  :root[data-v2][data-tab="plan"] #board.xl .pday-rows{gap:0;border:1.5px solid var(--xl-ln)}
+  :root[data-v2][data-tab="plan"] #board.xl .pday-rows>.prow{border:0;border-top:1px solid var(--xl-ln);border-radius:0}
+  :root[data-v2][data-tab="plan"] #board.xl .pday-rows>.prow:first-child{border-top:0}
+  :root[data-v2][data-tab="plan"] #board.xl .v2-prow{padding:0;align-items:stretch;min-height:0}
+  :root[data-v2][data-tab="plan"] #board.xl .v2-prow>span{padding:9px 8px !important;box-shadow:inset -1px 0 0 var(--xl-ln)}
+  :root[data-v2][data-tab="plan"] #board.xl .v2-prow>span.v2-pm{padding:11px 8px 9px !important}
+  :root[data-v2][data-tab="plan"] #board.xl :is(.v2-plh,.v2-prow)>span:last-child{box-shadow:none}
+  :root[data-v2][data-tab="plan"] #board.xl .pday-rows>.v2-pbrk{margin-top:0;border-top:1px solid var(--xl-ln)}
+}
 :root[data-v2][data-tab="plan"] #board .v2-pbrk b{font:700 14px/1 var(--font-ui)}
 :root[data-v2][data-tab="plan"] #board .v2-pbrk span{font:400 13.5px/1 var(--font-ui);color:var(--v2-yellow)}
 :root[data-v2][data-tab="plan"] #board .pl-rz{display:none}
@@ -196,7 +217,7 @@
 .v2-pill .v2-dot{width:7px;height:7px}
 .v2-bud{padding-top:1px}
 .v2-bkpis{margin-bottom:22px}
-.v2-bkpis .v2-kpi{width:218px;height:134px;padding:20px 18px 0}
+.v2-bkpis .v2-kpi{width:218px;min-height:134px;padding:20px 18px 14px}
 .v2-bkpis .v2-kpi>b{margin-top:8px;font:700 31px/34px var(--v2-disp)}
 .v2-bkpis .v2-kpi>small{margin-top:5px}
 .v2-bkpis .v2-kpi .v2-bar{margin:8px 0 2px;height:4px}
@@ -756,7 +777,7 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 16px}
   .v2-kpis .v2-kpi{width:auto;height:auto;min-height:92px;padding:12px 14px 12px}
   .v2-kpis .v2-kpi>b{font-size:22px;line-height:26px}
-  .v2-kpi.cast{grid-column:1/-1;min-height:0}
+  .v2-kpis .v2-kpi.cast{grid-column:1/-1;min-height:0;min-width:0;max-width:none}
   /* guion: solo la hoja (las escenas y la escena con sus notas, en el «⋯») */
   .v2-g3{display:flex;flex-direction:column;padding:0;height:100%}
   .v2-g3>.v2-scenes,.v2-g3>.v2-side{display:none}
