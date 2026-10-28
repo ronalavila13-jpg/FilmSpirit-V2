@@ -9,6 +9,7 @@ function setTab(t) {
   if (typeof canSeeTab === 'function' && !canSeeTab(t) && (t === 'build' || t === 'script') && canSeeTab('lined')) t = 'lined';
   if (typeof canSeeTab === 'function' && !canSeeTab(t)) { toast('No tienes acceso a esa pestaña en este proyecto.'); return; }
   if (t !== 'animatic' && AN.playing) anPause();
+  if (t !== UI.tab && typeof histFlush === 'function') histFlush();   // (lote AH) lo pendiente queda en la pestaña donde se hizo
   scriptModeFor(t);
   tgClose();   // el menú de la etapa no queda abierto al cambiar de pestaña desde otro lado
   document.body.classList.remove('mk-on');   // el marcador vale solo en el guion rayado (al volver, se pinta de nuevo)

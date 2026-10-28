@@ -846,6 +846,7 @@ function npOpen(view, key) {
   if (key) NP.key = key;
   nfClose();
   lookClose();
+  if (typeof histPanelClose === 'function') histPanelClose();   // (lote AH) un panel a la vez
   pn.classList.add('open'); document.body.classList.add('np-on');
   dispatchEvent(new Event('resize'));
   npPaint();

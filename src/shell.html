@@ -5472,6 +5472,35 @@ html[lang="en"] .tb-lang-c:empty::before{content:"EN"}
 /* en Inicio, el panel de notas no va, pero «Personalización» sí (desde el menú del teléfono: solo «Tu pantalla») */
 body.home .np.lk.open{display:flex!important}
 @media (min-width:701px){body.home.np-on:has(#lookPanel.open) #app{margin-right:340px}}
+/* (lote AH) «Historial» (el reloj, junto a deshacer y rehacer): la columna de la derecha, como «Personalización», con
+   los cambios de la pestaña abierta (o de todas), del más nuevo al más viejo, y «Deshacer» en cada uno. En el teléfono,
+   una hoja que sube hasta un poco más de la mitad (deja ver arriba lo que se deshace); el reloj va en el menú de arriba */
+#histBtn[aria-expanded="true"]{color:var(--ink);background:var(--fill)}
+@media (min-width:701px){.np.hp{width:340px}body.np-on:not(.home):has(#histPanel.open) #app{margin-right:340px}}
+.hp-body{gap:0;padding:6px 16px 20px}
+.hp-body .lk-tabs button{overflow:hidden;text-overflow:ellipsis}
+.hp-own{margin-top:12px}
+.hp-list{list-style:none;margin:6px 0 0;padding:0;display:grid}
+.hp-it{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:var(--l1) solid var(--line-2)}
+.hp-it:last-child{border-bottom:0}
+.hp-tx{flex:1;min-width:0;display:grid;gap:2px}
+.hp-d{font-size:var(--fs-3);line-height:1.35;overflow-wrap:anywhere;color:var(--ink)}
+.hp-tx small{font-size:var(--fs-1);color:var(--muted);line-height:1.35}
+.hp-it .btn{flex:none}
+.hp-it.off .hp-d{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 55%,transparent)}
+.hp-it.bl .hp-d{color:var(--muted)}
+.hp-why{font-style:italic;overflow-wrap:anywhere}
+.hp-empty{margin:14px 2px 0}
+.hp-foot{margin:14px 0 0;font-size:var(--fs-2);color:var(--muted);line-height:1.4}
+@media (max-width:760px){#histBtn{display:none}}
+@media (max-width:700px){
+  .np.hp{height:min(62vh,540px);border-radius:12px 12px 0 0;background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none;z-index:70}
+  .np.hp .np-head{position:relative;padding:16px 8px 8px 16px}
+  .np.hp .np-head::before{content:"";position:absolute;top:6px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line)}
+  .np.hp .nf-ic{width:36px;height:36px}
+  .hp-body{padding:4px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+  .hp-it .btn{min-height:36px}
+}
 /* ============ Calendario · vista Meses: hojas de mes como las de un calendario de pared ============ */
 .cm-wrap{gap:8px}
 .cm-sc{flex:1;min-height:0;overflow:auto}
@@ -6489,7 +6518,7 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
     <button type="button" class="brand" id="brand" aria-label="FilmSpirit"></button>
     <button type="button" class="proj" id="projBtn" title="Datos del proyecto, logos y equipo"><span class="t" id="projTitle">Cargando…</span><svg class="tbi proj-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/></svg></button>
     <span class="save" id="saveState"></span>
-    <span class="tb-hist" role="group" aria-label="Historial del proyecto"><button class="btn ghost" id="undoBtn" type="button" aria-label="Deshacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button class="btn ghost" id="redoBtn" type="button" aria-label="Rehacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></span>
+    <span class="tb-hist" role="group" aria-label="Historial del proyecto"><button class="btn ghost" id="undoBtn" type="button" aria-label="Deshacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button class="btn ghost" id="redoBtn" type="button" aria-label="Rehacer" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button><button class="btn ghost" id="histBtn" type="button" title="Historial de cambios: deshacer algo de antes" aria-label="Historial de cambios" aria-controls="histPanel" aria-expanded="false" hidden><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.6 12a8.4 8.4 0 1 0 2.5-6"/><path d="M3.3 4.2v4.2h4.2"/><path d="M12 7.6V12l2.9 1.9"/></svg></button></span>
     <span class="tb-notes"><button class="btn ghost note-add" id="noteAdd" type="button" title="Nota: arrástrala hasta un plano, una escena, una tarea… (o haz clic)" aria-label="Notas: arrastra para pegar una; clic para pegarla con un toque o ver notas y actividad" aria-haspopup="menu" aria-pressed="false"><svg class="nt-tb nt-rc" viewBox="0 0 28 26" aria-hidden="true" focusable="false"><path transform="translate(1.6 1.4) rotate(11 15 13)" d="M9 3.5h12a5 5 0 0 1 5 5V13a5 5 0 0 1-5 5h-8.5l-6 4.6 1.2-4.9A5 5 0 0 1 4 13V8.5a5 5 0 0 1 5-5z" fill="#E3262E"/><path d="M7 4h12a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5h-8.5L4.5 23l1.3-5.2A5 5 0 0 1 2 13V9a5 5 0 0 1 5-5z" fill="#FFD84D"/><rect x="7" y="8.4" width="10.5" height="2.2" rx=".3" fill="#1E1E1E"/><rect x="7" y="12.1" width="6.6" height="2.2" rx=".3" fill="#1E1E1E"/></svg><span class="cnt" hidden></span></button></span>
     <span class="spacer"></span>
     <button class="btn ghost tb-btn tb-help" id="helpBtn" type="button" title="Ayuda y soporte" aria-label="Ayuda y soporte" aria-haspopup="menu"><svg class="tbi" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17.2h.01" stroke-width="2.6"/></svg></button>

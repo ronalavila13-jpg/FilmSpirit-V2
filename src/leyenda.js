@@ -633,6 +633,7 @@ function lookPanel(tab) {
     pn.addEventListener('keydown', e => { const n = e.target.closest('.lk-new input'); if (n && e.key === 'Enter') { e.preventDefault(); lookSaveNew(n.value); } if (n && e.key === 'Escape') { e.preventDefault(); LK.naming = false; lookPanelPaint(); return; } if (e.key === 'Escape' && !$('.pop')) lookClose(); });
   }
   if ($('#notesPanel.open')) npClose();
+  if (typeof histPanelClose === 'function') histPanelClose();   // (lote AH) un panel a la vez
   closePop();
   if (!$('.lk-scrim')) { const s = document.createElement('div'); s.className = 'lk-scrim'; s.onclick = lookClose; pn.before(s); }   // el velo de atrás, en el teléfono
   pn.classList.add('open'); document.body.classList.add('np-on');
