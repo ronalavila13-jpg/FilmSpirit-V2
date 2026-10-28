@@ -4,17 +4,21 @@
    · Computadora: la cabecera de la jornada (fecha, dirección, script y la tarjeta de cámara y el rollo de sonido en
      uso), el avance (planos, escenas, páginas, tomas, tiempo en pantalla) con los horarios, y por escena su registro
      de tomas en tabla, con el color de su tira (Plano | Toma | Estado | Hora | Dur. | Cám. | Son. | Notas), su
-     continuidad y su tiempo. A la derecha, «En cámara»: el plano que se rueda, la toma con su cronómetro, Buena / OK /
-     NG, la nota (escrita o dictada), «+ Toma» y «Siguiente plano»; debajo, las incidencias y las notas de la jornada.
+     continuidad y su tiempo. A la derecha, «En cámara»: el plano que se rueda (‹ › pasan al anterior o al siguiente de
+     la jornada sin marcar nada), la toma con su cronómetro y REC, Buena / OK / NG, «Plano MOS», la nota (escrita o
+     dictada), «+ Toma» y «✓ Rodado · siguiente»; debajo, las incidencias y las notas de la jornada.
      Las escenas completas se pliegan en una línea.
-   · Celular: el plano en cámara, grande, y una barra fija abajo con «+ Toma» y «Siguiente plano» (para una mano).
+   · Celular: el plano en cámara, grande (se desliza al costado para pasar de plano), y una barra fija abajo con
+     «+ Toma» y «✓ Rodado · siguiente» (para una mano).
    · Fotos de continuidad por escena y fotos de la hoja de papel llena (solo respaldo), en WebP de unos 200 kB.
    · Carga rápida: pasar al programa una hoja llenada a mano, una toma por fila, con el teclado.
    Los PDF (la hoja para imprimir, la hoja llena, el parte diario y los reportes), en sup-partes.js.
 
    Los datos (P.sup; todo lo del lote AD es opcional: los proyectos de antes se abren igual):
    · takes: { <plano>: [{ n, st: 'ng' | 'ok' | 'bn', t: hora, d: duración, r: tarjeta, s: sonido ('MOS': sin
-     sonido), note, run }] }. run: cuándo empezó (ms) mientras corre el cronómetro; al marcarla queda su duración.
+     sonido), note, run, rdy }] }. run: cuándo empezó (ms) mientras corre el cronómetro; al pararlo o marcarla queda su
+     duración. rdy: 1 (lote AI) la toma lista con «+ Toma» que todavía no se grabó: sin hora ni duración (las pone REC);
+     no cuenta en el avance ni sale en los PDF.
    · obs: { <plano>: observaciones }; mos: { <plano>: 1 }: plano MOS (todas sus tomas, sin sonido).
    · sc: { <escena>: { start, end, screen (tiempo rodado), plan (previsto), ward, props, mk, pos, txt, notes (las
      otras notas de continuidad), ph: [{ id, w, h }] (fotos), wild: [{ id, n, t, d, s, note }] (sonido wild o de
@@ -29,6 +33,8 @@ const TAKE_ST = { ng: 'NG', ok: 'OK', bn: EN ? trDone('Print') : 'Buena' };
 const SUP_TOP = 200 * 1024;     // las fotos de la hoja de script: WebP de unos 200 kB (en Safari, JPEG con el mismo tope)
 const supEd = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('hoja'));
 const supTakes = id => (P.sup.takes || {})[id] || [];
+/* (lote AI) las tomas grabadas: sin la que está lista y nunca rodó (no cuenta en el avance, los reportes ni los PDF) */
+const supRolled = id => supTakes(id).filter(t => !t.rdy);
 const supMos = id => !!(P.sup.mos && P.sup.mos[id]);
 const isMos = v => /^\s*mos\s*$/i.test(String(v || ''));
 /* el sonido de una toma: MOS si su plano es MOS (lo hereda); si no, el suyo */
@@ -44,7 +50,10 @@ function supClean(Su) {
   for (const k of ['obs', 'mos']) if (Su[k] != null && !obj(Su[k])) delete Su[k];
   const okId = x => typeof x === 'string' && /^[\w-]{1,40}$/.test(x);
   const phs = (m, f) => { if (!(f in m)) return; const a = Array.isArray(m[f]) ? m[f].filter(p => obj(p) && okId(p.id)) : []; if (a.length) m[f] = a; else delete m[f]; };
-  for (const L of Object.values(Su.takes)) if (Array.isArray(L)) for (const t of L) if (t && 'run' in t && !(+t.run > 0)) delete t.run;
+  for (const L of Object.values(Su.takes)) if (Array.isArray(L)) for (const t of L) {
+    if (t && 'run' in t && !(+t.run > 0)) delete t.run;
+    if (t && 'rdy' in t) { if (t.rdy && !t.run) t.rdy = 1; else delete t.rdy; }   // (lote AI) lista: solo si no corre
+  }
   for (const [k, m] of Object.entries(Su.sc)) {
     if (!obj(m)) { delete Su.sc[k]; continue; }
     phs(m, 'ph');
@@ -111,7 +120,7 @@ function supCtx() {
 }
 function supStats(X) {
   const { keys, shots } = X;
-  const scDone = keys.filter(sceneDone), takes = shots.flatMap(s => supTakes(s.id));
+  const scDone = keys.filter(sceneDone), takes = shots.flatMap(s => supRolled(s.id));
   const reals = keys.map(supRealSecs).filter(v => v != null);
   return { done: shots.filter(s => s.done).length, scDone, ePl: keys.reduce((a, k) => a + scenePages(k), 0), eDn: scDone.reduce((a, k) => a + scenePages(k), 0),
     takes: takes.length, good: takes.filter(t => t.st === 'bn').length, plan: keys.reduce((a, k) => a + supPlanSecs(k), 0), real: reals.reduce((a, b) => a + b, 0), hasReal: reals.length > 0 };
@@ -120,7 +129,7 @@ function supStats(X) {
    (los rollos de sonido, también los del sonido wild de sus escenas) */
 function supRolls(shots, f = 'r') {
   const out = [], add = v => { if (v && !out.includes(v) && !(f === 's' && isMos(v))) out.push(v); };
-  for (const sh of shots) for (const t of supTakes(sh.id)) add(f === 's' ? takeSnd(sh.id, t) : t[f]);
+  for (const sh of shots) for (const t of supRolled(sh.id)) add(f === 's' ? takeSnd(sh.id, t) : t[f]);
   if (f === 's') for (const k of [...new Set(shots.map(sh => sh.sc))]) for (const w of (P.sup.sc[k] || {}).wild || []) add(w.s);
   return out;
 }
@@ -148,7 +157,8 @@ const supDayTitle = X => {
   return dt ? capFirst(EN ? d : d.replace(',', '')) : `Jornada ${n + 1}`;
 };
 /* ---------- la vista ---------- */
-const SUPV = { phone: false };
+// dir (lote AI): hacia dónde se pasó de plano con ‹ › (o deslizando), para que la tarjeta entre desde ese lado
+const SUPV = { phone: false, dir: 0 };
 RENDER.sup = function () {
   const v = $('#view');
   if (!D.sc.scenes.length) { v.innerHTML = emptyScript(); bindView(); return; }
@@ -157,6 +167,7 @@ RENDER.sup = function () {
   v.innerHTML = `<div class="ws ws-1"><section class="center">${supBarHTML(X)}${legendHTML('sup')}
     <div class="scroller pad" data-keep="sup">${phone ? supPhoneHTML(X) : supDeskHTML(X)}</div>${phone ? supDockHTML(X) : ''}</section></div>`;
   bindView();
+  SUPV.dir = 0;
   supAfter(v);
 };
 addEventListener('resize', debounce(() => { if (typeof P === 'undefined' || !P || UI.tab !== 'sup') return; if (SUPV.phone !== PHONE()) render(); else supVH(); }, 200));
@@ -178,6 +189,7 @@ function supBarHTML(X) {
 function supAfter(v) {
   supTick();
   supVH(v);
+  supSwipe(v);
   $$('textarea.hs-grow', v).forEach(supGrow);
   $$('details[data-md]', v).forEach(d => d.addEventListener('toggle', () => { (UI.supMd || (UI.supMd = {}))[d.dataset.md] = d.open; }));
   const keys = $$('[data-sp]', v).map(x => x.dataset.sp);
@@ -186,6 +198,23 @@ function supAfter(v) {
 /* «En cámara» queda a la vista al bajar por el registro: a lo sumo, el alto visible de la vista */
 const supVH = (v = $('#view')) => { const sc = v && $('.scroller', v), hs = sc && $('.hs', sc); if (hs) hs.style.setProperty('--hs-vh', Math.max(320, sc.clientHeight - 40) + 'px'); };
 const supGrow = el => { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 20) + 'px'; };
+/* (lote AI) en el celular, deslizar la tarjeta del plano al costado pasa al plano siguiente (←) o al anterior (→), como
+   ‹ ›. No en los campos (se selecciona texto) ni desde los bordes de la pantalla (el gesto de volver del sistema) */
+function supSwipe(v) {
+  const c = $('.hs-msc[data-swipe]', v); if (!c) return;
+  let x0 = null, y0 = 0;
+  c.addEventListener('touchstart', e => {
+    const p = e.touches[0];
+    x0 = e.touches.length === 1 && !e.target.closest('input,textarea,select,label') && p.clientX > 24 && p.clientX < innerWidth - 24 ? p.clientX : null; y0 = p.clientY;
+  }, { passive: true });
+  c.addEventListener('touchcancel', () => { x0 = null; }, { passive: true });
+  c.addEventListener('touchend', e => {
+    if (x0 == null) return;
+    const p = e.changedTouches[0], dx = p.clientX - x0, dy = p.clientY - y0; x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * .6) return;
+    const b = $(`[data-act="sup-step"][data-dir="${dx < 0 ? 1 : -1}"]`, c); if (b && !b.disabled) b.click();
+  }, { passive: true });
+}
 
 /* ---------- computadora ---------- */
 function supDeskHTML(X) {
@@ -255,7 +284,7 @@ function supLogHTML(X) {
 }
 const supFoldBtn = (k, open) => `<button type="button" class="hs-fold" data-act="sup-fold" data-k="${ea(k)}" aria-expanded="${open}" aria-label="${ea(`${open ? 'Contraer' : 'Desplegar'} la escena ${k}`)}" title="${open ? 'Contraer' : 'Desplegar'}">${ICO.chev}</button>`;
 function supDoneHTML(s) {
-  const shots = D.shotsBy[s.key] || [], takes = shots.flatMap(sh => supTakes(sh.id)), good = takes.filter(t => t.st === 'bn').length, r = supRealSecs(s.key);
+  const shots = D.shotsBy[s.key] || [], takes = shots.flatMap(sh => supRolled(sh.id)), good = takes.filter(t => t.st === 'bn').length, r = supRealSecs(s.key);
   return `<section class="hs-card hs-sc hs-closed" id="sup-${ea(s.idx)}"><div class="hs-sch">${supNo(s)}<div class="hs-scm"><h3>${esc(s.heading)}</h3>
     <p class="hs-sum"><span class="hs-okt">✓ Completa</span> · <span>${shots.length} ${shots.length === 1 ? 'plano' : 'planos'}</span> · <span>${takes.length} ${takes.length === 1 ? 'toma' : 'tomas'}</span> · <span>${good} ${good === 1 ? 'buena' : 'buenas'}</span>${r != null ? ` · <span class="tnum">${esc(supFmt(r))}</span> <span>en pantalla</span>` : ''}</p></div>${supFoldBtn(s.key, false)}</div></section>`;
 }
@@ -290,14 +319,14 @@ function supShotRows(X, sh) {
         ${cur ? '<span class="hs-live">● En cámara</span>' : ''}${kind ? `<small class="hs-kind">${esc(kind)}</small>` : ''}${supMos(id) ? '<span class="hs-mosb">MOS</span>' : ''}</div>
       ${supTech(sh) ? `<div class="hs-plt">${esc(supTech(sh))}</div>` : ''}<div class="hs-pld">${esc(supDesc(sh) || 'Sin descripción')}</div>
       ${obs || SUPNOTE.has(id) ? (ed ? `<textarea class="hs-obs hs-grow" rows="1" data-bind="sup-obs" data-id="${ea(id)}" placeholder="Observaciones del plano: rácord, foco, sonido, cambios de texto…" aria-label="${ea(`Observaciones del plano ${code}`)}">${esc(obs || '')}</textarea>` : `<div class="hs-obs">${esc(obs)}</div>`) : ''}
-      ${ed && takes.length ? `<div class="hs-pla"><button type="button" class="hs-mini" data-act="take-add" data-id="${ea(id)}">+ Toma</button><button type="button" class="hs-mini icon" data-act="sup-more" data-id="${ea(id)}" aria-label="${ea(`Más acciones del plano ${code}`)}" title="Plano MOS, no previsto, pick-up, nota…">${ICO.more}</button></div>` : ''}</td>`;
+      ${ed && takes.length ? `<div class="hs-pla">${takes.some(t => t.rdy) ? '' : `<button type="button" class="hs-mini" data-act="take-add" data-id="${ea(id)}">+ Toma</button>`}<button type="button" class="hs-mini icon" data-act="sup-more" data-id="${ea(id)}" aria-label="${ea(`Más acciones del plano ${code}`)}" title="Plano MOS, no previsto, pick-up, nota…">${ICO.more}</button></div>` : ''}</td>`;
   const cls = `hs-r${cur ? ' cur' : ''}${sh.done ? ' done' : ''}`;
   if (!takes.length) return `<tr class="${cls}">${cell}<td colspan="7" class="hs-none"><div><span>Sin tomas</span>${ed ? `<button type="button" class="hs-pill" data-act="take-add" data-id="${ea(id)}">+ Toma</button><button type="button" class="hs-mini icon" data-act="sup-more" data-id="${ea(id)}" aria-label="${ea(`Más acciones del plano ${code}`)}" title="Plano MOS, no previsto, pick-up, nota…">${ICO.more}</button>` : ''}</div></td></tr>`;
   return takes.map((t, i) => {
     const A = `data-act="take" data-id="${ea(id)}" data-n="${i}"`, snd = takeSnd(id, t);
     return `<tr class="${cls}${i === takes.length - 1 ? ' last' : ''}">${i ? '' : cell}
-      <td class="hs-c-tk" ${ed ? A : ''}>${ed ? `<button type="button" class="hs-tn${t.st === 'bn' ? ' bn' : ''}" ${A} aria-label="${ea(`Toma ${t.n}: ${t.run ? 'rodando' : TAKE_ST[t.st]}. Cambiar estado, hora, tarjeta, sonido o nota`)}">${esc(t.n)}</button>` : `<span class="hs-tn${t.st === 'bn' ? ' bn' : ''}">${esc(t.n)}</span>`}</td>
-      <td ${ed ? A : ''}>${t.run ? '<span class="hs-run">● Rodando</span>' : `<span class="hs-st ${ea(t.st)}">${esc(TAKE_ST[t.st])}</span>`}</td>
+      <td class="hs-c-tk" ${ed ? A : ''}>${ed ? `<button type="button" class="hs-tn${t.st === 'bn' && !t.rdy ? ' bn' : ''}" ${A} aria-label="${ea(`Toma ${t.n}: ${t.run ? 'rodando' : t.rdy ? 'lista para grabar' : TAKE_ST[t.st]}. Cambiar estado, hora, tarjeta, sonido o nota`)}">${esc(t.n)}</button>` : `<span class="hs-tn${t.st === 'bn' && !t.rdy ? ' bn' : ''}">${esc(t.n)}</span>`}</td>
+      <td ${ed ? A : ''}>${supStHTML(t)}</td>
       <td class="tnum" ${ed ? A : ''}>${esc(t.t || '')}</td>
       <td class="tnum" ${ed ? A : ''}>${t.run ? `<span data-sup-run="${ea(t.run)}">${supClock(Date.now() - t.run)}</span>` : esc(t.d || '')}</td>
       <td ${ed ? A : ''}>${esc(t.r || '')}</td>
@@ -337,36 +366,53 @@ function supPhotosHTML(list, ed, where, label, o = {}) {
   return `<div class="hs-phs">${th}${add}${!th && !add ? '<span class="hs-kv ph">Sin fotos</span>' : ''}</div>`;
 }
 /* ---------- «En cámara» ---------- */
+/* (lote AI) el estado de una toma: rodando (corre el cronómetro), lista (sin grabar todavía) o Buena / OK / NG */
+const supStHTML = t => t.run ? '<span class="hs-run">● Rodando</span>' : t.rdy ? '<span class="hs-st rdy">Lista</span>' : `<span class="hs-st ${ea(t.st)}">${esc(TAKE_ST[t.st])}</span>`;
+/* (lote AI) ‹ › del plano en cámara: el anterior y el siguiente de la jornada, rodados o no; solo cambian el que está en
+   cámara. Sin plano en cámara (todos rodados), ‹ vuelve al último */
+function supStepHTML(X) {
+  const { shots, cur } = X, i = cur ? shots.indexOf(cur) : shots.length;
+  const a = (sh, d) => sh ? `data-act="sup-step" data-id="${ea(sh.id)}" data-dir="${d}"` : null;
+  return X.ed && shots.length ? hdStep(a(shots[i - 1], -1), a(cur ? shots[i + 1] : null, 1), 'plano') : '';
+}
+/* (lote AI) la toma que se está por grabar: la lista o, si no hay, la que sigue; el número que lleva «+ Toma» */
+const supNextN = takes => takes.length ? takes[takes.length - 1].n + 1 : 1;
+const supAddBtn = (id, takes, cls = 'soft') => { const r = takes.find(x => x.rdy); return `<button type="button" class="hs-btn ${cls} hs-add" data-act="take-add" data-id="${ea(id)}" ${r ? `disabled title="${ea(`La toma ${r.n} ya está lista: REC la graba`)}"` : 'title="Deja lista la toma que sigue, con su número, la tarjeta y el sonido en uso: REC la graba"'}>+ Toma ${supNextN(takes)}</button>`; };
+const supDoneBtn = id => `<button type="button" class="hs-btn hs-donext" data-act="sup-next" data-id="${ea(id)}" title="Marca este plano como rodado y pone en cámara el siguiente"><span aria-hidden="true">✓</span> <span>Rodado · siguiente</span></button>`;
 function supCamHTML(X) {
   const { cur, shots, ed } = X;
-  if (!cur) return `<section class="hs-card hs-cam" aria-label="En cámara"><div class="hs-camh"><span class="hs-kick">En cámara</span></div>
-    <p class="hs-camdone">${shots.length ? '✓ Todos los planos de la jornada están rodados.' : 'Esta jornada no tiene planos todavía.'}</p>${shots.length && ed ? '<p class="hint" style="margin:0">Toca el número de un plano en la tabla para volver a ponerlo en cámara.</p>' : ''}</section>`;
+  const anim = SUPV.dir ? ` hs-in${SUPV.dir > 0 ? 'n' : 'p'}` : '';
+  if (!cur) return `<section class="hs-card hs-cam${anim}" aria-label="En cámara"><div class="hs-camh"><span class="hs-kick">En cámara</span>${supStepHTML(X)}</div>
+    <p class="hs-camdone">${shots.length ? '✓ Todos los planos de la jornada están rodados.' : 'Esta jornada no tiene planos todavía.'}</p>${shots.length && ed ? '<p class="hint" style="margin:0">Con ‹ vuelves al último plano; también puedes tocar el número de un plano en la tabla.</p>' : ''}</section>`;
   const s = sceneOfKey(cur.sc), takes = supTakes(cur.id), t = supCurTake(cur.id), next = supNextOf(shots, cur), ti = t ? takes.indexOf(t) : -1;
   const ie = s ? `${ieLab(s)} · ${DN_LAB[stripDN(s)] || ''}` : '';
   const snd = t ? takeSnd(cur.id, t) : '';
-  const st = t && !t.run ? `<span class="hs-st ${ea(t.st)}">${esc(TAKE_ST[t.st])}</span>` : '';
-  return `<section class="hs-card hs-cam" aria-label="En cámara">
+  return `<section class="hs-card hs-cam${anim}" aria-label="En cámara">
     <div class="hs-camh"><span class="hs-kick">En cámara</span><span class="hs-cams">${s ? `<span>Esc. ${esc(s.key)}</span> · <span>${esc(ie)}</span>` : ''}</span></div>
-    <div><div class="hs-camt"><span>Plano ${esc(D.code[cur.id])}</span>${supTech(cur) ? ` <small>${esc(supTech(cur))}</small>` : ''}</div>${supDesc(cur) ? `<p class="hs-camd">${esc(supDesc(cur))}</p>` : ''}</div>
-    ${supClockHTML(cur, t, snd, st)}
+    <div><div class="hs-camp"><div class="hs-camt"><span>Plano ${esc(D.code[cur.id])}</span>${supTech(cur) ? ` <small>${esc(supTech(cur))}</small>` : ''}${cur.done ? ' <small class="hs-okt">✓ Rodado</small>' : ''}</div>${supStepHTML(X)}</div>${supDesc(cur) ? `<p class="hs-camd">${esc(supDesc(cur))}</p>` : ''}</div>
+    ${supClockHTML(cur, t, snd, ed)}
     ${ed ? supMarkHTML(cur, t) : ''}
     ${ed && t ? supNoteHTML(cur, t, ti) : t && t.note ? `<p class="hs-camd"><span class="hs-hl">Nota:</span> ${esc(t.note)}</p>` : ''}
-    ${ed ? `<div class="hs-go"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}" title="Marca este plano como rodado y pone en cámara el siguiente"><span>Siguiente plano</span> <span aria-hidden="true">›</span></button></div>` : ''}
+    ${ed ? `<div class="hs-go">${supAddBtn(cur.id, takes)}${supDoneBtn(cur.id)}</div>` : ''}
     <div class="hs-next">${next ? `<span>Sigue:</span> <b>${esc(D.code[next.id])}</b>${supTech(next) ? ` · ${esc(supTech(next))}` : ''}` : '<span>Es el último plano sin rodar de la jornada.</span>'}</div></section>`;
 }
-function supClockHTML(cur, t, snd, st) {
-  const mat = t ? [t.run ? '' : t.t, t.r, isMos(snd) ? 'MOS' : snd].filter(Boolean).join(' · ') : [P.sup.roll, supMos(cur.id) ? 'MOS' : P.sup.sroll].filter(Boolean).join(' · ');
-  return `<div class="hs-clock"><div><div class="hs-cl">Toma</div><div class="hs-tkn tnum">${t ? esc(t.n) : '—'}</div></div>
-    <div class="hs-clr">${t && t.run ? `<div class="hs-run">● Rodando</div><div class="hs-tim tnum" data-sup-run="${ea(t.run)}">${supClock(Date.now() - t.run)}</div>`
-      : t ? `<div class="hs-cl">${st}</div><div class="hs-tim tnum">${esc(t.d || '—')}</div>` : '<div class="hs-cl">Sin tomas</div><div class="hs-tim tnum">00:00</div>'}${mat ? `<div class="hs-mat">${esc(mat)}</div>` : ''}</div></div>`;
+/* la toma y su cronómetro; (lote AI) con REC al lado: arranca el cronómetro (de la toma lista o de una nueva) y lo para */
+function supClockHTML(cur, t, snd, ed) {
+  const run = !!(t && t.run), takes = supTakes(cur.id);
+  const mat = t ? [run ? '' : t.t, t.r, isMos(snd) ? 'MOS' : snd].filter(Boolean).join(' · ') : [P.sup.roll, supMos(cur.id) ? 'MOS' : P.sup.sroll].filter(Boolean).join(' · ');
+  const n = t && (run || t.rdy) ? t.n : supNextN(takes);
+  const rec = ed ? `<button type="button" class="hs-rec${run ? ' on' : ''}" data-act="sup-rec" data-id="${ea(cur.id)}" aria-pressed="${run}" aria-label="${ea(run ? `Parar la toma ${n}` : `Grabar la toma ${n}`)}" title="${ea(run ? `Parar la toma ${n}` : `Grabar la toma ${n}`)}"><i aria-hidden="true"></i><span>${run ? 'Parar' : 'REC'}</span></button>` : '';
+  return `<div class="hs-clock${run ? ' rec' : ''}"><div><div class="hs-cl">Toma</div><div class="hs-tkn tnum">${t ? esc(t.n) : '—'}</div></div>${rec}
+    <div class="hs-clr">${run ? `<div class="hs-run">● Rodando</div><div class="hs-tim tnum" data-sup-run="${ea(t.run)}">${supClock(Date.now() - t.run)}</div>`
+      : t ? `<div class="hs-cl">${supStHTML(t)}</div><div class="hs-tim tnum">${esc(t.rdy ? '00:00' : t.d || '—')}</div>` : '<div class="hs-cl">Sin tomas</div><div class="hs-tim tnum">00:00</div>'}${mat ? `<div class="hs-mat">${esc(mat)}</div>` : ''}</div></div>`;
 }
+/* Buena / OK / NG (paran el cronómetro) y, debajo, «Plano MOS». (lote AI) El MOS de una toma suelta ya no va aquí: en
+   el set se decide por plano; la excepción, en la ventana de la toma (supTakePop) */
 function supMarkHTML(cur, t) {
-  const on = k => t && !t.run && t.st === k;
+  const on = k => t && !t.run && !t.rdy && t.st === k;
   const b = (k, lab, ico = '') => `<button type="button" class="hs-mk ${k}" data-act="sup-mark" data-v="${k}" data-id="${ea(cur.id)}" aria-pressed="${on(k)}" ${t ? '' : 'disabled'}>${ico}<span>${lab}</span></button>`;
-  const mos = t && isMos(takeSnd(cur.id, t));
   return `<div class="hs-mks" role="group" aria-label="Estado de la toma">${b('bn', TAKE_ST.bn, '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>')}${b('ok', 'OK')}${b('ng', 'NG')}</div>
-    <div class="hs-mosr"><button type="button" class="hs-tog" data-act="sup-mos-take" data-id="${ea(cur.id)}" aria-pressed="${!!mos}" ${t && !supMos(cur.id) ? '' : 'disabled'} title="Esta toma, sin sonido">MOS</button>
-      <label class="hs-sw" title="Todas las tomas del plano, sin sonido"><input type="checkbox" data-bind="sup-mos-shot" data-id="${ea(cur.id)}" ${supMos(cur.id) ? 'checked' : ''}><span>Plano MOS</span></label></div>`;
+    <div class="hs-mosr"><label class="hs-sw" title="Todas las tomas del plano, sin sonido"><input type="checkbox" data-bind="sup-mos-shot" data-id="${ea(cur.id)}" ${supMos(cur.id) ? 'checked' : ''}><span>Plano MOS</span></label></div>`;
 }
 function supNoteHTML(cur, t, ti) {
   return `<div class="hs-note"><label for="supNote">Nota de la toma</label><div class="hs-nr"><input type="text" id="supNote" value="${esc(t.note || '')}" data-bind="sup-tnote" data-id="${ea(cur.id)}" data-n="${ti}" placeholder="Escribe o dicta: foco, ruido, cambio de texto…" autocomplete="off">
@@ -394,7 +440,7 @@ const supIncJoin = L => L.map(x => [x.t, x.x].filter(Boolean).join(' ')).filter(
 
 /* ---------- celular ---------- */
 function supPhoneHTML(X) {
-  const S = supStats(X), { cur, shots, keys, dm, n, ed } = X;
+  const S = supStats(X), { cur, shots, keys, dm, n, ed } = X, anim = SUPV.dir ? ` hs-in${SUPV.dir > 0 ? 'n' : 'p'}` : '';
   const [f0] = supFirstLast(shots), call = dm ? dm.call || P.schedule.call || '' : '', first = dm ? dm.first || f0 : '';
   const pct = shots.length ? (S.done / shots.length * 100).toFixed(1) : 0;
   const head = `<header class="hs-card hs-mh"><div class="hs-mhr"><div><div class="hs-kick">Hoja de script</div><div class="hs-mtt">${n >= 0 ? `<span>Jornada ${n + 1}</span>${X.dates[n] ? ` · <span>${esc(X.dates[n].toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/[,.]/g, ''))}</span>` : ''}` : `<span>${esc(supDayTitle(X))}</span>`}</div></div>
@@ -404,16 +450,17 @@ function supPhoneHTML(X) {
   let main = '';
   if (cur) {
     const s = sceneOfKey(cur.sc), takes = supTakes(cur.id), t = supCurTake(cur.id), ti = t ? takes.indexOf(t) : -1, next = supNextOf(shots, cur);
-    const snd = t ? takeSnd(cur.id, t) : '', st = t && !t.run ? `<span class="hs-st ${ea(t.st)}">${esc(TAKE_ST[t.st])}</span>` : '';
+    const snd = t ? takeSnd(cur.id, t) : '';
     const nph = ((P.sup.sc[cur.sc] || {}).ph || []).length;
-    main = `<section class="hs-card hs-msc" aria-label="En cámara">${s ? `<div class="hs-msch">${supNo(s, 'sm')}<span>${esc(s.heading)}</span></div>` : ''}
-      <div class="hs-mscb"><div class="hs-mpl"><b>Plano ${esc(D.code[cur.id])}</b>${supTech(cur) ? `<span>${esc(supTech(cur))}</span>` : ''}</div>${supDesc(cur) ? `<p class="hs-camd">${esc(supDesc(cur))}</p>` : ''}
-        ${supClockHTML(cur, t, snd, st)}${ed ? supMarkHTML(cur, t) : ''}${ed && t ? supNoteHTML(cur, t, ti) : ''}
+    // (lote AI) ‹ › junto al plano y, en la tarjeta, deslizar al costado (supSwipe): pasan de plano sin marcar nada
+    main = `<section class="hs-card hs-msc${anim}" aria-label="En cámara" ${ed ? 'data-swipe' : ''}>${s ? `<div class="hs-msch">${supNo(s, 'sm')}<span>${esc(s.heading)}</span></div>` : ''}
+      <div class="hs-mscb"><div class="hs-mpl"><div class="hs-mplt"><b>Plano ${esc(D.code[cur.id])}</b>${supTech(cur) ? `<span>${esc(supTech(cur))}</span>` : ''}${cur.done ? '<small class="hs-okt">✓ Rodado</small>' : ''}</div>${supStepHTML(X)}</div>${supDesc(cur) ? `<p class="hs-camd">${esc(supDesc(cur))}</p>` : ''}
+        ${supClockHTML(cur, t, snd, ed)}${ed ? supMarkHTML(cur, t) : ''}${ed && t ? supNoteHTML(cur, t, ti) : ''}
         ${ed ? (planAllows('photos') ? `<label class="hs-btn soft hs-mph">${ICO.camera}<span>Foto de continuidad</span>${nph ? ` <small>· ${nph} en la escena</small>` : ''}<input type="file" class="file-in" accept="image/jpeg,image/png,image/webp" capture="environment" data-bind="sup-ph" data-k="${ea(cur.sc)}"></label>`
           : `<button type="button" class="hs-btn soft hs-mph" data-act="sup-pro">${ICO.camera}<span>Foto de continuidad <i class="pro-chip">PRO</i></span></button>`) : ''}</div></section>
       ${takes.length ? `<section class="hs-card hs-mtk" aria-label="Tomas de este plano">${takes.map((x, i) => supMTakeHTML(cur.id, x, i, ed)).join('')}</section>` : ''}
       <p class="hs-next">${next ? `<span>Sigue:</span> <b>${esc(D.code[next.id])}</b>${supTech(next) ? ` · ${esc(supTech(next))}` : ''}` : '<span>Es el último plano sin rodar de la jornada.</span>'}</p>`;
-  } else main = `<section class="hs-card hs-msc"><div class="hs-mscb"><p class="hs-camdone">${shots.length ? '✓ Todos los planos de la jornada están rodados.' : 'Esta jornada no tiene planos todavía.'}</p></div></section>`;
+  } else main = `<section class="hs-card hs-msc${anim}" ${ed && shots.length ? 'data-swipe' : ''}><div class="hs-mscb"><div class="hs-mpl"><p class="hs-camdone">${shots.length ? '✓ Todos los planos de la jornada están rodados.' : 'Esta jornada no tiene planos todavía.'}</p>${supStepHTML(X)}</div></div></section>`;
   const md = (id, title, body, open) => `<details class="hs-card hs-md" data-md="${ea(id)}" ${(UI.supMd || {})[id] ?? open ? 'open' : ''}><summary>${title}</summary><div class="hs-mdb">${body}</div></details>`;
   const cs = cur && sceneOfKey(cur.sc);
   const day = dm ? `${supChipsHTML(X)}${supProgHTML(X, S).replace('hs-card hs-prog', 'hs-prog m')}${supDaySideHTML(X)}` : supChipsHTML(X);
@@ -425,7 +472,7 @@ function supPhoneHTML(X) {
 function supMTakeHTML(id, t, i, ed) {
   const snd = takeSnd(id, t), A = ed ? `data-act="take" data-id="${ea(id)}" data-n="${i}"` : '';
   const tag = ed ? 'button' : 'div';
-  return `<${tag} ${tag === 'button' ? 'type="button"' : ''} class="hs-mtr" ${A}><span class="hs-tn${t.st === 'bn' ? ' bn' : ''}">${esc(t.n)}</span>${t.run ? `<span class="hs-run">● Rodando</span> <span class="tnum hs-mtt2" data-sup-run="${ea(t.run)}">${supClock(Date.now() - t.run)}</span>` : `<span class="hs-st ${ea(t.st)}">${esc(TAKE_ST[t.st])}</span><span class="hs-mtm tnum">${esc([t.t, t.d].filter(Boolean).join(' · '))}</span>`}${isMos(snd) ? '<span class="hs-mosb">MOS</span>' : ''}<span class="hs-mtn">${esc(t.note || '')}</span></${tag}>`;
+  return `<${tag} ${tag === 'button' ? 'type="button"' : ''} class="hs-mtr" ${A}><span class="hs-tn${t.st === 'bn' && !t.rdy ? ' bn' : ''}">${esc(t.n)}</span>${t.run ? `<span class="hs-run">● Rodando</span> <span class="tnum hs-mtt2" data-sup-run="${ea(t.run)}">${supClock(Date.now() - t.run)}</span>` : `${supStHTML(t)}<span class="hs-mtm tnum">${esc([t.t, t.d].filter(Boolean).join(' · '))}</span>`}${isMos(snd) ? '<span class="hs-mosb">MOS</span>' : ''}<span class="hs-mtn">${esc(t.note || '')}</span></${tag}>`;
 }
 /* en el celular, todas las escenas de la jornada: cada plano con sus tomas; un toque lo pone en cámara */
 function supMAllHTML(X) {
@@ -434,17 +481,16 @@ function supMAllHTML(X) {
     const s = sceneOfKey(k); if (!s) return '';
     const shots = D.shotsBy[k] || [];
     return `<div class="hs-mall"><div class="hs-msch">${supNo(s, 'sm')}<span>${esc(s.heading)}</span>${sceneDone(k) ? '<span class="hs-okt">✓</span>' : ''}</div>
-      ${shots.map(sh => { const takes = supTakes(sh.id), good = takes.filter(t => t.st === 'bn').map(t => t.n);
+      ${shots.map(sh => { const takes = supRolled(sh.id), good = takes.filter(t => t.st === 'bn').map(t => t.n);
         return `<div class="hs-mshot${sh === cur ? ' cur' : ''}${sh.done ? ' done' : ''}"><${ed && sh !== cur ? `button type="button" data-act="sup-cam" data-id="${ea(sh.id)}"` : 'div'} class="hs-msh"><b>${esc(D.code[sh.id])}</b><span>${esc(supTech(sh))}</span><small><span class="tnum">${takes.length}</span> <span>${takes.length === 1 ? 'toma' : 'tomas'}</span></small>${good.length ? ` <small class="hs-okt">B ${esc(good.join(', '))}</small>` : ''}${sh === cur ? ' <small class="hs-live">● En cámara</small>' : sh.done ? ' <small class="hs-okt">✓</small>' : ''}</${ed && sh !== cur ? 'button' : 'div'}></div>`;
       }).join('') || '<p class="hs-hint">Sin planos.</p>'}</div>`;
   }).join('') || '<p class="hs-hint">No hay escenas en esta jornada.</p>';
 }
-/* la barra fija de abajo: «+ Toma» y «Siguiente plano», para una mano */
+/* la barra fija de abajo: «+ Toma» y «✓ Rodado · siguiente», para una mano (REC va junto al cronómetro, en la tarjeta) */
 function supDockHTML(X) {
   const { cur, ed } = X;
   if (!ed || !cur) return '';
-  const takes = supTakes(cur.id);
-  return `<div class="hs-dock" role="group" aria-label="Plano en rodaje"><button type="button" class="hs-btn pri" data-act="take-add" data-id="${ea(cur.id)}">+ Toma ${takes.length ? takes[takes.length - 1].n + 1 : 1}</button><button type="button" class="hs-btn" data-act="sup-next" data-id="${ea(cur.id)}"><span>Siguiente plano</span> <span aria-hidden="true">›</span></button></div>`;
+  return `<div class="hs-dock" role="group" aria-label="Plano en rodaje">${supAddBtn(cur.id, supTakes(cur.id))}${supDoneBtn(cur.id)}</div>`;
 }
 
 /* ---------- el cronómetro ---------- */
@@ -518,28 +564,55 @@ function addShotBelow(refId, pu) {
   toast(`Plano ${D.code[sh.id]} agregado.`);
 }
 const SUPNOTE = new Set();   // planos con la caja de observaciones abierta aunque esté vacía
-/* una toma nueva del plano: con la hora, la tarjeta y el sonido en uso, y el cronómetro corriendo */
-function supTakeAdd(id) {
-  if (!P.shots[id]) return;
+/* (lote AI) la toma que se va a grabar: la lista del plano o una nueva, lista (rdy), con su número, la tarjeta y el
+   sonido en uso, sin hora ni cronómetro (los pone REC). Para el cronómetro que corra y pone el plano en cámara */
+function supTakeNew(id) {
   supStopAll();
   UI.supCur = id;
   const list = P.sup.takes[id] = P.sup.takes[id] || [];
-  const snd = supMos(id) ? 'MOS' : P.sup.sroll;
-  list.push({ n: (list.length ? list[list.length - 1].n : 0) + 1, st: 'ok', t: nowHM(), note: '', ...(P.sup.roll ? { r: P.sup.roll } : {}), ...(snd ? { s: snd } : {}), run: Date.now() });
+  let t = list.find(x => x.rdy);
+  if (!t) {
+    const snd = supMos(id) ? 'MOS' : P.sup.sroll;
+    list.push(t = { n: supNextN(list), st: 'ok', note: '', ...(P.sup.roll ? { r: P.sup.roll } : {}), ...(snd ? { s: snd } : {}), rdy: 1 });
+  }
+  return t;
+}
+/* «+ Toma»: deja lista la toma que sigue, sin arrancar el cronómetro (antes lo arrancaba: ahora lo hace REC) */
+function supTakeAdd(id) {
+  if (!P.shots[id]) return;
+  supTakeNew(id);
   changed('data'); render();
+}
+/* (lote AI) REC: si el cronómetro del plano corre, lo para (■); si no, lo arranca en la toma lista o en una nueva (si no
+   hay una lista o la última ya se grabó) y anota la hora. En el set basta con tocar REC */
+function supRec(id) {
+  if (!P.shots[id]) return;
+  const run = supTakes(id).find(t => t.run);
+  if (run) { supStop(run); UI.supCur = id; }
+  else { const t = supTakeNew(id); delete t.rdy; t.t = nowHM(); t.run = Date.now(); }
+  changed('data'); render();
+}
+/* marcar una toma (Buena, OK o NG): para su cronómetro; (lote AI) la lista que se marca sin REC queda grabada, con la
+   hora del momento si no tenía */
+function supMarkTake(t, st) {
+  supStop(t);
+  if (t.rdy) { delete t.rdy; if (!t.t) t.t = nowHM(); }
+  t.st = st;
 }
 /* la ventana de una toma: estado, hora, duración, tarjeta, sonido (o MOS) y nota */
 function supTakePop(b) {
   const id = b.dataset.id, i = +b.dataset.n, t = supTakes(id)[i]; if (!t) return;
   const mosShot = supMos(id);
   popover(b, `<h5>Toma ${esc(t.n)} · ${esc(D.code[id])}</h5>
-    <div class="seg" role="group">${Object.entries(TAKE_ST).map(([k, n]) => `<button data-st="${k}" aria-pressed="${ea(!t.run && t.st === k)}">${n}</button>`).join('')}</div>
+    <div class="seg" role="group">${Object.entries(TAKE_ST).map(([k, n]) => `<button data-st="${k}" aria-pressed="${ea(!t.run && !t.rdy && t.st === k)}">${n}</button>`).join('')}</div>
+    ${t.rdy ? '<p class="hint" style="margin:0">Lista, todavía sin grabar: REC anota la hora y arranca el cronómetro.</p>' : ''}
     <div class="grid2"><label class="fld"><span>Hora</span><input type="text" inputmode="numeric" class="tm" maxlength="8" id="tkT" placeholder="--:--" value="${esc(t.t || '')}"></label><label class="fld"><span>Duración</span><input type="text" id="tkD" value="${esc(t.d || '')}" placeholder="${t.run ? 'Rodando…' : '0:42'}" ${t.run ? 'disabled' : ''}></label>
       <label class="fld"><span>Tarjeta de cámara</span><input type="text" id="tkR" value="${esc(t.r || '')}" placeholder="ej.: A001"></label><label class="fld"><span>Sonido</span><span class="hs-sndf"><input type="text" id="tkS" value="${esc(mosShot ? 'MOS' : t.s || '')}" placeholder="ej.: S001 o MOS" title="Rollo, archivo o pista de sonido; MOS si se grabó sin sonido" ${mosShot ? 'disabled' : ''}><button type="button" class="btn sm" data-mos ${mosShot ? 'disabled' : ''} title="Toma sin sonido">MOS</button></span></label></div>
     ${mosShot ? '<p class="hint" style="margin:0">El plano es MOS: sus tomas van sin sonido.</p>' : ''}
     <label class="fld"><span>Nota</span><input type="text" id="tkN" value="${esc(t.note || '')}" placeholder="Foco, ruido, falla de actor…"></label>
     <div style="display:flex;gap:6px;justify-content:space-between"><button class="btn sm danger" data-del>Eliminar toma</button><button class="btn sm primary" data-ok>Listo</button></div>`, p => {
-    const save = () => { t.t = normHM($('#tkT', p).value); if (!t.run) t.d = $('#tkD', p).value; t.note = $('#tkN', p).value; const r = $('#tkR', p).value.trim(); if (r) t.r = r; else delete t.r; if (!mosShot) { const so = $('#tkS', p).value.trim(); if (so) t.s = isMos(so) ? 'MOS' : so; else delete t.s; } };
+    // (lote AI) la toma lista a la que se le escribe hora o duración ya se grabó (se anota después)
+    const save = () => { t.t = normHM($('#tkT', p).value); if (!t.run) t.d = $('#tkD', p).value; if (t.rdy && (t.t || t.d)) delete t.rdy; t.note = $('#tkN', p).value; const r = $('#tkR', p).value.trim(); if (r) t.r = r; else delete t.r; if (!mosShot) { const so = $('#tkS', p).value.trim(); if (so) t.s = isMos(so) ? 'MOS' : so; else delete t.s; } };
     // lo escrito queda guardado aunque se toque fuera: se guarda al escribir y la tabla se repinta al cerrar
     let typed = false;
     p.addEventListener('input', () => { typed = true; save(); changed('data'); });
@@ -547,7 +620,7 @@ function supTakePop(b) {
     p.addEventListener('click', e => {
       const x = e.target.closest('button'); if (!x) return;
       if (x.dataset.mos != null) { const s = $('#tkS', p); s.value = isMos(s.value) ? (P.sup.sroll || '') : 'MOS'; typed = true; save(); changed('data'); return; }
-      if (x.dataset.st) { save(); supStop(t); t.st = x.dataset.st; closePop(); changed('data'); render(); return; }
+      if (x.dataset.st) { save(); supMarkTake(t, x.dataset.st); closePop(); changed('data'); render(); return; }
       if (x.dataset.del != null) { histNote('Eliminar una toma'); supTakes(id).splice(i, 1); closePop(); changed('data'); render(); toastUndo('Toma eliminada.'); return; }
       if (x.dataset.ok != null) { save(); closePop(); changed('data'); render(); }
     });
@@ -586,23 +659,37 @@ Object.assign(ACT, {
   'sup-fold': b => { const k = b.dataset.k; const open = b.getAttribute('aria-expanded') === 'true'; UI.supFold[k] = !open; render(); if (!open) requestAnimationFrame(() => { const s = $(`#view .hs-sc[data-k="${CSS.escape(k)}"]`); if (s && s.getBoundingClientRect().top > innerHeight - 120) s.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }); },
   'sup-cam': b => { const sh = P.shots[b.dataset.id]; if (!sh) return; UI.supCur = sh.id; UI.supFold[sh.sc] = true; render(); },
   'take-add': b => supTakeAdd(b.dataset.id),
+  'sup-rec': b => supRec(b.dataset.id),
+  // (lote AI) ‹ › en «En cámara»: otro plano de la jornada en cámara, sin marcar nada (ni parar el cronómetro)
+  'sup-step': b => {
+    const sh = P.shots[b.dataset.id]; if (!sh) return;
+    const was = supCtx().cur;
+    UI.supCur = sh.id;
+    if (was && was.sc !== sh.sc) { delete UI.supFold[was.sc]; UI.supFold[sh.sc] = true; }
+    SUPV.dir = +b.dataset.dir || 0;
+    render();
+    // en la computadora, su fila a la vista en el registro
+    if (!SUPV.phone) requestAnimationFrame(() => { const r = $('#view .hs-t tr.cur'); if (r) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+  },
   take: b => supTakePop(b),
   'sup-mark': b => {
     const id = b.dataset.id, t = supCurTake(id); if (!t) return;
-    supStop(t); t.st = b.dataset.v; UI.supCur = id;
+    supMarkTake(t, b.dataset.v); UI.supCur = id;
     changed('data'); render();
   },
   'sup-next': b => {
     const X = supCtx(), sh = P.shots[b.dataset.id]; if (!sh) return;
     supStopAll();
     sh.done = true;
+    // (lote AI) la toma que quedó lista y nunca se grabó (sin nota) no queda en el registro del plano rodado
+    const L = supTakes(sh.id), r = L.findIndex(t => t.rdy && !String(t.note || '').trim());
+    if (r >= 0) L.splice(r, 1);
     const nx = supNextOf(X.shots, sh);
     UI.supCur = nx ? nx.id : null;
     if (nx && nx.sc !== sh.sc) { delete UI.supFold[sh.sc]; UI.supFold[nx.sc] = true; }
     changed('data'); render();
     toast(nx ? `Plano ${D.code[sh.id]} rodado. En cámara: ${D.code[nx.id]}.` : `Plano ${D.code[sh.id]} rodado. No quedan planos sin rodar en la jornada.`, 3200);
   },
-  'sup-mos-take': b => { const id = b.dataset.id, t = supCurTake(id); if (!t || supMos(id)) return; if (isMos(t.s)) { if (P.sup.sroll) t.s = P.sup.sroll; else delete t.s; } else t.s = 'MOS'; changed('data'); render(); },
   'sup-mic': () => supDictate(),
   'sup-rolls': b => {
     const used = (f) => supRolls(supCtx().shots, f);
@@ -733,7 +820,8 @@ function supQuick() {
   for (const [id, c] of Object.entries(D.code)) if (P.shots[id] && !byCode.has(norm(c))) byCode.set(norm(c), P.shots[id]);
   const cur = X.cur || X.shots[0], saved = [];
   let noted = false;
-  const lastN = sh => { const L = supTakes(sh.id); return L.length ? Math.max(...L.map(t => +t.n || 0)) : 0; };
+  // (lote AI) la toma lista que nunca se grabó no cuenta: la fila de papel con su número la reemplaza
+  const lastN = sh => { const L = supRolled(sh.id); return L.length ? Math.max(...L.map(t => +t.n || 0)) : 0; };
   const sheet = (X.dm.ph || []).filter(p => frameHas(spKey(p.id)) || FRAMES[spKey(p.id)]);
   const F = [['P', 'Plano', '2.1'], ['T', 'Toma', '1'], ['E', 'Estado', 'B, OK o NG'], ['H', 'Hora', '--:--'], ['D', 'Dur.', '0:42'], ['C', 'Cám.', 'A001'], ['S', 'Son.', 'S001 o MOS'], ['N', 'Notas', 'Nota']];
   const m = modal({
@@ -766,7 +854,7 @@ function supQuick() {
     if (!sh) return err(f('P').value.trim() ? `No hay un plano ${f('P').value.trim()}. Créalo primero con «+ Plano».` : 'Escribe el número del plano (por ejemplo 2.1).', 'P');
     const n = Math.round(+f('T').value);
     if (!(n > 0)) return err('Escribe el número de la toma.', 'T');
-    if (supTakes(sh.id).some(t => +t.n === n)) return err(`La toma ${n} del plano ${D.code[sh.id]} ya está anotada.`, 'T');
+    if (supRolled(sh.id).some(t => +t.n === n)) return err(`La toma ${n} del plano ${D.code[sh.id]} ya está anotada.`, 'T');
     const st = SQ_ST(f('E').value);
     if (!st) return err('Estado: B (buena), OK o NG.', 'E');
     const t = { n, st, t: normHM(f('H').value), note: f('N').value.trim() };
@@ -774,6 +862,7 @@ function supQuick() {
     if (d) t.d = d; if (r) t.r = r; if (s && !supMos(sh.id)) t.s = isMos(s) ? 'MOS' : s;
     if (!noted) { histNote('Carga rápida de tomas'); noted = true; }
     const L = P.sup.takes[sh.id] = P.sup.takes[sh.id] || [];
+    const rd = L.findIndex(x => x.rdy && +x.n === n); if (rd >= 0) L.splice(rd, 1);
     let j = L.findIndex(x => +x.n > n); if (j < 0) j = L.length;
     L.splice(j, 0, t);
     if (st === 'bn') sh.done = true;
@@ -796,10 +885,10 @@ function supQuick() {
 SETTINGS.sup = () => `<label class="fld"><span>Script / continuidad</span><input type="text" value="${esc(P.sup.supervisor || '')}" data-bind="sup-g" data-f="supervisor" placeholder="Nombre de quien hace script"></label>
   <p class="hint" style="margin:0">Sale en la hoja de script y en el parte diario.</p>`;
 HELP.sup = [
-  ['En cámara', 'El plano que se rueda. «+ Toma» anota una toma nueva con la hora, la tarjeta y el sonido en uso, y pone a correr el cronómetro. Buena, OK o NG la marcan y anotan su duración. «Siguiente plano» deja el plano como rodado y pone en cámara el que sigue.'],
+  ['En cámara', 'El plano que se rueda. ‹ › pasan al plano anterior o al siguiente de la jornada (rodados o no) sin marcar nada; en el celular también se desliza la tarjeta. «+ Toma» deja lista la toma que sigue, con la tarjeta y el sonido en uso. REC anota la hora y arranca el cronómetro (si no hay una toma lista, la crea); el mismo botón lo para. Buena, OK o NG la marcan y también lo paran. «✓ Rodado · siguiente» deja el plano como rodado y pone en cámara el que sigue.'],
   ['Notas y dictado', 'La nota de la toma se escribe o se dicta con el micrófono (si el navegador lo permite): lo dictado se agrega a lo escrito.'],
   ['Registro de tomas', 'Cada escena tiene su tabla: plano, toma, estado, hora, duración, tarjeta, sonido y notas. La toma buena lleva su número en un círculo. Toca una toma para cambiarla; toca el número de un plano para ponerlo en cámara. Las escenas completas se pliegan en una línea.'],
-  ['MOS y sonido wild', 'MOS: toma sin sonido (botón «MOS» o «Plano MOS» para todas las tomas del plano). «+ Wild / ambiente» anota sonido grabado sin cámara, con su rollo de sonido.'],
+  ['MOS y sonido wild', 'MOS: sin sonido. «Plano MOS» lo pone a todas las tomas del plano; una toma suelta sin sonido se marca en su ventana (toca la toma). «+ Wild / ambiente» anota sonido grabado sin cámara, con su rollo de sonido.'],
   ['Continuidad', 'Por escena: vestuario, utilería, maquillaje y peinado, posiciones, cambios de texto, fotos de continuidad (en el celular, «Foto de continuidad» abre la cámara) y el tiempo en pantalla previsto y rodado.'],
   ['Más acciones', '⋯ de cada plano: ponerlo en cámara, plano MOS, nota del plano, plano no previsto debajo (1.1A), pick-up (1.1PU) o abrir el plano.'],
   ['Tarjeta y sonido', 'Los chips de arriba muestran la tarjeta de cámara y el rollo de sonido en uso: cámbialos cuando cambien y las tomas nuevas los anotan solas.'],

@@ -1322,9 +1322,9 @@ details.sec .tbl-wrap{border:0;border-radius:0;box-shadow:none}
 /* ---------- hoja de script (lote AD): registro de tomas, continuidad y «En cámara» (tab-sup.js) ----------
    Diseño propio de la pestaña, con las letras, superficies y líneas de la app. Sus colores: el ocre de la hoja de
    script para la acción y «En cámara», el verde de la toma buena y el rojo de NG; de noche, los mismos más claros */
-.hs{--hs-a:#A94F08;--hs-a-ink:#FFFEF6;--hs-at:#A94F08;--hs-soft:#FDF2E9;--hs-deep:#71390A;--hs-bar:#E8730C;--hs-dash:#E3B993;--hs-ng:#B80A19;--hs-ng-soft:#FBE6EA;--hs-ok:#047A50;--hs-ok-soft:#E1F5EC;
+.hs{--hs-a:#A94F08;--hs-a-ink:#FFFEF6;--hs-at:#A94F08;--hs-soft:#FDF2E9;--hs-deep:#71390A;--hs-bar:#E8730C;--hs-dash:#E3B993;--hs-ng:#B80A19;--hs-ng-soft:#FBE6EA;--hs-ok:#047A50;--hs-ok-soft:#E1F5EC;--hs-rec:#C8102E;--hs-rec-t:#C8102E;
   max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:20px;color:var(--ink);font-variant-numeric:tabular-nums}
-:root[data-tone="dark"] .hs{--hs-at:#EC8E3C;--hs-soft:#332315;--hs-deep:#EC8E3C;--hs-dash:#6B4A2A;--hs-ng:#F6465D;--hs-ng-soft:#3A1A22;--hs-ok:#0ECB81;--hs-ok-soft:#0F2E24}
+:root[data-tone="dark"] .hs{--hs-at:#EC8E3C;--hs-soft:#332315;--hs-deep:#EC8E3C;--hs-dash:#6B4A2A;--hs-ng:#F6465D;--hs-ng-soft:#3A1A22;--hs-ok:#0ECB81;--hs-ok-soft:#0F2E24;--hs-rec:#D92632;--hs-rec-t:#FF6B6B}
 .hs .hs-hd{margin:0;gap:20px}
 .hs-card{background:var(--surface);border:1px solid var(--card-line);border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 .hs .ic{width:18px;height:18px}
@@ -1455,7 +1455,8 @@ button.hs-tn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .hs-st.ok{color:var(--ink);background:var(--fill-2)}
 .hs-st.bn{color:var(--hs-ok);background:var(--hs-ok-soft)}
 .hs-st.wd{color:var(--muted);background:var(--fill)}
-.hs-run{font-size:12.5px;font-weight:700;color:var(--hs-at);white-space:nowrap}
+.hs-st.rdy{color:var(--muted);background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.hs-run{font-size:12.5px;font-weight:700;color:var(--hs-rec-t);white-space:nowrap}
 .hs-t .hs-c-n{color:var(--muted)}
 .hs-wr .hs-code{font-size:14px}
 .hs-none>div{display:flex;align-items:center;gap:12px}
@@ -1496,8 +1497,13 @@ button.hs-tn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .hs-cam{padding:18px;display:flex;flex-direction:column;gap:14px}
 .hs-camh{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .hs-cams{font-size:12.5px;color:var(--muted)}
+.hs-camp{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hs-camp>.hs-camt{min-width:0}
 .hs-camt{font-size:22px;font-weight:750;line-height:1.2}
 .hs-camt small{font-size:14px;font-weight:600;color:var(--muted)}
+.hs-camt small{display:inline-block}
+.hs-camt small.hs-okt{color:var(--hs-ok);font-weight:700}
+.hs-cam .hs-okt,.hs-mplt .hs-okt{white-space:nowrap}
 .hs-camd{font-size:13.5px;color:var(--muted);margin:4px 0 0;line-height:1.4}
 .hs-camdone{margin:0;font-size:15px;font-weight:600}
 .hs-clock{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;background:var(--bg);border-radius:12px;padding:12px 16px}
@@ -1506,6 +1512,24 @@ button.hs-tn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .hs-clr{text-align:right;min-width:0}
 .hs-tim{font-size:30px;font-weight:700;line-height:1.1}
 .hs-mat{font-size:12px;color:var(--muted);margin-top:2px}
+/* (lote AI) REC junto al cronómetro: rojo de grabar; mientras graba, ■ Parar y el recuadro con el borde rojo */
+.hs-clock.rec{box-shadow:inset 0 0 0 2px var(--hs-rec)}
+.hs-rec{flex:none;align-self:center;display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border:0;border-radius:999px;background:var(--hs-rec);color:#FFFFFF;font:800 15px var(--font-ui);letter-spacing:.06em;cursor:pointer;box-shadow:0 2px 8px color-mix(in srgb,var(--hs-rec) 30%,transparent)}
+.hs-rec i{width:12px;height:12px;border-radius:50%;background:currentColor;flex:none}
+.hs-rec.on{letter-spacing:.02em;animation:hsRecB 1.2s ease-in-out infinite}
+.hs-rec.on i{border-radius:2px}
+.hs-rec:hover{filter:brightness(1.08)}
+.hs-rec:focus-visible{outline:2px solid var(--hs-rec);outline-offset:3px}
+@keyframes hsRecB{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--hs-rec) 22%,transparent)}}
+/* (lote AI) ‹ › de plano: un poco más grandes que los de la jornada (en el celular, para el dedo) */
+.hs-cam .hd-step,.hs-mpl .hd-step{flex:none;transform:none}
+.hs-cam .hd-stepb{width:34px;height:34px}
+.hs .hd-stepb .ic{width:16px;height:16px}
+/* la tarjeta entra desde el lado hacia el que se pasó de plano */
+.hs-inn{animation:hsInN .18s ease-out}
+.hs-inp{animation:hsInP .18s ease-out}
+@keyframes hsInN{from{transform:translateX(14px);opacity:.5}}
+@keyframes hsInP{from{transform:translateX(-14px);opacity:.5}}
 .hs-mks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .hs-mk{font:700 15px var(--font-ui);border:0;border-radius:10px;min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:0 6px}
 .hs-mk.bn{color:var(--hs-ok);background:var(--hs-ok-soft)}
@@ -1516,9 +1540,6 @@ button.hs-tn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .hs-mk:disabled{opacity:.45;cursor:default}
 .hs .hs-mk .ic{width:16px;height:16px;stroke-width:2.4}
 .hs-mosr{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-top:-4px}
-.hs-tog{font:800 12px var(--font-ui);letter-spacing:.05em;border:1.5px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:4px 10px;min-height:32px;cursor:pointer}
-.hs-tog[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
-.hs-tog:disabled{opacity:.5;cursor:default}
 .hs-sw{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;flex-wrap:wrap;min-height:32px}
 .hs-sw input{width:16px;height:16px;margin:0;accent-color:var(--hs-a)}
 .hs-sw small{color:var(--muted);font-size:12px}
@@ -1531,12 +1552,14 @@ button.hs-tn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .hs .hs-mic .ic{width:20px;height:20px}
 .hs-mic.on{background:var(--hs-ng);color:#FFFFFF;animation:hsRec 1.2s ease-in-out infinite}
 @keyframes hsRec{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--hs-ng) 25%,transparent)}}
-@media (prefers-reduced-motion:reduce){ .hs-mic.on,.hs-wait{animation:none} }
-.hs-go{display:flex;gap:8px}
+@media (prefers-reduced-motion:reduce){ .hs-mic.on,.hs-wait,.hs-rec.on,.hs-inn,.hs-inp{animation:none} }
+.hs-go{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
 .hs-btn{flex:1 1 0;font:700 14px var(--font-ui);color:var(--ink);background:var(--fill);border:0;border-radius:10px;min-height:46px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 8px;text-align:center;white-space:nowrap}
 .hs-btn.pri{color:var(--hs-a-ink);background:var(--hs-a)}
 .hs-btn.soft{color:var(--hs-at);background:var(--hs-soft)}
-.hs-btn:hover{filter:brightness(.96)}
+.hs-btn:hover:not(:disabled){filter:brightness(.96)}
+.hs-btn:disabled{opacity:.5;cursor:default}
+.hs-btn.hs-add{padding:0 14px}
 .hs-btn small{font-weight:500;color:var(--hs-deep);font-size:13px}
 .hs .hs-btn .ic{width:20px;height:20px}
 .hs-next{margin:0;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line-2);padding-top:10px}
@@ -1572,9 +1595,13 @@ span.hs-inct{padding:4px 0}
 .hs-msch{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;font-weight:750;line-height:1.25}
 .hs-msch .hs-no{min-width:34px}
 .hs-mscb{padding:14px;display:flex;flex-direction:column;gap:12px}
-.hs-mpl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hs-mpl{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.hs-mplt{display:flex;align-items:baseline;gap:2px 10px;flex-wrap:wrap;min-width:0;padding-top:4px}
 .hs-mpl b{font-size:20px;font-weight:750}
-.hs-mpl span{font-size:13px;font-weight:600;color:var(--muted)}
+.hs-mplt span{font-size:13px;font-weight:600;color:var(--muted)}
+.hs-mplt small{font-size:12.5px}
+.hs-mpl .hd-stepb{width:42px;height:42px}
+.hs-mpl .hs-camdone{padding-top:10px}
 .hs-mscb .hs-camd{margin-top:-6px;font-size:14px}
 .hs-m .hs-clock{background:var(--hs-soft);align-items:center}
 .hs-m .hs-clock .hs-cl,.hs-m .hs-mat{color:var(--hs-deep)}
@@ -1618,8 +1645,11 @@ button.hs-mtr{cursor:pointer}
 .hs-msh small.hs-live{color:var(--hs-at)}
 .hs-msh small.hs-okt{color:var(--hs-ok)}
 .hs-mshot.done b{color:var(--muted)}
-.hs-dock{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--chrome);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.06)}
+.hs-dock{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--chrome);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.06)}
 .hs-dock,.bar .hs-parte{--hs-a:#A94F08;--hs-a-ink:#FFFEF6}
+/* (lote AI) la barra está fuera de .hs: «+ Toma» (suave) usa el ocre de la hoja, también de noche */
+.hs-dock{--hs-at:#A94F08;--hs-soft:#FDF2E9;--hs-deep:#71390A}
+:root[data-tone="dark"] .hs-dock{--hs-at:#EC8E3C;--hs-soft:#332315;--hs-deep:#EC8E3C}
 .bar .hs-parte{background:var(--hs-a);color:var(--hs-a-ink);border-color:transparent}
 .hs-dock .hs-btn{min-height:54px;font-size:16px;font-weight:750;border-radius:12px}
 #view:has(.hs-dock) .scroller{padding-bottom:96px}

@@ -13,7 +13,7 @@ vm.runInContext(`var EN = false, trDone = s => s; var P = { sup: { takes: {}, sc
   var hmToMin = v => { const m = /^(\\d{1,2}):(\\d{2})$/.exec(String(v || '')); return m ? +m[1] * 60 + +m[2] : null; };
   var normHM = v => String(v || '').trim();`, c);
 const T = 'tab-sup.js';
-vm.runInContext([pieza(T, 'const TAKE_ST'), pieza(T, 'const supTakes'), pieza(T, 'const supMos'), pieza(T, 'const isMos'), pieza(T, 'const takeSnd'), pieza(T, 'const spKey'),
+vm.runInContext([pieza(T, 'const TAKE_ST'), pieza(T, 'const supTakes'), pieza(T, 'const supRolled'), pieza(T, 'const supMos'), pieza(T, 'const isMos'), pieza(T, 'const takeSnd'), pieza(T, 'const spKey'),
   pieza(T, 'function supClean('), pieza(T, 'function supSecs('), pieza(T, 'const supFmt'), pieza(T, 'const supClock'), pieza(T, 'const supPlanSecs'), pieza(T, 'const supRealSecs'),
   pieza(T, 'const supCurTake'), pieza(T, 'function supStop('), pieza(T, 'const supStopAll'), pieza(T, 'function supFirstLast('), pieza(T, 'function supRolls('), pieza(T, 'function supLen('),
   pieza(T, 'const supIncs'), pieza(T, 'const supIncJoin'), pieza(T, 'function supCur('), pieza(T, 'function supNextOf('), pieza(T, 'const SQ_ST')].join('\n'), c);
