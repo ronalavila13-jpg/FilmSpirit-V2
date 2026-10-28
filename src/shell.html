@@ -3459,8 +3459,6 @@ body.rz-ew,body.rz-ew *{cursor:col-resize!important;user-select:none!important;-
 .cl-lhs th{white-space:normal;padding-top:0;font-weight:500;color:var(--cl-3)}
 .cl-lend td{border-top:1px solid var(--ink);vertical-align:middle;padding-block:10px}
 .cl-lend b{font-weight:700}
-.cl-tot{margin:2px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px;justify-content:flex-end;font-size:var(--cl-ft);color:var(--muted);margin-top:6px}
-.cl-tot b{color:var(--ink)}
 .cl-fin{margin:0;padding:12px 0 4px;font:650 var(--cl-h3) var(--font-ui);text-align:center}
 /* las horas que se tocan: el borde del campo se ve al pasar el mouse (en el teléfono, siempre) */
 .cl :is(.cl-ln,.cl-pc,.cl-tt,.cl-sub,.cl-sunr,.cl-big) input.tm:not(:disabled){border:1px solid transparent;border-radius:var(--r-xs);background:transparent}
@@ -3506,8 +3504,7 @@ body.rz-ew,body.rz-ew *{cursor:col-resize!important;user-select:none!important;-
 .cl-ptbl input[type=tel],.cl-ptbl input[type=email]{font-size:var(--fs-2);color:var(--muted)}
 .cl-ptbl input[type=tel]:focus,.cl-ptbl input[type=email]:focus{color:var(--ink)}
 .cl-people .cs-folds,.cl-people .cs-out{margin-left:8px;margin-right:8px}
-/* el pie: centro de salud y canales de radio */
-.cl-foot{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;border-top:1px solid var(--ink);padding-top:14px}
+/* el centro de salud y los canales de radio (lote AH: en su cuadro, al final; antes, al pie) */
 .cl-fh,.cl-fr{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:start}
 .cl-fh>.ic,.cl-fr>.ic{width:20px;height:20px;margin-top:2px;color:var(--muted)}
 .cl-fh>div{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:0 6px}
@@ -3567,7 +3564,6 @@ body.rz-ew,body.rz-ew *{cursor:col-resize!important;user-select:none!important;-
   .cl-shm{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
   .cl-shs select.cl-snd{width:auto}
   .cl-opts{margin-left:0}
-  .cl-foot{grid-template-columns:minmax(0,1fr)}
   .cl-sec>header .linkbtn{margin-left:0}
 }
 /* la locación, el dato que se busca primero: grande, con su dirección debajo y «Ver mapa» al lado */
@@ -6401,7 +6397,7 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
 .cs.cl .cl-g tr.cl-lend td{border-top:var(--cl-lw) solid var(--cl-ln)}
 .cs.cl .cl-endt input.tm{margin-left:0}
 /* el avance: el título de cada jornada en la banda de su tabla */
-.cs.cl .cl-g th.cl-advh{background:var(--cl-band);color:var(--ink);text-align:left;padding:5px 10px;font-size:var(--cl-bd)}
+.cs.cl .cl-g th.cl-advh{background:var(--cl-band);color:var(--ink);text-align:left;padding:5px 10px;font-size:var(--cl-bd);white-space:normal}
 .cs.cl .cl-advhd{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px}
 .cs.cl .cl-advhd b{font-weight:650}
 .cs.cl .cl-advhd .hint{font-weight:500;font-size:var(--cl-ft);color:var(--cl-2)}

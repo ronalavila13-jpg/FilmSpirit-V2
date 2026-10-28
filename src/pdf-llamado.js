@@ -14,8 +14,10 @@
 let PDF_CALL_DONE = null;   // las hojas y versiones del último PDF de llamado (se guardan si el archivo salió)
 const CL_CEL = [221, 239, 252];   // la banda celeste de los traslados
 const CL_M = 30;                  // (lote AH) el margen de la página (sin encabezado ni pie)
-const CL_LW = { out: 1.2, in: .6 };   // el borde de cada cuadro y las líneas de adentro
-const CL_LINE = [0, 0, 0], CL_BAND = [236, 236, 236], CL_HEADF = [247, 247, 247];   // las líneas negras, el título de cada cuadro y sus columnas
+// el borde de cada cuadro y las líneas de adentro, las líneas negras, el título de cada cuadro y sus columnas: los mismos
+// de los demás documentos de producción (GRID, PDF_RULE, PDF_HEADF y PDF_LABF de pdf.js)
+const CL_LW = { out: GRID.frame * 1.2, in: GRID.cell };
+const CL_LINE = PDF_RULE, CL_BAND = PDF_HEADF, CL_HEADF = PDF_LABF;
 /* íconos de línea (como los de la pantalla), con trazos simples; s: el lado */
 function pdfCallIco(doc, k, x, y, s = 9, col = MUTED) {
   doc.setDrawColor(...col); doc.setLineWidth(.7);
@@ -234,7 +236,8 @@ function pdfCall(opts = {}) {
     if (X.heads.length) {
       const cells = X.heads.map(h => pdfRich([{ t: h.role, fs: CLF.cap, st: 'bold', col: K.c3 }, { t: h.name, st: 'bold', fs: CLF.bd, tr: false }, h.phone ? { t: h.phone, fs: CLF.ft, col: K.c2, tr: false } : null]));
       const body = []; for (let i = 0; i < cells.length; i += 4) body.push([0, 1, 2, 3].map(j => cells[i + j] || ''));
-      T({ head: [[bandC('Jefes de área', 4)]], body });
+      const cw = (W - 2 * M) / 4;
+      T({ head: [[bandC('Jefes de área', 4)]], body, columnStyles: { 0: { cellWidth: cw }, 1: { cellWidth: cw }, 2: { cellWidth: cw }, 3: { cellWidth: cw } } });
     }
     // 2. la nota del 1.er asistente, en su cuadro amarillo
     const notes = (X.dd.notes || '').trim();
@@ -284,7 +287,7 @@ function pdfCall(opts = {}) {
       blocks.push(rows);
     });
     if (!all.length) blocks.push([[{ content: X.free ? 'Sin filas.' : 'Jornada sin escenas.', colSpan: 5, styles: { textColor: K.c2 } }]]);
-    const inf = dayInfo(X.de.keys, X.de.rows), nSc = X.de.keys.length + (X.dd.xrows || []).length;
+    const inf = dayInfo(X.de.keys, X.de.rows), nSc = X.free ? (X.dd.xrows || []).length : X.de.keys.length;
     blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', cellPadding: PS } }, pdfRich([{ segs: [{ t: 'Wrap · fin de jornada', st: 'bold' }, { t: '  ·  ' + tr(X.free ? `${nSc} ${nSc === 1 ? 'fila' : 'filas'}` : `${nSc} ${nSc === 1 ? 'escena' : 'escenas'}`), col: K.c2 }] }], { colSpan: 3, cellPadding: PS }),
       pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', cellPadding: PS })]]);
     // con planos, una segunda fila de títulos: lo que dice cada columna en las filas de los planos
@@ -307,7 +310,7 @@ function pdfCall(opts = {}) {
       T({ head: [[bandC(pdfSafe(title), 6)], ['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }]], body: ab, rowPageBreak: 'avoid', ...hooks,
         columnStyles: { 0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 52 } } }, 80);
     }
-    if (!X.advs.length && X.lastDay) T({ head: [[bandC('Avance', 1)]], body: [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center' } }]] });
+    if (!X.advs.length && X.lastDay) T({ head: [[bandC('Avance de la jornada siguiente', 1)]], body: [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center' } }]] });
     // 5. (lote AH) la citación en dos cuadros: primero los talentos (el reparto), con sus horarios; después el equipo
     // técnico por área (el área, una fila gris con su citación). El teléfono con el correo debajo, más chico
     const CC = { halign: 'center' }, tmc = (v, b) => ({ content: v || '', styles: { ...CC, ...(b ? { fontStyle: 'bold' } : {}) } });

@@ -84,6 +84,9 @@ const callFrees = () => (P && P.call && Array.isArray(P.call.free) ? P.call.free
 const callFreeOf = id => callFrees().find(f => f.id === id) || null;
 const callIsFree = ref => typeof ref === 'string';
 const callRef = () => UI.callFree && callFreeOf(UI.callFree) ? UI.callFree : (UI.callDay || 0);
+/* quien elige una jornada (aquí, en el calendario, en «Ver en › Llamado» del plan o en la hoja de script) escribe
+   UI.callDay: con eso se cierra la hoja libre abierta */
+if (typeof UI !== 'undefined') { let cd = UI.callDay; Object.defineProperty(UI, 'callDay', { get: () => cd, set: v => { cd = v; UI.callFree = null; }, enumerable: true, configurable: true }); }
 /* sin las filas quitadas en esta hoja (dd.rx): la jornada que la hoja muestra (sus escenas, su reparto y sus horas) */
 function callDayEff(d, dd) {
   const rx = (dd || peekDay(d.id)).rx; if (!rx || !Object.keys(rx).length) return d;
@@ -705,7 +708,7 @@ RENDER.call = function () {
   if (UI.callFree && !callFreeOf(UI.callFree)) UI.callFree = null;
   if (!days.length && !UI.callFree && frees.length) UI.callFree = frees[0].id;
   if (!days.length && !UI.callFree) { v.innerHTML = `<div class="ws ws-1"><section class="center"><div class="scroller pad"><p class="hint">Primero arma el plan de rodaje: cada jornada tendrá su hoja de llamado.</p>${ed ? `<p>${hdBtn('sec', 'Hoja libre', { icon: 'plus', sm: true, attrs: 'data-act="cl-free-new" title="Una hoja de llamado que no sale de ninguna jornada: se llena a mano"' })}</p>` : ''}</div></section></div>`; bindView(); return; }
-  if (UI.callDay == null || UI.callDay >= days.length) UI.callDay = 0;
+  if (UI.callDay == null || (days.length && UI.callDay >= days.length)) { const f = UI.callFree; UI.callDay = 0; UI.callFree = f; }
   const ref = callRef(), S = callSheet(ref, cd), free = !!S.free, n = S.n, d = S.d, de = S.de, dt = S.date;
   const C = CALL(), dd = peekDay(d.id), def = callDefaults(d);
   callCrew();
@@ -755,7 +758,7 @@ RENDER.call = function () {
   const eps = epsOfKeys(de.keys);
   // la fecha: un toque la cambia (solo en esta hoja o corriendo esta jornada y las siguientes en el plan)
   const dateBtn = ed ? `<button type="button" class="cl-dateb${dt ? '' : ' miss'}" data-act="cl-date" aria-haspopup="dialog" title="${ea(free ? 'Cambiar la fecha de la hoja' : 'Cambiar la fecha: solo en esta hoja o corriendo esta jornada y las siguientes en el plan')}">${esc(dateTxt)}</button>` : `<span class="cl-dateb">${esc(dateTxt)}</span>`;
-  const tmCellH = (lab, f, val, phv, auto, tip) => `<label class="cl-tc"><span class="cl-kl">${esc(lab)}</span>${hdAuto(tmIn(val, phv || ph('Hora', '-'), `data-bind="cs-day" data-f="${f}" aria-label="${ea(lab)}" title="${ea(tip)}"`, dis), auto)}</label>`;
+  const tmCellH = (lab, f, val, phv, auto, tip) => `<label class="cl-tc"><span class="cl-kl">${esc(lab)}</span>${hdAuto(tmIn(val, phv || ph('Hora'), `data-bind="cs-day" data-f="${f}" aria-label="${ea(lab)}" title="${ea(tip)}"`, dis), auto)}</label>`;
   const colC = `<div class="cl-c2"><div class="cl-cell cl-tt0">${logo ? `<img class="cl-plogo" src="${ea(logo)}" alt="${ea(M.title || '')}">` : `<h2 class="cl-ttl" data-no-tr>${esc(M.title || '')}</h2>`}
       <div class="cl-jn">${!free && days.length > 1 ? hdStep(stepA(n - 1), stepA(n + 1)) : ''}<span>Hoja de llamado</span><span aria-hidden="true">·</span>${free ? (ed ? `<input type="text" class="cl-fname" value="${esc(S.free.name || '')}" placeholder="Nombre de la hoja" data-bind="cl-fname" maxlength="80" aria-label="Nombre de la hoja libre">` : `<span data-no-tr>${esc(callSheetName(S))}</span>`) : `<span>Jornada ${n + 1} de ${days.length}</span>`}${eps.length ? `<span class="cl-ep" data-no-tr>${esc(eps.length === 1 ? epLabel(P, eps[0]) : 'Episodios ' + eps.join(', '))}</span>` : ''}</div></div>
     <div class="cl-cell cl-date">${dateBtn}${S.own ? `<span class="cl-own"><span class="hd-tag">solo en esta hoja</span>${ed ? `<button type="button" class="linkbtn" data-act="cl-date-back" title="${ea(S.plan ? cap1(fmtDate(S.plan)) : '')}">Volver a la fecha del plan</button>` : ''}</span>` : ''}</div>
@@ -825,7 +828,7 @@ RENDER.call = function () {
       + (r.shots || []).map(x => shotRow(r, x, col)).join('');
   };
   const shHead = Sc.byShot ? `<tr class="cl-lhs"><th>Plano</th><th colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? '<span></span>' : ''}<span>Descripción</span><span>Acción</span><span class="cl-shm"><span>Set</span><span>Lente</span><span>Sonido</span><span>Personajes</span></span></div></th></tr>` : '';
-  const nSc = de.keys.length + (dd.xrows || []).length, nLab = free ? (nSc === 1 ? 'fila' : 'filas') : nSc === 1 ? 'escena' : 'escenas';
+  const nSc = free ? (dd.xrows || []).length : de.keys.length, nLab = free ? (nSc === 1 ? 'fila' : 'filas') : nSc === 1 ? 'escena' : 'escenas';
   const schedHTML = `<section class="cl-box cl-list-s" aria-label="Cronograma"><table class="cl-list cl-sched cl-g"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr>${shHead}</thead><tbody>
     ${list.map(lrow).join('') || `<tr data-cr="x0:"><td colspan="5" class="hint">${free ? (ed ? 'Hoja libre: agrega sus filas con «+ Fila» o con clic derecho.' : 'Sin filas.') : 'Jornada sin escenas.'}</td></tr>`}
     <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${hdAuto(tmIn(dd.end || '', Sc.endAuto || 'Hora', 'data-bind="cs-day" data-f="end" aria-label="Wrap: fin de la jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis), !dd.end && !!Sc.endAuto)}</span>` : `<b class="tnum">${esc(Sc.end || '')}</b>`}</td><td colspan="3"><b>Wrap · fin de jornada</b> <span class="cl-dim">· ${nSc} ${nLab}</span></td><td class="cl-lpg tnum"><small>Total</small> <b>${esc(fmtEighths(inf.e))}</b></td></tr></tbody></table></section>`;
@@ -966,20 +969,22 @@ RENDER.call = function () {
 function clBindRows(v) {
   if (v._clRows) return; v._clRows = true;
   const rowOf = t => UI.tab === 'call' && callEditable() ? t.closest && t.closest('.cl-doc [data-cr]') : null;
+  let tm = 0, x0 = 0, y0 = 0, held = 0;
+  const off = () => { clearTimeout(tm); tm = 0; };
   v.addEventListener('contextmenu', e => {
     const r = rowOf(e.target); if (!r) return;
+    // el dedo sostenido ya lo abrió (o lo abre este evento, en Android): una sola vez
+    if (Date.now() - held < 1500) { e.preventDefault(); return; }
     // en un campo con texto elegido queda el menú del sistema (copiar, pegar)
     if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.selectionStart !== e.target.selectionEnd) return;
-    e.preventDefault();
+    e.preventDefault(); off();
     clRowMenu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, r);
   });
-  let tm = 0, x0 = 0, y0 = 0;
-  const off = () => { clearTimeout(tm); tm = 0; };
   v.addEventListener('pointerdown', e => {
     if (e.pointerType !== 'touch') return;
     const r = rowOf(e.target); if (!r) return;
     x0 = e.clientX; y0 = e.clientY; off();
-    tm = setTimeout(() => { tm = 0; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); clRowMenu({ left: x0, right: x0, top: y0, bottom: y0 }, r); }, 550);
+    tm = setTimeout(() => { tm = 0; held = Date.now(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); clRowMenu({ left: x0, right: x0, top: y0, bottom: y0 }, r); }, 550);
   });
   v.addEventListener('pointermove', e => { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) off(); });
   for (const t of ['pointerup', 'pointercancel', 'scroll']) v.addEventListener(t, off, true);
@@ -1116,11 +1121,12 @@ function clDateMenu(anchor) {
       if (!nd || nd === iso) { closePop(); return; }
       if (S.free) { closePop(); clSetDate(S, nd, 'one'); return; }
       // la jornada y las que vienen después: cuántas y cuántos días se corren
-      const delta = S.plan ? Math.round((feDate(nd) - feDate(feIso(S.plan))) / 864e5) : 0, after = cd.days.length - S.n - 1, canPlan = planEditable();
-      const what = delta ? `${Math.abs(delta)} ${Math.abs(delta) === 1 ? 'día' : 'días'} ${delta > 0 ? 'después' : 'antes'}` : '';
+      const delta = S.plan ? Math.round((feDate(nd) - feDate(feIso(S.plan))) / 864e5) : 0, last = cd.days.length, canPlan = planEditable();
+      const what = !delta ? '' : Math.abs(delta) === 1 ? (delta > 0 ? '1 día después' : '1 día antes') : delta > 0 ? `${delta} días después` : `${-delta} días antes`;
+      // (cada pedazo en su línea: así cada uno se traduce por su lado)
       p.innerHTML = `<h5>${esc(cap1(fechaFmt(nd)))}</h5><div class="menu cl-dscope">
         <button data-sc="one"><b>Solo esta hoja</b><small>El plan de rodaje y el calendario no cambian.</small></button>
-        <button data-sc="all" ${canPlan ? '' : 'disabled'}><b>Correr esta jornada y las siguientes</b><small>${canPlan ? `${after ? `La jornada ${S.n + 1} y ${after === 1 ? 'la siguiente' : `las ${after} siguientes`}` : `La jornada ${S.n + 1}`} ${what ? `se corren ${what}` : 'cambian de fecha'} en el plan de rodaje y el calendario.` : 'Solo quien edita el plan de rodaje puede correr las fechas.'}</small></button></div>`;
+        <button data-sc="all" ${canPlan ? '' : 'disabled'}><b>Correr esta jornada y las siguientes</b>${canPlan ? `<small>${last > S.n + 1 ? `Jornadas ${S.n + 1} a ${last}` : `Jornada ${S.n + 1}`}${what ? ` · <span>${what}</span>` : ''}</small><small>En el plan de rodaje y en el calendario.</small>` : '<small>Solo quien edita el plan de rodaje puede correr las fechas.</small>'}</button></div>`;
       p.querySelector('.cl-dscope').addEventListener('click', e => { const b = e.target.closest('[data-sc]'); if (!b || b.disabled) return; closePop(); clSetDate(S, nd, b.dataset.sc); });
       const f = p.querySelector('[data-sc="one"]'); if (f) f.focus();
     };
@@ -1286,7 +1292,8 @@ Object.assign(ACT, {
   'cl-back': b => clBack(b.dataset.cr),
   'cl-revert': () => {
     const id = curDayId(); if (!id) return; const dd = peekDay(id), n = callChanges(dd);
-    confirmBox('Volver a la guía del stripboard', `La hoja vuelve a lo que dice el stripboard: se deshacen ${n === 1 ? 'el cambio hecho' : `los ${n} cambios hechos`} en ella (campos, horas, filas y planos quitados o agregados, la utilería y la locación escritas a mano). Las personas, los horarios del reparto y lo demás quedan.`, 'Volver a la guía', () => {
+    if (!n) return;
+    confirmBox('Volver a la guía del stripboard', 'La hoja vuelve a lo que dice el stripboard: se deshacen los cambios hechos en ella (campos, horas, filas y planos quitados o agregados, la utilería y la locación escritas a mano). Las personas, los horarios del reparto y lo demás quedan como están.', 'Volver a la guía', () => {
       histNote('Volver a la guía del stripboard');
       const d = dayData(id); for (const k of CL_GUIDE) delete d[k];
       changed('data'); render(); toastUndo('La hoja vuelve a la guía del stripboard.');
@@ -1532,7 +1539,7 @@ HELP.call = [
   ['Jefes de área', 'Debajo de la cabecera, cada jefe de área con su teléfono: en cada área, quien tiene el cargo de jefe (dirección de fotografía, gaffer y key grip, maquillaje, diseño de vestuario, dirección de arte, sonidista…). Para cambiarlo, clic derecho en una persona del equipo técnico: «Jefe de área».'],
   ['Canales de radio', 'Al final de la hoja, junto al centro de salud. Se escriben una vez (por ejemplo «1 Producción, 2 Libre, 3 Transporte») y salen en todas las jornadas.'],
   ['Movilidad', 'Cada vehículo con su conductor (un proveedor o un nombre) y sus pasajeros, del equipo y del reparto.'],
-  ['La leyenda', 'Arriba de la hoja: las tiras del plan (el color de cada escena), la jornada, los eventos y la nota para el equipo. Los del plan se cambian en su leyenda; la nota, aquí. El PDF y el Excel salen con los mismos colores.'],
+  ['La leyenda', 'Arriba de la hoja: las tiras del plan (la franja de color de cada escena), la jornada, los eventos y la nota para el equipo. Los del plan se cambian en su leyenda; la nota, aquí. El PDF y el Excel salen con los mismos colores.'],
   ['Exportar', 'PDF o Excel de esta jornada o de todas. Las filas del equipo sin nombre no se imprimen. «Copiar resumen» deja la fecha, el llamado, la locación con su mapa, el centro de salud y el avance listos para pegar en el chat.'],
 ];
 /* el menú Exportar avisa antes: lo que le falta a la hoja y con qué versión sale (exportar igual es posible) */
@@ -1623,7 +1630,8 @@ function callSheetXLSX(X) {
     'Locación: ' + ([X.loc.name, X.loc.addr || (X.meet.addr || '').trim()].filter(Boolean).join(' · ') || '—'), X.loc.url].filter(Boolean).join('\n');
   row([{ v: key || '—', cs: 3, s: SIDE }, { v: mid, cs: 4, s: { ...MID, bold: true, font: 'title', size: 12, h: 'center' } }, { v: right, cs: 3, s: SIDE }], 84);
   // (lote AH) listos motor, almuerzo, cierre de set y wrap, cada uno en su celda
-  row([{ v: 'Listos motor  ' + (X.motor || '—'), cs: 3, s: { ...B, h: 'center', bold: true } }, { v: 'Almuerzo  ' + (X.lunch || '—'), cs: 2, s: { ...B, h: 'center', bold: true } }, { v: 'Cierre de set  ' + (X.cierre || '—'), cs: 2, s: { ...B, h: 'center', bold: true } }, { v: 'Wrap  ' + (X.end || '—'), cs: 3, s: { ...B, h: 'center', bold: true } }], 20);
+  const LB = { ...B, h: 'right', color: '#555555', size: 9 }, VB = { ...B, h: 'center', bold: true, size: 12 };
+  row([{ v: 'Listos motor', cs: 2, s: LB }, { v: X.motor || '', s: VB }, { v: 'Almuerzo', s: LB }, { v: X.lunch || '', s: VB }, { v: 'Cierre de set', cs: 2, s: LB }, { v: X.cierre || '', s: VB }, { v: 'Wrap', s: LB }, { v: X.end || '', s: VB }], 22);
   // 2. los jefes de área (de a dos por fila)
   if (X.heads.length) {
     gap(); band('Jefes de área');
@@ -1646,7 +1654,8 @@ function callSheetXLSX(X) {
       { v: [r.v.set + (r.it.sp && !r.ov.set ? ` (parte ${r.it.sp})` : ''), r.v.syn, r.v.cast].filter(Boolean).join('\n'), cs: 7, s: { ...f, bold: true } }, { v: r.v.pages, s: { ...f, bold: true, h: 'right' } }]);
     for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { ...B, bold: true } }, { v: x.v.desc, s: B }, { v: x.v.act + (r.set && !x.free && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4, s: B }, { v: x.v.lens, s: CC }, { v: SND_NAME[x.v.snd] || '', s: CC }, { v: x.v.cast, cs: 2, s: B }]);
   }
-  row([{ v: 'Wrap: ' + (X.end || '—') + '   ·   ' + fmtEighths(dayInfo(X.de.keys, X.de.rows).e) + ' págs.', cs: NC, s: { bold: true, line: L, fill: '#222222', color: '#FFFFFF', h: 'center' } }], 20);
+  const WR = { bold: true, line: L, fill: '#222222', color: '#FFFFFF' };
+  row([{ v: X.end || '', s: { ...WR, h: 'center' } }, { v: 'Wrap · fin de jornada', cs: NC - 2, s: WR }, { v: fmtEighths(dayInfo(X.de.keys, X.de.rows).e), s: { ...WR, h: 'right' } }], 20);
   // 5. el avance: las jornadas elegidas (o «Fin de rodaje»)
   for (const A of X.advs) {
     gap(); band(trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') + (A.locs.length ? ' · ' + A.locs.join(', ') : ''));
