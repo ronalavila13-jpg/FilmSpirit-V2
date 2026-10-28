@@ -4,6 +4,8 @@
    derecha con sus datos y sus notas; «Editar en 3D» abre el editor de la v1 (shot-editor.js). Con una escena
    elegida, las viñetas se arrastran para cambiar su orden (como en la v1). «Lista» es el guion técnico de la v1.
    ============================================================ */
+/* quién edita (como la v1): la sección «storyboard» (ficha.js · fichaEditable) */
+const v2SbEd = () => typeof fichaEditable === 'function' ? fichaEditable() : !UI.readOnly;
 const v2SbShot = () => { const id = UI.v2Shot; return id && P.shots[id] ? P.shots[id] : null; };
 const v2SbList = () => { const sc = UI.sbScene ? [sceneOfKey(UI.sbScene)].filter(Boolean) : D.sc.scenes; return sc.flatMap(s => D.shotsBy[s.key] || []); };
 const v2Takes = sh => ((P.sup && P.sup.takes && P.sup.takes[sh.id]) || []).length;
@@ -12,7 +14,7 @@ const v2Secs = s => { s = Math.round(s); return s < 60 ? `${s} s` : `${Math.floo
 V2_ACTS.board = () => `<div class="v2-seg" role="group" aria-label="Vista del storyboard">
     <button type="button" data-v2a="sbv" data-v="panels" aria-pressed="${ea(UI.sbView !== 'table')}">Cuadros</button><button type="button" data-v2a="sbv" data-v="table" aria-pressed="${ea(UI.sbView === 'table')}">Lista</button></div>`
   + `<button type="button" class="v2-btn" data-v2a="export">Exportar PDF</button>`
-  + (UI.readOnly ? '' : `<button type="button" class="v2-btn y" data-v2a="sbnew">${v2I('plus')}<span>Nuevo plano</span></button>`);
+  + (!v2SbEd() ? '' : `<button type="button" class="v2-btn y" data-v2a="sbnew">${v2I('plus')}<span>Nuevo plano</span></button>`);
 V2_DO.sbv = b => { UI.sbView = b.dataset.v; render(); };
 V2_DO.sbnew = () => {
   const cur = v2SbShot(), s = UI.sbScene ? sceneOfKey(UI.sbScene) : cur ? sceneOfKey(cur.sc) : D.sc.scenes[UI.scene] || D.sc.scenes[0];
@@ -39,7 +41,7 @@ function v2SbPanel(sh) {
   return `<aside class="v2-card v2-sbp" data-sid="${ea(sh.id)}">
     <header><h2>Plano ${esc(D.code[sh.id])}</h2>${sh.done ? `<span class="v2-done">${v2I('check')}Rodado${takes ? ` · ${takes} ${takes === 1 ? 'toma' : 'tomas'}` : ''}</span>` : ''}</header>
     <div class="v2-sbbig">${sbFrames(sh)}</div>
-    <div class="v2-sbk"><span>${esc(kind)}</span>${UI.readOnly ? '' : `<button type="button" class="v2-btn" data-act="shot" data-id="${ea(sh.id)}">${v2I('cube')}<span>Editar en 3D</span></button>`}</div>
+    <div class="v2-sbk"><span>${esc(kind)}</span>${!v2SbEd() ? '' : `<button type="button" class="v2-btn" data-act="shot" data-id="${ea(sh.id)}">${v2I('cube')}<span>Editar en 3D</span></button>`}</div>
     ${sh.desc ? `<p class="v2-sbdesc">${esc(sh.desc)}</p>` : ''}
     <div class="v2-sbg">${f('Tamaño', SIZE_NAME[sh.size] || sh.size)}${f('Ángulo', sh.angle)}${f('Movimiento', sh.move)}${f('Lente', sh.lens ? sh.lens + ' mm' : '')}${f('Soporte', sh.support)}${f('Duración', sh.dur ? sh.dur + ' s' : '')}</div>
     ${notes.length ? `<div class="v2-sbn"><h3>Notas</h3>${notes.map(n => v2NoteHTML(n, false) + noteReplies(n.id).map(r => v2NoteHTML(r, true)).join('')).join('')}</div>` : ''}
@@ -85,7 +87,7 @@ function v2SbBind() {
   const v = $('#view');
   // con una escena elegida, las viñetas se arrastran para cambiar el orden (tab-board.js · boardDrag)
   const g = $('.v2-sbgrid', v);
-  if (g && UI.sbScene && !UI.readOnly) g.addEventListener('pointerdown', e => {
+  if (g && UI.sbScene && !!v2SbEd()) g.addEventListener('pointerdown', e => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const cell = e.target.closest('.pcell'); if (!cell) return;
     pressGesture(e, { target: cell, onLift: ev => boardDrag(cell, ev) });
@@ -97,8 +99,8 @@ function v2SbBind() {
     const p = e.target.closest('[data-v2pick]'); if (p && PHONE()) { UI.v2Shot = p.dataset.v2pick; v2Sheet('sbshot'); return; }
     if (p) { UI.v2Shot = p.dataset.v2pick; const old = $('.v2-sbc.on', v); if (old) old.classList.remove('on'); p.closest('.v2-sbc').classList.add('on'); const pn = $('.v2-sbp', v); if (pn) { pn.outerHTML = v2SbPanel(P.shots[UI.v2Shot]); hydrateThumbs(); } }
   });
-  v.addEventListener('dblclick', e => { const p = e.target.closest('[data-v2pick]'); if (p && UI.tab === 'board' && !UI.readOnly) openShot(p.dataset.v2pick); });
-  v.addEventListener('contextmenu', e => { const c = e.target.closest('.v2-sbc'); if (!c || UI.tab !== 'board' || UI.readOnly) return; e.preventDefault(); sbMoreMenu(c, P.shots[c.dataset.sid]); });
+  v.addEventListener('dblclick', e => { const p = e.target.closest('[data-v2pick]'); if (p && UI.tab === 'board' && !!v2SbEd()) openShot(p.dataset.v2pick); });
+  v.addEventListener('contextmenu', e => { const c = e.target.closest('.v2-sbc'); if (!c || UI.tab !== 'board' || !v2SbEd()) return; e.preventDefault(); sbMoreMenu(c, P.shots[c.dataset.sid]); });
 }
 
 /* el teléfono: el plano elegido sube en una hoja (sus datos, sus notas y «Editar en 3D») */

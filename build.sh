@@ -27,6 +27,9 @@ else
 fi
 # las letras de los PDF y los lectores 3D van aparte en el servidor, con su huella en el nombre (lib/pdf-fuentes-<huella>.js):
 # una pestaña abierta con la versión anterior nunca carga los de otra versión
+# versión 2 («esquinas de 3 px en todo»): las esquinas de 4 px o más del CSS de la v1 pasan a 3 px al armar
+# (src/shell.html no cambia: los lotes de la v1 se traen igual). Los círculos (50 %) y las de 1-2 px se quedan.
+v2forma() { sed -E -e 's/border-radius:[[:space:]]*([4-9]|[1-9][0-9]+)(\.[0-9]+)?px([;}"])/border-radius:3px\3/g' -e 's/border-radius:[[:space:]]*([4-9]|[1-9][0-9]+)(\.[0-9]+)?px( !important)/border-radius:3px\3/g'; }
 PDFF_V=$(cat src/pdf-fuente.js src/pdf-fuente-x.js | sha1sum | cut -c1-10)
 GLB_V=$(sha1sum < src/glb-lib.js | cut -c1-10)
 LIBD=server/public/app/lib
@@ -39,7 +42,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
     echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
     echo "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; form-action 'none'; frame-src 'none'\">"
     echo '<link rel="stylesheet" href="fonts/fonts.css">'
-    sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html
+    sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html | v2forma
     echo '<script src="lib/three.min.js"></script>'
   elif [ "$TARGET" = server ]; then
     # la política de seguridad (CSP) la envía el servidor en cada respuesta
@@ -52,10 +55,10 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
     echo '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
     echo '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'
     echo '<link rel="stylesheet" href="fonts/fonts.css">'
-    sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html
+    sed -e '/fonts.googleapis.com/d' -e '/fonts.gstatic.com/d' src/shell.html | v2forma
     echo '<script src="lib/three.min.js"></script>'
   else
-    cat src/shell.html
+    v2forma < src/shell.html
     echo '<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>'
   fi
   # versión 2: el sistema visual nuevo va después de todo el CSS de la v1 (solo cambia la forma)
@@ -72,7 +75,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
   # equipo: en escritorio viaja por la carpeta compartida; en la web, por la base de datos de la página
   if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes"; else FILES="$FILES share share-web"; fi
   # versión 2: la barra lateral y la cabecera (envuelve funciones de la v1; va al final, antes de boot)
-  FILES="$FILES v2 v2-guion v2-plan v2-desglose v2-presupuesto v2-storyboard v2-llamado v2-inicio v2-sup"
+  FILES="$FILES v2 v2-guion v2-plan v2-desglose v2-presupuesto v2-storyboard v2-llamado v2-inicio v2-sup v2-pestanas"
   # la huella de las letras de los PDF y de los lectores 3D (en el servidor, parte del nombre de su archivo en lib/)
   echo "const PDFF_V = '$PDFF_V', GLB_V = '$GLB_V';"
   for f in $FILES; do

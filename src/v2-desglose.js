@@ -8,6 +8,10 @@
      Iluminación → equipo especial marcado como luz (sub: 'light') · Sonido → efectos de sonido.
    Lo de otras categorías de la v1 (vehículos, animales, efectos…) aparece en su propia tarjeta, solo si hay algo.
    ============================================================ */
+/* quién edita (como la v1, share.js): la sección «desglose» y, si el colaborador tiene áreas, solo sus categorías */
+const v2BdEd = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('desglose'));
+const v2BdCan = cat => v2BdEd() && (typeof canEditCat !== 'function' || canEditCat(cat));
+const v2BdCanBox = id => { const b = V2_BD.find(x => x.id === id); return b ? b.cats.some(v2BdCan) : v2BdCan(id); };
 const V2_BD = [
   { id: 'cast', name: 'Reparto', color: '#212121', cats: ['cast'] },
   { id: 'props', name: 'Utilería', color: '#F08A24', cats: ['props', 'weapons'] },
@@ -70,14 +74,14 @@ function v2BdCards(s) {
     if (b) byBox.get(b.id).push(e);
     else { if (!extra.has(e.cat)) extra.set(e.cat, []); extra.get(e.cat).push(e); }
   }
-  const ro = UI.readOnly;
+  const ro = !v2BdEd();
   const tagIds = e => P.tags.filter(t => t.el === e.id && (t.p >= s.p0 && t.p < s.p1 || t.sc === s.key)).map(t => t.id).join(',');
   const chip = e => e.cat === 'cast'
     ? `<button type="button" class="v2-chip2" data-act="ficha" data-id="${ea(e.id)}" title="Ficha del personaje">${D.castNum[e.id] ? D.castNum[e.id] + ' · ' : ''}${esc(e.name)}</button>`
     : `<button type="button" class="v2-chip2${e.auto ? ' sug' : ''}" data-v2tags="${ea(tagIds(e))}" title="${esc(v2BdName(e))}">${esc(e.name)}</button>`;
   const card = (id, name, color, list, add) => `<section class="v2-card v2-bdc" data-box="${ea(id)}">
       <h3><i style="background:${ea(color)}"></i>${esc(name)}<span>${list.length || 'vacío'}</span></h3>
-      <div class="v2-bdchips">${list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name)).map(chip).join('')}${add && !ro ? `<button type="button" class="v2-add" data-v2add="${ea(id)}" aria-label="Añadir a ${ea(name)}" title="Añadir a ${ea(name.toLowerCase())}">${v2I('plus')}</button>` : ''}</div>
+      <div class="v2-bdchips">${list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name)).map(chip).join('')}${add && !ro && v2BdCanBox(id) ? `<button type="button" class="v2-add" data-v2add="${ea(id)}" aria-label="Añadir a ${ea(name)}" title="Añadir a ${ea(name.toLowerCase())}">${v2I('plus')}</button>` : ''}</div>
     </section>`;
   const sorted = list => list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name));
   return V2_BD.map(b => card(b.id, b.name, b.color, sorted(byBox.get(b.id)), true)).join('')
@@ -104,7 +108,7 @@ RENDER.breakdown = (orig => function () {
   const s = D.sc.scenes[UI.scene];
   const day = dayOfScene(s.key);
   const dt = day && day.date ? `${V2_WD[day.date.getDay()]} ${day.date.getDate()} ${day.date.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '').toLowerCase()}` : '';
-  const ed = !UI.readOnly;
+  const ed = v2BdEd();
   v.innerHTML = `<div class="v2-pg v2-bd" data-keep="bd">
     <section class="v2-card v2-strip">
       <div><span>Escena ${esc(s.key)}</span><b class="sc">${esc(s.heading)}</b></div>
@@ -154,7 +158,7 @@ function v2BdBind() {
 }
 /* añadir un elemento a una tarjeta: si su nombre está en el texto de la escena, queda marcado ahí */
 function v2BdAdd(box, name) {
-  const s = D.sc.scenes[UI.scene]; if (!s || UI.readOnly) return;
+  const s = D.sc.scenes[UI.scene]; if (!s || !v2BdEd()) return;
   const b = V2_BD.find(x => x.id === box);
   const cat = b ? b.cats[0] : box;
   if (typeof canEditCat === 'function' && !canEditCat(cat)) return;
@@ -175,7 +179,7 @@ function v2BdAdd(box, name) {
 }
 /* elegir texto en la escena: el menú de las categorías (como el marcador del guion rayado) */
 function v2BdSel() {
-  if (UI.tab !== 'breakdown' || UI.readOnly) return;
+  if (UI.tab !== 'breakdown' || !v2BdEd()) return;
   const box = $('#v2bdText'), s = getSelection();
   if (!box || !s || s.isCollapsed || !s.rangeCount) { $$('.v2-bdpick').forEach(x => x.remove()); return; }
   const r = s.getRangeAt(0); if (!box.contains(r.commonAncestorContainer)) return;
@@ -189,10 +193,10 @@ function v2BdSel() {
   SEL = { a, b, text: x.slice(a.o, b.o) };
   $$('.v2-bdpick').forEach(el => el.remove());
   const rc = r.getBoundingClientRect();
-  const extra = CATS.filter(c => !['cast', 'props', 'setdress', 'wardrobe', 'sound', 'extras'].includes(c.id));
+  const extra = CATS.filter(c => !['cast', 'props', 'setdress', 'wardrobe', 'sound', 'extras'].includes(c.id) && v2BdCan(c.id));
   const pk = document.createElement('div'); pk.className = 'v2-bdpick';
-  pk.innerHTML = V2_BD.map(b => `<button type="button" data-k="${ea(b.id)}"><i style="background:${ea(b.color)}"></i>${esc(b.name)}</button>`).join('')
-    + `<button type="button" data-k="extras"><i style="background:${ea(CAT.extras.color)}"></i>Extras</button>`
+  pk.innerHTML = V2_BD.filter(b => v2BdCanBox(b.id)).map(b => `<button type="button" data-k="${ea(b.id)}"><i style="background:${ea(b.color)}"></i>${esc(b.name)}</button>`).join('')
+    + (v2BdCan('extras') ? `<button type="button" data-k="extras"><i style="background:${ea(CAT.extras.color)}"></i>Extras</button>` : '')
     + `<details><summary>Más</summary>${extra.map(c => `<button type="button" data-k="${ea(c.id)}"><i style="background:${ea(c.color)}"></i>${esc(c.name)}</button>`).join('')}</details>`;
   pk.style.left = Math.max(8, Math.min(innerWidth - 280, rc.left)) + 'px';
   pk.style.top = (rc.bottom + 8) + 'px';

@@ -845,3 +845,45 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
 #view>.insp.v2-insp .rv-top h2{font:700 18px/24px var(--v2-disp)}
 .v2-sheet .v2-sbp header h2{display:none}
 .v2-sheet .v2-sbp header:not(:has(.v2-done)){display:none}
+
+/* ============ LAS PESTAÑAS QUE NO ESTÁN EN EL PDF: las piezas de la v1 con la forma v2 ============ */
+/* Exportar y los ajustes de la barra de la v1 ya están en la cabecera (Exportar y «⋯») */
+:root[data-v2] #view .bar>:is([data-act="export"],.set-more,.tools-more){display:none !important}
+/* las pestañas de la v1 con columnas (Guion rayado, Scouting, Casting…): como el Guion del PDF — sin paneles blancos,
+   la lista a la izquierda con sus tarjetas y el número en un cuadro, a 32 px del borde */
+@media (min-width:761px){
+  :root[data-v2] #view>.ws:not(.ws-1){gap:24px;padding:0 32px;background:var(--bg);grid-template-columns:220px minmax(0,1fr) 260px}
+  :root[data-v2] #view>.ws.ws-2{grid-template-columns:220px minmax(0,1fr)}
+  :root[data-v2] #view>.ws:not(.ws-1)>:is(.side,.insp){background:none;border:0;padding-left:0;padding-right:0}
+  :root[data-v2] #view>.ws:not(.ws-1)>.center{border:0;min-width:0}
+}
+:root[data-v2] #view .side-head{background:var(--bg);padding:1px 0 12px}
+:root[data-v2] #view .hd-sidet{margin:0 5px;font:700 17px/20px var(--v2-disp)}
+:root[data-v2] #view .hd-sidet small{font:400 11.7px/20px var(--font-ui)}
+:root[data-v2] .hd-search{height:36px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+:root[data-v2] #view .slist{padding:0;display:grid;gap:4px}
+:root[data-v2] #view .slist li button{grid-template-columns:22px minmax(0,1fr) auto;gap:12px;padding:10px 10px 9px;border:1px solid transparent;border-radius:3px}
+:root[data-v2] #view .slist li button:hover{background:color-mix(in srgb,var(--surface) 55%,transparent)}
+:root[data-v2] #view .slist li button[aria-current="true"]{background:var(--surface);border-color:var(--line);box-shadow:none}
+:root[data-v2] #view .slist .k{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:3px;background:#F0F0EC;color:var(--ink);font:700 12px/1 var(--font-ui)}
+:root[data-v2] #view .slist li button[aria-current="true"] .k{background:var(--v2-yellow);color:var(--v2-black)}
+:root[data-v2][data-theme="dark"] #view .slist .k{background:var(--fill)}
+:root[data-v2] #view .slist .sch{font:700 12.5px/16px var(--font-ui);text-transform:uppercase}
+:root[data-v2] #view .slist .scd{font:400 12px/16px var(--font-ui);color:var(--muted)}
+:root[data-v2] #view .slist .e{font:400 11.5px/16px var(--font-ui)}
+/* alineadas a la izquierda, como las pantallas del PDF (a 32 px del borde, bajo el título) */
+@media (min-width:761px){
+  :root[data-v2] #view .b-hd{margin-left:0}
+  :root[data-v2] #view .b-argw{justify-content:start}
+  :root[data-v2] #view .pj{margin-left:0}
+  :root[data-v2] #view .cm-sc{padding-left:32px;padding-right:32px}
+  :root[data-v2] #view>.ws:not(.ws-1)>.center>:is(.scroller.pad,.bar){padding-left:0;padding-right:0}
+}
+/* la hoja de la Historia: como las hojas del PDF (borde fino, sin sombra) */
+:root[data-v2] #view .b-sheet{box-shadow:none;border:1px solid var(--line);border-radius:3px}
+/* Historia: los textos numerados en cuadros (amarillo: con texto) */
+:root[data-v2] #view .b-n{border-radius:3px;background:#F0F0EC;color:var(--ink);font-weight:700}
+:root[data-v2] #view .b-argbtn.has .b-n{background:var(--v2-yellow);color:var(--v2-black)}
+/* ‹ › de la v1 (jornada, escena, plano): cuadros con borde fino, como las flechas del PDF */
+:root[data-v2] .hd-stepb{border-radius:3px;border:1px solid var(--line);background:var(--surface)}
+:root[data-v2] .hd-stepb:disabled{border-color:#F3F3F1;background:var(--surface);color:#A1A1A1}
