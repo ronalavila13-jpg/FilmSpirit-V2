@@ -8,6 +8,8 @@
    de cada jornada. (lote AH) Todo lo que llega del stripboard se puede cambiar
    en la hoja (queda solo en ella, con «volver a la guía»), hay hojas libres
    que no salen de ninguna jornada y la hoja va en cuadros, como una planilla.
+   (lote AI) Con dos estilos: Apple (el de entrada, líneas finas y aire) o Excel
+   (en cuadros), con el botón «Excel | Apple» de la barra (callXL).
    ============================================================ */
 const CS_DEPTS = [
   ['prod', 'Producción', ['Dirección', 'Producción', 'Producción ejecutiva', 'Jefatura de producción', 'Asistencia de producción']],
@@ -54,6 +56,11 @@ const CALL = () => P.call;
 const callShotTimes = () => !!(P.call && P.call.shotTimes);
 /* la miniatura del storyboard en cada plano del cronograma (encendida salvo que se apague) */
 const callThumbs = () => !(P.call && P.call.noThumbs) && typeof thumbCached === 'function';
+/* (lote AI) el estilo de la hoja, en la pantalla y en el PDF (el botón «Excel | Apple» de la barra): 'excel', en cuadros
+   con líneas negras (el del lote AH), o 'apple', con la escala de letras, los grises, las líneas finas y el aire de los
+   lotes Y a AG. La estructura es la misma en los dos. Es del proyecto (P.call.style: todo el equipo exporta igual) y,
+   sin elegir, Apple (lo pidió Ronald). No entra en la huella: cambiar el estilo no hace vieja una hoja ya enviada */
+const callXL = () => !!(typeof P !== 'undefined' && P && P.call && P.call.style === 'excel');
 const callThumb = sh => { const u = thumbCached(sh); return `<img class="cl-th${ea(u ? '' : ' wait')}" draggable="false" alt="" src="${ea(u || BLANK)}" ${u ? '' : `data-thumb="${ea(sh.id)}"`}>`; };
 /* directorio del equipo: la primera vez se arma con los cargos típicos y los nombres del Proyecto */
 function callCrew() {
@@ -339,6 +346,8 @@ function callNormalize(Px) {
   // (lote AH) las hojas libres y quién es jefe de su área
   if (C.free != null) { C.free = Array.isArray(C.free) ? C.free.filter(f => f && typeof f.id === 'string' && /^f[\w-]{1,40}$/.test(f.id)).map(f => ({ id: f.id, name: typeof f.name === 'string' ? f.name.replace(/[\u0000-\u001f]+/g, ' ').slice(0, 80) : '' })) : []; if (!C.free.length) delete C.free; }
   if (Array.isArray(C.crew)) for (const c of C.crew) if (c && c.head != null && typeof c.head !== 'boolean') delete c.head;
+  // (lote AI) el estilo de la hoja: 'excel' o 'apple' (sin el dato, Apple)
+  if ('style' in C && C.style !== 'excel' && C.style !== 'apple') delete C.style;
   if (!C.days || typeof C.days !== 'object') return;
   const str = v => typeof v === 'string', obj = v => v && typeof v === 'object' && !Array.isArray(v);
   for (const dd of Object.values(C.days)) {
@@ -608,7 +617,8 @@ const imgOk = u => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif|sv
    en grande con listos motor, almuerzo, cierre de set y wrap · el clima y la locación con su mapa); los jefes de área
    con su teléfono; la nota del 1.er asistente; el cronograma; el avance; los talentos y el equipo técnico, cada uno en
    su cuadro; y debajo lo demás: la utilería especial, el punto de encuentro, la movilidad, el centro de salud y los
-   canales de radio. Sin encabezado ni pie de página */
+   canales de radio. Sin encabezado ni pie de página. (lote AI) Así en Excel (.cl-xl); en Apple (.cl-ap, el de entrada),
+   los mismos bloques sin cuadros: cada uno con su título y una regla fina (shell.html) */
 const CL_ICO = {
   wx: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.8v1.4M2.8 8.5h1.4M4.5 4.5l1 1M12.5 4.5l-1 1"/><path d="M9.5 19.5h8.6a3.2 3.2 0 0 0 .2-6.4 4.4 4.4 0 0 0-8.4 1 2.7 2.7 0 0 0-.4 5.4z"/></svg>',
   sun: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 16.5a6.5 6.5 0 0 1 13 0M3 16.5h18M12 4.5v3M5.9 8.9l1.6 1.6M18.1 8.9l-1.6 1.6M8 20h8"/></svg>',
@@ -734,7 +744,7 @@ RENDER.call = function () {
   if (!days.length && !UI.callFree) { v.innerHTML = `<div class="ws ws-1"><section class="center"><div class="scroller pad"><p class="hint">Primero arma el plan de rodaje: cada jornada tendrá su hoja de llamado.</p>${ed ? `<p>${hdBtn('sec', 'Hoja libre', { icon: 'plus', sm: true, attrs: 'data-act="cl-free-new" title="Una hoja de llamado que no sale de ninguna jornada: se llena a mano"' })}</p>` : ''}</div></section></div>`; bindView(); return; }
   if (UI.callDay == null || (days.length && UI.callDay >= days.length)) { const f = UI.callFree; UI.callDay = 0; UI.callFree = f; }
   const ref = callRef(), S = callSheet(ref, cd), free = !!S.free, n = S.n, d = S.d, de = S.de, dt = S.date;
-  const C = CALL(), dd = peekDay(d.id), def = callDefaults(d);
+  const C = CALL(), dd = peekDay(d.id), def = callDefaults(d), XL = callXL();
   callCrew();
   const M = P.meta;
   const hosp = { ...C.hospital, ...(dd.hosp || {}) };
@@ -965,10 +975,11 @@ RENDER.call = function () {
     <div class="bar">
       ${sel}${free && ed ? `<button type="button" class="btn ghost sm" data-act="cl-free-del" title="Borrar esta hoja libre" aria-label="Borrar esta hoja libre">${ICO.trash}</button>` : ''}
       <span class="grow"></span>
+      ${ed ? hdStyleSeg('cl-style', XL) : ''}
       ${toolsHTML()}
     </div>
     ${legendHTML('call')}
-    <div class="scroller pad" data-keep="call"><div class="cs cl">
+    <div class="scroller pad" data-keep="call"><div class="cs cl ${XL ? 'cl-xl' : 'cl-ap'}">
       <article class="cl-doc">
       <section class="hd cl-hd" aria-label="Cabecera de la hoja de llamado">
         <div class="cl-acts"><span class="grow"></span>${status}</div>
@@ -1250,6 +1261,13 @@ function clAdvSet(fn) {
 }
 Object.assign(ACT, {
   'cs-plan': () => setTab('plan'),
+  // (lote AI) el estilo de la hoja (pantalla y PDF), para todo el equipo: un paso del historial
+  'cl-style': b => {
+    const v = b.dataset.v === 'excel' ? 'excel' : 'apple';
+    if (!callEditable() || (v === 'excel') === callXL()) return;
+    histNote(v === 'excel' ? 'Hoja de llamado en estilo Excel' : 'Hoja de llamado en estilo Apple');
+    CALL().style = v; changed('data'); render();
+  },
   'cl-exp': b => exportPDF('call', b, { all: false, share: true }),
   // el resumen para el chat: lo que se busca primero en el teléfono, con el enlace al mapa
   'cl-copy': async () => {
@@ -1568,7 +1586,8 @@ SETTINGS.call = () => {
     <label class="fld"><span>Cliente (publicidad)</span><input type="text" value="${esc(C.client)}" data-bind="cs-set" data-f="client" placeholder="Opcional" ${dis}></label>`;
 };
 HELP.call = [
-  ['La hoja', 'Se lee de un vistazo y va toda en cuadros, como una planilla. Arriba, en tres columnas: la productora y su equipo clave con teléfono (jefatura de producción, dirección y 1.er asistente de dirección, y la producción y el cliente si los hay); el proyecto, la jornada, la fecha y el llamado general en grande, con listos motor, almuerzo, cierre de set, wrap y catering; el clima y la locación con su dirección y el mapa. Debajo, los jefes de área con su teléfono, la nota del 1.er asistente, el cronograma con los planos de cada escena, el avance, los talentos y el equipo técnico. Al final, la utilería especial, el punto de encuentro, la movilidad, el centro de salud y los canales de radio.'],
+  ['La hoja', 'Se lee de un vistazo. Arriba, en tres columnas: la productora y su equipo clave con teléfono (jefatura de producción, dirección y 1.er asistente de dirección, y la producción y el cliente si los hay); el proyecto, la jornada, la fecha y el llamado general en grande, con listos motor, almuerzo, cierre de set, wrap y catering; el clima y la locación con su dirección y el mapa. Debajo, los jefes de área con su teléfono, la nota del 1.er asistente, el cronograma con los planos de cada escena, el avance, los talentos y el equipo técnico. Al final, la utilería especial, el punto de encuentro, la movilidad, el centro de salud y los canales de radio.'],
+  ['Excel | Apple', 'En la barra, el estilo de la hoja, en la pantalla y en el PDF: «Apple» (así viene), con líneas finas y aire, o «Excel», toda en cuadros con líneas negras, como una planilla. Lo que dice la hoja es lo mismo en los dos. Se guarda en el proyecto: todo el equipo la ve y la exporta igual.'],
   ['De dónde sale', 'El cronograma, las locaciones y el reparto de cada jornada vienen del plan de rodaje y del desglose. Si cambias el plan, la hoja se actualiza sola. La utilería especial reúne la utilería, las armas y los efectos especiales del desglose de las escenas del día.'],
   ['Cambiar lo del stripboard', 'Todo lo que llega del stripboard se puede cambiar en la hoja: el número, el encabezado, la sinopsis, el reparto, D/N y las páginas de cada escena, y la descripción, la acción, el lente, el sonido y los personajes de cada plano. El cambio queda solo en esta hoja (el plan, el desglose y el storyboard no cambian) y se nota apenas, con una línea de puntos. Borra el campo para volver a lo del stripboard, o usa «Volver a la guía del stripboard» arriba del cronograma para la hoja entera.'],
   ['Agregar y quitar filas', 'Clic derecho en una fila del cronograma, de los talentos o del equipo técnico (en el teléfono, mantén el dedo): «Agregar fila arriba», «Agregar fila abajo» o «Quitar fila». Las filas agregadas se escriben enteras y quedan solo en esta hoja, no en el stripboard. Lo que quitas del stripboard queda abajo de la tabla, con ↺ para volver a ponerlo. Un plano quitado sale en el storyboard y en el guion técnico como «Eliminado en la hoja de llamado».'],
@@ -1584,6 +1603,8 @@ HELP.call = [
   ['La leyenda', 'Arriba de la hoja: las tiras del plan (la franja de color de cada escena), la jornada, los eventos y la nota para el equipo. Los del plan se cambian en su leyenda; la nota, aquí. El PDF y el Excel salen con los mismos colores.'],
   ['Exportar', 'PDF o Excel de esta jornada o de todas. Las filas del equipo sin nombre no se imprimen. «Copiar resumen» deja la fecha, el llamado, la locación con su mapa, el centro de salud y el avance listos para pegar en el chat.'],
 ];
+/* (lote AI) en el teléfono, el estilo de la hoja va en el «⋯» de la barra (en la computadora, «Excel | Apple» en la barra) */
+TOOLS_EXTRA.call = () => callEditable() ? [hdStyleMore('cl-style', callXL())] : [];
 /* el menú Exportar avisa antes: lo que le falta a la hoja y con qué versión sale (exportar igual es posible) */
 function callExpHints() {
   const { days } = callDays(), ref = callRef();

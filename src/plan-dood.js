@@ -44,7 +44,8 @@ function doodHTML() {
   const tw = rows.reduce((a, r) => a + r.work, 0), th = rows.reduce((a, r) => a + r.hold, 0);
   // a todo el ancho: las jornadas se reparten el espacio (hasta un máximo) y los totales quedan al final, a la derecha
   const colg = `<colgroup><col class="cg-n">${cols.map(() => '<col class="cg-d">').join('')}<col class="cg-gap">${'<col class="cg-t">'.repeat(3)}<col class="cg-t2"><col class="cg-t2"></colgroup>`;
-  return `<div class="card dd-card"><div class="dd-scroll"><table class="dood" style="--dd-n:${ea(cols.length)}">${colg}
+  // (lote AI) con el plan en estilo Excel, la tabla con líneas negras entre filas y columnas
+  return `<div class="card dd-card${planXL() ? ' xl' : ''}"><div class="dd-scroll"><table class="dood" style="--dd-n:${ea(cols.length)}">${colg}
       <thead><tr><th class="dd-n" scope="col">Reparto</th>${head}<th class="dd-gap" aria-hidden="true"></th><th class="dd-t" scope="col" title="Jornadas de trabajo">Trab.</th><th class="dd-t" scope="col" title="Jornadas en espera">Esp.</th><th class="dd-t" scope="col" title="De su primera a su última jornada">Total</th><th class="dd-t" scope="col">Inicio</th><th class="dd-t" scope="col">Fin</th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr><th scope="row" class="dd-n">Actores por jornada</th>${per}<td class="dd-gap"></td><td class="dd-t tnum">${tw}</td><td class="dd-t tnum">${th || ''}</td><td colspan="3"></td></tr></tfoot></table></div>
@@ -52,36 +53,42 @@ function doodHTML() {
 }
 
 /* ---------- PDF y Excel ---------- */
+/* (lote AI) con el estilo del plan de rodaje (P.schedule.style): Excel, la rejilla negra del lote AH; Apple (el de
+   entrada), como antes: la cabecera sin cuadro, la rejilla fina en el tono de las líneas, la cabecera de las columnas en
+   el de la barra con sus divisiones blancas y los códigos en una línea, sin cuadro */
 function pdfDood() {
-  const doc = newDoc('landscape');
+  const doc = newDoc('landscape'), XL = typeof planXL === 'function' && planXL(), HO = XL ? {} : { flat: true };
   const { cols, rows } = doodData();
   const W = doc.internal.pageSize.getWidth();
   const dates = cols.filter(c => c.date);
-  let y = docHeader(doc, 'DOOD · Días por actor', `${rows.length} ${rows.length === 1 ? 'personaje' : 'personajes'} · ${cols.length} ${cols.length === 1 ? 'jornada' : 'jornadas'}${dates.length ? ' · ' + fmtDate(dates[0].date) + ' a ' + fmtDate(dates[dates.length - 1].date) : ''}`);
+  let y = docHeader(doc, 'DOOD · Días por actor', `${rows.length} ${rows.length === 1 ? 'personaje' : 'personajes'} · ${cols.length} ${cols.length === 1 ? 'jornada' : 'jornadas'}${dates.length ? ' · ' + fmtDate(dates[0].date) + ' a ' + fmtDate(dates[dates.length - 1].date) : ''}`, HO);
   const IN = rgb(tabTone().tint), IT = rgb(tabTone().deep);   // inicio y fin, en un tono de la pestaña (del tema)
   const FILL = { I: IN, T: PDF_BLACK, E: PT.fill, F: IN, IF: IN };   // como en la app: trabaja en negro, inicio y fin en azul
   const TXT = { I: IT, T: [255, 255, 255], E: [110, 116, 124], F: IT, IF: IT };
   const nameW = 130, totW = 5 * 34, room = W - 72 - nameW - totW;
   // (lote AH) en cuadro, tipo Excel: la rejilla en negro, bien visible, también en los títulos (antes gris fina y blanca)
-  const LINE = { lineColor: PDF_BLACK, lineWidth: .7 };
+  const LINE = XL ? { lineColor: PDF_BLACK, lineWidth: .7 } : { lineColor: PDF_LINE, lineWidth: .4 };
+  const HEAD = XL ? LINE : { fillColor: PT.bar, textColor: PT.barInk, lineWidth: .4, lineColor: PDF_WHITE };
   // columnas de jornada: anchas si son pocas; con muchas, 17 pt y se parten en varias páginas
   const dayW = Math.max(17, Math.min(30, Math.floor(room / Math.max(1, cols.length))));
   const per = Math.max(8, Math.floor(room / dayW));
   for (let a = 0; a < Math.max(1, cols.length); a += per) {
     const part = cols.slice(a, a + per), last = a + per >= cols.length;
-    if (a > 0) { doc.addPage(); y = docHeader(doc, 'DOOD · Días por actor', `Jornadas ${a + 1} a ${a + part.length}`); }
+    if (a > 0) { doc.addPage(); y = docHeader(doc, 'DOOD · Días por actor', `Jornadas ${a + 1} a ${a + part.length}`, HO); }
     const head = [[{ content: 'Reparto', styles: { halign: 'left' } }, ...part.map(c => `${c.n + 1}${c.date ? '\n' + (dayW >= 26 ? (EN ? (c.date.getMonth() + 1) + '/' + c.date.getDate() : c.date.getDate() + '/' + (c.date.getMonth() + 1)) : c.date.getDate()) : ''}`), ...(last ? ['Trab.', 'Esp.', 'Total', 'Inicio', 'Fin'] : [])]];
     const body = rows.map(r => [pdfSafe(`${r.n}. ${r.name}`), ...part.map(c => ddc(r.codes[c.n])), ...(last ? [String(r.work), r.hold ? String(r.hold) : '', r.total ? String(r.total) : '', pdfSafe(r.first ? (r.first.date ? doodDay(r.first.date) : (EN ? 'D' : 'J') + (r.first.n + 1)) : ''), pdfSafe(r.last ? (r.last.date ? doodDay(r.last.date) : (EN ? 'D' : 'J') + (r.last.n + 1)) : '')] : [])]);
     body.push([{ content: 'Actores por jornada', styles: { fontStyle: 'bold' } }, ...part.map(c => c.cast.size ? String(c.cast.size) : ''), ...(last ? [String(rows.reduce((s, r) => s + r.work, 0)), '', '', '', ''] : [])]);
     const cs = { 0: { cellWidth: nameW, halign: 'left' } };
     part.forEach((_, j) => { cs[j + 1] = { cellWidth: dayW, halign: 'center' }; });
     if (last) for (let k = 0; k < 5; k++) cs[part.length + 1 + k] = { cellWidth: 34, halign: 'center' };
-    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', ...LINE, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', ...LINE, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
+    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', ...LINE, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', ...HEAD, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
       didParseCell: d => { if (d.section !== 'body' || d.column.index < 1 || d.column.index > part.length) return; const c = d.cell.raw; if (FILL[c]) { d.cell.styles.fillColor = FILL[c]; d.cell.styles.textColor = TXT[c]; d.cell.styles.fontStyle = 'bold'; } } });
     y = doc.lastAutoTable.finalY + 12;
   }
-  // (lote AH) los códigos, en su cuadro
-  doc.autoTable({ ...TBL, startY: y, margin: { left: 36, right: 36, top: 38, bottom: 44 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...LINE, fontSize: PF.small, textColor: MUTED, cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } },
+  // (lote AH) los códigos, en su cuadro; (lote AI) en Apple, en una línea, como antes
+  if (!XL) { doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED);
+    doc.text(trDone(pdfSafe(DOOD_CODES.map(([c, n, h]) => `${ddc(c)} ${n.toLowerCase()}${h ? ' (' + h + ')' : ''}`).join('   ·   '))), 36, Math.min(y + 4, doc.internal.pageSize.getHeight() - 34), { maxWidth: W - 72 }); }
+  else doc.autoTable({ ...TBL, startY: y, margin: { left: 36, right: 36, top: 38, bottom: 44 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...LINE, fontSize: PF.small, textColor: MUTED, cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } },
     body: [[trDone(pdfSafe(DOOD_CODES.map(([c, n, h]) => `${ddc(c)} ${n.toLowerCase()}${h ? ' (' + h + ')' : ''}`).join('   ·   ')))]] });
   pageNumbers(doc, 'DOOD');
   return { doc, name: fileSafe(P.meta.title) + '_dias_por_actor.pdf' };

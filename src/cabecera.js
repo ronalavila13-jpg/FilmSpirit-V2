@@ -43,7 +43,14 @@ function hdBtn(kind, text, o = {}) {
 }
 /* control segmentado: items = [{ label, attrs, on }] */
 // en el teléfono, la barra lo vuelve un selector, como a los «seg» de siempre (phoneBars)
-const hdSeg = (items, lab = '') => `<span class="hd-seg" role="group"${lab ? ` aria-label="${ea(lab)}"` : ''}>${items.map(x => `<button type="button" aria-pressed="${x.on ? 'true' : 'false'}" ${x.attrs || ''}>${x.label}</button>`).join('')}</span>`;
+const hdSeg = (items, lab = '', cls = '') => `<span class="hd-seg${cls ? ' ' + cls : ''}" role="group"${lab ? ` aria-label="${ea(lab)}"` : ''}>${items.map(x => `<button type="button" aria-pressed="${x.on ? 'true' : 'false'}" ${x.attrs || ''}>${x.label}</button>`).join('')}</span>`;
+/* (lote AI) el estilo de un documento (la hoja de llamado, el plan de rodaje), en la pantalla y en el PDF: «Excel», en
+   cuadros con líneas negras, o «Apple», con líneas finas y aire. act: la acción (data-v = 'excel' o 'apple'). En el
+   teléfono no va en la barra (le quitaría lugar al selector de la jornada): va en su «⋯» (hdStyleMore, TOOLS_EXTRA) */
+const HD_STYLES = [['excel', 'Excel', 'Estilo Excel: en cuadros, con líneas negras bien visibles (en la pantalla y en el PDF)'], ['apple', 'Apple', 'Estilo Apple: líneas finas y aire, sin cuadros (en la pantalla y en el PDF)']];
+const hdStyleSeg = (act, xl) => hdSeg(HD_STYLES.map(([v, l, t]) => ({ label: l, attrs: `data-act="${ea(act)}" data-v="${v}" title="${ea(t)}"`, on: (v === 'excel') === xl })), 'Estilo del documento', 'hide-sm');
+const hdStyleMore = (act, xl) => [ICO.palette, `Estilo del documento <small>${xl ? 'Excel' : 'Apple'}</small>`, a => popover(a, `<h5>Estilo del documento</h5><div class="menu hd-stm">${HD_STYLES.map(([v, l, t]) => `<button type="button" data-v="${v}"${(v === 'excel') === xl ? ' aria-current="true"' : ''}><b>${l}</b> <small>${esc(t.replace(/^Estilo \w+: /, ''))}</small></button>`).join('')}</div>`,
+  p => p.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; closePop(); ACT[act](b); }))];
 /* buscador: envuelve el input de siempre con la lupa */
 const hdSearch = input => `<label class="hd-search">${ICO.search}${input}</label>`;
 /* la tarjeta principal: cols = [{ lab, val (HTML), cls ('big'|'mid'), tag, cap, wide, html }] */

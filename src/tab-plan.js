@@ -311,7 +311,7 @@ RENDER.plan = function () {
   const locNames = [...new Set([...(S.locs || []).map(l => l.name), ...Object.values(S.setLoc || {}), ...S.items.map(it => it.loc)].filter(Boolean))];
   // (lote U) arriba la pestaña es «Plan de rodaje»; abajo, sus dos vistas: «Stripboard» (la tabla de jornadas, donde se
   // edita el plan) y «DOOD» (días por actor, plan-dood.js)
-  const dood = ls.get('plView', 'days') === 'cast';
+  const dood = ls.get('plView', 'days') === 'cast', XL = planXL();
   v.innerHTML = `<div class="ws ws-1"><section class="center">
     <div class="bar">
       ${hdSeg([{ label: 'Stripboard', attrs: 'data-act="pl-view" data-v="days" title="Las jornadas con sus tiras: una fila por escena"', on: !dood }, { label: 'DOOD', attrs: 'data-act="pl-view" data-v="cast" title="Qué jornadas trabaja cada actor (días por actor)"', on: dood }], 'Vista del plan')}
@@ -319,6 +319,7 @@ RENDER.plan = function () {
       ${ed ? hdBtn('sec', 'Locaciones…', { sm: true, cls: 'hide-sm', attrs: 'data-act="pl-locs" aria-haspopup="dialog" title="Cambiar el nombre de las locaciones de rodaje (cambia todas sus escenas)"' }) : ''}
       ${ed && !dood && isSeries(P) ? hdBtn('sec', 'Bloque', { icon: 'plus', sm: true, cls: 'hide-sm', attrs: 'data-act="pl-block" aria-haspopup="dialog" title="Jornadas con las escenas de varios episodios juntas, por locación (rodaje por bloques)"' }) : ''}
       ${ed && !dood ? hdBtn('sec', 'Etapa', { icon: 'plus', sm: true, cls: 'hide-sm', attrs: 'data-act="pl-addstage" aria-haspopup="dialog" title="Una etapa nueva: su nombre y desde qué jornada empieza"' }) + hdBtn('tint', 'Jornada', { icon: 'plus', sm: true, cls: 'm-more', attrs: 'data-act="pl-addday" title="Agrega una jornada vacía al final"' }) : ''}
+      ${ed ? hdStyleSeg('pl-style', XL) : ''}
       ${toolsHTML()}
     </div>
     <div class="scroller pad" data-keep="plan"><div class="plan">
@@ -327,7 +328,7 @@ RENDER.plan = function () {
       ${ed && !days.length ? `<div class="pl-start"><b>Arma las jornadas a tu manera.</b> Crea una con «+ Jornada» y arrastra a ella las escenas de «Sin programar». Si prefieres una propuesta para empezar, usa «Sugerir jornadas»: se puede deshacer.<span class="pl-start-b"><button class="btn primary sm" data-act="pl-addday">+ Jornada</button><button class="btn sm" data-act="pl-bank">Sugerir jornadas</button></span></div>` : ''}
       ${ed ? (TOUCHY ? tipHTML('plan-drag2', 'Mantén el dedo sobre una escena para moverla. En la barra de la jornada: mantén el dedo y arrastra para moverla entera, o suelta para ver sus opciones.') : tipHTML('plan-drag3', 'Arrastra una escena desde cualquier parte para moverla; arrastra desde un espacio vacío para elegir varias. Arrastra la barra de la jornada para moverla entera. Clic derecho en una escena o en una barra: sus opciones (y la hoja de desglose).')) : ''}
       ${legendHTML('plan')}
-      <div class="pl-scroll"><div class="pl${ea(ed ? ' pl-ed' : '')}${ea(plSel().size ? ' selecting' : '')}${ea(PC.cls)}" id="board" style="${ea(PC.style)}">${body}</div></div>
+      <div class="pl-scroll"><div class="pl${ea(ed ? ' pl-ed' : '')}${ea(plSel().size ? ' selecting' : '')}${ea(PC.cls)}${XL ? ' xl' : ''}" id="board" style="${ea(PC.style)}">${body}</div></div>
       <datalist id="plLocs">${locNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="card pl-legend"><div class="eyebrow" style="margin-bottom:8px">Reparto</div><div class="castlegend">${castLegend || '<span class="hint">Marca personajes en el guion para numerarlos.</span>'}</div>
         <div class="pl-key">${stages.length ? `<span><i style="background:${ea(STAGE_TONES[0])};border-radius:50%"></i>Etapa</span>` : ''}<span><i class="ok"></i>Jornada completada</span></div></div>
@@ -989,6 +990,13 @@ function planBank() {
 Object.assign(ACT, {
   'pl-gobank': () => { const b = $('#view .pl-stage.bank'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); },
   'pl-view': b => { ls.set('plView', b.dataset.v === 'cast' ? 'cast' : 'days'); plSel().clear(); render(); },
+  // (lote AI) el estilo del plan (el stripboard en la pantalla y los PDF del plan y del DOOD), para todo el equipo
+  'pl-style': b => {
+    const v = b.dataset.v === 'excel' ? 'excel' : 'apple';
+    if (!planEditable() || (v === 'excel') === planXL()) return;
+    histNote(v === 'excel' ? 'Plan de rodaje en estilo Excel' : 'Plan de rodaje en estilo Apple');
+    P.schedule.style = v; changed('data'); render();
+  },
   // desde «Por actor»: la jornada en el plan
   'pl-goday': b => { ls.set('plView', 'days'); render(); requestAnimationFrame(() => { const el = $(`.pday[data-n="${CSS.escape(b.dataset.n)}"]`); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } }); },
   'pl-bank': () => {
@@ -1089,7 +1097,17 @@ function planDocShots(sel) {
   return [...days.flatMap((d, n) => !ds || ds.has(n) ? d.rows : []), ...(ds ? [] : bankRows)].flatMap(i => planDocShotsOf(S.items[i]));
 }
 /* al abrir el proyecto (normalizeProject) o al llegar el plan de otra persona: noThumbs solo como true */
-function planDocNorm(S) { if (S && S.noThumbs !== true) delete S.noThumbs; }
+function planDocNorm(S) {
+  if (!S) return;
+  if (S.noThumbs !== true) delete S.noThumbs;
+  // (lote AI) el estilo del plan: 'excel' o 'apple' (sin el dato, Apple)
+  if ('style' in S && S.style !== 'excel' && S.style !== 'apple') delete S.style;
+}
+/* (lote AI) el estilo del plan de rodaje (el botón «Excel | Apple» de la barra): el stripboard en la pantalla, su PDF y
+   el del DOOD. 'excel': la rejilla negra del lote AH (y, en la pantalla, columnas y filas con líneas bien visibles, como
+   una hoja de cálculo); 'apple': la línea fina debajo de cada fila, sin rejilla (como antes del lote AH). Es del proyecto
+   (P.schedule.style: todo el equipo exporta igual) y, sin elegir, Apple (lo pidió Ronald) */
+const planXL = () => !!(typeof P !== 'undefined' && P && P.schedule && P.schedule.style === 'excel');
 /* la casilla, arriba del menú Exportar del plan: se ve al momento de exportar y no ocupa lugar en la pantalla. Solo
    quien puede editar el plan la cambia (los demás exportan con lo que eligió el equipo). Sin planos en el storyboard,
    no sale (como la de la hoja de llamado) */
@@ -1256,9 +1274,10 @@ SETTINGS.plan = () => {
 `;
 };
 // en el teléfono la barra no muestra «Locaciones…» ni «+ Etapa»: van en su «⋯»
-TOOLS_EXTRA.plan = () => planEditable() ? [[ICO.pin, 'Locaciones de rodaje…', () => locsDialog()], [ICO.plus, 'Etapa de rodaje…', () => stagesDialog(true)], ...(isSeries(P) ? [[ICO.plus, 'Bloque de episodios…', () => planBlockDialog()]] : [])] : [];
+TOOLS_EXTRA.plan = () => planEditable() ? [[ICO.pin, 'Locaciones de rodaje…', () => locsDialog()], [ICO.plus, 'Etapa de rodaje…', () => stagesDialog(true)], ...(isSeries(P) ? [[ICO.plus, 'Bloque de episodios…', () => planBlockDialog()]] : []), hdStyleMore('pl-style', planXL())] : [];   // (lote AI) el estilo, en el teléfono
 HELP.plan = [
   ['Stripboard', 'Cada escena es una tira a todo el ancho, con el color estándar: interior de día blanca, exterior de día amarilla, interior de noche azul, exterior de noche verde y amanecer o atardecer rosa (los colores se cambian en la leyenda; un color para resaltar manda sobre la tira). Columnas: número, I/E, la locación del guion con su sinopsis, D/N, el reparto en números, la locación de rodaje, las páginas (en octavos), la página donde empieza, el tiempo aproximado y las notas. Clic derecho en una escena (en una pantalla táctil, su ⋮) abre sus opciones y su hoja de desglose; en la barra de cierre, las opciones del cierre.'],
+  ['Excel | Apple', 'En la barra, el estilo del plan: «Apple» (así viene), las tiras con una línea fina entre ellas, o «Excel», las columnas y las filas con líneas negras bien visibles, como una hoja de cálculo. Vale para el stripboard en la pantalla y para los PDF del plan de rodaje y del DOOD. Se guarda en el proyecto: todo el equipo lo ve y lo exporta igual.'],
   ['Ancho de las columnas', 'En la computadora, arrastra el borde derecho del título de una columna para hacerla más angosta o más ancha; doble clic en ese borde la devuelve a su ancho automático. El texto que no cabe se corta con «…» y se lee entero al pasar el mouse. El ancho se guarda en el proyecto: todo el equipo lo ve igual. «Restaurar el ancho de las columnas», en Ajustes › Columnas en pantalla, las devuelve todas. El PDF y el Excel no cambian.'],
   ['Ordenar', 'Toca el título de una columna (Esc., I/E, Locación, D/N, Locación de rodaje o Págs.) para ordenar las escenas dentro de cada jornada y en «Sin programar»; otra vez, al revés. Ninguna escena cambia de jornada y los eventos se quedan en su lugar. Se deshace con Deshacer.'],
   ['Mover escenas', 'Presiona cualquier parte de una escena (fuera de los campos) y arrástrala: las demás le hacen espacio y los cambios se aplican al soltar. En el teléfono, mantén el dedo un instante antes de arrastrar. También: clic derecho › Mover a. Esc cancela.'],
@@ -1273,7 +1292,7 @@ HELP.plan = [
   ['Eventos', 'El «+» de la barra de cada jornada agrega traslados, comidas o ensayos con hora.'],
   ['La leyenda', 'Arriba de la tabla: qué significa cada color (día, noche, jornada y cierre, evento y los tuyos). Toca un color para cambiarlo en todo el proyecto, en los PDF y en los Excel; «+ Color» suma uno con nombre. Para resaltar una escena, un evento o una jornada, en sus opciones (clic derecho) elige un color de la leyenda.'],
   ['Personalización', 'En «⋯» de las pestañas (en el teléfono, en el menú de arriba › Personalización). En «Tu pantalla», solo para ti: el modo claro u oscuro, las pestañas visibles, el color de las etapas, la letra, las barras y las líneas. En «Colores del proyecto», para todo el equipo y los PDF: la paleta (Estándar, Original, Sobria, Alto contraste, Escala de grises), cada color y tus paletas guardadas para usarlas en otro proyecto. La leyenda también lleva ahí.'],
-  ['Exportar', 'Exportar › Plan de rodaje (PDF) es la tabla de jornadas lista para imprimir, en cuadro con líneas negras; Plan de rodaje (Excel), la misma tabla con las locaciones y el DOOD en sus hojas. La casilla «Miniaturas del storyboard», arriba del menú, decide si debajo de cada escena van sus planos con su viñeta, como en la hoja de llamado; se guarda en el proyecto. «Elegir…» exporta solo algunas jornadas.'],
+  ['Exportar', 'Exportar › Plan de rodaje (PDF) es la tabla de jornadas lista para imprimir, con el estilo elegido en la barra; Plan de rodaje (Excel), la misma tabla con las locaciones y el DOOD en sus hojas. La casilla «Miniaturas del storyboard», arriba del menú, decide si debajo de cada escena van sus planos con su viñeta, como en la hoja de llamado; se guarda en el proyecto. «Elegir…» exporta solo algunas jornadas.'],
   ['DOOD', 'Muestra qué jornadas trabaja cada actor: I inicio, T trabaja, E en espera (entre su primera y su última jornada, sin escenas), F fin, IF un solo día. Al lado, sus jornadas de trabajo, de espera y el total de su contrato. Sale del plan y del desglose; toca el número de una jornada para verla en el plan. Exportar › Días por actor (PDF); también va en el Excel del plan.'],
 ];
 // (lote AH) lo exportado se llama «Plan de rodaje» (Shooting Schedule); la vista de la pantalla sigue siendo «Stripboard»

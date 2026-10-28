@@ -206,7 +206,7 @@ test('sin miniaturas: el plan de siempre, una jornada por bloque y sin planos', 
   for (const r of T.flatMap(o => o.body)) assert.strictEqual(span(r), 12);
 });
 test('en cuadro, tipo Excel: rejilla negra completa en las celdas y los títulos; solo el aire entre jornadas va sin líneas', () => {
-  project();
+  project(); run("P.schedule.style = 'excel'");   // (lote AI) el estilo Excel (el de entrada es Apple: test/estilo-ai.test.js)
   const d = plan0(), T = mainTables(d), ink = J(run('PDF_BLACK'));
   for (const o of T) {
     assert.deepStrictEqual(J(o.styles.lineColor), ink); assert.strictEqual(o.styles.lineWidth, .7);
@@ -217,7 +217,8 @@ test('en cuadro, tipo Excel: rejilla negra completa en las celdas y los títulos
   const lw = cells.filter(x => x.styles && 'lineWidth' in x.styles);
   assert.ok(lw.length >= 1);
   for (const x of lw) { assert.strictEqual(x.styles.lineWidth, 0); assert.strictEqual(x.content, ''); }
-  assert.doesNotMatch(fn(pdf, 'pdfPlan'), /bottom: \.6, left: 0/);
+  // (lote AI) la línea de abajo sola es la del estilo Apple; en Excel, la rejilla entera
+  assert.match(fn(pdf, 'pdfPlan'), /const LINE = XL \? \{ lineColor: GRID, lineWidth: GW \} : /);
   // el reparto de abajo, en su cuadro
   const rep = d._AT[d._AT.length - 1];
   assert.ok(JSON.stringify(rep.body).includes('Reparto'));
@@ -243,7 +244,7 @@ test('el ancho de «Tiempo aprox.» entra en su título; la página A4 apaisada 
   } finally { run('newDoc = newDoc0'); }
 });
 test('el DOOD en cuadro: rejilla negra en las celdas y en los títulos (antes gris fina y blanca), y los códigos en su cuadro', () => {
-  project(); run('pdfTheme()');
+  project(); run("P.schedule.style = 'excel'"); run('pdfTheme()');   // (lote AI) el DOOD va con el estilo del plan
   // (autoTable avisa «… units width could not fit page» cuando todas las columnas son fijas y sobra lugar: ya pasaba)
   const log = console.log; console.log = (...a) => { if (!/could not fit page/.test(a[0])) log(...a); };
   let d; try { d = run('pdfDood()').doc; } finally { console.log = log; }

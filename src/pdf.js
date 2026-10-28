@@ -220,6 +220,7 @@ function pdfFitLines(doc, t, w, fs, min, n, font = 'helvetica', st = 'normal') {
    Devuelve dónde sigue la página (debajo del cuadro) */
 const HDR = { top: 22, h: 50, pad: 7, pg: 15 };
 function docHeader(doc, label, sub, o = {}) {
+  if (o.flat) return docHeaderFlat(doc, label, sub, o);
   const W = doc.internal.pageSize.getWidth(), x0 = o.x0 || 36, x1 = W - x0, { top: y0, h, pad } = HDR, y1 = y0 + h;
   const page = doc.getCurrentPageInfo().pageNumber;
   (doc._hdr || (doc._hdr = new Set())).add(page);
@@ -273,6 +274,57 @@ function docHeader(doc, label, sub, o = {}) {
   pdfVLine(doc, xr, y0, y1);
   if (comp) { doc.setLineWidth(GRID.cell); doc.line(xr, cy, x1, cy); }
   (doc._pg || (doc._pg = {}))[page] = comp ? { x: xr, y: cy, w: rw, h: HDR.pg } : { x: xr, y: y0, w: rw, h };
+  doc.setTextColor(...INK);
+  return y1 + 12;
+}
+/* (lote AI) o.flat: la cabecera sin el cuadro, para el estilo «Apple» (el plan de rodaje y el DOOD): la misma información
+   (el proyecto, el documento y su subtítulo, la empresa y «Página 1 de 3», sin la barra de color ni la fecha de
+   creación), como antes del lote AH: a la izquierda el proyecto (su logo, o su nombre en grande) y debajo (o al lado del
+   logo) el documento con su subtítulo en gris; a la derecha la empresa y, debajo, el número de página; abajo, una regla
+   fina. Ocupa el mismo alto que el cuadro: lo que sigue empieza en el mismo lugar */
+function docHeaderFlat(doc, label, sub, o = {}) {
+  const W = doc.internal.pageSize.getWidth(), x0 = o.x0 || 36, x1 = W - x0, { top: y0, h } = HDR, y1 = y0 + h;
+  const page = doc.getCurrentPageInfo().pageNumber, raw = doc._raw || doc;
+  (doc._hdr || (doc._hdr = new Set())).add(page);
+  if (!doc._label) doc._label = label;
+  const b1 = y0 + 20, b2 = y0 + 37;   // las dos líneas: el nombre grande y el documento (con el número de página)
+  // derecha: la empresa (logo o nombre), arriba; el número de página lo escribe pageNumbers debajo
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small);
+  let rw = doc.getTextWidth('Página 88 de 88');
+  if (brandOn('company')) {
+    const lg = brandLogo('logo') ? pdfImgFit(doc, P.meta.logo, 130, 26) : null;
+    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x1 - lg.w, y0, lg.w, lg.h); } catch (e) { } rw = Math.max(rw, lg.w); }
+    else if (P.meta.company) { const F = pdfFitLines(doc, P.meta.company.toUpperCase(), 170, 10, 8, 1, 'title', 'bold'); doc.setTextColor(...INK); doc.text(F.L, x1, b1, { align: 'right' }); rw = Math.max(rw, F.w); }
+  }
+  // izquierda: el proyecto y, debajo, el documento (sin el nombre del proyecto, el documento en grande)
+  let xl = x0, big = '';
+  if (brandOn('project')) {
+    const lg = brandLogo('projLogo') ? pdfImgFit(doc, P.meta.projLogo, 130, h - 10) : null;
+    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x0, y0 + (h - 6 - lg.h) / 2, lg.w, lg.h); } catch (e) { } xl = x0 + lg.w + 14; }
+    else big = P.meta.title || '';
+  }
+  const mw = x1 - rw - 24 - xl;
+  let y2 = b2;
+  if (big) { const F = pdfFitLines(doc, big, mw, 17, 12, 1, 'title', 'bold'); doc.setTextColor(...INK); raw.text(F.L, xl, b1); }
+  else { y2 = b1 + 2; }
+  // el documento en negrita (en grande si no hay nombre arriba), con su número en un cuadro negro si lleva, y el subtítulo
+  const fs = big ? 9.2 : 14;
+  const T = pdfFitLines(doc, label, mw, fs, fs - 2, 1, big ? 'helvetica' : 'title', 'bold');
+  doc.setTextColor(...INK); doc.text(T.L, xl, y2);
+  let xs = xl + T.w;
+  if (o.badge != null) {
+    doc.setFont('title', 'bold'); doc.setFontSize(fs); const k = String(o.badge), bw = Math.max(16, doc.getTextWidth(k) + 8), bh = fs + 5;
+    doc.setFillColor(...PDF_BLACK); doc.rect(xs + 7, y2 - fs * .78 - 2.5, bw, bh, 'F');
+    doc.setTextColor(255, 255, 255); doc.text(k, xs + 7 + bw / 2, y2 - fs * .78 - 2.5 + bh / 2, { align: 'center', baseline: 'middle' }); xs += 7 + bw;
+  }
+  if (sub) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(big ? 9 : 9);
+    const s = (big ? '  ·  ' : '') + sub, sy = big ? y2 : y2 + 15, sx = big ? xs : xl;
+    doc.setTextColor(...MUTED); doc.text(pdfCut(doc, pdfSafe(s), x1 - rw - 24 - sx), sx, sy);
+  }
+  // la regla fina de abajo y el lugar del número de página (a la derecha, en gris: pageNumbers)
+  doc.setDrawColor(...mixc(INK, PDF_WHITE, .55)); doc.setLineWidth(.6); doc.line(x0, y1, x1, y1);
+  (doc._pg || (doc._pg = {}))[page] = { x: x1 - rw, y: b2 - 9, w: rw, h: 12, al: 'right' };
   doc.setTextColor(...INK);
   return y1 + 12;
 }
@@ -463,8 +515,10 @@ function pageNumbers(doc, label) {
   for (let i = 1; i <= n; i++) {
     const s = S[i]; if (!s) continue;
     doc.setPage(i);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...INK);
-    doc.text(`Página ${i} de ${n}`, s.x + s.w / 2, s.y + s.h / 2, { align: 'center', baseline: 'middle' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...(s.al === 'right' ? MUTED : INK));
+    // (lote AI) en la cabecera sin cuadro (docHeaderFlat), a la derecha y en gris
+    if (s.al === 'right') doc.text(`Página ${i} de ${n}`, s.x + s.w, s.y + s.h / 2, { align: 'right', baseline: 'middle' });
+    else doc.text(`Página ${i} de ${n}`, s.x + s.w / 2, s.y + s.h / 2, { align: 'center', baseline: 'middle' });
   }
   if (n) doc.setPage(n);
   doc.setTextColor(...INK);
@@ -958,18 +1012,24 @@ function pdfOneLine(doc, t, w, fs, st) {
    ancho. (lote AH) El documento se llama «Plan de rodaje» (Shooting Schedule); va en cuadro, tipo Excel: líneas negras
    completas en todas las celdas (las tiras y las barras de jornada y de cierre conservan sus colores) y la leyenda y el
    reparto de abajo, cada uno en su cuadro. Con «Miniaturas del storyboard» (Exportar, P.schedule.noThumbs), debajo de
-   cada escena sus planos con su viñeta, como la hoja de llamado */
+   cada escena sus planos con su viñeta, como la hoja de llamado.
+   (lote AI) Con el plan en estilo Apple (P.schedule.style, el botón «Excel | Apple»: el de entrada), como antes del lote
+   AH: la cabecera sin cuadro (docHeader flat), la línea fina debajo de cada fila, sin rejilla, la cabecera de las columnas
+   en el tono de la barra y la leyenda y el reparto sin cuadros; con las miniaturas y «Tiempo aprox.» del lote AH */
 function pdfPlan() {
   const doc = newDoc('landscape');
-  const S = P.schedule, LAB = 'Plan de rodaje';
+  const S = P.schedule, LAB = 'Plan de rodaje', XL = typeof planXL === 'function' && planXL();
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
-  let y = docHeader(doc, LAB, `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`);
-  // (lote AH) la rejilla negra, bien visible, en todas las celdas, y los cuadros de la leyenda y del reparto
-  const W = doc.internal.pageSize.getWidth(), M = 30, GRID = PDF_BLACK, GW = .7, LINE = { lineColor: GRID, lineWidth: GW };
+  const W = doc.internal.pageSize.getWidth(), M = 30, GRID = PDF_BLACK, GW = .7;
+  let y = docHeader(doc, LAB, `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`, XL ? {} : { flat: true, x0: M });
+  // (lote AH) Excel: la rejilla negra, bien visible, en todas las celdas, y los cuadros de la leyenda y del reparto.
+  // (lote AI) Apple: solo la línea fina de abajo de cada fila (la de los planos, más clara)
+  const LINE = XL ? { lineColor: GRID, lineWidth: GW } : { lineColor: mixc(INK, PDF_WHITE, .2), lineWidth: { top: 0, right: 0, bottom: .6, left: 0 } };
   const box = (y0, y1) => { doc.setDrawColor(...GRID); doc.setLineWidth(GW); doc.rect(M, y0, W - 2 * M, y1 - y0, 'S'); };
   const lg = lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk)));
-  if (lg.length) { const y0 = y; y = pdfLegend(doc, y + 2, lg, M + 8); box(y0, y - 1); y += 6; } else y += 4;
+  if (!XL) y = pdfLegend(doc, y, lg, M) + 4;
+  else if (lg.length) { const y0 = y; y = pdfLegend(doc, y + 2, lg, M + 8); box(y0, y - 1); y += 6; } else y += 4;
   const NC = 12, INKP = INK;   // sin columna de fecha: la jornada va en su barra, como en la app
   const shade = (hex, k) => rgb(hex).map(v => Math.round(v * k));
   // (lote K) 8,4 pt (el plan es la tabla más larga)
@@ -985,7 +1045,7 @@ function pdfPlan() {
   // notas (bajo Observaciones). Las filas en blanco, con una franja del color de la tira a la izquierda
   const shotsOn = typeof planDocThumbs === 'function' && planDocThumbs();
   const ar = ASPECTS[P.meta.aspect] || 16 / 9, TH = Math.min(46 / ar, 34), TW = TH * ar;
-  const SP = { top: 3.5, bottom: 3.5, left: 5, right: 5 }, SS = { fontSize: PF.small, textColor: INK, fillColor: PDF_WHITE, cellPadding: SP };
+  const SP = { top: 3.5, bottom: 3.5, left: 5, right: 5 }, SS = { fontSize: PF.small, textColor: INK, fillColor: PDF_WHITE, cellPadding: SP, ...(XL ? {} : { lineColor: mixc(INK, PDF_WHITE, .1) }) };
   const shotRows = it => {
     const s = sceneOfKey(it.k), sb = mixc(pdfHl(it) || rgb(stripColor(s)), INK, .85);
     return planDocShotsOf(it).map(sh => {
@@ -1066,19 +1126,21 @@ function pdfPlan() {
   y = pdfBlocks(doc, y, { ...TBL, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo aprox.', 'Notas técnicas', 'Observaciones']],
     margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
     styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, ...LINE },
-    headStyles: { ...TBL.headStyles, ...LINE },
+    // (lote AI) Apple: la cabecera de las columnas como antes, en el tono de la barra de la pestaña y sin líneas
+    headStyles: XL ? { ...TBL.headStyles, ...LINE } : { ...TBL.headStyles, fillColor: PT.bar, textColor: PT.barInk, valign: 'bottom', lineWidth: 0, cellPadding: { top: 5.5, bottom: 5, left: 5, right: 5 } },
     columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])),
     // la franja de la tira y la viñeta de cada plano
     didDrawCell: d => {
       const r = d.cell.raw; if (d.section !== 'body' || !r) return;
-      if (r._bar) { doc.setFillColor(...r._bar); doc.rect(d.cell.x + GW / 2, d.cell.y + GW / 2, 2.4, d.cell.height - GW, 'F'); }
+      if (r._bar) { doc.setFillColor(...r._bar); if (XL) doc.rect(d.cell.x + GW / 2, d.cell.y + GW / 2, 2.4, d.cell.height - GW, 'F'); else doc.rect(d.cell.x, d.cell.y, 2.4, d.cell.height, 'F'); }
       if (r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + 5, d.cell.y + 3.5, TW, TH); } catch (e) { PDF_MISS++; } }
     } }, blocks);
   if (S.castMode !== 'name') {
     const legend = Object.entries(D.castNum).sort((a, b) => a[1] - b[1]).map(([id, n]) => [String(n), pdfSafe(titleCase(P.elements[id].name))]);
-    // los números del reparto en una línea (antes, una tabla que sola pasaba a otra página); (lote AH) en su cuadro
-    if (legend.length) doc.autoTable({ ...TBL, startY: y + 8, margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...LINE },
-      body: [[pdfRich([{ segs: [{ t: 'Reparto   ', st: 'bold', tr: 1 }, ...legend.flatMap(([n, nm], i) => [{ t: n + ' ', st: 'bold' }, { t: nm + (i < legend.length - 1 ? '   ·   ' : ''), col: MUTED }])] }], { cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } })]] });
+    // los números del reparto en una línea (antes, una tabla que sola pasaba a otra página); (lote AH) en su cuadro;
+    // (lote AI) en Apple, sin cuadro
+    const rep = pdfRich([{ segs: [{ t: 'Reparto   ', st: 'bold', tr: 1 }, ...legend.flatMap(([n, nm], i) => [{ t: n + ' ', st: 'bold' }, { t: nm + (i < legend.length - 1 ? '   ·   ' : ''), col: MUTED }])] }], XL ? { cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } } : { lineWidth: 0, cellPadding: { top: 3, bottom: 2, left: 0, right: 0 } });
+    if (legend.length) doc.autoTable({ ...TBL, startY: y + (XL ? 8 : 6), margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...(XL ? LINE : { lineWidth: 0 }) }, body: [[rep]] });
   }
   pageNumbers(doc, LAB);
   return { doc, name: fileSafe(P.meta.title) + '_plan_de_rodaje.pdf' };
