@@ -63,7 +63,7 @@ function breakdownSheetHTML() {
     // el tipo se elige al añadir solo cuando la caja junta varios (efectos especiales / VFX, atrezzo / decorado / armas…)
     const sel = b.cats.length > 1 ? `<select data-addcat aria-label="Tipo">${b.cats.map(c => `<option value="${ea(c)}">${CAT[c].name}</option>`).join('')}</select>` : '';
     const nph = id === 'notes' ? 0 : list.reduce((a, e) => a + photosOf(e).length, 0);
-    const cam = id === 'notes' || !list.length ? '' : `<button class="sbx-ph${ea(nph ? ' has' : '')}" data-act="bd-lam" data-box="${ea(id)}" title="Lámina A4 con fotos de ${esc(b.name.toLowerCase())}" aria-label="Fotos de ${esc(b.name)}">${CAM_SVG}${nph ? `<span>${nph}</span>` : ''}</button>`;
+    const cam = id === 'notes' || !list.length ? '' : `<button class="sbx-ph${ea(nph ? ' has' : '')}" data-act="bd-lam" data-box="${ea(id)}" title="Lámina con fotos de ${esc(b.name.toLowerCase())}" aria-label="Fotos de ${esc(b.name)}">${CAM_SVG}${nph ? `<span>${nph}</span>` : ''}</button>`;
     const plus = ed ? `<button class="sbx-plus" data-act="bd-add" data-box="${ea(id)}" title="Añadir a ${esc(b.name.toLowerCase())}" aria-label="Añadir a ${esc(b.name)}">+</button>` : '';
     const notes = id === 'notes' ? `<textarea class="ti" rows="${Math.min(8, Math.max(2, (meta.notes || '').split('\n').length + 1))}" data-bind="scnotes" data-key="${esc(s.key)}" placeholder="${ea(ed ? 'Permisos, horarios, riesgos…' : '')}" aria-label="Notas de la escena" ${ed ? '' : 'readonly'}>${esc(meta.notes || '')}</textarea>` : '';
     return `<section class="sbx sbx-${ea(id)}${ea(full ? '' : ' vac adding')}${ea(list.length > 7 && id === 'props' ? ' two' : '')}${ea(ed ? '' : ' ro')}${ea(lgHexOk(b.color) && lgDark(lgMix(b.color, '#FFFFFF', .9)) ? ' dk' : '')}" style="--bg:${ea(b.color)};--bgb:${ea(bdBar(b.color).bg)};--bgi:${ea(bdBar(b.color).ink)}" data-box="${ea(id)}"><h3><i class="sbx-dot" aria-hidden="true"></i><span class="sbx-n">${b.name}</span>${list.length ? `<span class="sbx-c">${list.length}</span>` : ''}${SHARE && !ed ? '<span class="sbx-ro">solo lectura</span>' : ''}<span class="grow"></span>${cam}${plus}</h3>
@@ -268,12 +268,12 @@ HELP.breakdown = [
   ['Sugeridos', 'Los elementos en gris los propuso el programa. Pasa el mouse sobre uno para confirmarlo (✓) o quitarlo (✕), o usa «Confirmar sugeridos» para todos.'],
   ['Agregar', 'Pulsa «+» en el título de la caja (o escribe debajo del último elemento) y luego Intro. En el guion, selecciona texto y elige la categoría.'],
   ['Elementos', 'La vista «Elementos» lista todo el desglose con sus escenas, para buscar y filtrar por categoría.'],
-  ['Fotos', 'El ícono de cámara de cada caja abre su lámina A4: sube fotos JPG o PNG de cada elemento y anota talla, color o referencia. Se imprimen con o sin fotos desde la lámina o desde Exportar.'],
+  ['Fotos', 'El ícono de cámara de cada caja abre su lámina: sube fotos JPG o PNG de cada elemento y anota talla, color o referencia. Se imprimen con o sin fotos desde la lámina o desde Exportar.'],
   ['Personajes', 'El cuerpo, la estatura, las tallas y las fotos de cada personaje: Storyboard › Personajes.'],
 ];
 EXPORTS.breakdown = () => [
   pdfItem('Hojas de desglose (PDF)', 'breakdown', 'Una hoja por escena, con colores por categoría'),
-  { label: 'Hojas de desglose con fotos (PDF)', hint: 'Cada hoja seguida de la lámina A4 con las fotos de la escena', run: btn => exportPDF('breakdown', btn, { photos: true }), pdf: { kind: 'breakdown', opts: { photos: true } } },
+  { label: 'Hojas de desglose con fotos (PDF)', hint: 'Cada hoja seguida de la lámina con las fotos de la escena', run: btn => exportPDF('breakdown', btn, { photos: true }), pdf: { kind: 'breakdown', opts: { photos: true } } },
   { label: 'Desglose de un área (PDF)…', hint: 'Solo lo de un departamento (sonido, vestuario, atrezzo…), escena por escena', run: btn => bdAreaDialog(btn) },
   { label: 'Lámina por área (PDF)…', hint: 'Vestuario, atrezzo, reparto… de todo el proyecto, con o sin fotos', run: btn => laminaAreaMenu(btn) },
 ];

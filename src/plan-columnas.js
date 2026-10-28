@@ -28,7 +28,8 @@ const plColW = () => P.schedule.colW || {};
 function plGrid(c, used, cw) {
   // las notas vacías en todo el plan ceden su ancho a la escena (siguen ahí para escribir)
   const note = f => [used[f] ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)', 130], th = c.thumb ? 280 : 220;
-  const auto = { esc: ['52px', 52], ie: ['42px', 42], set: [`minmax(${th}px,1.7fr)`, th], dn: ['78px', 78], cast: ['112px', 112], fig: ['46px', 46], loc: ['minmax(150px,1fr)', 150], pgs: ['58px', 58], pg: ['40px', 40], t: ['68px', 68], tech: note('tech'), obs: note('obs') };
+  // (lote AH) «Tiempo aprox.» entra entero en su título: 92 px (antes 68, para «Tiempo»)
+  const auto = { esc: ['52px', 52], ie: ['42px', 42], set: [`minmax(${th}px,1.7fr)`, th], dn: ['78px', 78], cast: ['112px', 112], fig: ['46px', 46], loc: ['minmax(150px,1fr)', 150], pgs: ['58px', 58], pg: ['40px', 40], t: ['92px', 92], tech: note('tech'), obs: note('obs') };
   const keys = plColKeys(c);
   return { keys, cols: keys.map(k => cw[k] ? cw[k] + 'px' : auto[k][0]), min: keys.reduce((a, k) => a + (cw[k] || auto[k][1]), 0) };
 }

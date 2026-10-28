@@ -62,6 +62,8 @@ function pdfDood() {
   const FILL = { I: IN, T: PDF_BLACK, E: PT.fill, F: IN, IF: IN };   // como en la app: trabaja en negro, inicio y fin en azul
   const TXT = { I: IT, T: [255, 255, 255], E: [110, 116, 124], F: IT, IF: IT };
   const nameW = 130, totW = 5 * 34, room = W - 72 - nameW - totW;
+  // (lote AH) en cuadro, tipo Excel: la rejilla en negro, bien visible, también en los títulos (antes gris fina y blanca)
+  const LINE = { lineColor: PDF_BLACK, lineWidth: .7 };
   // columnas de jornada: anchas si son pocas; con muchas, 17 pt y se parten en varias páginas
   const dayW = Math.max(17, Math.min(30, Math.floor(room / Math.max(1, cols.length))));
   const per = Math.max(8, Math.floor(room / dayW));
@@ -74,12 +76,13 @@ function pdfDood() {
     const cs = { 0: { cellWidth: nameW, halign: 'left' } };
     part.forEach((_, j) => { cs[j + 1] = { cellWidth: dayW, halign: 'center' }; });
     if (last) for (let k = 0; k < 5; k++) cs[part.length + 1 + k] = { cellWidth: 34, halign: 'center' };
-    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', lineWidth: .4, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', lineWidth: .4, lineColor: PDF_WHITE, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
+    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', ...LINE, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', ...LINE, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
       didParseCell: d => { if (d.section !== 'body' || d.column.index < 1 || d.column.index > part.length) return; const c = d.cell.raw; if (FILL[c]) { d.cell.styles.fillColor = FILL[c]; d.cell.styles.textColor = TXT[c]; d.cell.styles.fontStyle = 'bold'; } } });
     y = doc.lastAutoTable.finalY + 12;
   }
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED);
-  doc.text(trDone(pdfSafe(DOOD_CODES.map(([c, n, h]) => `${ddc(c)} ${n.toLowerCase()}${h ? ' (' + h + ')' : ''}`).join('   ·   '))), 36, Math.min(y + 4, doc.internal.pageSize.getHeight() - 34), { maxWidth: W - 72 });
+  // (lote AH) los códigos, en su cuadro
+  doc.autoTable({ ...TBL, startY: y, margin: { left: 36, right: 36, top: 38, bottom: 44 }, rowPageBreak: 'avoid', styles: { ...TBL.styles, ...LINE, fontSize: PF.small, textColor: MUTED, cellPadding: { top: 5, bottom: 5, left: 8, right: 8 } },
+    body: [[trDone(pdfSafe(DOOD_CODES.map(([c, n, h]) => `${ddc(c)} ${n.toLowerCase()}${h ? ' (' + h + ')' : ''}`).join('   ·   ')))]] });
   pageNumbers(doc, 'DOOD');
   return { doc, name: fileSafe(P.meta.title) + '_dias_por_actor.pdf' };
 }
