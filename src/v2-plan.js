@@ -49,7 +49,7 @@ function v2PlanTiras() {
     <span class="v2-grow"></span>
     <label class="v2-chk"><input type="checkbox" data-v2plth ${th ? 'checked' : ''}><i aria-hidden="true"></i>Miniaturas del storyboard</label>
     <span class="v2-hint">Arrastra las tiras para cambiar el orden</span>
-    <button type="button" class="v2-btn ic sm2" data-act="settings" title="Columnas y ajustes del plan" aria-label="Columnas y ajustes del plan">${v2I('grid')}</button>
+    <button type="button" class="v2-xl${planXL() ? ' on' : ''}" data-act="pl-style" data-v="${planXL() ? 'apple' : 'excel'}" aria-pressed="${ea(planXL())}" title="${ea(planXL() ? 'Estilo Excel (en cuadros) para el PDF: toca para volver al estilo Apple' : 'Estilo Apple para el PDF: toca para pasar al estilo Excel, en cuadros')}" aria-label="Estilo Excel">${v2I('grid')}</button>
   </div>`;
 }
 V2_ICO.grid = '<rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9.7h16M4 14.3h16M9.3 5v14M14.7 5v14"/>';
