@@ -16,6 +16,13 @@ Viene sin los maniquíes 3D (el actualizador conserva los instalados). No hay va
 de datos: todo lo nuevo de la hoja de llamado se guarda dentro de cada proyecto, y los proyectos de antes se abren igual.
 Después de instalar, recarga con Ctrl+F5 si todavía ves la versión anterior.
 
+## Arreglo del 28-oct: el total del presupuesto
+Al cambiar una línea del presupuesto (cantidad, días o tarifa), se actualizaban la línea y el total de su partida, pero
+no el **total general** de arriba, el **Resumen** (subtotal, imprevistos, impuesto, costo por jornada) ni **Por partida**:
+recién cambiaban al salir y volver a la pestaña. El refresco buscaba el total en un lugar que la cabecera nueva ya no
+tiene. Ahora todo se recalcula mientras se escribe, sin perder el campo en que se está escribiendo
+(`refreshBudgetTotals` y `budTopHTML` en src/tab-budget.js; prueba `test/presupuesto-ah.test.js`).
+
 ## Lo que se decidió con Ronald
 - **Fecha de la hoja de llamado:** al cambiarla, quien edita elige cada vez entre «Solo esta hoja» (el plan y el
   calendario no se tocan; «Volver a la fecha del plan») y «Correr esta jornada y las siguientes» (se corren en el plan y
