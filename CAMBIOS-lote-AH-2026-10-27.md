@@ -33,6 +33,19 @@ Después de instalar, recarga con Ctrl+F5 si todavía ves la versión anterior.
   proyecto; las miniaturas de la pantalla del stripboard siguen siendo una preferencia de cada persona.
 - **Correr las fechas** desde la hoja de llamado corre todas las jornadas siguientes, también las de otras etapas.
 
+## Revisión independiente
+Una revisión aparte de todo el lote (errores, regresiones e inyección de HTML) encontró cuatro errores y dos detalles,
+ya corregidos y comprobados con los mismos guiones con que se reprodujeron:
+- **Historial:** deshacer suelto ya no devuelve una marca del desglose o un plano sobre otro texto si el guion cambió
+  después («el guion cambió después»), no deja huérfano lo que todavía se usa («todavía se usa en lo que hiciste
+  después») y no devuelve una escena a otra jornada («lo que tenía al lado cambió después»). Deshacer y rehacer
+  enseguida deja siempre el mismo orden.
+- **Hoja de llamado:** una hoja libre sale en PDF aunque el plan no tenga jornadas; en el celular, el dedo sostenido
+  sobre un campo es para seleccionar y pegar (el menú de filas está en la ⋮ de cada fila); al exportar una hoja libre no
+  se preparan viñetas que no usa; «Elegir…» muestra el nombre de la hoja libre.
+Sin hallazgos: inyección de HTML (todo lo escrito pasa por el escape), lo cambiado en la hoja no escribe en el plan ni
+en el storyboard, las hojas ya enviadas conservan su huella, el Excel sin imágenes sale igual que antes.
+
 ## Pruebas
 App: todas pasan (51) salvo `test/pdf.test.js`, que ya fallaba antes (le falta el módulo canvas). Servidor: 20 de 20.
 Pruebas nuevas: `test/pdf-ah.test.js`, `test/plan-ah.test.js`, `test/llamado-ah.test.js`, `test/historial-ah.test.js`.
