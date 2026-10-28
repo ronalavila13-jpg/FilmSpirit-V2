@@ -347,6 +347,8 @@ function phoneMenu(anchor) {
   else if (stTxt && typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['', I('<path d="m5 12 4.5 4.5L19 7"/>'), esc(stTxt), '']);
   if (st && $('.bk', st)) it.push(['bk', I('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'), esc($('.bk', st).textContent.trim()), 'Una copia en tu equipo']);
   if (typeof P !== 'undefined' && P && !document.body.classList.contains('home')) it.push(['proj', I('<path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/>'), esc(P.meta.title || 'Proyecto'), 'Datos del proyecto, logos y equipo']);
+  // (lote AH) el historial de cambios: en el teléfono, el reloj no cabe en la barra de arriba
+  if (typeof P !== 'undefined' && P && !document.body.classList.contains('home') && !UI.readOnly) it.push(['hist', I('<path d="M3.6 12a8.4 8.4 0 1 0 2.5-6"/><path d="M3.3 4.2v4.2h4.2"/><path d="M12 7.6V12l2.9 1.9"/>'), 'Historial de cambios', 'Deshacer algo de antes']);
   it.push(['open', I('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3 19z"/>'), 'Proyectos', 'Abrir, compartir y archivar']);
   it.push(['view', I('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'), 'Personalización', 'Modo, pestañas, colores y letra']);   // en el teléfono, el «⋯» de las pestañas no cabe en la barra
   it.push(['help', I('<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>'), 'Ayuda y soporte', '']);
@@ -368,6 +370,7 @@ function phoneMenu(anchor) {
           else if (k === 'open') openMenu(a);
           else if (k === 'help') helpMenu(a);
           else if (k === 'view') lookPanel('me');   // Personalización › Tu pantalla (leyenda.js)
+          else if (k === 'hist') histPanel();   // (lote AH) historial.js
           else if (k === 'lang') langSet(EN ? 'es' : 'en');
         }, 0);
       });
