@@ -146,7 +146,7 @@ function v2Kind(p, pages) {
   return (pages || 0) >= 60 ? 'Largometraje' : 'Cortometraje';
 }
 /* las iniciales de una persona («Ronald Ávila» → RA) */
-const v2Ini = n => { const w = String(n || '').trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
+const v2Ini = n => { const w = (typeof deaccent === 'function' ? deaccent(String(n || '')) : String(n || '')).trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
 /* «hace 5 min», «hace 3 h», «ayer», «lunes», «12 oct» */
 function v2Ago(ts) {
   if (!ts) return '';

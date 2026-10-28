@@ -64,7 +64,8 @@ function v2SumSave() {
 { const _r = render; render = function () { const r = _r.apply(this, arguments); v2SumSave(); return r; }; }
 
 /* ---------- Inicio ---------- */
-const V2H = { seg: 'all', q: '' };
+const V2H = { seg: 'all', q: '', mseg: 'proj', msearch: false, phone: false };
+addEventListener('resize', debounce(() => { if (V2.on && document.body.classList.contains('home') && V2H.phone !== PHONE() && typeof homePaint === 'function') homePaint(); }, 200));
 const v2HomeName = () => { try { const me = typeof APITEAM !== 'undefined' && APITEAM.me; if (me && me.name) return String(me.name).trim(); } catch (e) { } try { const L = typeof LIC !== 'undefined' && LIC; if (L && L.name) return String(L.name).trim(); } catch (e) { } return ls.get('v2name', '') || ''; };
 const v2First = n => (n || '').split(/\s+/)[0] || '';
 const V2_HI = {
@@ -207,6 +208,94 @@ function v2HomeRight(H) {
       ${!inv.length && !notes.length ? '<p class="v2-mut">Las notas de tu equipo y las invitaciones aparecen aquí.</p>' : ''}</section>
   </aside>`;
 }
+/* ---------- Inicio en el celular (PDF, página Inicio del celular) ----------
+   El logo con buscar y avisos, la fecha y el saludo, la próxima jornada (amarilla), Proyectos | Guiones | Colaboro y
+   abajo, fija, la barra Inicio · Proyectos · + · Agenda · Perfil. Agenda, Perfil y los avisos suben en hojas. */
+const v2HomeNext = H => H.own.map(o => ({ o, n: H.sum(o).next })).filter(x => x.n).sort((a, b) => a.n.date.localeCompare(b.n.date))[0];
+function v2HomePNext(H) {
+  const nxt = v2HomeNext(H); if (!nxt) return '';
+  const d = v2FromIso(nxt.n.date), days = Math.round((d - v2Day0()) / 864e5);
+  const loc = String(nxt.n.loc || '').split(' · ')[0];
+  return `<section class="v2-hmnext"><header><span>Próxima jornada</span><b>${days === 0 ? 'hoy' : days === 1 ? 'mañana' : 'en ' + days + ' días'}</b></header>
+    <h2>${esc(nxt.o.title)} · jornada ${esc(nxt.n.n)}</h2>
+    <p><span>${v2HI('clock')}${esc(v2Cap(V2_WD[d.getDay()]))} ${d.getDate()}${nxt.n.call ? ' · ' + esc(nxt.n.call) : ''}</span>${loc ? `<span>${v2I('pin')}${esc(loc)}</span>` : ''}</p>
+    <button type="button" class="v2-hmcall" data-v2call="${ea(nxt.o.id)}" data-day="${ea(nxt.n.day)}"><span>Ver hoja de llamado</span><i>${v2I('check')}</i></button></section>`;
+}
+/* el avance que se muestra según la etapa (como en las tarjetas de la computadora) */
+function v2HomeProg(o, s) {
+  const st = s.stage || 'g', P_ = s.prog || {};
+  if (st === 'r') { const [a, b] = P_.shots || [0, 0]; return ['Planos rodados', `${a} de ${b}`, b ? Math.round(100 * a / b) : 0]; }
+  const k = { g: ['Guion', P_.g], p: ['Desglose', P_.p], i: ['Storyboard', P_.i], pr: ['Plan de rodaje', P_.pr] }[st] || ['Guion', 0];
+  return [k[0], (k[1] || 0) + ' %', k[1] || 0];
+}
+function v2HomePFeat(o, s) {
+  const st = v2StageOf(s.stage || 'g'), [lab, val, pct] = v2HomeProg(o, s);
+  const open = o.sample ? 'data-h="sample"' : `data-open="${ea(o.id)}"`;
+  return `<button type="button" class="v2-hmfeat" ${open}><span class="m"><i style="background:${st[2]}"></i><b>${esc(st[1])}</b><span>· ${esc(s.kind || 'Proyecto')}${o.sample ? ' · ejemplo' : ''}</span></span>
+    <span class="t">${esc(o.title || s.title || 'Sin título')}</span><span class="pr"><span>${esc(lab)}</span><b>${esc(val)}</b></span><span class="v2-bar"><i style="width:${pct}%"></i></span></button>`;
+}
+function v2HomePCard(o, s, sub, pct) {
+  const st = v2StageOf(s.stage || 'g');
+  const open = o.sample ? 'data-h="sample"' : `data-open="${ea(o.id)}"`;
+  return `<button type="button" class="v2-hmcard" ${open}><span class="m"><i style="background:${st[2]}"></i>${esc(st[1])}${sub ? `<span>·</span>${esc(sub)}` : ''}</span>
+    <span class="t">${esc(o.title || 'Sin título')}</span>${pct != null ? `<span class="v2-bar"><i style="width:${pct}%"></i></span>` : ''}${v2HI('chev')}</button>`;
+}
+function v2HomePList(H) {
+  const q = deaccent(V2H.q || '').toLowerCase(), match = o => !q || deaccent(String(o.title || '')).toLowerCase().includes(q);
+  const sample = typeof sampleName === 'function' ? { id: '__sample', title: sampleName(), sample: true, mine: true } : null;
+  if (V2H.mseg === 'scripts') {
+    const L = homeSort(H.scripts.filter(match));
+    if (!L.length) return sample && !q ? v2HomePCard(sample, { stage: 'g' }, 'Guion de muestra', null) : '<p class="v2-mut v2-hmempty">Todavía no tienes guiones.</p>';
+    return L.map(o => { const s = H.sum(o); return v2HomePCard(o, s, [s.draft || 'Guion', s.pages ? s.pages + ' págs.' : ''].filter(Boolean).join(' · '), null); }).join('');
+  }
+  if (V2H.mseg === 'collab') {
+    const L = [...H.invites, ...H.collab].filter(match);
+    if (!L.length) return '<p class="v2-mut v2-hmempty">Cuando alguien te invite a su proyecto, aparece aquí.</p>';
+    return L.map(o => v2HomePCard(o, H.sum(o), (o.invited ? 'Invitación de ' : 'de ') + (o.owner || 'otra persona'), null)).join('');
+  }
+  let L = homeSort(H.projects.filter(o => match(o) && !H.arch(o)));
+  if (!L.length) return sample && !q ? v2HomePFeat(sample, { stage: 'r', kind: 'Cortometraje', prog: { shots: [0, 0] } })
+    + `<div class="v2-hmnew"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button></div>` : '<p class="v2-mut v2-hmempty">No hay proyectos con ese nombre.</p>';
+  const feat = L.find(o => H.sum(o).stage === 'r') || L[0];
+  L = L.filter(o => o !== feat);
+  return v2HomePFeat(feat, H.sum(feat)) + L.map(o => { const s = H.sum(o); return v2HomePCard(o, s, s.kind || 'Proyecto', v2HomeProg(o, s)[2]); }).join('');
+}
+function v2HomePhone(H) {
+  const name = v2HomeName(), now = new Date(), seg = V2H.mseg || 'proj';
+  const bell = H.invites.length || H.own.some(o => (H.sum(o).notes || []).some(n => !n.mine));
+  const it = (k, ic, lab, on) => `<button type="button" data-v2m="${k}"${on ? ' aria-current="page"' : ''}>${ic}<span>${lab}</span></button>`;
+  return `<div class="v2-hm">
+    <header class="v2-hmtop"><span class="v2-hmlogo">${typeof logoSVG === 'function' ? logoSVG() : 'FilmSpirit'}</span><span class="v2-grow"></span>
+      <button type="button" class="v2-hmib" data-v2m="search" aria-label="Buscar" aria-pressed="${ea(!!V2H.msearch)}">${v2HI('search')}</button>
+      <button type="button" class="v2-hmib" data-v2m="notes" aria-label="Notas y avisos">${v2HI('bell')}${bell ? '<i class="v2-dotb"></i>' : ''}</button></header>
+    ${V2H.msearch ? `<label class="v2-hq v2-hmq">${v2HI('search')}<input type="search" id="v2HomeQ" placeholder="Buscar proyectos o guiones" value="${esc(V2H.q)}" autocomplete="off" aria-label="Buscar"></label>` : ''}
+    <p class="v2-hdate">${esc(v2Cap(now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')))}</p>
+    <h1 class="v2-hhi">Hola${name ? ', ' + esc(v2First(name)) : ''}</h1>
+    ${v2HomePNext(H)}
+    <div class="v2-hmseg" role="group" aria-label="Qué ver" id="v2hmList">${[['proj', 'Proyectos'], ['scripts', 'Guiones'], ['collab', 'Colaboro']].map(([k, n]) => `<button type="button" data-v2mseg="${k}" aria-pressed="${ea(seg === k)}">${n}</button>`).join('')}</div>
+    <div class="v2-hmlist">${v2HomePList(H)}</div>
+  </div>
+  <nav class="v2-hmnav" aria-label="Inicio">${it('home', v2HI('home'), 'Inicio', true)}${it('proj', v2HI('folder'), 'Proyectos')}
+    <button type="button" class="v2-hmplus" data-v2m="new" aria-label="Nuevo proyecto o guion">${v2I('plus')}</button>
+    ${it('agenda', v2HI('cal'), 'Agenda')}${it('me', `<span class="v2-av y">${name ? esc(v2Ini(name)) : v2HI('people')}</span>`, 'Perfil')}</nav>`;
+}
+/* las hojas del celular: la agenda, el perfil y los avisos (las piezas de la columna derecha de la computadora) */
+function v2HomeSheet(k) {
+  const H = v2HomeData(), R = document.createElement('div');
+  R.innerHTML = v2HomeRight(H) + v2HomeSide(H);
+  const pick = sel => { const el = $(sel, R); return el ? el.outerHTML : ''; };
+  const T = { agenda: ['Agenda', pick('.v2-hcal')], notes: ['Notas y avisos', pick('.v2-hnotes')], me: ['Perfil', pick('.v2-hme') + pick('.v2-hstats') + pick('.v2-hplan')
+    + `<div class="v2-hmlinks"><button type="button" class="v2-hnav" data-v2go="settings">${v2HI('sliders')}<span>Ajustes</span></button><button type="button" class="v2-hnav" data-v2go="help">${v2HI('help')}<span>Ayuda</span></button><button type="button" class="v2-hnav" data-v2go="openm">${v2HI('folder')}<span>Abrir, compartir y archivar proyectos</span></button></div>`] }[k];
+  if (!T) return;
+  const m = modal({ title: T[0], body: `<div class="v2-home v2-hmsheet">${T[1]}</div>` });
+  m.classList.add('v2-sheet');
+  const b = $('.v2-hmsheet', m);
+  b.addEventListener('click', e => {
+    const g = e.target.closest('[data-v2go]');
+    if (g) { const k2 = g.dataset.v2go; closeModal(); setTimeout(() => { if (k2 === 'settings') lookPanel('me'); else if (k2 === 'help') helpMenu($('.v2-hmnav [data-v2m="me"]') || g); else if (k2 === 'openm') openMenu($('.v2-hmnav [data-v2m="proj"]') || g); else if (k2 === 'profile') { if (typeof accountMenu === 'function' && typeof APITEAM !== 'undefined' && APITEAM.me) accountMenu($('.v2-hmnav [data-v2m="me"]')); else v2NameDialog(); } else if (k2 === 'shareme') { const u = location.origin + location.pathname; if (navigator.share) navigator.share({ title: 'FilmSpirit', url: u }).catch(() => { }); else if (navigator.clipboard) navigator.clipboard.writeText(u).then(() => toast('Enlace copiado.')); } }, 0); return; }
+    if (e.target.closest('[data-act="plans-see"]') && ACT['plans-see']) { closeModal(); ACT['plans-see'](e.target.closest('[data-act]')); }
+  });
+}
 /* el comienzo del guion del ejemplo, para su miniatura */
 let V2_SSC = null;
 function v2SampleScript() {
@@ -223,9 +312,11 @@ function v2SampleScript() {
     if (!h) { h = document.createElement('main'); h.id = 'home'; h.setAttribute('aria-label', 'Inicio'); h.dataset.trk = 'home'; $('#app').appendChild(h); h.addEventListener('click', homeClick); v2HomeBind(h); }
     h.classList.add('v2-home');
     const H = v2HomeData();
+    h.classList.toggle('m', V2H.phone = PHONE());
+    if (V2H.phone) { h.innerHTML = loading ? '<p class="v2-mut" style="padding:40px 20px">Cargando proyectos…</p>' : v2HomePhone(H); return; }
     h.innerHTML = `${v2HomeSide(H)}<div class="v2-hmain">
       <header class="v2-hhead"><label class="v2-hq">${v2HI('search')}<input type="search" id="v2HomeQ" placeholder="Buscar proyectos, guiones o personas" value="${esc(V2H.q)}" autocomplete="off" aria-label="Buscar"><kbd>Ctrl K</kbd></label>
-        <span class="v2-grow"></span><button type="button" class="v2-btn ic" data-v2go="notes" aria-label="Notas y avisos">${v2HI('bell')}${H.invites.length || H.own.some(o => (H.sum(o).notes || []).some(n => !n.mine)) ? '<i class="v2-bd"></i>' : ''}</button>
+        <span class="v2-grow"></span><button type="button" class="v2-btn ic" data-v2go="notes" aria-label="Notas y avisos">${v2HI('bell')}${H.invites.length || H.own.some(o => (H.sum(o).notes || []).some(n => !n.mine)) ? '<i class="v2-dotb"></i>' : ''}</button>
         <button type="button" class="v2-btn y" data-v2go="new">${v2I('plus')}<span>Nuevo proyecto</span></button></header>
       ${loading ? '<p class="v2-mut" style="padding:40px">Cargando proyectos…</p>' : `<div class="v2-hgrid">${v2HomeMain(H)}${v2HomeRight(H)}</div>`}
     </div>`;
@@ -254,6 +345,17 @@ function v2HomeBind(h) {
       return;
     }
     const sg = e.target.closest('[data-v2seg]'); if (sg) { V2H.seg = sg.dataset.v2seg; homePaint(); return; }
+    const ms = e.target.closest('[data-v2mseg]'); if (ms) { V2H.mseg = ms.dataset.v2mseg; homePaint(); return; }
+    const mn = e.target.closest('[data-v2m]');
+    if (mn) {
+      const k = mn.dataset.v2m, sc = $('.v2-hm', h) ? h : null;
+      if (k === 'home') { V2H.mseg = 'proj'; homePaint(); h.scrollTo({ top: 0, behavior: 'smooth' }); }
+      else if (k === 'proj') { V2H.mseg = 'proj'; homePaint(); const l = $('#v2hmList', h); if (l) l.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      else if (k === 'new') newMenu(mn);
+      else if (k === 'search') { V2H.msearch = !V2H.msearch; if (!V2H.msearch) V2H.q = ''; homePaint(); const q = $('#v2HomeQ', h); if (q) q.focus(); }
+      else v2HomeSheet(k);
+      return;
+    }
     const pin = e.target.closest('[data-v2pin]'); if (pin) { const id = pin.dataset.v2pin, L = v2Pins(); ls.set(V2PIN_K, L.includes(id) ? L.filter(x => x !== id) : [...L, id].slice(-8)); homePaint(); toast(L.includes(id) ? 'Quitado de Fijados.' : 'Fijado en la barra de la izquierda.'); return; }
     const c = e.target.closest('[data-v2call]');
     if (c) { (async () => { const ok = P && P.id === c.dataset.v2call && !P._sample ? true : await openProject(c.dataset.v2call); if (!ok) return; homeHide(); UI.callDay = +c.dataset.day || 0; setTab('call'); })(); }
