@@ -719,9 +719,14 @@ function histPaint() {
   r.title = x ? trDone(tr('Rehacer') + ': ' + histName(x) + ' (Ctrl+Mayús+Z)') : 'Rehacer (Ctrl+Mayús+Z)';
 }
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#histBtn')) histPanelToggle(); });
-/* Ctrl+Z fuera de los campos de texto, de los editores y de las pestañas con deshacer propio; Esc cierra el historial */
+/* Esc cierra el historial solo si no hay nada encima (un menú, una ventana como la vista previa de los PDF, una pregunta).
+   Se escucha antes que el Esc general (ventanas.js), que cierra la ventana sin marcar la tecla: si no, un Esc cerraba las dos */
 addEventListener('keydown', e => {
-  if (e.key === 'Escape' && $('#histPanel.open') && !e.defaultPrevented && !$('#pop') && !$('#modal') && !$('#ask')) { e.preventDefault(); histPanelClose(); return; }
+  if (e.key === 'Escape' && $('#histPanel.open') && !e.defaultPrevented && !$('#pop') && !$('#modal') && !$('#ask')) { e.preventDefault(); histPanelClose(); }
+}, true);
+/* Ctrl+Z fuera de los campos de texto, de los editores, de las ventanas (la vista previa de los PDF es una) y de las
+   pestañas con deshacer propio */
+addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.defaultPrevented) return;
   const k = e.key.toLowerCase();
   if (k !== 'z' && k !== 'y') return;

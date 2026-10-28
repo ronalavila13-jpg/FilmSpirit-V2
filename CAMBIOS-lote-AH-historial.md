@@ -92,6 +92,10 @@ Lo que pediste: **«Historial por pestaña y que se pueda deshacer algo individu
   sube un poco más de la mitad y sin velo, para ver arriba el efecto de deshacer. El reloj va en el menú «⋯» porque en
   la barra del teléfono no cabe.
 - **Un panel a la vez.** Abrir el historial cierra Notas y Personalización, y al revés.
+- **La vista previa de los PDF (frente «pdf») manda.** Con la vista previa abierta, Ctrl + Z no deshace nada del
+  proyecto (como con cualquier ventana) y Esc cierra solo la vista previa: el historial queda abierto detrás. Para eso
+  el Esc del historial se escucha antes que el Esc general, que cerraba la ventana sin avisar y dejaba que el mismo Esc
+  cerrara también el panel.
 
 ## Archivos
 - `src/historial.js`: reescrito. Diferencias finas por ruta (`histDiff`, `histListDiff`, `histChanges`), revisión y
@@ -114,13 +118,14 @@ Lo que pediste: **«Historial por pestaña y que se pueda deshacer algo individu
   guion al escribir, cambios del equipo, versiones enviadas de la hoja, imágenes, guion largo con repetidos, el peso de
   un paso, las descripciones, el cambio de pestaña y 600 historias al azar: nunca se traba, deshacer en orden inverso
   es exacto y nunca se pierde nada).
-- Todas las de antes: app 48 bien (solo falla `test/pdf.test.js`, que ya fallaba por el módulo canvas); servidor 20
-  archivos bien.
+- Todas las de antes, ya unido con `lote-ah` (frentes «pdf» y «plan»): app 50 bien (solo falla `test/pdf.test.js`, que
+  ya fallaba por el módulo canvas); servidor 20 archivos bien.
 - En el navegador (proyecto de ejemplo, sin errores en la consola): cambios en plan, hoja de llamado (escribiendo en
   su campo), desglose y presupuesto (escribiendo en su campo); el historial de la pestaña y de todas; deshacer uno del
   medio (el de la hoja de llamado) y comprobar que lo de antes y lo de después quedó; choque en el presupuesto (la
   misma tarifa dos veces) y su aviso; Ctrl + Z y Ctrl + Mayús + Z; Ctrl + Z en otra pestaña; animatic y guion al
-  escribir; un panel a la vez; Inicio sin margen; Esc. En 1366 y 390 px, claro y oscuro, español e inglés.
+  escribir; un panel a la vez; Inicio sin margen; Esc; la vista previa de un PDF abierta con el historial (Ctrl + Z no
+  deshace, Esc cierra solo la vista previa). En 1366 y 390 px, claro y oscuro, español e inglés.
 - Capturas en `…/scratchpad/historial/capturas/`: `antes-barra-*.png` y `antes-plan-*.png` (antes), `despues-barra-1366`,
   `panel-plan-*`, `panel-todas-*`, `panel-deshecho-*` (1366 y 390, claro, oscuro e inglés), `choque-1366`,
-  `choque-despues-1366`, `animatic-1366`, `menu-telefono-390`.
+  `choque-despues-1366`, `animatic-1366`, `menu-telefono-390`, `vista-previa-con-historial-1366`.
