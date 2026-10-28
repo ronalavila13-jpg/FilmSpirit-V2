@@ -6470,6 +6470,15 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
 .cs.cl .cl-hr .cl-fh :is(.cl-kl,input[data-f="addr"]){grid-column:1/-1}
 .cs.cl .cl-hr .cl-fh input[data-f="name"]{font-weight:650}
 .cs.cl .cl-hr .cl-fh input.hd-auto::placeholder{color:var(--ink)}
+/* el ⋮ de cada fila: en las pantallas táctiles (sin clic derecho) abre el menú de la fila; en la computadora no se ve */
+.cs.cl .cl-rm{display:none;border:0;background:none;color:var(--cl-2);width:30px;height:30px;padding:0;border-radius:var(--r-sm);place-items:center;cursor:pointer;flex:none}
+.cs.cl .cl-rm .ic{width:18px;height:18px}
+@media (hover:none),(pointer:coarse){
+  .cs.cl .cl-rm{display:inline-grid}
+  .cs.cl td.cl-ln>.cl-rm{display:grid;margin-top:4px}
+  .cs.cl tr.cl-sep .cl-rm{margin-left:2px;vertical-align:middle}
+  .cs.cl .cl-ptbl th:last-child{width:64px}
+}
 /* el menú de la fecha: «Solo esta hoja» o «Correr esta jornada y las siguientes» */
 .pop .menu.cl-dscope{display:grid;gap:4px;max-width:320px}
 .pop .menu.cl-dscope button{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;text-align:left;white-space:normal;padding:8px 10px;height:auto}

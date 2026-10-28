@@ -262,14 +262,38 @@ function callStaleSoon() {
     if (!P || UI.tab === 'call' || (typeof canSeeTab === 'function' && !canSeeTab('call'))) return;
     if ($('.toast') && tries < 12) { CALL_STALE_T = setTimeout(() => check(tries + 1), 1000); return; }
     const cd = callDays(), { days } = cd;
-    const st = days.map((d, i) => ({ d, i, e: peekDay(d.id).exp })).filter(x => x.e && x.e.sig && !CALL_STALE_SEEN.has(x.d.id + ':' + x.e.v) && !callSame(x.e, x.i, cd));
+    // (lote AH) las jornadas del plan y las hojas libres (que también quedan viejas: el equipo, el centro de salud…)
+    const st = [...days.map((d, i) => ({ id: d.id, i })), ...callFrees().map(f => ({ id: f.id, i: f.id }))].map(x => ({ ...x, e: peekDay(x.id).exp }))
+      .filter(x => x.e && x.e.sig && !CALL_STALE_SEEN.has(x.id + ':' + x.e.v) && !callSame(x.e, x.i, cd));
     if (!st.length) return;
-    st.forEach(x => CALL_STALE_SEEN.add(x.d.id + ':' + x.e.v));
-    toast(st.length === 1 ? `Con este cambio, la hoja de llamado de la jornada ${st[0].i + 1} que exportaste (v${st[0].e.v}) quedó vieja.` : `Con este cambio, ${st.length} hojas de llamado que exportaste quedaron viejas.`,
-      9000, { label: 'Ver la hoja', fn: () => { UI.callDay = st[0].i; UI.callFree = null; setTab('call'); } }).classList.add('t-stale');
+    st.forEach(x => CALL_STALE_SEEN.add(x.id + ':' + x.e.v));
+    const one = st[0], f1 = callIsFree(one.i) ? callFreeOf(one.i) : null;
+    toast(st.length > 1 ? `Con este cambio, ${st.length} hojas de llamado que exportaste quedaron viejas.` : f1 ? `Con este cambio, la hoja libre «${(f1.name || '').trim() || tr('Hoja libre')}» que exportaste (v${one.e.v}) quedó vieja.` : `Con este cambio, la hoja de llamado de la jornada ${one.i + 1} que exportaste (v${one.e.v}) quedó vieja.`,
+      9000, { label: 'Ver la hoja', fn: () => { if (f1) UI.callFree = f1.id; else { UI.callDay = one.i; UI.callFree = null; } setTab('call'); } }).classList.add('t-stale');
   };
   CALL_STALE_T = setTimeout(() => typeof requestIdleCallback === 'function' ? requestIdleCallback(() => check(), { timeout: 3000 }) : check(), 2000);
 }
+/* (lote AH) ¿se puede exportar la hoja de llamado? Una hoja libre sale sola, sin guion ni plan (un comercial, una prueba
+   de cámara); «todas las jornadas» y las jornadas elegidas necesitan el plan. Devuelve por qué no, o '' (exportPDF) */
+function callExportBlock(opts) {
+  const plan = opts && (opts.all || (opts.sel && opts.sel.days));
+  if (!plan && callIsFree(callRef())) return '';
+  if (!D.sc.scenes.length) return 'Escribe o importa un guion primero.';
+  if (!callDays().days.length) return 'Aún no hay jornadas: arma el plan de rodaje para generar las hojas de llamado.';
+  return '';
+}
+/* (lote AH) las hojas que salen en un PDF (como pdfCall): las jornadas elegidas, todas o la hoja abierta */
+const callPdfRefs = (opts, sel) => { const { days } = callDays(), D2 = sel && sel.days; return D2 ? days.map((_, i) => i).filter(i => D2.has(i)) : opts && opts.all ? days.map((_, i) => i) : [callRef()]; };
+/* (lote AH) los planos cuyas viñetas usa el PDF (pdfWarm): solo los que salen en esas hojas (sin los quitados; una hoja
+   libre no tiene planos del storyboard) */
+function callPdfShots(opts) {
+  if (!callThumbs()) return [];
+  const cd = callDays(), out = [];
+  for (const ref of callPdfRefs(opts, opts && opts.sel)) { const S = callSheet(ref, cd); if (!S || S.free) continue; for (const r of callSched(S.d).rows) for (const x of r.shots || []) if (x.sh) out.push(x.sh); }
+  return out;
+}
+/* (lote AH) cómo se llama la hoja abierta en «Elegir…» (pdf-rango.js): «Esta jornada (3)» o «Esta hoja: Ensayo» */
+const callRangeLabel = () => { const S = callSheet(callRef()); return S && S.free ? `<span>Esta hoja:</span> <span data-no-tr>${esc(callSheetName(S))}</span>` : `Esta jornada (${(UI.callDay || 0) + 1})`; };
 /* (lote AH) los planos quitados en alguna hoja de llamado: { plano: [números de jornada] }, para su etiqueta en el
    storyboard y el guion técnico (tab-board.js, pdf.js). Cuenta el plano que está en la hoja (su escena es de esa
    jornada, como en callSched) y se quitó él o la fila de su escena. Volver a ponerlo en la hoja quita la etiqueta */
@@ -795,6 +819,8 @@ RENDER.call = function () {
     : hdAuto(tmIn(x.fixed ? x.t0 : '', x.t0, `data-bind="cl-shat" data-id="${ea(x.sh.id)}" aria-label="${ea('Hora del plano ' + x.code)}" title="${ea('Escribe la hora del plano; si no cabe, su escena se alarga o se corre' + (x.fixed ? '. Borra la hora para repartir la escena parejo' : ''))}"`, dis), !x.fixed);
   const sndSel = (val, attrs) => `<select class="cl-snd" ${attrs} ${dis}>${SND_OPTS.map(([k, t]) => `<option value="${k}" ${val === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
   const ovTxt = (x, f, txt) => `<span class="${x.ov[f] ? 'ov' : ''}"${x.ov[f] ? ` title="${ea('Cambiado en esta hoja. En el stripboard: «' + (x.b[f] || '—') + '»')}"` : ''}>${txt}</span>`;
+  // (lote AH) el ⋮ de cada fila: en las pantallas táctiles (sin clic derecho) abre el menú de la fila
+  const rmB = () => ed ? `<button type="button" class="cl-rm" data-act="cl-rmenu" aria-haspopup="menu" aria-label="Opciones de la fila" title="Opciones de la fila">${(typeof PL_ICO !== 'undefined' && PL_ICO.vmore) || ICO.more}</button>` : '';
   const shotRow = (r, x, col) => {
     const k = x.free ? 'xs' : 's', id = x.free ? x.x.id : x.sh.id;
     const fld = (f, lab, o) => x.free ? clXIn(x.x, 'xs', f, lab, { ...o, dis }) : clOvIn(x, 's', id, f, lab, { ...o, dis });
@@ -803,7 +829,7 @@ RENDER.call = function () {
     const lens = ed ? fld('lens', 'Lente', { cls: 'cl-sm' }) : ovTxt(x, 'lens', esc(x.v.lens));
     const snd = ed ? sndSel(x.v.snd, `data-bind="${x.free ? 'cl-xf' : 'cl-ov'}" data-k="${k}" data-id="${ea(id)}" data-f="snd" aria-label="${ea('Sonido del plano ' + (x.code || ''))}"${x.ov.snd ? ' class="ov"' : ''}`) : ovTxt(x, 'snd', esc(SND_NAME[x.v.snd] || ''));
     const cast = ed ? fld('cast', 'Personajes', { cls: 'cl-sm' }) : (x.v.cast ? `<span class="cl-mlab">Personajes</span> ` : '') + ovTxt(x, 'cast', esc(x.v.cast));
-    return `<tr class="cl-lsh${x.free ? ' cl-free' : ''}" style="--rc:${ea(col || 'transparent')}" data-cr="${k}:${ea(id)}" data-in="${ea(r.k)}"><td class="cl-ln cl-pc">${x.free ? (ed ? clXIn(x.x, 'xs', 'code', 'Número del plano', { cls: 'cl-code-in', ph: 'Plano', dis }) : `<span class="cl-code">${esc(x.code)}</span>`) : `<span class="cl-code">${esc(x.code)}</span>`}${shotT && (x.t0 || x.free) ? shotTime(x) : ''}</td>
+    return `<tr class="cl-lsh${x.free ? ' cl-free' : ''}" style="--rc:${ea(col || 'transparent')}" data-cr="${k}:${ea(id)}" data-in="${ea(r.k)}"><td class="cl-ln cl-pc">${x.free ? (ed ? clXIn(x.x, 'xs', 'code', 'Número del plano', { cls: 'cl-code-in', ph: 'Plano', dis }) : `<span class="cl-code">${esc(x.code)}</span>`) : `<span class="cl-code">${esc(x.code)}</span>`}${shotT && (x.t0 || x.free) ? shotTime(x) : ''}${rmB()}</td>
     <td colspan="4"><div class="cl-shg${thumbs ? ' th' : ''}">${thumbs ? (x.sh ? callThumb(x.sh) : '<span class="cl-th0"></span>') : ''}<span class="cl-shd">${desc}</span><span class="cl-sha">${act}</span>
       <span class="cl-shm"><span class="cl-shset">${r.set && !x.free ? `<span class="cl-mlab">Set</span> ${esc(r.set)}` : ''}</span><span class="cl-shl tnum">${lens}</span><span class="cl-shs">${snd}</span><span class="cl-shc tnum">${cast}</span></span></div></td></tr>`;
   };
@@ -811,17 +837,17 @@ RENDER.call = function () {
   const lrow = (r, j) => {
     if (r.free) {
       const f = (fl, lab, o) => clXIn(r.x, 'x', fl, lab, { ...o, dis });
-      return `<tr class="cl-lsc cl-free" data-cr="x:${ea(r.x.id)}"><td class="cl-ln">${ed ? f('code', 'Número', { cls: 'cl-code-in', ph: 'Esc.' }) : `<span class="cl-sn tnum">${esc(r.v.code)}</span>`}${rowTime(r)}</td><td class="cl-lie">${ed ? f('ie', 'I/E', { cls: 'cl-sm', ph: 'I/E' }) : esc(r.v.ie)}</td>
+      return `<tr class="cl-lsc cl-free" data-cr="x:${ea(r.x.id)}"><td class="cl-ln">${ed ? f('code', 'Número', { cls: 'cl-code-in', ph: 'Esc.' }) : `<span class="cl-sn tnum">${esc(r.v.code)}</span>`}${rowTime(r)}${rmB()}</td><td class="cl-lie">${ed ? f('ie', 'I/E', { cls: 'cl-sm', ph: 'I/E' }) : esc(r.v.ie)}</td>
         <td class="cl-lsd">${ed ? `${f('set', 'Escena o actividad', { ta: true, cls: 'cl-setin', ph: 'Escena o actividad' })}${f('syn', 'Detalle', { ta: true, cls: 'cl-synin', ph: 'Detalle' })}${f('cast', 'Reparto', { ta: true, cls: 'cl-castin', ph: 'Reparto' })}`
           : `${r.v.set ? `<b>${esc(r.v.set)}</b>` : ''}${r.v.syn ? `<span class="cl-syn">${esc(r.v.syn)}</span>` : ''}${r.v.cast ? `<span class="cl-lc">${esc(r.v.cast)}</span>` : ''}`}</td>
         <td class="cl-ldn">${ed ? f('dn', 'D/N', { cls: 'cl-sm', ph: 'D/N' }) : esc(r.v.dn)}</td><td class="cl-lpg tnum">${ed ? f('pages', 'Páginas', { cls: 'cl-sm cl-r', ph: 'Págs.' }) : esc(r.v.pages)}</td></tr>`;
     }
     const evTxt = () => ed ? `${clOvIn(r, 'r', r.key, 'name', 'Evento', { cls: 'cl-evn', dis })}${clOvIn(r, 'r', r.key, 'det', 'Detalle', { cls: 'cl-evd', dis })}` : `${ovTxt(r, 'name', `<b>${esc(r.v.name)}</b>`)}${r.v.det ? `<span data-no-tr>${ovTxt(r, 'det', esc(r.v.det))}</span>` : ''}`;
-    if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv" data-cr="r:${ea(r.key)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}${evTxt()}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
-    if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}" data-cr="r:${ea(r.key)}"><td class="cl-ln">${rowTime(r)}</td><td colspan="4"><span class="cl-evb">${evTxt()}</span></td></tr>`; }
+    if (isMove(r)) { const to = callMoveTo(list, j, m); return `<tr class="cl-lmv" data-cr="r:${ea(r.key)}"><td class="cl-ln">${rowTime(r)}${rmB()}</td><td colspan="4"><span class="cl-mvb">${CL_ICO.move}${evTxt()}${to ? `<span>→ <b>${esc(to.name)}</b>${to.addr ? ` · <span data-no-tr>${esc(to.addr)}</span>` : ''}</span>${to.url ? `<a href="${ea(to.url)}" target="_blank" rel="noopener noreferrer">Ver mapa</a>` : ''}` : ''}</span></td></tr>`; }
+    if (r.ev) { const hc = hlc(r.it) || lgCol('plan', 'ev'); return `<tr class="cl-lev${ea(lgDark(hc))}" style="--rc:${ea(hc)}" data-cr="r:${ea(r.key)}"><td class="cl-ln">${rowTime(r)}${rmB()}</td><td colspan="4"><span class="cl-evb">${evTxt()}</span></td></tr>`; }
     const col = r.col, V = r.v, o = (f, lab, x) => clOvIn(r, 'r', r.key, f, lab, { ...x, dis });
     // (lote Z) la escena a todo color, como su tira en el plan de rodaje (con letra clara sobre un color oscuro)
-    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}${ea(lgDark(col))}" data-strip="${ea(r.strip)}" style="--rc:${ea(col)}" data-cr="r:${ea(r.key)}"><td class="cl-ln">${ed ? o('code', 'Número de escena', { cls: 'cl-code-in' }) : `<span class="cl-sn tnum">${ovTxt(r, 'code', esc(V.code))}</span>`}${rowTime(r)}</td><td class="cl-lie">${ed ? o('ie', 'I/E', { cls: 'cl-sm' }) : ovTxt(r, 'ie', esc(V.ie))}</td>
+    return `<tr class="cl-lsc${r.shots && r.shots.length ? ' has-sh' : ''}${ea(lgDark(col))}" data-strip="${ea(r.strip)}" style="--rc:${ea(col)}" data-cr="r:${ea(r.key)}"><td class="cl-ln">${ed ? o('code', 'Número de escena', { cls: 'cl-code-in' }) : `<span class="cl-sn tnum">${ovTxt(r, 'code', esc(V.code))}</span>`}${rowTime(r)}${rmB()}</td><td class="cl-lie">${ed ? o('ie', 'I/E', { cls: 'cl-sm' }) : ovTxt(r, 'ie', esc(V.ie))}</td>
       <td class="cl-lsd">${ed ? `${o('set', 'Encabezado', { ta: true, cls: 'cl-setin' })}${r.it.sp && !r.ov.set ? `<em class="cl-part">(parte ${esc(r.it.sp)})</em>` : ''}${o('syn', 'Sinopsis', { ta: true, cls: 'cl-synin' })}${o('cast', 'Reparto', { ta: true, cls: 'cl-castin' })}`
         : `<b>${ovTxt(r, 'set', esc(V.set))}${r.it.sp && !r.ov.set ? ` <em>(parte ${esc(r.it.sp)})</em>` : ''}</b><span class="m-only">${esc(V.ie)} · ${esc(V.dn)}</span>${V.syn ? `<span class="cl-syn">${ovTxt(r, 'syn', esc(V.syn))}</span>` : ''}${V.cast ? `<span class="cl-lc">${ovTxt(r, 'cast', esc(V.cast))}</span>` : ''}`}</td>
       <td class="cl-ldn">${ed ? o('dn', 'D/N', { cls: 'cl-sm' }) : ovTxt(r, 'dn', esc(V.dn))}</td><td class="cl-lpg tnum">${ed ? o('pages', 'Páginas', { cls: 'cl-sm cl-r' }) : ovTxt(r, 'pages', esc(V.pages))}</td></tr>`
@@ -831,7 +857,7 @@ RENDER.call = function () {
   const nSc = free ? (dd.xrows || []).length : de.keys.length, nLab = free ? (nSc === 1 ? 'fila' : 'filas') : nSc === 1 ? 'escena' : 'escenas';
   const schedHTML = `<section class="cl-box cl-list-s" aria-label="Cronograma"><table class="cl-list cl-sched cl-g"><thead><tr><th>Hora · Esc.</th><th>I/E</th><th>Escena</th><th>D/N</th><th>Págs.</th></tr>${shHead}</thead><tbody>
     ${list.map(lrow).join('') || `<tr data-cr="x0:"><td colspan="5" class="hint">${free ? (ed ? 'Hoja libre: agrega sus filas con «+ Fila» o con clic derecho.' : 'Sin filas.') : 'Jornada sin escenas.'}</td></tr>`}
-    <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${hdAuto(tmIn(dd.end || '', Sc.endAuto || 'Hora', 'data-bind="cs-day" data-f="end" aria-label="Wrap: fin de la jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis), !dd.end && !!Sc.endAuto)}</span>` : `<b class="tnum">${esc(Sc.end || '')}</b>`}</td><td colspan="3"><b>Wrap · fin de jornada</b> <span class="cl-dim">· ${nSc} ${nLab}</span></td><td class="cl-lpg tnum"><small>Total</small> <b>${esc(fmtEighths(inf.e))}</b></td></tr></tbody></table></section>`;
+    <tr class="cl-lend"><td class="cl-ln">${ed ? `<span class="cl-endt">${hdAuto(tmIn(dd.end || '', Sc.endAuto || 'Hora', 'data-bind="cs-day" data-f="end" aria-label="Wrap: fin de la jornada" title="Escribe la hora; vacía, la que sale de los tiempos"', dis), !dd.end && !!Sc.endAuto)}</span>` : `<b class="tnum">${esc(Sc.end || '')}</b>`}</td><td colspan="3"><b>Wrap · fin de jornada</b> <span class="cl-dim">· ${nSc} ${nLab}</span></td><td class="cl-lpg tnum">${free ? '' : `<small>Total</small> <b>${esc(fmtEighths(inf.e))}</b>`}</td></tr></tbody></table></section>`;
   const chg = free ? 0 : callChanges(dd);
   const schedTools = `<div class="cl-tools">${Sc.byShot ? `<label class="cl-opt" title="Reparte la hora de cada escena entre sus planos. Apagado: solo la hora de cada escena"><input type="checkbox" data-bind="cl-shott" ${shotT ? 'checked' : ''} ${dis}> Hora por plano</label><label class="cl-opt" title="La viñeta del storyboard de cada plano"><input type="checkbox" data-bind="cl-thumbs" ${thumbs ? 'checked' : ''} ${dis}> Miniaturas</label>` : ''}
     ${chg ? `<span class="cl-chg" title="Lo cambiado aquí queda solo en esta hoja: el plan de rodaje, el desglose y el storyboard no cambian">${chg === 1 ? '1 cambio sobre el stripboard' : `${chg} cambios sobre el stripboard`}</span>${ed ? '<button type="button" class="linkbtn" data-act="cl-revert">Volver a la guía del stripboard</button>' : ''}` : ''}
@@ -855,7 +881,7 @@ RENDER.call = function () {
       const x = r.x, f = (fl, lab, o) => clXIn(x, 'xa', fl, lab, { ...o, dis }), t = (fl, lab, phd) => tmCell(lab, tmIn(x[fl] || '', ph(phd || '—'), `data-bind="cl-xf" data-k="xa" data-id="${ea(x.id)}" data-f="${fl}" aria-label="${ea(lab)}"`, dis));
       return `<tr class="cl-ca cl-free" data-cr="xa:${ea(x.id)}"><td class="cl-pn">${f('actor', 'Nombre', { ph: ph('Nombre') })}</td><td class="cl-pj">${f('role', 'Personaje', { ph: ph('Personaje') })}</td>
         ${t('pu', 'Recojo')}${t('call', 'Llamado', call || '—')}${t('ves', 'Vestuario')}${t('mq', 'Maquillaje')}${t('ready', 'Listos')}
-        <td class="cl-pt">${f('phone', 'Teléfono', { ph: ph('Teléfono'), type: 'tel' })}${f('email', 'Correo', { ph: ph('Correo'), type: 'email', cls: 'cl-mail' })}</td><td class="cl-ob">${f('obs', 'Observaciones', { ph: ph('Observaciones') })}</td><td class="cl-px">${xBtn('cl-row-x', 'xa:' + x.id, 'Quitar la fila')}</td></tr>`;
+        <td class="cl-pt">${f('phone', 'Teléfono', { ph: ph('Teléfono'), type: 'tel' })}${f('email', 'Correo', { ph: ph('Correo'), type: 'email', cls: 'cl-mail' })}</td><td class="cl-ob">${f('obs', 'Observaciones', { ph: ph('Observaciones') })}</td><td class="cl-px">${rmB()}${xBtn('cl-row-x', 'xa:' + x.id, 'Quitar la fila')}</td></tr>`;
     }
     const el = r.el, nm = r.role;
     const t = (f, lab, phd) => tmCell(lab, tmIn(r[f], phd, `data-bind="cs-cast" data-id="${ea(el.id)}" data-f="${f}" aria-label="${ea(lab)} de ${esc(nm)}"`, dis));
@@ -863,7 +889,7 @@ RENDER.call = function () {
       <td class="cl-pj"><span class="cs-av tnum">${r.num || '·'}</span><b>${esc(nm)}</b><small class="tnum" title="Escenas de la jornada">Esc. ${esc(r.sc.join(', '))}</small></td>
       ${t('pu', 'Recojo', ph('—'))}${t('call', 'Llamado', call || '')}${t('ves', 'Vestuario', ph('—'))}${t('mq', 'Maquillaje', ph('—'))}${t('ready', 'Listos', ph('—'))}
       ${contact('cs-tal', el.id, r, el.name)}
-      <td class="cl-ob"><input type="text" value="${esc(r.obs)}" placeholder="${ea(ph('Observaciones'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(nm)}"></td><td class="cl-px"></td></tr>`;
+      <td class="cl-ob"><input type="text" value="${esc(r.obs)}" placeholder="${ea(ph('Observaciones'))}" data-bind="cs-cast" data-id="${ea(el.id)}" data-f="obs" ${dis} aria-label="Observaciones de ${esc(nm)}"></td><td class="cl-px">${rmB()}</td></tr>`;
   };
   const castGone = callCast(de).filter(({ el }) => (dd.castx || {})[el.id]).map(({ el }) => ({ k: 'a:' + el.id, lab: titleCase(el.name) }));
   const talHTML = `<section class="cl-box cl-tal" aria-label="Talentos"><div class="cl-bh"><h3>Talentos</h3><span class="hint">${tal.length} ${tal.length === 1 ? 'persona' : 'personas'}${fig ? ` · figuración ${fig}` : ''}</span>${ed ? '<button type="button" class="cs-add" data-act="cl-row-end" data-t="xa" title="Agregar una fila libre de talentos" aria-label="Agregar una fila libre de talentos">+</button>' : ''}</div>
@@ -878,7 +904,7 @@ RENDER.call = function () {
       const x = r.x, f = (fl, lab, o) => clXIn(x, 'xc', fl, lab, { ...o, dis });
       return `<tr class="cl-cw cl-free" data-cr="xc:${ea(x.id)}"><td class="cl-pn">${f('name', 'Nombre', { ph: ph('Nombre') })}</td><td class="cl-pr">${f('role', 'Cargo', { ph: ph('Cargo') })}${hd}</td>
         ${tmCell('Llamado', tmIn(x.call || '', dc, `data-bind="cl-xf" data-k="xc" data-id="${ea(x.id)}" data-f="call" aria-label="Llamado" title="Vacío: la citación del área"`, dis))}
-        <td class="cl-pt">${f('phone', 'Teléfono', { ph: ph('Teléfono'), type: 'tel' })}</td><td class="cl-pm">${f('email', 'Correo', { ph: ph('Correo'), type: 'email', cls: 'cl-mail' })}</td><td class="cl-ob">${f('obs', 'Observaciones', { ph: ph('Observaciones') })}</td><td class="cl-px">${xBtn('cl-row-x', 'xc:' + x.id, 'Quitar la fila')}</td></tr>`;
+        <td class="cl-pt">${f('phone', 'Teléfono', { ph: ph('Teléfono'), type: 'tel' })}</td><td class="cl-pm">${f('email', 'Correo', { ph: ph('Correo'), type: 'email', cls: 'cl-mail' })}</td><td class="cl-ob">${f('obs', 'Observaciones', { ph: ph('Observaciones') })}</td><td class="cl-px">${rmB()}${xBtn('cl-row-x', 'xc:' + x.id, 'Quitar la fila')}</td></tr>`;
     }
     const c = r.c;
     return `<tr class="cl-cw" data-cr="c:${ea(c.id)}"><td class="cl-pn"><input type="text" class="cs-name" value="${esc(c.name)}" placeholder="${ea(ph('Nombre'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="name" ${dis} aria-label="Nombre de ${esc(c.role)}"></td>
@@ -886,9 +912,9 @@ RENDER.call = function () {
       ${tmCell('Llamado', tmIn((dd.crew || {})[c.id], dc, `data-bind="cs-ccall" data-id="${ea(c.id)}" aria-label="Llamado de ${esc(c.role)}" title="Vacío: la citación del área"`, dis))}
       <td class="cl-pt"><input type="tel" value="${esc(c.phone || '')}" placeholder="${ea(ph('Teléfono'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="phone" ${dis} aria-label="Teléfono de ${esc(c.role)}"></td>
       <td class="cl-pm"><input type="email" class="cl-mail" value="${esc(c.email || '')}" placeholder="${ea(ph('Correo'))}" data-bind="cs-crew" data-id="${ea(c.id)}" data-f="email" ${dis} aria-label="Correo de ${esc(c.role)}"></td>
-      <td class="cl-ob"><input type="text" value="${esc(r.obs)}" placeholder="${ea(ph('Observaciones'))}" data-bind="cl-cobs" data-id="${ea(c.id)}" ${dis} aria-label="Observaciones de ${esc(c.role)}"></td><td class="cl-px">${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`;
+      <td class="cl-ob"><input type="text" value="${esc(r.obs)}" placeholder="${ea(ph('Observaciones'))}" data-bind="cl-cobs" data-id="${ea(c.id)}" ${dis} aria-label="Observaciones de ${esc(c.role)}"></td><td class="cl-px">${rmB()}${xBtn('cs-crew-x', c.id, 'Quitar de esta jornada o del equipo')}</td></tr>`;
   };
-  const crewRowsHTML = full.map(([dept, name, rows, dc]) => `<tr class="cl-sep" data-cr="d:${ea(dept)}"><td colspan="2"><span>${esc(name)}</span>${add(dept, name)}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="${NC - 3}"></td></tr>`
+  const crewRowsHTML = full.map(([dept, name, rows, dc]) => `<tr class="cl-sep" data-cr="d:${ea(dept)}"><td colspan="2"><span>${esc(name)}</span>${add(dept, name)}${rmB()}</td><td class="cl-tt" title="Citación del área">${tmIn((dd.dcall || {})[dept], call || '', `data-bind="cl-dcall" data-dept="${ea(dept)}" aria-label="Citación de ${esc(name)}"`, dis)}</td><td colspan="${NC - 3}"></td></tr>`
     + rows.map(r => crewRow(dept, r, dc)).join('')).join('');
   const crewN = crewSets.reduce((a, [, , rows]) => a + rows.filter(r => r.name).length, 0), absent = C.crew.filter(c => (dd.out || {})[c.id]);
   const crewHTML = `<section class="cl-box cl-crew" aria-label="Equipo técnico"><div class="cl-bh"><h3>Equipo técnico</h3><span class="hint">${crewN} ${crewN === 1 ? 'persona' : 'personas'}</span><button type="button" class="linkbtn" data-act="cl-team">Directorio en Proyecto ›</button></div>
@@ -969,22 +995,37 @@ RENDER.call = function () {
 function clBindRows(v) {
   if (v._clRows) return; v._clRows = true;
   const rowOf = t => UI.tab === 'call' && callEditable() ? t.closest && t.closest('.cl-doc [data-cr]') : null;
-  let tm = 0, x0 = 0, y0 = 0, held = 0;
+  const fieldOf = t => t.closest && t.closest('input, textarea, select, [contenteditable="true"], [contenteditable="plaintext-only"]');
+  let tm = 0, x0 = 0, y0 = 0, held = 0, touchAt = 0, typing = null;
   const off = () => { clearTimeout(tm); tm = 0; };
+  v.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      touchAt = Date.now();
+      const r = rowOf(e.target); if (!r) return;
+      // sobre un campo, el dedo sostenido es del sistema (elegir texto, pegar); y los botones y enlaces hacen lo suyo. El
+      // menú de la fila se abre sosteniendo el dedo en otra parte de la fila o con su ⋮ (que solo se ve en las pantallas
+      // táctiles)
+      if (fieldOf(e.target) || e.target.closest('button, a, label')) return;
+      x0 = e.clientX; y0 = e.clientY; off();
+      tm = setTimeout(() => { tm = 0; held = Date.now(); clRowMenu({ left: x0, right: x0, top: y0, bottom: y0 }, r); }, 550);
+    } else if (e.button === 2) {
+      // ¿se estaba escribiendo en ese campo? (se mira antes de que el clic lo enfoque)
+      const f = fieldOf(e.target); typing = f && document.activeElement === f ? f : null;
+    }
+  });
   v.addEventListener('contextmenu', e => {
     const r = rowOf(e.target); if (!r) return;
-    // el dedo sostenido ya lo abrió (o lo abre este evento, en Android): una sola vez
+    // el dedo sostenido ya lo abrió: una sola vez
     if (Date.now() - held < 1500) { e.preventDefault(); return; }
-    // en un campo con texto elegido queda el menú del sistema (copiar, pegar)
-    if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.selectionStart !== e.target.selectionEnd) return;
+    // del dedo (Android lo dispara al sostener): sobre un campo, el del sistema; en otra parte, lo abre el temporizador
+    if (Date.now() - touchAt < 1500) { if (!fieldOf(e.target)) e.preventDefault(); return; }
+    // con el mouse: en el campo donde se está escribiendo (el cursor ya estaba dentro) o con texto elegido, el menú del
+    // navegador (pegar, ortografía); en cualquier otra parte de la fila (también un campo que no se está escribiendo),
+    // el de las filas
+    const f = fieldOf(e.target), was = typing; typing = null;
+    if (f && (f === was || (typeof f.selectionStart === 'number' && f.selectionStart !== f.selectionEnd))) return;
     e.preventDefault(); off();
     clRowMenu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, r);
-  });
-  v.addEventListener('pointerdown', e => {
-    if (e.pointerType !== 'touch') return;
-    const r = rowOf(e.target); if (!r) return;
-    x0 = e.clientX; y0 = e.clientY; off();
-    tm = setTimeout(() => { tm = 0; held = Date.now(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); clRowMenu({ left: x0, right: x0, top: y0, bottom: y0 }, r); }, 550);
   });
   v.addEventListener('pointermove', e => { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) off(); });
   for (const t of ['pointerup', 'pointercancel', 'scroll']) v.addEventListener(t, off, true);
@@ -1289,6 +1330,7 @@ Object.assign(ACT, {
   'cl-date-back': () => { const S = callSheet(callRef()); if (!S || !S.own) return; histNote('Volver a la fecha del plan'); delete dayData(S.d.id).date; changed('data'); render(); toastUndo('La hoja vuelve a la fecha del plan.'); },
   'cl-row-end': b => clRowEnd(b.dataset.t),
   'cl-row-x': b => { const row = b.closest('[data-cr]'); clDelRow(b.dataset.id, row); },
+  'cl-rmenu': b => { const row = b.closest('[data-cr]'); if (row && callEditable()) clRowMenu(b, row); },
   'cl-back': b => clBack(b.dataset.cr),
   'cl-revert': () => {
     const id = curDayId(); if (!id) return; const dd = peekDay(id), n = callChanges(dd);
@@ -1642,7 +1684,7 @@ function callSheetXLSX(X) {
   const COLS = [22, 16, 9, 9, 9, 9, 9, 16, 16, 6];
   const lu = pdfPlanUsed(X.sched.rows.filter(r => r.it).map(r => r.it)); lu.note = !!(X.dd.notes || '').trim();
   const lg = xlLegend(lgDocItems('call', lu).map(([nm, c]) => nm === LG.call.note[0] ? [nm, Y.fill] : [nm, c]), COLS);
-  if (lg.length) { row([], 6); rows.push(...lg); row([], 4); } else gap();
+  if (lg.length && !X.free) { row([], 6); rows.push(...lg); row([], 4); } else gap();   // (una hoja libre no tiene tiras del plan)
   // 4. el cronograma por escena, con sus planos debajo (lote AH: sin el título «Cronograma»)
   row([{ v: 'Hora · Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 7, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
   if (X.sched.byShot) row([{ v: 'Plano · hora', s: H }, { v: 'Descripción', s: H }, { v: 'Acción', cs: 4, s: H }, { v: 'Lente', s: { ...H, h: 'center' } }, { v: 'Sonido', s: { ...H, h: 'center' } }, { v: 'Personajes', cs: 2, s: H }]);
@@ -1655,7 +1697,7 @@ function callSheetXLSX(X) {
     for (const x of r.shots || []) row([{ v: x.code + (X.shotT && x.t0 ? '  ' + x.t0 : ''), s: { ...B, bold: true } }, { v: x.v.desc, s: B }, { v: x.v.act + (r.set && !x.free && !setOf(r.s).toLowerCase().includes(r.set.toLowerCase()) ? `\nSet: ${r.set}` : ''), cs: 4, s: B }, { v: x.v.lens, s: CC }, { v: SND_NAME[x.v.snd] || '', s: CC }, { v: x.v.cast, cs: 2, s: B }]);
   }
   const WR = { bold: true, line: L, fill: '#222222', color: '#FFFFFF' };
-  row([{ v: X.end || '', s: { ...WR, h: 'center' } }, { v: 'Wrap · fin de jornada', cs: NC - 2, s: WR }, { v: fmtEighths(dayInfo(X.de.keys, X.de.rows).e), s: { ...WR, h: 'right' } }], 20);
+  row([{ v: X.end || '', s: { ...WR, h: 'center' } }, { v: 'Wrap · fin de jornada', cs: NC - 2, s: WR }, { v: X.free ? '' : fmtEighths(dayInfo(X.de.keys, X.de.rows).e), s: { ...WR, h: 'right' } }], 20);
   // 5. el avance: las jornadas elegidas (o «Fin de rodaje»)
   for (const A of X.advs) {
     gap(); band(trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') + (A.locs.length ? ' · ' + A.locs.join(', ') : ''));

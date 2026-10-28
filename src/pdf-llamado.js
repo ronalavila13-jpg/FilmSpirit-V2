@@ -144,7 +144,8 @@ function pdfCallHead(doc, X, V, y0) {
   });
   // el catering (tal cual lo escribieron) y el resumen de la jornada
   const inf = dayInfo(X.de.keys, X.de.rows), nShots = X.sched.rows.reduce((a, r) => a + (r.shots ? r.shots.length : 0), 0), nSc = X.de.keys.length;
-  cols[1].push((draw, x, y, w) => {
+  // (en una hoja libre sin catering, nada: las horas son la última celda)
+  if (!X.free || (X.dd.craft || '').trim()) cols[1].push((draw, x, y, w) => {
     let h = P6;
     const craft = (X.dd.craft || '').trim();
     if (craft) { const nl = clPairs(doc, [['Catering', craft]], { x: x + w / 2, y: y + h + CLF.ft * .8, w: w - 12, center: true, draw }); h += nl * 11; }
@@ -289,7 +290,7 @@ function pdfCall(opts = {}) {
     if (!all.length) blocks.push([[{ content: X.free ? 'Sin filas.' : 'Jornada sin escenas.', colSpan: 5, styles: { textColor: K.c2 } }]]);
     const inf = dayInfo(X.de.keys, X.de.rows), nSc = X.free ? (X.dd.xrows || []).length : X.de.keys.length;
     blocks.push([[{ content: pdfSafe(X.end || ''), styles: { fontStyle: 'bold', cellPadding: PS } }, pdfRich([{ segs: [{ t: 'Wrap · fin de jornada', st: 'bold' }, { t: '  ·  ' + tr(X.free ? `${nSc} ${nSc === 1 ? 'fila' : 'filas'}` : `${nSc} ${nSc === 1 ? 'escena' : 'escenas'}`), col: K.c2 }] }], { colSpan: 3, cellPadding: PS }),
-      pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', cellPadding: PS })]]);
+      X.free ? { content: '', styles: { cellPadding: PS } } : pdfRich([{ segs: [{ t: 'Total ', fs: CLF.cap, col: K.c3 }, { t: fmtEighths(inf.e), st: 'bold', tr: false }] }], { halign: 'right', cellPadding: PS })]]);
     // con planos, una segunda fila de títulos: lo que dice cada columna en las filas de los planos
     const two = X.sched.byShot, h2 = { fontStyle: 'normal', fillColor: PDF_WHITE };
     const head = [[{ content: 'Hora · Esc.' }, { content: 'I/E' }, { content: 'Escena' }, { content: 'D/N' }, { content: 'Págs.', styles: { halign: 'right' } }],

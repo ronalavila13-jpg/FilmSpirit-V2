@@ -125,6 +125,23 @@ locaciones, sus escenas y su reparto. Su ✕ la quita; **«Avance automático»*
 jornada, si no agregas nada, sigue diciendo «Fin de rodaje». Una hoja libre empieza sin avance y le puedes agregar el que
 quieras.
 
+## Después de la revisión
+
+- **Una hoja libre sale en PDF aunque el plan no tenga jornadas** (un comercial o una prueba de cámara: guion sin plan
+  de rodaje). Antes, «Esta hoja (PDF)» decía «Aún no hay jornadas…». También sale sin guion. «Todas las jornadas» y
+  elegir jornadas siguen pidiendo el plan. Al exportar una hoja libre ya no aparece «Preparando viñetas» (no tiene
+  planos del storyboard): el PDF prepara solo las viñetas de las hojas que salen (y no las de los planos quitados).
+- **En «Elegir…»** una hoja libre dice «Esta hoja: Prueba de cámara» y no ofrece jornadas (solo páginas).
+- **El aviso de hoja vieja** también avisa cuando una hoja libre que exportaste quedó vieja (por ejemplo, si cambia el
+  equipo o el centro de salud): «la hoja libre «Pickup» que exportaste (v1) quedó vieja».
+- **En el teléfono**, mantener el dedo sobre un campo hace lo del sistema (elegir texto, pegar). El menú de la fila se
+  abre manteniendo el dedo en otra parte de la fila (el nombre del personaje, el número, el área…) o con el **⋮** que
+  cada fila tiene ahora en las pantallas táctiles (en la computadora no se ve: ahí está el clic derecho).
+- **En la computadora**, el clic derecho en el campo donde estás escribiendo (con el cursor ya dentro) o sobre texto
+  elegido deja el menú del navegador (pegar, ortografía); en cualquier otra parte de la fila, también sobre un campo
+  que no estabas escribiendo, abre el menú de la fila. Así se puede pegar o corregir la ortografía mientras se escribe
+  y el menú de filas sigue a un clic de distancia en toda la fila.
+
 ## Decisiones que tomé al leer el pedido
 
 - **Fecha «Correr esta jornada y las siguientes»**: corre **todas** las jornadas siguientes, también las de otras etapas
@@ -155,9 +172,10 @@ quieras.
 - **Archivos:** `src/tab-call.js` (casi entero: datos, pantalla, clic derecho, fecha, hojas libres, avance, jefes, Excel),
   `src/pdf-llamado.js` (reescrito: cabecera medida y luego dibujada en celdas, tablas `theme: 'grid'` propias; no usa
   `TBL`, `pdfSec`, `docHeader` ni `pageNumbers`), `src/shell.html` (bloque CSS «(lote AH) la hoja de llamado en
-  cuadros», al final; se quitaron `.cl-foot` y `.cl-tot`), `src/tab-board.js` (la etiqueta del plano quitado:
-  `boardPanelsHTML` y `shotTableHTML`, con `callShotCuts`/`callCutLabel` de tab-call.js), `src/pdf.js` (solo
-  `pdfShotlist`: la columna «Estado» dice «Eliminado en la hoja de llamado · Jornada N»), `i18n/en-manual.json` (bloque
+  cuadros», al final; se quitaron `.cl-foot` y `.cl-tot`), `src/pdf-rango.js` (solo `pdfRangeDialog`: el nombre de la hoja libre y sin «Jornadas» para ella), `src/tab-board.js` (la etiqueta del plano quitado:
+  `boardPanelsHTML` y `shotTableHTML`, con `callShotCuts`/`callCutLabel` de tab-call.js), `src/pdf.js` (`pdfShotlist`: la
+  columna «Estado» dice «Eliminado en la hoja de llamado · Jornada N»; `exportPDF`: la hoja de llamado pregunta a
+  `callExportBlock`; `pdfWarm`: las viñetas de `callPdfShots`), `i18n/en-manual.json` (bloque
   «// lote AH · llamado», 139 frases), `test/llamado-ah.test.js` (nueva), `test/pdf-diseno.test.js` y
   `test/cabeceras.test.js` (actualizadas: esperaban el título «Cronograma», la tabla «Personas» y el pie de página, que
   pediste quitar).
@@ -181,10 +199,14 @@ quieras.
   navegador: igual en las tres versiones de la huella). Lo nuevo entra por los datos de la hoja.
 - **Unión con `lote-ah`:** la rama tiene unidos los frentes «pdf» y «plan» (sin choques). La hoja usa `GRID`,
   `PDF_RULE`, `PDF_HEADF` y `PDF_LABF` de pdf.js para las líneas y los grises, y el papel de la vista previa.
-- **Pruebas:** `test/llamado-ah.test.js` (15: cambios sobre el stripboard y volver, el sonido ya no va al storyboard, la
+- **Funciones de la revisión (tab-call.js):** `callExportBlock`, `callPdfRefs`, `callPdfShots`, `callRangeLabel`; el
+  aviso de hoja vieja (`callStaleSoon`) cuenta las hojas libres; `clBindRows` (el dedo y el clic derecho) y el ⋮ de las
+  filas (`.cl-rm`, acción `cl-rmenu`).
+- **Pruebas:** `test/llamado-ah.test.js` (20; las 5 de la revisión: la hoja libre sin plan en PDF, las viñetas, «Elegir…»,
+  el aviso de hoja vieja de una hoja libre, el dedo y el clic derecho; y 15 de antes: cambios sobre el stripboard y volver, el sonido ya no va al storyboard, la
   huella, el plano quitado y su etiqueta, filas libres y el menú, jefes de área, hoja libre con PDF y Excel, avance de
   cualquier jornada, fecha solo en la hoja y corriendo el plan, lo quitado de la pantalla, del PDF y del Excel, el
-  saneado y el inglés). Todas las de la app pasan (50) salvo `test/pdf.test.js`, que ya fallaba (le falta el módulo
+  saneado y el inglés). Todas las de la app pasan (51) salvo `test/pdf.test.js`, que ya fallaba (le falta el módulo
   canvas); las 20 del servidor pasan.
 - **En el navegador** (Playwright, proyecto de ejemplo): clic derecho y sus opciones, filas libres, cambios y volver,
   quitar y devolver un plano (con la etiqueta en el storyboard y el guion técnico), la fecha de las dos maneras y

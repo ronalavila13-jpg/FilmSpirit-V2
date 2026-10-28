@@ -322,6 +322,83 @@ test('el Excel sigue la estructura nueva: cabecera con cierre de set y wrap, jef
   run(`P.call.crew.find(c => c.role === 'Sonidista').name = '';`);
 });
 
+/* ---------- revisión: la hoja libre sin plan, las viñetas, «Elegir…», el aviso de hoja vieja, el dedo y el clic derecho ---------- */
+test('una hoja libre sale en PDF aunque el plan no tenga jornadas (un comercial, una prueba de cámara); las jornadas piden el plan', () => {
+  const items0 = run(`JSON.stringify(P.schedule.items)`);
+  run(`P.schedule.items = P.schedule.items.filter(it => !it.d); derive(); UI.callFree = null;`);
+  assert.strictEqual(J(`callDays().days.length`), 0);
+  assert.ok(/Aún no hay jornadas/.test(run(`callExportBlock({ all: false })`)), 'sin hoja libre abierta: pide el plan');
+  run(`callFreeNew(); dayData(UI.callFree).xrows = [{ id: 'x1', at: '', set: 'Prueba de lentes', t: '08:30' }]; callFreeOf(UI.callFree).name = 'Prueba de cámara';`);
+  assert.strictEqual(run(`callExportBlock({ all: false })`), '', 'la hoja libre sí sale');
+  assert.ok(/Aún no hay jornadas/.test(run(`callExportBlock({ all: true })`)), '«todas las jornadas» pide el plan');
+  assert.ok(/Aún no hay jornadas/.test(run(`callExportBlock({ all: false, sel: { days: new Set([0]) } })`)), 'elegir jornadas pide el plan');
+  assert.deepStrictEqual(J(`EXPORTS.call().map(x => x.label)`), ['Esta hoja (PDF)', 'Esta hoja (Excel)']);
+  // exportPDF ya no corta la hoja de llamado por no tener jornadas: lo decide callExportBlock
+  const pdf = fs.readFileSync(R + 'src/pdf.js', 'utf8');
+  has(pdf, /'scouting', 'casting', 'call'\]\.includes\(kind\)/); has(pdf, /callExportBlock\(opts\)/);
+  if (LIB) {
+    const r = J(`(() => { const r = pdfMake('call', { all: false }); return { err: r.err || '', name: r.name, pages: r.doc ? r.doc.getNumberOfPages() : 0 }; })()`);
+    assert.strictEqual(r.err, ''); assert.ok(r.pages >= 1); assert.ok(/_hoja_de_llamado_Prueba_de_camara\.pdf$/.test(r.name), r.name);
+  }
+  // sin guion tampoco hace falta para una hoja libre
+  assert.strictEqual(run(`(() => { const s = D.sc.scenes; D.sc.scenes = []; const w = callExportBlock({ all: false }); D.sc.scenes = s; return w; })()`), '');
+  run(`ACT['cl-free-del'](); P.schedule.items = ${items0}; derive(); UI.callDay = 0;`);
+});
+test('las viñetas que prepara el PDF son solo las de las hojas que salen (una hoja libre no prepara ninguna)', () => {
+  run(`P.call.noThumbs = false; delete P.call.noThumbs;`);
+  const day0 = J(`callSched(callDays().days[0]).rows.flatMap(r => (r.shots || []).map(x => x.sh.id)).sort()`);
+  assert.ok(day0.length > 0);
+  assert.deepStrictEqual(J(`callPdfShots({ all: false }).map(sh => sh.id).sort()`), day0);
+  // un plano quitado de la hoja no se prepara
+  const sid = run(`D.shotsBy['2'][0].id`); run(`clDelRow('s:${sid}')`);
+  assert.ok(!J(`callPdfShots({ all: false }).map(sh => sh.id)`).includes(sid));
+  run(`clBack('s:${sid}')`);
+  assert.ok(J(`callPdfShots({ all: true }).length`) >= day0.length, 'todas las jornadas');
+  run(`callFreeNew()`);
+  assert.deepStrictEqual(J(`callPdfShots({ all: false })`), [], 'la hoja libre');
+  assert.deepStrictEqual(J(`callPdfShots({ all: false, sel: { days: new Set([0]) } }).map(sh => sh.id).sort()`), day0, 'las jornadas elegidas, aunque haya una hoja libre abierta');
+  has(fs.readFileSync(R + 'src/pdf.js', 'utf8'), /kind === 'call' && typeof callPdfShots === 'function'\) all = callPdfShots\(opts\)/);
+  run(`ACT['cl-free-del'](); UI.callDay = 0;`);
+});
+test('«Elegir…» llama a la hoja libre por su nombre (y no ofrece jornadas)', () => {
+  assert.strictEqual(run(`callRangeLabel()`), 'Esta jornada (1)');
+  run(`callFreeNew(); callFreeOf(UI.callFree).name = 'Ensayo general';`);
+  has(run(`callRangeLabel()`), /^<span>Esta hoja:<\/span> <span data-no-tr>Ensayo general<\/span>$/);
+  run(`__mods = []; modal = o => { __mods.push(o.body); return { querySelector: () => null, addEventListener() {} }; };`);
+  try { run(`pdfRangeDialog(EXPORTS.call()[0], null)`); } catch (e) { /* el diálogo de mentira no tiene botones */ }
+  const body = run(`__mods[0] || ''`);
+  has(body, /Esta hoja:<\/span> <span data-no-tr>Ensayo general/);
+  assert.doesNotMatch(body, /value="day"/, 'sin «Jornadas»');
+  run(`ACT['cl-free-del'](); UI.callDay = 0;`);
+});
+test('el aviso de hoja vieja también cuenta las hojas libres que salieron', () => {
+  run(`callFreeNew(); callFreeOf(UI.callFree).name = 'Pickup'; globalThis.__fid = UI.callFree;`);
+  run(`callExported([__fid], { [__fid]: callVer(__fid, callDays(), true) })`);
+  assert.strictEqual(J(`peekDay(__fid).exp.v`), 1);
+  assert.strictEqual(run(`callState(__fid).stale`), false);
+  run(`P.call.radio = 'Canal 9'`);   // un dato del proyecto que sale en la hoja
+  assert.strictEqual(run(`callState(__fid).stale`), true);
+  run(`globalThis.__toast = ''; const T0 = toast, S0 = setTimeout; toast = m => { __toast = m; return { classList: { add() {} } }; }; setTimeout = f => { f(); return 0; }; UI.tab = 'plan'; callStaleSoon(); toast = T0; setTimeout = S0;`);
+  has(run(`__toast`), /la hoja libre «Pickup» que exportaste \(v1\) quedó vieja/);
+  run(`delete P.call.radio; ACT['cl-free-del'](); UI.callDay = 0; UI.tab = 'call';`);
+});
+test('el dedo sostenido sobre un campo es del sistema; en otra parte de la fila (o con su ⋮) abre el menú; el clic derecho deja el del navegador en el campo que se escribe', () => {
+  const src = fs.readFileSync(R + 'src/tab-call.js', 'utf8');
+  const bind = src.slice(src.indexOf('function clBindRows'), src.indexOf('const clSplit'));
+  has(bind, /if \(fieldOf\(e\.target\) \|\| e\.target\.closest\('button, a, label'\)\) return;/, 'sobre un campo el dedo no abre el menú');
+  has(bind, /if \(Date\.now\(\) - touchAt < 1500\) \{ if \(!fieldOf\(e\.target\)\) e\.preventDefault\(\); return; \}/, 'el contextmenu del dedo sobre un campo queda para el sistema');
+  has(bind, /if \(f && \(f === was \|\| \(typeof f\.selectionStart === 'number' && f\.selectionStart !== f\.selectionEnd\)\)\) return;/, 'el clic derecho en el campo que se escribe');
+  // el ⋮ de cada fila (solo en las pantallas táctiles) abre el mismo menú
+  const h = A.show();
+  assert.ok((h.match(/class="cl-rm" data-act="cl-rmenu"/g) || []).length >= 10, 'el ⋮ en las filas');
+  const css = fs.readFileSync(R + 'src/shell.html', 'utf8');
+  has(css, /\.cs\.cl \.cl-rm\{display:none;/); has(css, /@media \(hover:none\),\(pointer:coarse\)\{\n  \.cs\.cl \.cl-rm\{display:inline-grid\}/);
+  run(`__pops.length = 0; ACT['cl-rmenu']({ closest: () => ({ dataset: { cr: 'r:k:1|' }, classList: { contains: c => c === 'cl-lsc' } }), getBoundingClientRect: () => ({ left: 0, right: 0, top: 0, bottom: 0 }) })`);
+  assert.ok(run(`__pops[0] || ''`).includes('Agregar fila abajo'));
+  // en solo lectura, sin ⋮
+  run(`UI.readOnly = true;`); assert.doesNotMatch(A.show(), /data-act="cl-rmenu"/); run(`UI.readOnly = false;`);
+});
+
 /* ---------- al cargar un proyecto ---------- */
 test('callNormalize deja lo nuevo en su forma (y borra lo que no sirve)', () => {
   const Px = { call: { crew: [{ id: 'c1', head: 'sí' }, { id: 'c2', head: true }], free: [{ id: 'f1', name: 'Ensayo\nlargo' }, { id: 'malo' }, null], days: { d1: {

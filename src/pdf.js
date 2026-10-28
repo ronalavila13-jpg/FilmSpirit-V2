@@ -1300,7 +1300,8 @@ async function pdfWarm(kind, opts) {
   if (kind === 'storyboard') all = (UI.sbScene ? [UI.sbScene] : D.sc.scenes.map(s => s.key)).flatMap(k => D.shotsBy[k] || []).flatMap(sh => [sh, shotB(sh)].filter(Boolean));
   else if (kind === 'animatic' && typeof anClips === 'function') all = anClips().clips.filter(c => c.sh).map(c => c.sh);
   // (lote U) las miniaturas de los planos de la hoja de llamado (la de esta jornada o todas)
-  else if (kind === 'call' && typeof callThumbs === 'function' && callThumbs()) { const { days } = callDays(); all = (opts && opts.all ? days : [days[UI.callDay || 0]]).filter(Boolean).flatMap(d => d.keys.flatMap(k => D.shotsBy[k] || [])); }
+  // (lote AH) solo los planos que salen en esas hojas (callPdfShots: una hoja libre no tiene viñetas que preparar)
+  else if (kind === 'call' && typeof callPdfShots === 'function') all = callPdfShots(opts);
   // (lote AH) las de los planos del plan de rodaje (con «Miniaturas del storyboard»; las jornadas elegidas o todas)
   else if (kind === 'plan' && typeof planDocShots === 'function') all = planDocShots(opts && opts.sel);
   if (!all.length) return true;
@@ -1451,11 +1452,12 @@ async function exportPDF(kind, btn, opts) {
   // guion cerrado: cada copia puede llevar el nombre de quien la recibe; también se baja la versión cerrada
   if ((kind === 'screenplay' || kind === 'script') && typeof scriptLock === 'function' && scriptLock() && !(opts && opts.copy)) { lkCopyDialog(kind, btn, opts); return; }
   if (!(await loadPdfLib())) { problem('No se pudo cargar el generador de PDF. Revisa tu conexión.', () => exportPDF(kind, btn, opts)); return; }
-  if (!D.sc.scenes.length && !['budget', 'calendar', 'calmes', 'screenplay', 'argumento', 'premisa', 'bios', 'estructura', 'escaleta', 'tarjetas', 'scouting', 'casting'].includes(kind)) { toast('Escribe o importa un guion primero.'); return; }
+  if (!D.sc.scenes.length && !['budget', 'calendar', 'calmes', 'screenplay', 'argumento', 'premisa', 'bios', 'estructura', 'escaleta', 'tarjetas', 'scouting', 'casting', 'call'].includes(kind)) { toast('Escribe o importa un guion primero.'); return; }
   if ((kind === 'escaleta' || kind === 'tarjetas') && !bItems().length) { toast('Aún no hay escenas: agrega una con «+ Escena» o escribe el guion.', 4200); return; }
   if (kind === 'parte' && !(UI.supDay >= 0 && scheduleDays(P, D.sc).days[UI.supDay])) { toast('Elige una jornada arriba para su parte diario.', 4000); return; }
   if (kind === 'dood' && (!Object.keys(D.castNum).length || !scheduleDays(P, D.sc).days.length)) { toast('Hacen falta personajes marcados y jornadas en el plan.', 4000); return; }
-  if (kind === 'call' && !callDays().days.length) { toast('Aún no hay jornadas: arma el plan de rodaje para generar las hojas de llamado.', 5000); return; }
+  // (lote AH) la hoja de llamado: una hoja libre sale sin guion ni plan; las jornadas necesitan el plan (tab-call.js)
+  if (kind === 'call') { const why = typeof callExportBlock === 'function' ? callExportBlock(opts) : !callDays().days.length ? 'Aún no hay jornadas: arma el plan de rodaje para generar las hojas de llamado.' : ''; if (why) { toast(why, 5000); return; } }
   // sin opciones (o con una parte elegida en «Elegir…»): se pregunta si va con la planta de cámara
   if (kind === 'storyboard' && (!opts || (opts.sel && opts.plan == null))) {
     const can = planAllows('planta');
