@@ -1,0 +1,187 @@
+/* ============================================================
+   FILMSPIRIT · VERSIÓN 2 · sistema visual (FilmSpirit · versión 2, PDF de Ronald, 28-oct-2026)
+   Va después de todo el CSS de la v1 (build.sh) y solo cambia la forma: tokens, botones, campos, tarjetas,
+   la barra lateral por etapas y la cabecera de cada pestaña. Las herramientas, la paleta de las 15 categorías
+   del desglose, la leyenda y los colores de las herramientas no se tocan.
+   Bordes de 3 px en todo · tarjetas blancas con línea fina y sin sombra · amarillo protagonista
+   ============================================================ */
+:root{
+  --v2-yellow:#FFBE0B; --v2-black:#212121; --v2-white:#FFFFFF; --v2-red:#E0262B;
+  --v2-bg:#F4F4F2; --v2-line:#E4E4E0; --v2-text2:#63635F; --v2-soft:#FFF4D1; --v2-soft-2:#FFE9A8;
+  /* las áreas: solo un punto junto al nombre y una línea fina de 3 px; nunca como fondo grande */
+  --v2-g0:#5C5852; --v2-g1:#E0262B; --v2-g2:#857A6F; --v2-g3:#FFBE0B; --v2-g4:#F08A24;
+  --v2-sb:232px; --v2-pad:32px;
+  --v2-disp:'Familjen Grotesk','Archivo',ui-sans-serif,system-ui,sans-serif;
+
+  --bg:var(--v2-bg); --chrome:#FFFFFF; --panel:#FFFFFF; --surface:#FFFFFF; --fill:#EDEDEA; --fill-2:#E4E4E0;
+  --ink:var(--v2-black); --muted:var(--v2-text2); --faint:#A5A5A0; --line:var(--v2-line); --line-2:#ECECE8; --card-line:var(--v2-line);
+  --accent:var(--v2-yellow); --accent-ink:var(--v2-black); --accent-soft:var(--v2-soft); --accent-text:#8A5F00;
+  --ph:#7A7A75;
+  --page-shadow:none; --sh-1:none;
+  --sh-pop:0 1px 2px rgba(33,33,33,.06),0 12px 32px rgba(33,33,33,.12);
+  --daybreak:var(--v2-black); --daybreak-ink:#FFFFFF; --brk-black:var(--v2-black);
+  --r:3px; --r-sm:3px; --r-xs:3px; --r-lg:3px;
+  --fs-7:26px;
+  --lg-film:var(--v2-black); --brand-orange:#F49B1E;
+}
+/* oscuro: la misma paleta en negro (el diseño no trae oscuro; se mantiene para no romperlo) */
+:root[data-theme="dark"]{
+  --v2-bg:#151515; --v2-line:#2E2E2C; --v2-text2:#A9A9A4; --v2-soft:#3A2F10; --v2-soft-2:#4A3A0E;
+  --bg:var(--v2-bg); --chrome:#1C1C1B; --panel:#1C1C1B; --surface:#212121; --fill:#2A2A28; --fill-2:#343432;
+  --ink:#EDEDEA; --muted:var(--v2-text2); --faint:#6A6A66; --line:var(--v2-line); --line-2:#262624; --card-line:var(--v2-line);
+  --accent:var(--v2-yellow); --accent-ink:#212121; --accent-soft:var(--v2-soft); --accent-text:#FFCB3D;
+  --page-shadow:none; --sh-1:none; --daybreak:#0D0D0D;
+  --lg-film:#FFFFFF;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --v2-bg:#151515; --v2-line:#2E2E2C; --v2-text2:#A9A9A4; --v2-soft:#3A2F10; --v2-soft-2:#4A3A0E;
+  --bg:var(--v2-bg); --chrome:#1C1C1B; --panel:#1C1C1B; --surface:#212121; --fill:#2A2A28; --fill-2:#343432;
+  --ink:#EDEDEA; --muted:var(--v2-text2); --faint:#6A6A66; --line:var(--v2-line); --line-2:#262624; --card-line:var(--v2-line);
+  --accent:var(--v2-yellow); --accent-ink:#212121; --accent-soft:var(--v2-soft); --accent-text:#FFCB3D;
+  --page-shadow:none; --sh-1:none; --daybreak:#0D0D0D;
+  --lg-film:#FFFFFF;
+}}
+
+/* ---------- letras: Familjen Grotesk en los títulos, Archivo en los textos, Courier Prime en el guion ---------- */
+:is(h1,h2,h3,.card h3,.home-h h1){font-family:var(--v2-disp);letter-spacing:-.01em}
+
+/* ---------- botones: principal (amarillo), secundario (negro), borde, sin fondo ---------- */
+.btn{background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:3px;font-weight:600;min-height:34px;padding:7px 14px}
+.btn:hover{background:var(--surface);border-color:color-mix(in srgb,var(--ink) 30%,var(--line))}
+.btn.primary{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
+.btn.primary:hover{background:#FFC72E;border-color:#FFC72E;filter:none}
+.btn.dark,.btn.v2-dark{background:var(--v2-black);border-color:var(--v2-black);color:#FFFFFF}
+.btn.dark:hover,.btn.v2-dark:hover{background:#000;border-color:#000}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--fill);border-color:transparent}
+.btn.sm{min-height:28px;padding:4px 10px}
+.btn.bad{background:var(--v2-red);border-color:var(--v2-red);color:#fff}
+:root[data-theme="dark"] .btn.dark{background:#EDEDEA;border-color:#EDEDEA;color:#212121}
+
+/* ---------- selector de opciones (Todos | En curso): gris claro y la elegida en blanco ---------- */
+.seg{background:var(--fill);padding:3px;gap:2px;border-radius:3px}
+.seg button{border-radius:3px;padding:6px 12px;color:var(--muted)}
+.seg button[aria-pressed="true"],.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+:root .bar .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+:root[data-theme="dark"] .bar .seg button[aria-pressed="true"]{background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bar .seg button[aria-pressed="true"]{background:var(--surface);box-shadow:0 0 0 1px var(--line)}}
+
+/* ---------- campos: blancos con línea fina; al escribir, borde negro ---------- */
+input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],input[type=email],input[type=search],input[type=password],select,textarea,input:not([type]){
+  background:var(--surface);border:1px solid var(--line);border-radius:3px}
+input:focus,select:focus,textarea:focus{border-color:var(--ink);background:var(--surface);box-shadow:none}
+select:focus{border-color:var(--ink);background:var(--surface)}
+input::placeholder,textarea::placeholder{font-style:normal}
+
+/* ---------- tarjetas: blancas, línea fina, sin sombra ---------- */
+.card{border:1px solid var(--line);box-shadow:none;border-radius:3px}
+.v2-card{background:var(--surface);border:1px solid var(--line);border-radius:3px}
+.v2-card-dark{background:var(--v2-black);color:#FFFFFF;border-radius:3px}
+.v2-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:3px;background:var(--fill);font-size:var(--fs-2);font-weight:600;color:var(--ink);white-space:nowrap}
+.v2-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--v2-dc,var(--muted));flex:none}
+.v2-bar{height:4px;border-radius:2px;background:var(--fill);overflow:hidden}
+.v2-bar>i{display:block;height:100%;background:var(--v2-yellow);border-radius:2px}
+.v2-dark .v2-bar,.v2-card-dark .v2-bar{background:#3A3A38}
+
+/* ---------- la hoja del guion: papel blanco con línea fina, sin sombra ---------- */
+.page,.ed-page,.ed-cover{box-shadow:none;outline:1px solid var(--line)}
+
+/* ============ LA BARRA LATERAL DEL PROYECTO (computadora) ============
+   Medidas del PDF (1440 px): 232 px y línea de 1 px; «Tu página»; el proyecto con su ícono de 40 px; cada etapa con
+   su punto de 7 px y su nombre en mayúsculas; las pestañas de 38 px, una cada 39 px; la abierta, negra con el punto
+   amarillo; abajo, una línea y el equipo */
+@media (min-width:761px){
+  body:not(.home) #app{grid-template-columns:233px minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);background:var(--bg)}
+  body:not(.home) #app>#tabs{grid-column:1;grid-row:1/-1}
+  body:not(.home) #app>.topbar{grid-column:2;grid-row:1}
+  body:not(.home) #app>#banners{grid-column:2;grid-row:2}
+  body:not(.home) #app>#view{grid-column:2;grid-row:3}
+  body:not(.home) #app>#view:has(>.sm-ws){grid-row:3}
+
+  #tabs.tabs{width:233px;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;gap:0;padding:0 14px 0;background:var(--chrome);border:0;border-right:1px solid var(--line);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-mask-image:none;mask-image:none}
+  #tabs .v2-sb-head{display:block;padding:0;position:static;background:none}
+  #tabs .v2-back{display:flex;align-items:center;gap:8px;height:30px;margin:23px 0 0 0;padding:0 10px 0 9px;border:0;background:none;color:var(--ink);font:500 13px/1 var(--font-ui);cursor:pointer;border-radius:3px}
+  #tabs .v2-back:hover{background:var(--fill)}
+  #tabs .v2-back svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;margin-left:-1px}
+  #tabs #projBtn.proj{display:flex;align-items:center;gap:12px;width:100%;max-width:none;height:40px;padding:0;margin:21px 0 0 8px;border:0;border-radius:3px;background:none;text-align:left;color:var(--ink);cursor:pointer;box-sizing:border-box}
+  #tabs #projBtn.proj:hover{background:none}
+  #tabs #projBtn.proj:hover .t{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+  #tabs #projBtn .v2-tile{width:40px;height:40px;flex:none;border-radius:3px;background:#CE0C1C;display:grid;place-items:center;overflow:hidden}
+  #tabs #projBtn .v2-tile .logo-mark{display:block;width:40px;height:40px;border-radius:0}
+  #tabs #projBtn .v2-tile img{width:100%;height:100%;object-fit:cover}
+  #tabs #projBtn .v2-pt{display:grid;min-width:0;gap:2px}
+  #tabs #projBtn .t{display:block;font:700 16px/1.15 var(--v2-disp);letter-spacing:-.005em;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+  #tabs #projBtn .v2-ps{font:400 12px/1.25 var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tabs #projBtn .proj-ic{display:none}
+
+  #tabs .stg{display:block;margin:13px 0 0}
+  #tabs .v2-sb-head+.stg,#tabs .v2-sb-head~.stg:first-of-type{margin-top:17px}
+  #tabs .stg.off{display:none}
+  #tabs .stg-h,#tabs .stg-h:hover,#tabs .stg.open .stg-h,#tabs .stg.on .stg-h{width:auto;height:16px;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:0 10px;margin:0 0 6px;border-radius:0;background:none !important;box-shadow:none !important;pointer-events:none;cursor:default}
+  #tabs .stg-h svg.lf,#tabs .stg-h .stg-cur,#tabs .stg-h .stg-ch{display:none !important}
+  #tabs .stg-h .stg-n{display:inline !important;font:700 11px/1 var(--font-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  :root:root #tabs.tabs .stg.stg.on .stg-h,:root:root #tabs.tabs .stg.stg .stg-h:hover{background:none !important;box-shadow:none !important}
+  :root:root #tabs.tabs .stg.stg.on .stg-h .stg-n,:root:root #tabs.tabs .stg.stg .stg-h .stg-n{color:var(--muted) !important;font-weight:700}
+  #tabs .stg-h::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--v2-gc);flex:none}
+  #tabs .stg.on .stg-h::after{display:none !important}
+  #tabs .stg.icg0{--v2-gc:var(--v2-g0)} #tabs .stg.icg1{--v2-gc:var(--v2-g1)} #tabs .stg.icg2{--v2-gc:var(--v2-g2)}
+  #tabs .stg.icg3{--v2-gc:var(--v2-g3)} #tabs .stg.icg4{--v2-gc:var(--v2-g4)}
+  #tabs .stg-m,#tabs .stg.open .stg-m{position:static !important;display:grid !important;gap:1px;min-width:0;padding:0;margin:0;background:none;border:0;border-radius:0;box-shadow:none;opacity:1 !important;visibility:visible !important;transform:none !important;left:auto !important;top:auto !important}
+  #tabs .stg-mt{display:none}
+  #tabs .stg-m .tab,#tabs .stg-m .tab:hover{display:flex;align-items:center;gap:10px;width:100%;height:38px;box-sizing:border-box;padding:0 10px;border:0;border-radius:3px;background:transparent;color:var(--ink);font:400 13.5px/1 var(--font-ui);text-align:left;box-shadow:none;--k:var(--chrome)}
+  #tabs .stg-m .tab[hidden]{display:none}
+  #tabs .stg-m .tab:hover{background:var(--fill);--k:var(--fill)}
+  #tabs .stg-m .tab svg.lf,#tabs .stg-m .tab .n{display:none}
+  #tabs .stg-m .tab[aria-selected="true"],#tabs .stg.on .stg-m .tab[aria-selected="true"]{background:var(--v2-black) !important;color:#FFFFFF !important;box-shadow:none !important;font-weight:700;--k:var(--v2-black)}
+  #tabs .stg-m .tab[aria-selected="true"]::after{content:"";display:block;position:static;inset:auto;margin-left:auto;margin-right:3px;width:7px;height:7px;border-radius:50%;background:var(--v2-yellow)}
+  :root[data-theme="dark"] #tabs .stg-m .tab[aria-selected="true"]{background:#EDEDEA !important;color:#212121 !important}
+  #tabs>.tab{display:none}
+  #tabs .tabs-cfg{display:none}
+  #tabs .v2-sb-foot{margin:auto 0 0;padding:0 0 0 12px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;height:64px;flex:none;position:sticky;bottom:0;background:var(--chrome)}
+  #tabs .v2-sb-foot .v2-avs{display:flex}
+  #tabs .v2-sb-foot .v2-av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 11px/1 var(--font-ui);background:var(--fill);color:var(--ink);box-shadow:0 0 0 2px var(--chrome)}
+  #tabs .v2-sb-foot .v2-av+.v2-av{margin-left:-4px}
+  #tabs .v2-sb-foot .v2-av.y{background:var(--v2-yellow);color:var(--v2-black)}
+  #tabs .v2-sb-foot .v2-av.k{background:var(--v2-black);color:#fff}
+  #tabs .v2-sb-foot .v2-pp{font:400 12px/1 var(--font-ui);color:var(--muted)}
+  #tabs .v2-sb-foot:empty{display:none}
+  #tabs .ro-chip{writing-mode:horizontal-tb;transform:none;align-self:flex-start;margin:10px 0 0}
+  #tabs .v2-sb-gap{flex:1 0 24px}
+
+  body:not(.home) #tabStrip,body:not(.home) .tabstrip{display:none !important}
+  body:not(.home) .bar-tn{display:none !important}
+
+  /* ---------- la cabecera de la pestaña (94 px): la etapa con su punto, el título y las acciones de la pestaña ---------- */
+  body:not(.home) .topbar{display:flex;align-items:flex-start;gap:12px;height:94px;box-sizing:border-box;padding:26px 32px 0;background:transparent;border:0;min-height:0}
+  body:not(.home) .topbar>*:not(.v2-ttl):not(.v2-acts){display:none !important}
+  body:not(.home) .topbar .v2-ttl{display:block;min-width:0;margin:-7px auto 0 0}
+  body:not(.home) .topbar .v2-crumb{display:flex;align-items:center;gap:8px;height:18px;margin-top:1px;font:400 12px/1 var(--font-ui);color:var(--muted)}
+  body:not(.home) .topbar .v2-crumb .v2-dot{--v2-dc:var(--v2-gc,var(--muted))}
+  body:not(.home) .topbar .v2-h1{margin:1px 0 0;font:700 31px/36px var(--v2-disp);letter-spacing:-.008em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body:not(.home) .topbar .v2-acts{display:flex;align-items:center;gap:12px;flex:none}
+
+  /* la barra de herramientas de las pestañas que usan la de la v1: sobre el fondo, alineada con el título */
+  body:not(.home) #view .bar{background:transparent;border-bottom:0;padding-inline:32px;padding-block:0 12px}
+  body:not(.home) #view .scroller.pad{padding-inline:32px}
+}
+@media (max-width:760px){ #tabs .v2-sb-head,#tabs .v2-sb-foot,#tabs .v2-sb-gap{display:none !important} }
+
+/* ---------- los botones de la cabecera: 44 px; el principal amarillo con su ícono; el del historial, cuadrado ---------- */
+.v2-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;box-sizing:border-box;padding:0 16px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:600 14px/1 var(--font-ui);white-space:nowrap;cursor:pointer;text-decoration:none}
+.v2-btn:hover{border-color:#CFCFCA}
+.v2-btn svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.v2-btn.y{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black);font-weight:700;padding:0 18px;gap:8px}
+.v2-btn.y svg{width:18px;height:18px;stroke-width:2.2}
+.v2-btn.y:hover{background:#FFC72E;border-color:#FFC72E}
+.v2-btn.k{background:var(--v2-black);border-color:var(--v2-black);color:#fff}
+.v2-btn.ic{width:44px;padding:0}
+.v2-btn.ic svg{width:19px;height:19px}
+.v2-btn.sm{height:36px;padding:0 14px;font-size:14px}
+.v2-btn[disabled]{opacity:.45;cursor:default}
+.v2-seg{display:inline-flex;align-items:stretch;height:44px;box-sizing:border-box;padding:3px;gap:0;border-radius:3px;background:var(--fill)}
+.v2-seg>button{border:0;background:none;border-radius:3px;padding:0 16px;font:500 15px/1 var(--font-ui);color:var(--muted);cursor:pointer}
+.v2-seg>button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:700}
+
+/* ---------- la etapa de la pestaña abierta: el color de su punto (lo pone v2.js en <html data-v2g>) ---------- */
+:root[data-v2g="0"]{--v2-gc:var(--v2-g0)} :root[data-v2g="1"]{--v2-gc:var(--v2-g1)} :root[data-v2g="2"]{--v2-gc:var(--v2-g2)}
+:root[data-v2g="3"]{--v2-gc:var(--v2-g3)} :root[data-v2g="4"]{--v2-gc:var(--v2-g4)} :root[data-v2g="p"]{--v2-gc:var(--v2-black)}
