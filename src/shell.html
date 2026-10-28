@@ -716,6 +716,43 @@ table.tbl{border-collapse:collapse;width:100%;font-size:var(--fs-3)}
 .dlg>.body{padding:6px 18px 18px;overflow:auto;display:grid;gap:14px;min-height:0}
 .dlg>footer{display:flex;flex-wrap:wrap;gap:8px;padding:12px 18px 16px;border-top:var(--l1) solid var(--line-2);justify-content:flex-end}
 .dlg>footer .left{margin-right:auto;display:flex;gap:8px;flex-wrap:wrap}
+/* ---------- vista previa de los PDF (lote AH · pdf-vista.js) ----------
+   La ventana a todo el alto, las páginas blancas sobre un fondo gris (claro u oscuro) y abajo el papel, Imprimir y
+   Descargar. En el teléfono, a pantalla completa. Al imprimir solo se ve #pvPrint: una hoja por página */
+.pv-modal .dlg{width:min(1040px,100%);height:calc(100% - 8px)}
+.pv-modal .dlg>header{flex-wrap:wrap;row-gap:2px}
+.pv-modal .dlg>header h2{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv-modal .pv-n{flex:1;min-width:max-content}
+.pv-modal .dlg>.body{padding:0;gap:0;display:flex;flex-direction:column;background:var(--fill);border-top:var(--l1) solid var(--line-2);flex:1}
+.pv-note{margin:0;padding:8px 18px;font-size:var(--fs-3);background:color-mix(in srgb,#E9A21A 16%,var(--surface));color:var(--ink);border-bottom:var(--l1) solid var(--line-2)}
+.pv-pages{flex:1;min-height:0;overflow:auto;display:grid;justify-items:center;align-content:start;gap:16px;padding:18px 16px 28px;outline:0;overscroll-behavior:contain}
+.pv-pg{width:min(100%,780px);background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.06);position:relative}
+.pv-pg.land{width:min(100%,1000px)}
+.pv-pg canvas{display:block;width:100%;height:100%}
+.pv-pg:not(.ok)::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#F4F4F4 0,#EAEAEA 50%,#F4F4F4 100%) 0 0/200% 100%;animation:shvw 1.4s linear infinite}
+.pv-fail{margin:auto;padding:24px;color:var(--muted);text-align:center}
+.pv-paper{background:var(--fill);padding:2px}
+.pv-paper button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--sh-1),inset 0 0 0 1px var(--line)}
+.pv-modal footer .btn .ic{width:17px;height:17px}
+.pv-busy .pv-pages{opacity:.45;pointer-events:none;transition:opacity .15s}
+.pv-busy footer button{pointer-events:none}
+@media (max-width:760px){
+  .pv-modal .dlg,.pv-modal .dlg.wide{height:100%;max-height:100% !important;border-radius:0}
+  .pv-pages{padding:10px 8px 18px;gap:10px}
+  .pv-modal .dlg>footer{gap:6px}
+  .pv-modal .dlg>footer .left{width:auto}
+  .pv-modal footer .btn{padding-inline:10px}
+}
+@media (max-width:420px){ .pv-modal footer .btn[data-pv="print"] span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} }
+#pvPrint{display:none}
+@media print{
+  html.pv-printing,html.pv-printing body{margin:0 !important;padding:0 !important;height:auto !important;min-height:0 !important;overflow:visible !important;background:#FFFFFF !important;display:block !important}
+  html.pv-printing body>*:not(#pvPrint){display:none !important}
+  html.pv-printing #pvPrint{display:block}
+  #pvPrint .pv-pp{overflow:hidden;break-after:page;page-break-after:always;break-inside:avoid}
+  #pvPrint .pv-pp:last-child{break-after:auto;page-break-after:auto}
+  #pvPrint img{display:block;width:100%;height:auto}
+}
 /* ficha del plano (solo para mirar): la viñeta y la planta lado a lado, y debajo sus datos */
 .shv{display:grid;gap:14px}
 .shv-pics{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,300px);gap:12px;align-items:start}

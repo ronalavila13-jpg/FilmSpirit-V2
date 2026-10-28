@@ -501,9 +501,9 @@ function pdfArgumento(opts = {}) {
   const doc = newDoc('portrait'), A = BLD().arg, W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const parts = B_ARG.filter(([k]) => (opts.parts || B_ARG.map(x => x[0])).includes(k) && A[k].trim());
   const M = 72, TW = W - M * 2;
-  // portada
-  // portada: la barra de la pestaña arriba, el título en la letra de los títulos y una raya de su color
-  doc.setFillColor(...PT.bar); doc.rect(0, 0, W, 64, 'F'); doc.setFillColor(...PT.c); doc.rect(0, 64, W, 2.4, 'F');
+  // portada: el título en la letra de los títulos y una raya de su color. (lote AH) Arriba, la cabecera en cuadro de
+  // todos los documentos, con cuántas páginas son (antes, la barra de la pestaña de borde a borde)
+  docHeader(doc, 'Argumento', parts.map(p => p[1]).join(' · '));
   doc.setFont('title', 'bold'); doc.setFontSize(28); doc.setTextColor(...INK);
   const tl = doc.splitTextToSize(pdfSafe(P.meta.title || 'Proyecto'), TW);
   let y = H * .38;
@@ -535,14 +535,8 @@ function pdfArgumento(opts = {}) {
       y += 7;
     }
   }
-  // números de página (sin la portada)
-  const n = doc.getNumberOfPages();
-  for (let i = 2; i <= n; i++) {
-    doc.setPage(i);
-    doc.setFillColor(...PT.bar); doc.rect(0, 0, W, 20, 'F'); doc.setFillColor(...PT.c); doc.rect(0, 20, W, 1.6, 'F');
-    doc.setFont('title', 'bold'); doc.setFontSize(8); doc.setTextColor(...PT.barInk); doc.text(pdfSafe(`${P.meta.title || ''}  ·  Argumento`), M, 13.4);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(pdfSafe(P.meta.title || ''), M, H - 36); doc.text(`${i - 1} / ${n - 1}`, W - M, H - 36, { align: 'right' });
-  }
+  // (lote AH) sin barra arriba ni pie en las páginas del texto: el número de páginas va en el cuadro de la portada
+  pageNumbers(doc, 'Argumento');
   return { doc, name: fileSafe(P.meta.title) + '_argumento.pdf' };
 }
 function pdfEscaleta() {
@@ -565,7 +559,7 @@ function pdfEscaleta() {
   pageNumbers(doc, 'Escaleta');
   return { doc, name: fileSafe(P.meta.title) + '_escaleta.pdf' };
 }
-/* cuatro tarjetas por hoja carta, con su línea de corte */
+/* cuatro tarjetas por hoja (carta o A4), con su línea de corte */
 function pdfTarjetas() {
   const doc = newDoc('portrait'), B = BLD(), items = bItems(), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const M = 30, G = 18, cw = (W - M * 2 - G) / 2, ch = (H - M * 2 - G) / 2;
@@ -703,8 +697,8 @@ EXPORTS.build = (prev => () => { const L = prev(); L.splice(1, 0, { label: 'Biog
 function pdfBios() {
   const doc = newDoc('portrait'), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
   const list = bBioList().filter(it => it.b && (it.b.age || it.b.role || B_BIO_F.some(([k]) => it.b[k].trim())));
-  let y = docHeader(doc, 'Biografías de personajes', `${list.length} ${list.length === 1 ? 'personaje' : 'personajes'}`);
-  const next = need => { if (y + need > H - 44) { doc.addPage(); y = docHeader(doc, 'Biografías de personajes', ''); } };
+  let y = docHeader(doc, 'Biografías de personajes', `${list.length} ${list.length === 1 ? 'personaje' : 'personajes'}`, { x0: M });
+  const next = need => { if (y + need > H - 44) { doc.addPage(); y = docHeader(doc, 'Biografías de personajes', '', { x0: M }); } };
   if (!list.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Aún no hay biografías.', M, y + 10); }
   list.forEach((it, i) => {
     if (i) { next(120); y += 6; }

@@ -74,7 +74,7 @@ function pdfDood() {
     const cs = { 0: { cellWidth: nameW, halign: 'left' } };
     part.forEach((_, j) => { cs[j + 1] = { cellWidth: dayW, halign: 'center' }; });
     if (last) for (let k = 0; k < 5; k++) cs[part.length + 1 + k] = { cellWidth: 34, halign: 'center' };
-    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', lineWidth: .4, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', lineWidth: .4, lineColor: PDF_WHITE, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
+    doc.autoTable({ ...TBL, startY: y, head, body, columnStyles: cs, styles: { ...TBL.styles, fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }, halign: 'center', lineWidth: .4, valign: 'middle' }, headStyles: { ...TBL.headStyles, fontSize: PF.head, halign: 'center', lineWidth: .4, lineColor: PDF_RULE, cellPadding: { top: 5, bottom: 5, left: 1.5, right: 1.5 } },   // (lote K) la rejilla es el formato: queda, con más letra y aire
       didParseCell: d => { if (d.section !== 'body' || d.column.index < 1 || d.column.index > part.length) return; const c = d.cell.raw; if (FILL[c]) { d.cell.styles.fillColor = FILL[c]; d.cell.styles.textColor = TXT[c]; d.cell.styles.fontStyle = 'bold'; } } });
     y = doc.lastAutoTable.finalY + 12;
   }

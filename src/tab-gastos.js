@@ -573,19 +573,22 @@ async function gsPdf(make, btn) {
   busy(true);
   FR_HOLD++;
   try {
-    pdfTheme();
-    const { doc, name } = await make();
-    await offerFile(name, doc.output('blob'));
+    // (lote AH) como todos los PDF, pasa por la vista previa (pdf-vista.js): el papel (A4 o carta), Imprimir y Descargar
+    const build = async paper => { PDF_PAPER = paper || null; try { pdfTheme(); return await make(); } finally { PDF_PAPER = null; } };
+    const first = await build(pdfPaperMem('gastos'));
+    busy(false);
+    await pdfPreview({ kind: 'gastos', first, make: build });
   } catch (e) { console.error(e); problem('No se pudo generar el PDF. Vuelve a intentarlo; si se repite, escribe a soporte desde Ayuda.', () => gsPdf(make, btn)); }
   finally { FR_HOLD--; busy(false); }
 }
 const gsPm = v => pdfSafe(gsCur()) + ' ' + moneyNum(v);
 const gsPd = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-// un bloque de datos en dos columnas (rótulo en gris, valor en tinta), sin líneas
+// un bloque de datos en dos columnas (rótulo en gris, valor en tinta). (lote AH) En rejilla, como un formulario
+// (antes, sin líneas)
 function gsPdfFacts(doc, y, rows) {
   // (lote K) lo que falta queda en blanco (antes «-»); el aire de los demás documentos
-  doc.autoTable({ ...TBL, startY: y, theme: 'plain', body: rows.map(r => r.flatMap(([k, v]) => [{ content: pdfSafe(k), styles: { textColor: MUTED, fontSize: PF.small } }, { content: pdfSafe(v || ''), styles: { fontStyle: 'bold' } }])),
-    columnStyles: { 0: { cellWidth: 78 }, 1: { cellWidth: 192 }, 2: { cellWidth: 78 } }, styles: { ...TBL.styles, lineWidth: 0, cellPadding: { top: 4.5, bottom: 4.5, left: 0, right: 8 } } });
+  doc.autoTable({ ...TBL, startY: y, theme: 'plain', body: rows.map(r => r.flatMap(([k, v]) => [{ content: pdfSafe(k), styles: { textColor: MUTED, fontSize: PF.small, fillColor: PDF_LABF } }, { content: pdfSafe(v || ''), styles: { fontStyle: 'bold' } }])),
+    columnStyles: { 0: { cellWidth: 78 }, 1: { cellWidth: 192 }, 2: { cellWidth: 78 } }, styles: { ...TBL.styles, valign: 'middle', cellPadding: { top: 4.5, bottom: 4.5, left: 6, right: 6 } } });
   return doc.lastAutoTable.finalY;
 }
 // las firmas al pie: una raya por persona, con su rótulo debajo
@@ -676,10 +679,10 @@ async function gsPdfPhotos(doc, list) {
   const jpg = u => new Promise(res => { if (!u) return res(''); if (/^data:image\/jpe?g/i.test(u)) return res(u); const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0); res(cv.toDataURL('image/jpeg', .88)); }; im.onerror = () => res(''); im.src = u; });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), cw = (W - 72 - 20) / 2, ch = (H - 130 - 40) / 2;
   for (let i = 0; i < list.length; i++) {
-    if (i % 4 === 0) { doc.addPage(); doc.setFont('title', 'bold'); doc.setFontSize(12); doc.setTextColor(...INK); doc.text('Comprobantes', 36, 52); }
+    if (i % 4 === 0) { doc.addPage(); pdfSec(doc, 36, 'Comprobantes', { need: 0 }); }   // (lote AH) el título en su cuadro
     const x = 36 + (i % 2) * (cw + 20), y = 66 + Math.floor((i % 4) / 2) * (ch + 20);
     const u = await jpg(FRAMES[list[i].k]);
-    doc.setDrawColor(...PDF_LINE); doc.setLineWidth(.6); doc.rect(x, y, cw, ch - 16);
+    doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x, y, cw, ch - 16);   // (lote AH) en negro
     if (u) pdfImg(doc, u, x + 4, y + 4, cw - 8, ch - 24); else { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin foto', x + cw / 2, y + ch / 2, { align: 'center' }); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...INK); doc.text(pdfSafe(list[i].cap), x, y + ch - 4);
   }
@@ -728,11 +731,12 @@ function gsOverDoc() {
   // (lote K) el resumen en una franja de seis cifras (rótulo gris arriba, cifra en negrita); antes, seis filas
   const red = [190, 30, 30];
   const kpi = [['Presupuestado (sin imprevistos ni impuesto)', T.sub], ['Comprometido', G.comp], ['Gastado', G.spent], ['Disponible', left], ['Imprevistos', T.cont], ['Sobrecosto de las partidas', overSum]];
-  const pad = i => ({ left: i ? 10 : 0, right: 10 });
-  doc.autoTable({ ...TBL, startY: y + 2, theme: 'plain', styles: { ...TBL.styles, lineWidth: 0 },
-    body: [kpi.map(([k], i) => ({ content: pdfSafe(k), styles: { fontSize: PF.small, textColor: MUTED, valign: 'bottom', cellPadding: { top: 6, bottom: 1, ...pad(i) } } })),
-      kpi.map(([, v], i) => ({ content: (v < 0 ? '- ' : '') + m(Math.abs(v)), styles: { font: 'title', fontStyle: 'bold', fontSize: 12, textColor: i === 5 ? (overSum > 0 ? red : PT.deep) : INK, cellPadding: { top: 1, bottom: fx ? 1 : 8, ...pad(i) } } })),
-      ...(fx ? [kpi.map(([, v], i) => ({ content: d(v), styles: { fontSize: PF.small, textColor: MUTED, cellPadding: { top: 0, bottom: 8, ...pad(i) } } }))] : [])],
+  // (lote AH) cada cifra en su cuadro (rótulo arriba, cifra debajo), con líneas negras; antes, sin líneas
+  const pad = () => ({ left: 8, right: 8 }), gw = GRID.cell, lw = (t, b) => ({ top: t ? gw : 0, bottom: b ? gw : 0, left: gw, right: gw });
+  doc.autoTable({ ...TBL, startY: y + 2, theme: 'plain',
+    body: [kpi.map(([k], i) => ({ content: pdfSafe(k), styles: { fontSize: PF.small, textColor: MUTED, valign: 'bottom', lineWidth: lw(1, 0), cellPadding: { top: 6, bottom: 1, ...pad(i) } } })),
+      kpi.map(([, v], i) => ({ content: (v < 0 ? '- ' : '') + m(Math.abs(v)), styles: { font: 'title', fontStyle: 'bold', fontSize: 12, textColor: i === 5 ? (overSum > 0 ? red : PT.deep) : INK, lineWidth: lw(0, !fx), cellPadding: { top: 1, bottom: fx ? 1 : 8, ...pad(i) } } })),
+      ...(fx ? [kpi.map(([, v], i) => ({ content: d(v), styles: { fontSize: PF.small, textColor: MUTED, lineWidth: lw(0, 1), cellPadding: { top: 0, bottom: 8, ...pad(i) } } }))] : [])],
     columnStyles: Object.fromEntries(kpi.map((_, i) => [i, { cellWidth: (doc.internal.pageSize.getWidth() - 72) / 6 }])) });
   y = doc.lastAutoTable.finalY + 10;
   y = pdfSec(doc, y, over.length ? (over.length === 1 ? '1 partida pasó su monto' : `${over.length} partidas pasaron su monto`) : 'Ninguna partida pasó su monto', { need: 60 });

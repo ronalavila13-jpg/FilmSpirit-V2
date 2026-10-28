@@ -54,9 +54,22 @@ const SUP_DONE = [233, 244, 236];   // lo rodado, en un verde muy suave (como la
    gris legible; las cabeceras de tabla en 7,4 pt; celdas con 5 pt arriba y abajo y 6 a los lados; solo líneas
    horizontales finas (la rejilla queda donde es el formato: hoja de desglose, días por actor, calendario); 16 pt
    entre bloques. Antes: 7,5 a 8,5 pt, 3 a 4 pt de relleno y la rejilla entera: se leía amontonado */
-const PF = { body: 8.8, small: 7.9, head: 7.4, sec: 11.5, lh: 1.3, gap: 16 };
+const PF = { body: 8.8, small: 7.9, head: 8, sec: 11.5, lh: 1.3, gap: 16 };
 const PAD = { top: 5, bottom: 5, left: 6, right: 6 };
 const HAIR = { top: 0, right: 0, bottom: .5, left: 0 };   // la línea fina de abajo de cada fila
+/* (lote AH) los documentos de producción en cuadro, tipo Excel (lo pidió Ronald): la cabecera en un cuadro cerrado,
+   los títulos de sección en su cuadro y las tablas con la rejilla entera, todo con líneas negras bien visibles (columnas
+   claras); la cabecera de las tablas en gris claro con letra negra en negrita. Se imprime igual en blanco y negro.
+   GRID: el grosor de las líneas de las celdas y de los marcos (el ajuste de líneas de la persona las afina o engruesa) */
+const PDF_RULE = [0, 0, 0], PDF_HEADF = [230, 230, 230], PDF_LABF = [244, 244, 244];
+const GRID = { cell: .6, frame: 1 };
+/* un cuadro con líneas negras: marco entero (fill: su fondo) */
+function pdfBox(doc, x, y, w, h, fill, lw = GRID.frame) {
+  doc.setDrawColor(...PDF_RULE); doc.setLineWidth(lw);
+  if (fill) doc.setFillColor(...fill);
+  doc.rect(x, y, w, h, fill ? 'FD' : 'S');
+}
+const pdfVLine = (doc, x, y1, y2, lw = GRID.frame) => { doc.setDrawColor(...PDF_RULE); doc.setLineWidth(lw); doc.line(x, y1, x, y2); };
 /* lo secundario sobre un color (una tira de día o de noche, una barra): la tinta que se lee encima, aclarada hacia el
    fondo, siempre legible */
 const mutedOn = f => mixc(inkOn(f), f, .66);
@@ -100,17 +113,31 @@ function pdfTheme() {
     lw1: { fina: .6, normal: 1, gruesa: 2 }[S.lt] || 1, lw2: { fina: .6, normal: 1, gruesa: 1.6 }[S.lk] || 1 };
   PDF_LINE.splice(0, 3, ...line);
   PDF_THEAD = PT.bar; PDF_GROUP = PT.fill;
-  // tablas como las de la app: cabecera en el color de la barra, filas blancas con líneas finas del color de la pestaña
-  // (lote K) más letra y más aire, y solo la línea fina de abajo de cada fila (sin rejilla)
-  TBL = { theme: 'plain', styles: { font: 'helvetica', fontSize: PF.body, cellPadding: PAD, textColor: INK, lineColor: PT.line, lineWidth: HAIR, overflow: 'linebreak', valign: 'top' },
-    headStyles: { fillColor: PT.bar, textColor: PT.barInk, fontStyle: 'bold', fontSize: PF.head, cellPadding: { top: 5.5, bottom: 5, left: 6, right: 6 }, valign: 'bottom', lineWidth: 0 },
-    alternateRowStyles: { fillColor: PDF_WHITE }, showFoot: 'lastPage', margin: { left: 36, right: 36, top: 38, bottom: 44 } };
+  // (lote K) más letra y más aire. (lote AH) La rejilla entera, tipo Excel: todos los bordes de cada celda en negro
+  // (antes, solo una línea fina de color debajo de cada fila) y la cabecera en gris claro con letra negra en negrita
+  // (antes, en el color de la barra de la pestaña)
+  TBL = { theme: 'plain', styles: { font: 'helvetica', fontSize: PF.body, cellPadding: PAD, textColor: INK, lineColor: PDF_RULE, lineWidth: GRID.cell, overflow: 'linebreak', valign: 'top' },
+    headStyles: { fillColor: PDF_HEADF, textColor: INK, fontStyle: 'bold', fontSize: PF.head, cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }, valign: 'middle', lineWidth: GRID.cell, lineColor: PDF_RULE },
+    footStyles: { fillColor: PDF_HEADF, textColor: INK, fontStyle: 'bold', lineWidth: GRID.cell, lineColor: PDF_RULE },
+    // (lote AH) sin pie de página, el margen de abajo es como los de los lados (antes, 44: dejaba lugar para el pie)
+    alternateRowStyles: { fillColor: PDF_WHITE }, showFoot: 'lastPage', margin: { left: 36, right: 36, top: 36, bottom: 36 } };
   return PT;
 }
 pdfTheme();
+/* (lote AH) el papel: A4 o carta, elegido en la vista previa (pdf-vista.js) mientras se arma el documento; sin elegir
+   (null), el de siempre de cada documento (carta, o A4 la lámina y la hoja de script). Todas las páginas van en el
+   mismo papel: un addPage('a4') o ('letter') toma el del documento (antes la hoja de desglose con fotos mezclaba los dos) */
+let PDF_PAPER = null;
+const pdfPaperName = p => p === 'a4' ? 'A4' : 'Carta';
 function newDoc(orientation = 'portrait', format = 'letter') {
   const { jsPDF } = window.jspdf;
+  if (typeof format === 'string') format = PDF_PAPER || format;
   const doc = new jsPDF({ unit: 'pt', format, orientation });
+  if (typeof format === 'string') {
+    doc._paper = format;
+    const ap = doc.addPage.bind(doc);
+    doc.addPage = (f, o) => ap(typeof f === 'string' ? doc._paper : f, o);
+  }
   doc.setProperties({ title: pdfSafe(P.meta.title), creator: 'FilmSpirit' });
   doc.setLineHeightFactor(PF.lh);   // (lote K) el interlineado de todo el documento, tablas incluidas
   pdfTableHooks(doc);
@@ -153,52 +180,129 @@ function pdfImg(doc, url, x, y, maxW, maxH, right) {
 const brandOn = k => !P.meta.brand || P.meta.brand[k] !== false;
 /* logos del proyecto en los documentos: personalizar es de Pro y Studio */
 const brandLogo = k => planAllows('brand') ? P.meta[k] : '';
-function docHeader(doc, label, sub) {
-  const W = doc.internal.pageSize.getWidth(), T = PT, ink = T.barInk, ink2 = ink === INK ? [70, 70, 70] : [235, 235, 235];
-  const date = new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
-  // la barra de la pestaña, de borde a borde, y una línea fina en su color entero
-  doc.setFillColor(...T.bar); doc.rect(0, 0, W, 64, 'F');
-  doc.setFillColor(...T.c); doc.rect(0, 64, W, 2.4, 'F');
-  (doc._hdr || (doc._hdr = new Set())).add(doc.getCurrentPageInfo().pageNumber);
-  // izquierda: logo del proyecto o su nombre; derecha: logo o nombre de la empresa
-  let x = 36;
-  const pl = brandOn('project') && brandLogo('projLogo') ? pdfImg(doc, P.meta.projLogo, 36, 14, 130, 36) : 0;
-  if (pl) x += pl + 12;
-  const showName = brandOn('project') && !pl;
-  if (showName) {
-    doc.setFont('title', 'bold'); doc.setFontSize(17); doc.setTextColor(...ink); doc.text(pdfSafe(P.meta.title), x, 32);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(pdfSafe(label), x, 48);
-    if (sub) { const lw = doc.getTextWidth(pdfSafe(label)); doc.setFont('helvetica', 'normal'); doc.setTextColor(...ink2); doc.text(pdfSafe('  ·  ' + sub), x + lw, 48); }
-  } else {
-    doc.setFont('title', 'bold'); doc.setFontSize(14); doc.setTextColor(...ink); doc.text(pdfSafe(label), x, 32);
-    if (sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...ink2); doc.text(pdfSafe(sub), x, 47); }
-  }
-  let ry = 34;
-  if (brandOn('company')) {
-    const cl = brandLogo('logo') ? pdfImg(doc, P.meta.logo, W - 36, 10, 120, 30, true) : 0;
-    if (cl) ry = 52;
-    else if (P.meta.company) { doc.setFont('title', 'bold'); doc.setFontSize(10); doc.setTextColor(...ink); doc.text(pdfSafe(P.meta.company.toUpperCase()), W - 36, 28, { align: 'right' }); ry = 44; }
-  }
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...ink2);
-  doc.text(pdfSafe(date), W - 36, ry, { align: 'right' });
-  doc.setTextColor(...INK);
-  return 80;
+/* una imagen ajustada a un cuadro, sin dibujarla todavía: { url, w, h } (o null si no se puede leer) */
+function pdfImgFit(doc, url, maxW, maxH) {
+  try {
+    url = pdfImgSrc(url);
+    const p = doc.getImageProperties(url), r = p.width / p.height;
+    let w = maxW, h = w / r;
+    if (h > maxH) { h = maxH; w = h * r; }
+    return { url, w, h };
+  } catch (e) { return null; }
 }
-/* el título de una sección (lote K): en la letra de los títulos, negrita y en minúscula normal, con una regla fina
-   debajo (antes, una barra gris con el nombre en MAYÚSCULAS dentro de la tabla). Si no queda lugar para el título y
-   unas filas, pasa a la página siguiente. right: un dato chico a la derecha. Devuelve dónde sigue */
-/* (lote AC) st: el estilo del título (letra, tamaños, regla); sin st, el de todos los PDF. La hoja de llamado pasa el
+/* corta un texto con «...» para que entre en w, en la letra que está puesta */
+function pdfCut(doc, t, w) {
+  t = String(t || ''); if (doc.getTextWidth(t) <= w) return t;
+  let lo = 0, hi = t.length;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (doc.getTextWidth(t.slice(0, m).trimEnd() + '...') <= w) lo = m; else hi = m - 1; }
+  return t.slice(0, lo).trimEnd() + '...';
+}
+/* un texto en hasta n líneas de ancho w, achicando la letra (de fs hasta min) antes de cortar con «...».
+   Devuelve { L: las líneas, fs: la letra, w: el ancho de la más larga, cut: si se cortó } y deja puesta esa letra */
+function pdfFitLines(doc, t, w, fs, min, n, font = 'helvetica', st = 'normal') {
+  t = pdfSafe(t);
+  let f = fs, L;
+  for (;;) {
+    doc.setFont(font, st); doc.setFontSize(f);
+    L = t ? doc.splitTextToSize(t, w) : [];
+    if (L.length <= n || f <= min) break;
+    f = Math.max(min, f - .5);
+  }
+  const cut = L.length > n;
+  if (cut) L = [...L.slice(0, n - 1), pdfCut(doc, L.slice(n - 1).join(' '), w)];
+  return { L, fs: f, cut, w: L.length ? Math.max(...L.map(x => doc.getTextWidth(x))) : 0 };
+}
+/* (lote AH) la cabecera de los documentos: un cuadro cerrado con líneas negras (el marco y sus divisiones), sin la barra
+   de color de borde a borde ni la fecha de creación (lo pidió Ronald: «que toda la información esté en cuadro»).
+   Izquierda: el logo o el nombre del proyecto; al medio: el documento y su subtítulo; derecha: el logo o el nombre de la
+   empresa y, debajo, «Página 1 de 3» (lo escribe pageNumbers al final, cuando ya se sabe cuántas son).
+   o.badge: un número en un cuadro negro junto al nombre (la escena de la hoja de desglose); o.x0: el margen.
+   Devuelve dónde sigue la página (debajo del cuadro) */
+const HDR = { top: 22, h: 50, pad: 7, pg: 15 };
+function docHeader(doc, label, sub, o = {}) {
+  const W = doc.internal.pageSize.getWidth(), x0 = o.x0 || 36, x1 = W - x0, { top: y0, h, pad } = HDR, y1 = y0 + h;
+  const page = doc.getCurrentPageInfo().pageNumber;
+  (doc._hdr || (doc._hdr = new Set())).add(page);
+  if (!doc._label) doc._label = label;   // el nombre del documento (la vista previa lo muestra arriba)
+  let xl = x0;
+  // izquierda: el proyecto (logo, o su nombre en hasta dos líneas)
+  if (brandOn('project')) {
+    const lg = brandLogo('projLogo') ? pdfImgFit(doc, P.meta.projLogo, 140, h - pad * 2) : null;
+    if (lg) { const cw = Math.max(70, lg.w + pad * 2); try { doc.addImage(lg.url, imgFmt(lg.url), x0 + (cw - lg.w) / 2, y0 + (h - lg.h) / 2, lg.w, lg.h); } catch (e) { } xl = x0 + cw; }
+    else {
+      const F = pdfFitLines(doc, P.meta.title || '', 150, 12, 9, 2, 'title', 'bold'), lh = F.fs * 1.15;
+      const cw = Math.max(80, F.w + pad * 2);
+      doc.setTextColor(...INK); doc.text(F.L, x0 + pad, y0 + h / 2 - (F.L.length - 1) * lh / 2, { baseline: 'middle', lineHeightFactor: 1.15 });
+      xl = x0 + cw;
+    }
+  }
+  // derecha: la empresa (logo o nombre) y el número de página
+  const pgW = (doc.setFont('helvetica', 'normal'), doc.setFontSize(PF.small), doc.getTextWidth('Página 88 de 88'));
+  let comp = null;
+  if (brandOn('company')) {
+    const lg = brandLogo('logo') ? pdfImgFit(doc, P.meta.logo, 130, h - HDR.pg - pad * 1.6) : null;
+    if (lg) comp = { lg, w: lg.w };
+    else if (P.meta.company) { const F = pdfFitLines(doc, P.meta.company.toUpperCase(), 130, 9, 7, 2, 'title', 'bold'); comp = { F, w: F.w }; }
+  }
+  const rw = Math.max(92, (comp ? comp.w : 0) + pad * 2, pgW + pad * 2), xr = x1 - rw;
+  // al medio: el documento (con su número en un cuadro negro, si lleva) y el subtítulo
+  const mx = xl + pad + 2, mw = xr - pad - mx;
+  doc.setFont('title', 'bold');
+  const bw = o.badge != null ? (doc.setFontSize(13), Math.max(20, doc.getTextWidth(String(o.badge)) + 10)) : 0;
+  // el nombre en una línea (más chico si hace falta; si aun así no entra, en dos) y el subtítulo en lo que queda
+  let T = pdfFitLines(doc, label, mw - (bw ? bw + 8 : 0), 13, 10.5, 1, 'title', 'bold');
+  if (T.cut) T = pdfFitLines(doc, label, mw - (bw ? bw + 8 : 0), 10.5, 9.5, 2, 'title', 'bold');
+  const tlh = T.fs * 1.12;
+  const S = sub ? pdfFitLines(doc, sub, mw, 8.3, 7, T.L.length > 1 ? 1 : 2) : null, slh = S ? S.fs * 1.2 : 0;
+  const th = T.L.length * tlh + (S ? 3 + S.L.length * slh : 0), ty = y0 + (h - th) / 2;
+  doc.setFont('title', 'bold'); doc.setFontSize(T.fs); doc.setTextColor(...INK);
+  doc.text(T.L, mx, ty + tlh / 2, { baseline: 'middle', lineHeightFactor: 1.12 });
+  if (bw) {
+    const ly = ty + tlh * (T.L.length - .5), bx = mx + doc.getTextWidth(T.L[T.L.length - 1] || '') + 8, bh = T.fs + 7;
+    doc.setFillColor(...PDF_BLACK); doc.rect(bx, ly - bh / 2, bw, bh, 'F');
+    doc.setFontSize(13); doc.setTextColor(255, 255, 255); doc.text(String(o.badge), bx + bw / 2, ly, { align: 'center', baseline: 'middle' });
+  }
+  if (S) { doc.setFont('helvetica', 'normal'); doc.setFontSize(S.fs); doc.setTextColor(...MUTED); doc.text(S.L, mx, ty + T.L.length * tlh + 3 + slh / 2, { baseline: 'middle', lineHeightFactor: 1.2 }); }
+  // la empresa, arriba a la derecha (con el número de página debajo)
+  const cy = y1 - HDR.pg;
+  if (comp && comp.lg) { try { doc.addImage(comp.lg.url, imgFmt(comp.lg.url), xr + (rw - comp.lg.w) / 2, y0 + (cy - y0 - comp.lg.h) / 2, comp.lg.w, comp.lg.h); } catch (e) { } }
+  else if (comp) { const lh = comp.F.fs * 1.15; doc.setFont('title', 'bold'); doc.setFontSize(comp.F.fs); doc.setTextColor(...INK); doc.text(comp.F.L, xr + rw / 2, y0 + (cy - y0) / 2 - (comp.F.L.length - 1) * lh / 2, { align: 'center', baseline: 'middle', lineHeightFactor: 1.15 }); }
+  // el marco y las divisiones
+  pdfBox(doc, x0, y0, x1 - x0, h);
+  if (xl > x0) pdfVLine(doc, xl, y0, y1);
+  pdfVLine(doc, xr, y0, y1);
+  if (comp) { doc.setLineWidth(GRID.cell); doc.line(xr, cy, x1, cy); }
+  (doc._pg || (doc._pg = {}))[page] = comp ? { x: xr, y: cy, w: rw, h: HDR.pg } : { x: xr, y: y0, w: rw, h };
+  doc.setTextColor(...INK);
+  return y1 + 12;
+}
+/* el título de una sección (lote K): en la letra de los títulos, negrita y en minúscula normal. Si no queda lugar para
+   el título y unas filas, pasa a la página siguiente. right: un dato chico a la derecha. Devuelve dónde sigue */
+/* (lote AC) st: el estilo del título (letra, tamaños, línea); sin st, el de todos los PDF. La hoja de llamado pasa el
    suyo (CL_SEC, pdf-llamado.js) */
+/* (lote AH) dentro de un cuadro con líneas negras, a todo el ancho (antes, una regla fina debajo). st.box: false deja la
+   regla de antes (line, lw, gap, after); st.fill: el fondo del cuadro (sin fondo, blanco) */
 function pdfSec(doc, y, title, { x0 = 36, x1, right, need = 96, st = {} } = {}) {
-  const { font = 'title', fs = PF.sec, rfs = PF.small, rcol = MUTED, line = mixc(INK, PDF_WHITE, .7), lw = .6, gap = 5, after = 11 } = st;
+  const { font = 'title', fs = PF.sec, rfs = PF.small, rcol = MUTED, box = true, fill = null, pad = 5.5 } = st;
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); x1 = x1 || W - x0;
   if (y + need > H - 44) { doc.addPage(); y = 44; }
+  if (!box) {
+    const { line = mixc(INK, PDF_WHITE, .7), lw = .6, gap = 5, after = 11 } = st;
+    doc.setFont(font, 'bold'); doc.setFontSize(fs); doc.setTextColor(...INK);
+    doc.text(pdfSafe(title), x0, y + fs);
+    if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(rfs); doc.setTextColor(...rcol); doc.text(pdfSafe(right), x1, y + fs, { align: 'right' }); }
+    doc.setDrawColor(...line); doc.setLineWidth(lw); doc.line(x0, y + fs + gap, x1, y + fs + gap);
+    doc.setTextColor(...INK);
+    return y + fs + after;
+  }
+  const { line = PDF_RULE, lw = GRID.frame, after = 6 } = st, bh = fs + pad * 2;
+  if (fill) doc.setFillColor(...fill);
+  doc.setDrawColor(...line); doc.setLineWidth(lw); doc.rect(x0, y, x1 - x0, bh, fill ? 'FD' : 'S');
+  let rw = 0;
+  if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(rfs); doc.setTextColor(...rcol); const r = pdfSafe(right); rw = doc.getTextWidth(r) + 12; doc.text(r, x1 - 7, y + bh / 2, { align: 'right', baseline: 'middle' }); }
   doc.setFont(font, 'bold'); doc.setFontSize(fs); doc.setTextColor(...INK);
-  doc.text(pdfSafe(title), x0, y + fs);
-  if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(rfs); doc.setTextColor(...rcol); doc.text(pdfSafe(right), x1, y + fs, { align: 'right' }); }
-  doc.setDrawColor(...line); doc.setLineWidth(lw); doc.line(x0, y + fs + gap, x1, y + fs + gap);
-  doc.setTextColor(...INK);
-  return y + fs + after;
+  doc.text(pdfCut(doc, pdfSafe(title), x1 - x0 - 14 - rw), x0 + 7, y + bh / 2, { baseline: 'middle' });
+  return y + bh + after;
 }
 /* celdas con más de un estilo (lote K): el encabezado de una escena en negrita y sus páginas en gris, o «Utilería y
    arte:» como etiqueta gris y la lista en normal. cell.raw._rich = [párrafo…]; cada párrafo es { fs, segs: [{ t, st,
@@ -294,7 +398,7 @@ function pdfRichDraw(doc, d) {
    columnas son fijas salvo una (la que se estira). Devuelve dónde sigue la página */
 function pdfBlocks(doc, y, base, blocks) {
   const Wp = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  const mg = { left: 36, right: 36, top: 38, bottom: 44, ...(base.margin || {}) };
+  const mg = { left: 36, right: 36, top: 36, bottom: 36, ...(base.margin || {}) };
   const probe = doc._probe || (doc._probe = pdfProbe(Wp));
   let first = true;
   for (const body of blocks) {
@@ -350,22 +454,20 @@ function pdfPlanUsed(rows, brks) {
   }
   return u;
 }
+/* (lote AH) el número de página, dentro del cuadro de la cabecera («Página 1 de 3»), en cada página que lleva el cuadro
+   (docHeader). Sin pie de página y sin la barra angosta arriba de las páginas que siguen (lo pidió Ronald): las páginas
+   en que sigue una tabla o un texto quedan limpias, y el cuadro de la primera ya dice cuántas son en total.
+   label: ya no se usa (era el pie); queda para los que la llaman */
 function pageNumbers(doc, label) {
-  const n = doc.getNumberOfPages(), T = PT;
+  const n = doc.getNumberOfPages(), S = doc._pg || {};
   for (let i = 1; i <= n; i++) {
+    const s = S[i]; if (!s) continue;
     doc.setPage(i);
-    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-    // las páginas que siguen (sin la barra grande): una barra angosta del mismo color con el documento
-    if (!(doc._hdr && doc._hdr.has(i)) && !doc._noBand) {
-      doc.setFillColor(...T.bar); doc.rect(0, 0, W, 20, 'F'); doc.setFillColor(...T.c); doc.rect(0, 20, W, 1.6, 'F');
-      doc.setFont('title', 'bold'); doc.setFontSize(8); doc.setTextColor(...T.barInk); doc.text(pdfSafe(`${P.meta.title}  ·  ${label}`), 36, 13.4);
-    }
-    // pie: un cuadrito del color de la pestaña, el documento y el número de página
-    doc.setFillColor(...T.c); doc.rect(36, H - 25.6, 6, 6, 'F');
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-    doc.text(pdfSafe(`${P.meta.title} · ${label}`), 46, H - 20);
-    doc.text(`${i} / ${n}`, W - 36, H - 20, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...INK);
+    doc.text(`Página ${i} de ${n}`, s.x + s.w / 2, s.y + s.h / 2, { align: 'center', baseline: 'middle' });
   }
+  if (n) doc.setPage(n);
+  doc.setTextColor(...INK);
 }
 
 /* celda «encabezado + sinopsis»: el encabezado en letra normal y la sinopsis en cursiva (autoTable dibuja todo en un
@@ -409,8 +511,16 @@ function pdfScript(opts = {}) {
   doc.setLineHeightFactor(1.15);   // el guion tiene su formato de la industria: no toma el aire nuevo de los documentos (lote K)
   const W = 612;
   const CV = P.meta.cover || {}, part = pdfPart(), noCover = (clean && CV.on === false) || part;   // el guion limpio puede ir sin carátula; una parte, tampoco
+  // (lote AH) en A4: la página del guion conserva su formato (medido para carta: márgenes, 55 líneas, la misma
+  // paginación que en la app) y va centrada a lo ancho (la A4 es 17 pt más angosta y 50 más alta). Se corre todo lo
+  // que se dibuja en cada página con una traslación del PDF (cm), cerrada al terminar la página
+  const dx = (doc.internal.pageSize.getWidth() - W) / 2;
+  let shifted = false;
+  const pgOpen = () => { if (Math.abs(dx) > .5) { doc.internal.write(`q 1 0 0 1 ${dx.toFixed(2)} 0 cm`); shifted = true; } };
+  const pgClose = () => { if (shifted) { doc.internal.write('Q'); shifted = false; } };
   // portada con leyenda
   if (!noCover) {
+  pgOpen();
   if (brandOn('project') && brandLogo('projLogo')) { try { const lg = pdfImgSrc(P.meta.projLogo), ip = doc.getImageProperties(lg); const r = ip.width / ip.height; let w = 220, h = w / r; if (h > 110) { h = 110; w = h * r; } doc.addImage(lg, imgFmt(lg), (W - w) / 2, 210 - h, w, h); } catch (e) { } }
   if (brandOn('company')) { if (brandLogo('logo')) pdfImg(doc, P.meta.logo, W - 72, 60, 130, 40, true); else if (P.meta.company) { doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.text(pdfSafe(P.meta.company.toUpperCase()), W - 72, 76, { align: 'right' }); } }
   doc.setFont('courier', 'bold'); doc.setFontSize(20); doc.setTextColor(0, 0, 0);
@@ -480,8 +590,10 @@ function pdfScript(opts = {}) {
   let first = true;
   D.pages.forEach((pg, pi) => {
     if (part && !pdfScriptPageOk(pg, pi)) return;
+    pgClose();
     if (!(noCover && first)) doc.addPage();
     first = false;
+    pgOpen();
     doc.setFont('courier', 'normal'); doc.setFontSize(12); doc.setTextColor(0, 0, 0);
     const lab = pageLabel(D.pages, pi);
     if (pi > 0 || lab !== '1') doc.text(pdfSafe(lab, true) + '.', 540, 42, { align: 'right' });
@@ -564,6 +676,7 @@ function pdfScript(opts = {}) {
     if (INKI && INKI.get(pi)) anoPdfPage(doc, INKI.get(pi));
     if (mnl) mnPdfPage(doc, mnl, { LEFT, CW, base, rev });
   });
+  pgClose();
   const tail = clean ? '_guion' : tagsOn && covOn ? '_guion_rayado_y_etiquetado' : tagsOn ? '_guion_etiquetado' : '_guion_rayado';
   return { doc, name: fileSafe(P.meta.title) + tail + (tagsOn && area ? '_' + fileSafe(area.name) : '') + '.pdf' };
 }
@@ -587,7 +700,8 @@ function pdfAV(rayado, allow, area) {
     if (u >= 0) i = u;
   }
   doc.autoTable({ ...TBL, startY: y, head: [rayado ? ['#', 'VIDEO', 'AUDIO', 'DUR.', 'DESGLOSE'] : ['#', 'VIDEO', 'AUDIO', 'DUR.']], body,
-    theme: 'striped', styles: { ...TBL.styles, fontSize: 9.5, cellPadding: 6, valign: 'top', lineWidth: .4 }, headStyles: { fillColor: PT.bar, textColor: PT.barInk, fontStyle: 'bold' },
+    // (lote AH) el guion AV conserva su formato de guion: sus líneas finas de color (sin la rejilla negra de producción)
+    theme: 'striped', styles: { ...TBL.styles, fontSize: 9.5, cellPadding: 6, valign: 'top', lineWidth: .4, lineColor: PT.line }, headStyles: { fillColor: PT.bar, textColor: PT.barInk, fontStyle: 'bold' },
     columnStyles: rayado ? { 0: { cellWidth: 22 }, 3: { cellWidth: 38, halign: 'right' }, 4: { cellWidth: 110, fontSize: 7.5 } } : { 0: { cellWidth: 22 }, 3: { cellWidth: 40, halign: 'right' } } });
   pageNumbers(doc, rayado ? 'Guion AV rayado' : 'Guion AV');
   return { doc, name: fileSafe(P.meta.title) + (rayado ? '_guion_AV_rayado' + (area ? '_' + fileSafe(area.name) : '') + '.pdf' : '_guion_AV.pdf') };
@@ -597,43 +711,30 @@ function pdfAV(rayado, allow, area) {
 /* hoja de desglose en el formato de la productora */
 function drawSheetPage(doc, s) {
   const d = sheetData(s);
-  const W = 612, M = 36, R = W - M, T = PT;
-  // arriba, la barra de la pestaña: «Hoja de desglose», su número en un cuadro negro (como en la app) y el proyecto
-  doc.setFillColor(...T.bar); doc.rect(0, 0, W, 64, 'F'); doc.setFillColor(...T.c); doc.rect(0, 64, W, 2.4, 'F');
-  (doc._hdr || (doc._hdr = new Set())).add(doc.getCurrentPageInfo().pageNumber);
-  doc.setFont('title', 'bold'); doc.setFontSize(17); doc.setTextColor(...T.barInk);
-  doc.text('HOJA DE DESGLOSE', M, 36);
-  const tw = doc.getTextWidth('HOJA DE DESGLOSE') + 10, nw = Math.max(24, doc.getTextWidth(String(d.no)) + 12);
-  doc.setFillColor(...PDF_BLACK); doc.rect(M + tw, 19, nw, 23, 'F');
-  doc.setTextColor(255, 255, 255); doc.text(String(d.no), M + tw + nw / 2, 36, { align: 'center' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...T.barInk);
-  doc.text(pdfSafe(P.meta.title), M, 54);
-  if (P.meta.logo && brandOn('company')) pdfImg(doc, P.meta.logo, R, 14, 150, 34, true);
-  else if (d.productora && brandOn('company')) { doc.setFont('title', 'bold'); doc.setFontSize(12); doc.setTextColor(...T.barInk); doc.text(pdfSafe(d.productora.toUpperCase()), R, 36, { align: 'right' }); }
-  doc.setTextColor(...INK);
-  // campos con línea
-  const field = (label, value, x, y, x2, fs = 8.5) => {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...MUTED);
-    doc.text(label, x, y);
-    const lx = x + doc.getTextWidth(label) + 3;
-    doc.setLineWidth(.5); doc.setDrawColor(...T.line); doc.line(lx, y + 2, x2, y + 2); doc.setTextColor(...INK);
-    doc.setFontSize(fs);
-    const maxW = x2 - lx - 6;
-    let v = pdfSafe(value || '');
-    while (v.length > 3 && doc.getTextWidth(v) > maxW) v = v.slice(0, -2);
-    if (v !== pdfSafe(value || '')) v = v.replace(/.$/, '...');
-    doc.text(v, (lx + x2) / 2, y - 1, { align: 'center' });
-  };
-  let y = 92;
-  field('Páginas de guion:', d.pages, M, y, M + 200); field('Fecha:', d.fecha, 400, y, R);
-  y += 21; field('Productora:', d.productora, M, y, R);
-  y += 21; field('Título de la obra:', d.titulo, M, y, R);
-  y += 21;
-  field('Secuencia:', d.secuencia, M, y, M + 92); field('Decorado:', d.decorado, M + 100, y, M + 300, 8);
-  field('INT/EXT:', d.ie, M + 308, y, M + 400); field('DÍA/NOCHE:', d.dn, M + 408, y, R);
-  y += 21; field('Descripción:', d.desc, M, y, R, 8);
+  const W = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), M = 36, R = W - M;
+  // (lote AH) arriba, la cabecera en cuadro de todos los documentos: «Hoja de desglose» con su número en un cuadro negro
+  // (como en la app), el proyecto y la productora (antes, en la barra de color de la pestaña)
+  let y = docHeader(doc, 'Hoja de desglose', '', { badge: d.no }) - 2;
+  // (lote AH) los datos de la escena en una rejilla, como un formulario (antes, rótulos con una línea para escribir)
+  const lab = t => ({ content: t, styles: { textColor: MUTED, fontSize: PF.small, fillColor: PDF_LABF } });
+  const val = (v, cs, fs) => ({ content: pdfSafe(v || ''), colSpan: cs || 1, styles: { fontStyle: 'bold', ...(fs ? { fontSize: fs } : {}) } });
+  const L = (t, cs) => ({ ...lab(t), colSpan: cs || 1 });
+  // ocho columnas (los rótulos del renglón de la secuencia caben en una sola línea); los otros renglones las juntan
+  const cw = [60, 34, 54, 0, 46, 38, 66, 44], fixed = cw.reduce((a, v) => a + v, 0);
+  cw[3] = R - M - fixed;
+  doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M }, tableWidth: R - M,
+    styles: { ...TBL.styles, fontSize: 8.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, valign: 'middle', overflow: 'ellipsize' },
+    columnStyles: Object.fromEntries(cw.map((w, i) => [i, { cellWidth: w }])),
+    body: [
+      [L('Páginas de guion', 2), val(d.pages, 2), L('Fecha', 2), val(d.fecha, 2)],
+      [L('Productora', 2), val(d.productora, 6)],
+      [L('Título de la obra', 2), val(d.titulo, 6)],
+      [L('Secuencia'), val(d.secuencia), L('Decorado'), val(d.decorado, 1, 8), L('INT/EXT'), val(d.ie), L('DÍA/NOCHE'), val(d.dn)],
+      [L('Descripción', 2), { ...val(d.desc, 6), styles: { fontStyle: 'normal', fontSize: 8, overflow: 'linebreak' } }],
+    ] });
+  y = doc.lastAutoTable.finalY;
   // cajas
-  const top = y + 18, Wd = R - M, H = 792 - 40 - top;
+  const top = y + 10, Wd = R - M, H = PH - 36 - top;
   const h1 = H * .4, h2 = H * .25, h3 = H - h1 - h2;
   const B = Object.fromEntries(SHEET.map(b => [b.id, b]));
   const box = (id, x, yy, w, h) => {
@@ -645,7 +746,9 @@ function drawSheetPage(doc, s) {
     const bc = rgb(b.color), bar = bdBar(b.color), ink = bar.ink === '#FFFFFF' ? PDF_WHITE : INK;
     doc.setFillColor(...rgb(bar.bg)); doc.rect(x, yy, w, 20, 'F');
     doc.setFillColor(...mixc(bc, rgb('#FCFCFB'), .14)); doc.rect(x, yy + 20, w, h - 20, 'F');
-    doc.setDrawColor(255, 255, 255); doc.setLineWidth(1.4); doc.rect(x, yy, w, h, 'S');
+    // (lote AH) cada caja en su cuadro con líneas negras (antes, separadas por un filete blanco), con la cabecera
+    // cerrada por una línea: la hoja se lee como una rejilla, también en blanco y negro
+    pdfBox(doc, x, yy, w, h); doc.setLineWidth(GRID.cell); doc.line(x, yy + 20, x + w, yy + 20);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...ink);
     doc.text(b.name, x + 8, yy + 13.6);
     if (list.length) { const nm = doc.getTextWidth(b.name); doc.setFont('helvetica', 'normal'); doc.text(String(list.length), x + 14 + nm, yy + 13.6); }
@@ -677,20 +780,20 @@ function drawSheetPage(doc, s) {
 }
 function pdfBreakdown(opts = {}) {
   const doc = newDoc();
-  const W = 612;
   const SC = pdfScenes();
   SC.forEach((s, i) => {
-    if (i) doc.addPage('letter', 'portrait');
+    if (i) doc.addPage();
     drawSheetPage(doc, s);
-    // con fotos: la lámina A4 de la escena, solo con los elementos que tienen fotos o notas
+    // con fotos: la lámina de la escena, solo con los elementos que tienen fotos o notas (lote AH: en el mismo papel
+    // que las hojas; antes iba siempre en A4)
     if (opts.photos) {
       const ent = sceneEntries(s, SHEET.filter(b => b.id !== 'notes').map(b => b.id)).filter(x => photosOf(x.e).length || refOf(x.e).note);
-      if (ent.length) { doc.addPage('a4', 'portrait'); drawLamina(doc, 'Lámina de la escena ' + s.key, s.heading, ent.map(x => ({ ...x, label: SHEET.find(b => b.id === x.box).name + ' · ' + x.label })), true); }
+      if (ent.length) { doc.addPage(); drawLamina(doc, 'Lámina de la escena ' + s.key, s.heading, ent.map(x => ({ ...x, label: SHEET.find(b => b.id === x.box).name + ' · ' + x.label })), true); }
     }
   });
   // reporte de elementos (solo con todas las escenas)
   if (pdfPart()) { pageNumbers(doc, 'Desglose'); return { doc, name: fileSafe(P.meta.title) + (opts.photos ? '_desglose_con_fotos.pdf' : '_desglose.pdf') }; }
-  doc.addPage('letter', 'portrait');
+  doc.addPage();
   let y = docHeader(doc, 'Reporte de elementos', Object.keys(P.elements).length + ' elementos');
   const scenesOf = {};
   D.sem.forEach((set, si) => set.forEach(id => { (scenesOf[id] = scenesOf[id] || []).push(D.sc.scenes[si].key); }));
@@ -711,7 +814,7 @@ function pdfBreakdown(opts = {}) {
 /* ---------- storyboard ---------- */
 /* la viñeta del plano en un recuadro de w×h: con cámara B, la A más angosta y la B más chica a su lado, con su lente */
 function pdfFrames(doc, sh, x, y, w, h) {
-  const put = (img, ix, iy, iw, ih) => { try { doc.addImage(img, img.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, ih); } catch (e) { PDF_MISS++; } doc.setDrawColor(...PT.line); doc.setLineWidth(.6); doc.rect(ix, iy, iw, ih); };
+  const put = (img, ix, iy, iw, ih) => { try { doc.addImage(img, img.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, ih); } catch (e) { PDF_MISS++; } doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(ix, iy, iw, ih); };   // (lote AH) el borde de la viñeta, negro
   const B = shotB(sh);
   if (!B) { put(frameOf(sh), x, y, w, h); return w; }
   const gap = 6, ar = w / h, wa = (w - gap) * .68, wb = w - gap - wa, ha = wa / ar, hb = wb / ar;
@@ -741,21 +844,26 @@ function shotRigText(sh) {
   if (s3.set === 'int') { const R = roomOf(s3); t += `\nInterior de ${R.w} x ${R.d} m, alto ${R.h} m`; }
   return t;
 }
+/* (lote AH) el storyboard en cuadro: cada plano (o cada fila, con la planta) en su cuadro de líneas negras; las medidas
+   salen del papel (carta o A4: la A4 apaisada es más ancha y más baja) */
 function pdfStoryboardPlan(shots) {
   const doc = newDoc('landscape');
-  const PW = 792, M = 36, rowH = 150, gap = 14, per = 3;
+  const PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), M = 36, gap = 8, per = 3, pad = 6, top = HDR.top + HDR.h + 12;
+  const rowH = Math.min(150, (PH - top - 30 - gap * (per - 1)) / per - pad * 2);
   const ar = ASPECTS[P.meta.aspect] || 16 / 9;
   const fw = Math.min(300, rowH * ar), fh = fw / ar, ps = rowH;
-  const tx = M + fw + 12 + ps + 16, tw = PW - M - tx;
+  const x0 = M + pad, tx = x0 + fw + 12 + ps + 16, tw = PW - M - pad - tx;
   if (!shots.length) { docHeader(doc, 'Storyboard con planta'); doc.setFontSize(11); doc.text('Todavía no hay planos.', M, 110); }
   shots.forEach((sh, i) => {
     if (i % per === 0) { if (i) doc.addPage(); docHeader(doc, 'Storyboard con planta de cámara', P.meta.aspect); }
-    const y = 84 + (i % per) * (rowH + gap);
-    const fwA = pdfFrames(doc, sh, M, y, fw, fh);
-    try { doc.addImage(planImage(sh), 'JPEG', M + fw + 12, y, ps, ps); } catch (e) { PDF_MISS++; }
-    doc.rect(M + fw + 12, y, ps, ps);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...MUTED); doc.text('PLANTA', M + fw + 16, y + 8);
-    if (sh.done) { doc.setTextColor(...OKC); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('RODADO', M + fwA - 4, y + 11, { align: 'right' }); }
+    const by = top + (i % per) * (rowH + pad * 2 + gap), y = by + pad;
+    pdfBox(doc, M, by, PW - 2 * M, rowH + pad * 2);
+    const fwA = pdfFrames(doc, sh, x0, y, fw, fh);
+    try { doc.addImage(planImage(sh), 'JPEG', x0 + fw + 12, y, ps, ps); } catch (e) { PDF_MISS++; }
+    doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0 + fw + 12, y, ps, ps);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...MUTED); doc.text('PLANTA', x0 + fw + 16, y + 8);
+    if (sh.done) { doc.setTextColor(...OKC); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('RODADO', x0 + fwA - 4, y + 11, { align: 'right' }); }
+    pdfVLine(doc, tx - 9, by, by + rowH + pad * 2, GRID.cell);
     let ty = y + 10;
     doc.setFont('title', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...INK);
     doc.text(pdfSafe(`${D.code[sh.id]}  ·  Esc. ${sh.sc}`), tx, ty); ty += 14;
@@ -770,7 +878,6 @@ function pdfStoryboardPlan(shots) {
     doc.setFont('courier', 'normal'); doc.setFontSize(7.5);
     const left = Math.max(0, Math.floor((y + rowH - ty) / 9));
     if (left) doc.text(doc.splitTextToSize(pdfSafe(shotTextExcerpt(sh, 300)), tw).slice(0, left), tx, ty);
-    if (i % per < per - 1 && i < shots.length - 1) { doc.setDrawColor(...PT.line); doc.line(M, y + rowH + gap / 2, PW - M, y + rowH + gap / 2); }
   });
   pageNumbers(doc, 'Storyboard');
   return { doc, name: fileSafe(P.meta.title) + '_storyboard_planta.pdf' };
@@ -779,33 +886,35 @@ function pdfStoryboard(opts = {}) {
   const allK = D.sc.scenes.map(s => s.key), keys = PDF_SEL && PDF_SEL.sc ? pdfKeys(allK) : UI.sbScene ? [UI.sbScene] : allK;
   if (opts.plan) return pdfStoryboardPlan(keys.flatMap(k => D.shotsBy[k] || []));
   const doc = newDoc('landscape');
-  const PW = 792, PH = 612, M = 36, gap = 14, cols = 3;
+  const PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), M = 36, gap = 10, cols = 3, pad = 6, TXT = 80, top = HDR.top + HDR.h + 12;
   const shots = keys.flatMap(k => D.shotsBy[k] || []);
   const ar = ASPECTS[P.meta.aspect] || 16 / 9;
   const cw = (PW - M * 2 - gap * (cols - 1)) / cols;
-  const ih = Math.min(cw / ar, 160), iw = ih * ar;
-  const cellH = ih + 92;
-  const rows = Math.max(1, Math.floor((PH - 84 - 36) / (cellH + gap)));
+  // dos filas por hoja si las viñetas quedan de un buen tamaño (en A4 apaisada, un poco más bajas); si no, una
+  const fit = r => Math.min((cw - pad * 2) / ar, 160, (PH - top - 30 - gap * (r - 1)) / r - TXT - pad * 2);
+  const rows = fit(2) >= 70 ? 2 : 1, ih = fit(rows), iw = ih * ar;
+  const cellH = ih + TXT + pad * 2;
   const per = cols * rows;
   if (!shots.length) { docHeader(doc, 'Storyboard'); doc.setFontSize(11); doc.text('Todavía no hay planos.', M, 110); }
   shots.forEach((sh, i) => {
     if (i % per === 0) { if (i) doc.addPage(); docHeader(doc, 'Storyboard', P.meta.aspect); }
     const k = i % per, c = k % cols, r = Math.floor(k / cols);
-    const x = M + c * (cw + gap), y = 84 + r * (cellH + gap);
-    const iwA = pdfFrames(doc, sh, x + (cw - iw) / 2, y, iw, ih);
-    if (sh.done) { doc.setTextColor(...OKC); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('RODADO', x + (cw - iw) / 2 + iwA - 4, y + 11, { align: 'right' }); }
+    const bx = M + c * (cw + gap), by = top + r * (cellH + gap), x = bx + pad, y = by + pad, w = cw - pad * 2;
+    pdfBox(doc, bx, by, cw, cellH);
+    const iwA = pdfFrames(doc, sh, x + (w - iw) / 2, y, iw, ih);
+    if (sh.done) { doc.setTextColor(...OKC); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('RODADO', x + (w - iw) / 2 + iwA - 4, y + 11, { align: 'right' }); }
     let ty = y + ih + 14;
     doc.setFont('title', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
     doc.text(pdfSafe(D.code[sh.id]), x, ty);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
     const tech = [sh.size, sh.angle !== 'Normal' ? sh.angle : '', sh.move !== 'Fijo' ? sh.move : '', sh.lens ? sh.lens + 'mm' : '', sh.dur ? sh.dur + 's' : ''].filter(Boolean).join(' · ');
-    doc.text(pdfSafe(tech), x + 30, ty);
+    doc.text(pdfCut(doc, pdfSafe(tech), w - 30), x + 30, ty);
     ty += 12;
     doc.setFontSize(8.5); doc.setTextColor(...INK);
-    const desc = doc.splitTextToSize(pdfSafe(sh.desc || ''), cw).slice(0, 2);
+    const desc = doc.splitTextToSize(pdfSafe(sh.desc || ''), w).slice(0, 2);
     if (desc.length) { doc.text(desc, x, ty); ty += desc.length * 8.5 * doc.getLineHeightFactor() + 1; }
     doc.setFont('courier', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-    const ex = doc.splitTextToSize(pdfSafe(shotTextExcerpt(sh, 260)), cw).slice(0, 4 - desc.length);
+    const ex = doc.splitTextToSize(pdfSafe(shotTextExcerpt(sh, 260)), w).slice(0, Math.max(0, Math.floor((by + cellH - pad - ty + 4) / 9)));
     doc.text(ex, x, ty);
   });
   pageNumbers(doc, 'Storyboard');
@@ -944,7 +1053,7 @@ function pdfBudget() {
   const sumRow = (lab, v, bold) => { const st2 = bold ? { font: 'title', fontStyle: 'bold', fontSize: 15, textColor: PT.deep } : {}; return [{ content: pdfSafe(lab), styles: st2 }, { content: m(v), styles: { ...R, ...st2 } }, ...(fx ? [{ content: d(v), styles: { ...R, ...st2, textColor: bold ? INK : MUTED } }] : [])]; };
   doc.autoTable({ ...TBL, startY: y, theme: 'plain', body: [
     sumRow('Subtotal', T.sub), sumRow(`Imprevistos (${P.budget.contingency}%)`, T.cont), ...(P.budget.igv ? [sumRow(`${tn} (${P.budget.igvRate}%)`, T.igv)] : []), sumRow('Total', T.total, true)],
-    tableWidth: fx ? 380 : 280, margin: { left: 36, right: 36, bottom: 44 } });
+    tableWidth: fx ? 380 : 280, margin: { left: 36, right: 36, bottom: 36 } });
   const NC = fx ? 7 : 6;
   const blocks = [];
   for (const s of BUD_SECTIONS) {
@@ -1049,15 +1158,17 @@ function pdfCalTimeline(doc, y0, sub) {
   }
   const head = y => {
     // meses y días; los fines de semana y los días de rodaje, sombreados de arriba abajo
-    doc.setFillColor(...PT.bar); doc.rect(x0, y, W - M - x0, 26, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...PT.barInk);
+    // (lote AH) en gris claro con letra negra, en cuadro (antes, en el color de la barra de la pestaña)
+    doc.setFillColor(...PDF_HEADF); doc.rect(x0, y, W - M - x0, 26, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...INK);
     let i = 0;
     while (i < n) { const m = list[i].slice(0, 7); let j = i; while (j < n && list[j].slice(0, 7) === m) j++; const ml = pdfSafe(capFirst(dOf(list[i]).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }))), ms = pdfSafe(capFirst(dOf(list[i]).toLocaleDateString('es-PE', { month: 'short' })).replace('.', ''));
-      const room = (j - i) * dw - 5; if (doc.getTextWidth(ml) < room) doc.text(ml, x0 + i * dw + 3, y + 10); else if (doc.getTextWidth(ms) < room) doc.text(ms, x0 + i * dw + 3, y + 10); if (i) { doc.setDrawColor(...PT.c); doc.setLineWidth(.8); doc.line(x0 + i * dw, y, x0 + i * dw, y + 26); } i = j; }
+      const room = (j - i) * dw - 5; if (doc.getTextWidth(ml) < room) doc.text(ml, x0 + i * dw + 3, y + 10); else if (doc.getTextWidth(ms) < room) doc.text(ms, x0 + i * dw + 3, y + 10); if (i) { doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.line(x0 + i * dw, y, x0 + i * dw, y + 26); } i = j; }
     if (dw >= 6.5) { doc.setFont('helvetica', 'normal'); doc.setFontSize(Math.min(6.5, dw * .8)); list.forEach((d, k) => doc.text(String(dOf(d).getDate()), x0 + k * dw + dw / 2, y + 22, { align: 'center' })); }
-    doc.setFillColor(...PT.bar); doc.rect(M, y, NW, 26, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...PT.barInk); doc.text('Tarea', M + 4, y + 17);
-    return y + 28;
+    doc.setFillColor(...PDF_HEADF); doc.rect(M, y, NW, 26, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...INK); doc.text('Tarea', M + 4, y + 17);
+    doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.line(M, y + 26, W - M, y + 26);
+    return y + 26;
   };
   const shade = (y1, y2) => list.forEach((d, k) => {
     const wd = dOf(d).getDay();
@@ -1071,7 +1182,7 @@ function pdfCalTimeline(doc, y0, sub) {
   if (cur.length) pages.push(cur);
   pages.forEach((L, pi) => {
     if (pi) { doc.addPage(); y = head(30); }
-    const top = y;
+    const top = y, y0 = top - 26;
     shade(top, top + L.length * RH);
     for (const r of L) {
       if (r.g) {
@@ -1090,9 +1201,12 @@ function pdfCalTimeline(doc, y0, sub) {
           const t = pdfSafe(r.name); if (doc.getTextWidth(t) + 6 < bw) doc.text(t, bx + 3, y + RH / 2 + 2.2);
         }
       }
-      doc.setDrawColor(...PT.line); doc.setLineWidth(.3); doc.line(M, y + RH, W - M, y + RH);
+      // (lote AH) cada fila con su línea negra fina (antes, del color de la pestaña)
+      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(.3); doc.line(M, y + RH, W - M, y + RH);
       y += RH;
     }
+    // el cuadro de la tabla y la columna de las tareas
+    pdfBox(doc, M, y0, W - 2 * M, y - y0); pdfVLine(doc, x0, y0, y, GRID.cell);
   });
   // leyenda
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
@@ -1149,7 +1263,7 @@ async function pdfWarm(kind, opts) {
   let stop = false, m = null;
   const say = (txt, f) => { if (!m) return; const t = $('#pwT', m), pb = $('#pwP', m); if (t) t.textContent = txt; if (pb) pb.style.width = Math.round(f * 100) + '%'; };
   if (jobs.length >= 4 || (kind === 'animatic' && all.length > 40)) {
-    m = modal({ title: 'Exportando PDF', body: `<p style="margin:0" id="pwT">Preparando viñetas…</p><div class="prog"><i id="pwP" style="width:0"></i></div><p class="hint" style="margin:0">Puedes seguir mirando; el archivo se descarga al terminar.</p>`, foot: '<button class="btn" id="pwC">Cancelar</button>', keep: true, noEsc: true, onClose: () => { stop = true; } });
+    m = modal({ title: 'Exportando PDF', body: `<p style="margin:0" id="pwT">Preparando viñetas…</p><div class="prog"><i id="pwP" style="width:0"></i></div><p class="hint" style="margin:0">Puedes seguir mirando; al terminar se abre la vista previa.</p>`, foot: '<button class="btn" id="pwC">Cancelar</button>', keep: true, noEsc: true, onClose: () => { stop = true; } });
     $('#pwC', m).onclick = () => { stop = true; closeModal(); };
   }
   if (jobs.length) {
@@ -1251,6 +1365,36 @@ function pdfArea(opts = {}) {
   pageNumbers(doc, ttl);
   return { doc, name: fileSafe(P.meta.title) + '_desglose_' + fileSafe(B.name) + '.pdf' };
 }
+/* (lote AH) arma el PDF con un papel ('a4', 'letter' o null: el de siempre del documento), con todo lo que va encima:
+   la parte elegida (pdf-rango.js), la copia con nombre (guion cerrado) y la marca de agua del plan gratis. Devuelve
+   { doc, name, miss: imágenes que no entraron, call: las jornadas y versiones de la hoja de llamado, pages: si es una
+   parte por páginas } o { err } */
+function pdfMake(kind, opts, paper) {
+  PDF_MISS = 0; PDF_CALL_DONE = null; PDF_PAPER = paper === 'a4' || paper === 'letter' ? paper : null;
+  // una parte (pdf-rango.js): escenas o jornadas las filtra cada documento; las páginas, al final
+  PDF_SEL = opts && opts.sel || null;
+  try {
+    const run = () => { pdfTheme(); return PDFX[kind](opts || {}); };
+    let { doc, name } = opts && opts.base && typeof lkWithBase === 'function' ? lkWithBase(run) : run();
+    if (PDF_SEL) {
+      if (PDF_SEL.pages && !PDF_SEL.script) { const err = pdfKeepPages(doc, PDF_SEL.pages); if (err) return { err, ms: 5000 }; }
+      if (doc.getNumberOfPages() < 1) return { err: 'No hay nada que exportar en esa parte.' };
+      name = name.replace(/\.pdf$/, PDF_SEL.tag + '.pdf');
+    }
+    if (opts && opts.copy && opts.copy.name) {
+      if (opts.copy.mark) pdfCopyMark(doc, opts.copy.name);
+      name = name.replace(/\.pdf$/, `${opts.base ? '_version_cerrada' : ''}_copia_${fileSafe(opts.copy.name)}.pdf`);
+    } else if (opts && opts.base) name = name.replace(/\.pdf$/, '_version_cerrada.pdf');
+    // en la web con cuentas, el PDF del guion va sin marca en todos los planes (plan Guion incluido)
+    if (LIC.mode === 'free' && !(API() && kind === 'screenplay') && (API() ? !planAllows('nomark') : !P._shared)) pdfWatermark(doc);
+    return { doc, name, miss: PDF_MISS, call: PDF_CALL_DONE, pages: !!(PDF_SEL && PDF_SEL.pages) };
+  } finally { PDF_PAPER = null; PDF_SEL = null; }   // mientras la vista previa está abierta, no queda nada elegido
+}
+/* lo que pasa cuando el PDF salió (se descargó, se envió o se imprimió): la hoja de llamado guarda la versión que salió */
+function pdfOut(kind, r) {
+  if (kind === 'call' && r && r.call && !r.pages && typeof callExported === 'function') callExported(r.call.list, r.call.vers);
+}
+const pdfMissText = n => `El PDF salió sin ${n === 1 ? 'una imagen' : n + ' imágenes'}: ${n === 1 ? 'no se pudo leer' : 'no se pudieron leer'}. Vuelve a guardar esos dibujos y exporta otra vez.`;
 async function exportPDF(kind, btn, opts) {
   const gate = pdfGate(kind, opts);
   if (gate && !proGate(gate)) return;
@@ -1292,34 +1436,22 @@ async function exportPDF(kind, btn, opts) {
     await preparePhotosForPdf();
     await imgPrepPdf([P.meta.logo, P.meta.projLogo]);
     if (!(await pdfWarm(kind, opts))) { toast('Exportación cancelada.'); busy(false); return; }
-    PDF_MISS = 0;
-    // una parte (pdf-rango.js): escenas o jornadas las filtra cada documento; las páginas, al final
-    PDF_SEL = opts && opts.sel || null;
-    const run = () => { pdfTheme(); return PDFX[kind](opts || {}); };
-    let { doc, name } = opts && opts.base && typeof lkWithBase === 'function' ? lkWithBase(run) : run();
-    if (PDF_SEL) {
-      if (PDF_SEL.pages && !PDF_SEL.script) { const err = pdfKeepPages(doc, PDF_SEL.pages); if (err) { toast(err, 5000); return; } }
-      if (doc.getNumberOfPages() < 1) { toast('No hay nada que exportar en esa parte.', 4000); return; }
-      name = name.replace(/\.pdf$/, PDF_SEL.tag + '.pdf');
+    // (lote AH) el armado va aparte (pdfMake): la vista previa lo repite si se cambia el papel. Arranca con el último
+    // papel que la persona eligió para este documento (o el de siempre del documento)
+    const r = pdfMake(kind, opts, pdfPaperMem(kind));
+    if (r.err) { toast(r.err, r.ms || 4000); return; }
+    // dentro del ZIP del proyecto (archivo.js) no hay vista previa: el archivo va directo
+    if (OFFER_CAPTURE) {
+      const sent = await offerFile(r.name, r.doc.output('blob'));
+      if (sent === true) pdfOut(kind, r);
+      if (r.miss) problem(pdfMissText(r.miss));
+      return;
     }
-    if (opts && opts.copy && opts.copy.name) {
-      if (opts.copy.mark) pdfCopyMark(doc, opts.copy.name);
-      name = name.replace(/\.pdf$/, `${opts.base ? '_version_cerrada' : ''}_copia_${fileSafe(opts.copy.name)}.pdf`);
-    } else if (opts && opts.base) name = name.replace(/\.pdf$/, '_version_cerrada.pdf');
-    // en la web con cuentas, el PDF del guion va sin marca en todos los planes (plan Guion incluido)
-    if (LIC.mode === 'free' && !(API() && kind === 'screenplay') && (API() ? !planAllows('nomark') : !P._shared)) pdfWatermark(doc);
-    // «Enviar» (la hoja de llamado): el menú de compartir del sistema con el PDF (WhatsApp, correo…); si no se puede, se descarga
-    const blob = doc.output('blob');
-    let sent = null;
-    if (opts && opts.share && typeof navigator !== 'undefined' && navigator.canShare && typeof File === 'function') {
-      try {
-        const f = new File([blob], trFile(name), { type: 'application/pdf' });
-        if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: pdfSafe(P.meta.title) }); sent = true; }
-      } catch (e) { if (e && e.name === 'AbortError') sent = false; }
-    }
-    if (sent == null) sent = await offerFile(name, blob);
-    if (sent === true && kind === 'call' && PDF_CALL_DONE && !(PDF_SEL && PDF_SEL.pages) && typeof callExported === 'function') callExported(PDF_CALL_DONE.list, PDF_CALL_DONE.vers);
-    if (PDF_MISS) problem(`El PDF salió sin ${PDF_MISS === 1 ? 'una imagen' : PDF_MISS + ' imágenes'}: ${PDF_MISS === 1 ? 'no se pudo leer' : 'no se pudieron leer'}. Vuelve a guardar esos dibujos y exporta otra vez.`);
+    // (lote AH) antes de descargar, la vista previa: las páginas, el papel (A4 o carta), Imprimir, Descargar y, en la
+    // hoja de llamado, Enviar. Lo de después de descargar (la versión de la hoja de llamado que salió) pasa al descargar,
+    // enviar o imprimir desde ahí; si se cierra sin nada de eso, no cuenta como enviada
+    busy(false);
+    await pdfPreview({ kind, first: r, make: paper => pdfMake(kind, opts, paper), share: !!(opts && opts.share), onOut: x => pdfOut(kind, x) });
   } catch (e) { console.error(e); problem('No se pudo generar el PDF. Vuelve a intentarlo; si se repite, escribe a soporte desde Ayuda.', () => exportPDF(kind, btn, opts)); }
   finally { FR_HOLD--; frameTrim(); PDF_SEL = null; PDF_CALL_DONE = null; busy(false); }
 }

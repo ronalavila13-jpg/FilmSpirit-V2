@@ -235,11 +235,12 @@ function photoViewer(src, name, opt = {}) {
   show();
   ov.focus({ preventScroll: true });
 }
-/* ---------- PDF: lámina A4 con o sin fotos ---------- */
-/* entries: [{ e, label, scenes }]; dibuja desde «y» y agrega páginas A4 cuando hace falta */
+/* ---------- PDF: lámina con o sin fotos ---------- */
+/* entries: [{ e, label, scenes }]; dibuja desde «y» y agrega páginas cuando hace falta (lote AH: en el papel del
+   documento, A4 o carta; el nombre de cada elemento en su cuadro, con sus escenas a la derecha) */
 function drawLamina(doc, title, sub, entries, photos) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  let y = docHeader(doc, title, sub);
+  let y = docHeader(doc, title, sub, { x0: M });
   if (!entries.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Sin elementos.', M, y + 10); return; }
   if (!photos) {
     doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
@@ -254,28 +255,24 @@ function drawLamina(doc, title, sub, entries, photos) {
     const noteL = note ? doc.splitTextToSize(pdfSafe(note), W - M * 2) : [];
     const rows = Math.ceil(ph.length / cols);
     const need = 18 + noteL.length * 10 + (rows ? rows * (bh + gap) : 14) + 10;
-    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub); }
-    doc.setFont('title', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-    doc.text(pdfSafe(`${x.num || i + 1}. ${x.label}`), M, y + 10);
-    if (x.scenes) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(pdfSafe('Escenas ' + x.scenes), W - M, y + 10, { align: 'right' }); }
-    y += 16;
+    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
+    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6 } });
     if (noteL.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(noteL, M, y + 6); y += noteL.length * 8.5 * doc.getLineHeightFactor() + 2; }
     if (!ph.length) { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin fotos.', M, y + 8); y += 14; }
     ph.forEach((p, j) => {
       const c = j % cols;
       if (c === 0 && j) y += bh + gap;
-      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub); }
+      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
       const url = photoForPdf(phKey(x.e.id, p.id));
       let w = p.w || 4, h = p.h || 3;
       try { if (!p.w) { const pr = doc.getImageProperties(url); w = pr.width; h = pr.height; } } catch (e) { }
       const k = Math.min(bw / w, bh / h), iw = w * k, ih = h * k, x0 = M + c * (bw + gap);
       doc.setFillColor(...PT.soft); doc.rect(x0, y, bw, bh, 'F');
       try { doc.addImage(url, 'JPEG', x0 + (bw - iw) / 2, y + (bh - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; }
-      doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.rect(x0, y, bw, bh);
+      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0, y, bw, bh);
     });
     if (ph.length) y += bh + gap;
-    y += 6;
-    doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.line(M, y - 4, W - M, y - 4);
+    y += 8;
   });
 }
 function sceneEntries(s, boxes) {

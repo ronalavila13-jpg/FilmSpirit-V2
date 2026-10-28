@@ -276,26 +276,29 @@ EXPORTS.scout = () => [
   { label: 'Locaciones elegidas', hint: 'PDF: solo la elegida de cada lugar, con fotos', run: btn => exportPDF('scouting', btn, { photos: true, picked: true }), pdf: { kind: 'scouting', opts: { photos: true, picked: true } } },
 ];
 
-/* ---------- PDF (compartido con el casting): una tarjeta por candidata, con sus datos y sus fotos ---------- */
+/* ---------- PDF (compartido con el casting): una tarjeta por candidata, con sus datos y sus fotos ----------
+   (lote AH) en cuadro, tipo Excel: el nombre en su cuadro (con «ELEGIDA» a la derecha) y debajo sus datos en una
+   rejilla (rótulo | dato); los grupos (cada lugar o personaje) en un cuadro con su fondo. Antes, texto suelto con una
+   raya debajo */
 function pdfCandBlock(doc, y, c, keyOf, rows, opts, title, tag) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
   const sub = docHeaderSub(doc);
   const ph = opts.photos ? (c.ph || []).filter(p => FRAMES[keyOf(p.id)]) : [];
   const cols = 3, gap = 8, bw = (W - M * 2 - gap * (cols - 1)) / cols, bh = bw * .7;
-  // (lote K) los datos en la letra del cuerpo, con su interlineado
-  const LH = PF.body * PF.lh;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.body);
-  const lines = rows.filter(([, v]) => String(v || '').trim()).map(([k, v]) => doc.splitTextToSize(pdfSafe(`${k}: ${v}`), W - M * 2));
-  const need = 20 + lines.reduce((a, L) => a + L.length * LH, 0) + (ph.length ? bh + gap : 0) + 12;
-  if (y + Math.min(need, 20 + 44 + bh) > H - 40) { doc.addPage(); y = sub(); }
-  doc.setFont('title', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-  doc.text(pdfSafe(title), M, y + 10);
-  if (tag) { doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...OKC); doc.text(pdfSafe(tag), W - M, y + 10, { align: 'right' }); }
-  y += 18;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.body); doc.setTextColor(...INK);
-  for (const L of lines) { if (y + L.length * LH > H - 40) { doc.addPage(); y = sub(); } doc.text(L, M, y + 7); y += L.length * LH; }
+  const data = rows.filter(([, v]) => String(v || '').trim());
+  // el nombre y sus primeros datos juntos: si no entran, a la hoja siguiente
+  if (y + 30 + Math.min(data.length, 2) * 19 + (ph.length ? Math.min(bh, 60) : 0) > H - 40) { doc.addPage(); y = sub(); }
+  y = pdfSec(doc, y, title, { x0: M, right: tag, need: 0, st: { fs: 10.5, pad: 4.5, after: 0, rcol: OKC } });
+  if (data.length) {
+    doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, top: PDF_CAND_HEAD ? HDR.top + HDR.h + 12 : 40, bottom: 40 }, rowPageBreak: 'avoid',
+      body: data.map(([k, v]) => [{ content: pdfSafe(k), styles: { textColor: MUTED, fontSize: PF.small, fillColor: PDF_LABF } }, pdfSafe(v)]),
+      columnStyles: { 0: { cellWidth: 92 } }, styles: { ...TBL.styles, cellPadding: { top: 4, bottom: 4, left: 6, right: 6 } },
+      // si la rejilla sigue en otra hoja, esa hoja también lleva la cabecera
+      didDrawPage: d => { if (d.pageNumber > 1) sub(); } });
+    y = doc.lastAutoTable.finalY;
+  }
   if (ph.length) {
-    y += 4;
+    y += 6;
     ph.slice(0, 6).forEach((p, j) => {
       const col = j % cols;
       if (col === 0 && j) y += bh + gap;
@@ -305,30 +308,27 @@ function pdfCandBlock(doc, y, c, keyOf, rows, opts, title, tag) {
       const k = Math.min(bw / w, bh / h), iw = w * k, ih = h * k, x0 = M + col * (bw + gap);
       doc.setFillColor(...PT.soft); doc.rect(x0, y, bw, bh, 'F');
       try { doc.addImage(url, 'JPEG', x0 + (bw - iw) / 2, y + (bh - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; }
+      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0, y, bw, bh);
     });
-    y += bh + gap;
+    y += bh;
   }
-  y += 8;
-  doc.setDrawColor(...PT.line); doc.setLineWidth(.5); doc.line(M, y - 5, W - M, y - 5);
-  return y;
+  return y + 14;
 }
 /* encabezado de las páginas siguientes de un PDF de candidatas (el mismo de la primera) */
 let PDF_CAND_HEAD = null;
-const docHeaderSub = doc => () => PDF_CAND_HEAD ? docHeader(doc, PDF_CAND_HEAD[0], PDF_CAND_HEAD[1]) : 50;
+const docHeaderSub = doc => () => PDF_CAND_HEAD ? docHeader(doc, PDF_CAND_HEAD[0], PDF_CAND_HEAD[1], { x0: 40 }) : 50;
 function pdfGroupBand(doc, y, title, sub) {
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+  const H = doc.internal.pageSize.getHeight();
   if (y + 80 > H - 40) { doc.addPage(); y = docHeaderSub(doc)(); }
-  doc.setFillColor(...PT.fill2); doc.rect(M, y, W - M * 2, 24, 'F');
-  doc.setFont('title', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK); doc.text(pdfSafe(title), M + 8, y + 16);
-  if (sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text(pdfSafe(sub), W - M - 8, y + 16, { align: 'right' }); }
-  return y + 34;
+  // (lote AH) en un cuadro con líneas negras y su fondo (antes, una franja de color sin borde)
+  return pdfSec(doc, y, title, { x0: 40, right: sub, need: 0, st: { fill: PT.fill2, after: 10 } });
 }
 function pdfScouting(opts = {}) {
   const doc = newDoc('portrait'), places = scoutPlaces().filter(p => scPlaceData(p.b).cands.length);
   const cur = (P.budget && P.budget.currency) || 'S/';
   const label = opts.picked ? 'Locaciones elegidas' : 'Scouting de locaciones';
   PDF_CAND_HEAD = [label, `${places.length} lugares`];
-  let y = docHeader(doc, ...PDF_CAND_HEAD);
+  let y = docHeader(doc, ...PDF_CAND_HEAD, { x0: 40 });
   try {
     if (!places.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Aún no hay candidatas.', 40, y + 10); }
     for (const p of places) {
