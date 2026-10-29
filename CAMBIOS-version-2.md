@@ -78,13 +78,30 @@ la muestra (salvo si se está escribiendo una nota).
 - Nuevos: `src/v2.js`, `src/v2.css`, `src/v2-pant.css`, `src/v2-guion.js`, `src/v2-plan.js`, `src/v2-desglose.js`,
   `src/v2-presupuesto.js`, `src/v2-storyboard.js`, `src/v2-llamado.js`, `src/v2-inicio.js`, `src/v2-sup.js`,
   `src/v2-pestanas.js` (Tipo de proyecto y nombres de los estilos), `src/v2-ejemplo.js`, `tools/v2-compat.js`, `server/web/portada/sb-*.webp`.
-- Cambiados: `build.sh`, `server/web/index.html`, `server/web/portada.css`, `server/web/entrar.html`,
+- Nuevos para publicar: `server/tools/librerias.js`. Cambiados: `server/make.js` (sigue sin PDF.js si falta), `server/deploy/actualizar.sh` (llama a librerias.js), `build.sh`, `server/web/index.html`, `server/web/portada.css`, `server/web/entrar.html`,
   `server/web/entrar.js` (botón de Google rectangular y ancho), `server/web/sitio.css`, `server/i18n/*.json`.
 
 ## Para publicar
 
-Igual que la v1: `sh build.sh server` y `node server/make.js` en la VPS (con los maniquíes 3D en
-`src/s3d-figuras-datos.js`).
+**Con el paquete listo** (`FilmSpirit-V2-servidor.tar.gz`, la carpeta `server/` ya compilada). En una carpeta nueva,
+para que no se mezcle con archivos de un paquete anterior:
+
+```sh
+scp FilmSpirit-V2-servidor.tar.gz root@IP-DE-LA-VPS:/root/
+ssh root@IP-DE-LA-VPS
+rm -rf /root/fs-v2 && mkdir /root/fs-v2 && tar -xzf /root/FilmSpirit-V2-servidor.tar.gz -C /root/fs-v2
+cd /root/fs-v2/server && sudo bash deploy/actualizar.sh
+```
+
+`actualizar.sh` respalda la base de datos, conserva los maniquíes y el lector de PDF instalados si el paquete no los
+trae, copia la versión nueva a `/opt/filmspirit` (sin tocar `/var/lib/filmspirit` ni `/etc/filmspirit`), reinicia y
+comprueba que responde. Para volver a la v1: el mismo comando desde la carpeta `server/` de la v1 (los datos sirven a
+las dos versiones).
+
+**Armarlo uno mismo:** `npm install` en la raíz, las fuentes de `desktop/app/fonts` (`cd desktop && node make.js
+--solo-app`) y `node server/make.js`. Sin PDF.js en `node_modules` (npm sin conexión), el paquete sale sin el lector
+de PDF y `deploy/actualizar.sh` conserva el instalado (`server/tools/librerias.js`); en una instalación nueva, importar
+guiones en PDF no funciona hasta compilar con npm.
 
 **Los maniquíes 3D** (`src/s3d-figuras-datos.js`, unos 3 MB) no van en git. Se rehacen de una de estas dos formas:
 

@@ -15,6 +15,8 @@ echo "▸ Respaldo previo"
 if [[ -f "$APP/tools/respaldo.js" ]] && systemctl start filmspirit-respaldo 2>/dev/null; then echo "  hecho"; else echo "  ⚠ No se pudo respaldar antes (se sigue: la versión nueva trae el programa de respaldo)"; fi
 echo "▸ Maniquíes 3D"
 node "$SRC/tools/maniquies.js" "$SRC" "$APP" || { echo "✖ No se pudo revisar los maniquíes 3D: no se actualiza (la versión instalada sigue igual)."; exit 1; }
+echo "▸ Librerías"
+node "$SRC/tools/librerias.js" "$SRC" "$APP" || { echo "✖ No se pudo revisar las librerías: no se actualiza (la versión instalada sigue igual)."; exit 1; }
 echo "▸ Copiando la versión nueva"
 rsync -a --delete --exclude data --exclude test --exclude tools/token-prueba.js --exclude 'deploy/*.local' "$SRC"/ "$APP"/
 chown -R root:root "$APP"; chmod -R a+rX "$APP"

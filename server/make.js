@@ -28,7 +28,12 @@ for (const [f, t] of [
   ['node_modules/three/build/three.min.js', 'app/lib/three.min.js'],
   ['node_modules/pdfjs-dist/build/pdf.min.js', 'app/lib/pdf.min.js'],
   ['node_modules/pdfjs-dist/build/pdf.worker.min.js', 'app/lib/pdf.worker.min.js'],
-]) cp(path.join(root, f), path.join(pub, t));
+]) {
+  // (v2) sin PDF.js a mano (npm sin conexión) el paquete sale sin el lector de PDF: al actualizar, deploy/actualizar.sh
+  // conserva el que ya está instalado (tools/librerias.js). Las demás librerías siguen siendo obligatorias
+  if (/pdfjs-dist/.test(f) && !fs.existsSync(path.join(root, f))) { fs.rmSync(path.join(pub, t), { force: true }); console.warn(`  ⚠ Sin ${f}: el paquete va sin el lector de PDF (al actualizar se conserva el instalado).`); continue; }
+  cp(path.join(root, f), path.join(pub, t));
+}
 // el mapa general del scouting (Leaflet 1.9.4, BSD-2): guardado en tools/leaflet; se carga solo al abrir el mapa
 for (const f of ['leaflet.js', 'leaflet.css']) cp(path.join(root, 'tools', 'leaflet', f), path.join(pub, 'app', 'lib', f));
 
