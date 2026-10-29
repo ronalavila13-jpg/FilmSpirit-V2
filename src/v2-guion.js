@@ -4,7 +4,7 @@
    y el párrafo donde se escribe resaltado) y, a la derecha, la escena (datos y personajes) y sus notas.
    El editor es el de la v1 (guion-editor.js): mismo texto, mismas marcas y mismo deshacer; aquí cambia la forma.
    ============================================================ */
-const V2_TYPES = [['h', 'Escena'], ['a', 'Acción'], ['c', 'Personaje'], ['d', 'Diálogo'], ['p', 'Paréntesis'], ['tr', 'Transición']];
+const V2_TYPES = [['h', 'Escena'], ['a', 'Acción'], ['c', 'Personaje'], ['d', 'Diálogo'], ['p', 'Paréntesis'], ['tr', 'Transición'], ['sh', 'Plano']];
 
 V2_ACTS.script = () => v2Hist() + v2Share() + v2Export();
 
@@ -93,15 +93,18 @@ const v2GuionRender = function () {
   UI.scriptEdit = true;
   scriptModeFor(UI.tab);
   const av = edFormat() === 'av';
-  const types = av ? '' : `<div class="v2-seg v2-types" role="group" aria-label="Tipo de párrafo">${V2_TYPES.map(([k, n]) => `<button type="button" data-v2t="${k}" aria-pressed="false">${esc(n)}</button>`).join('')}</div>
-    <select id="edType" class="v2-hide" aria-hidden="true" tabindex="-1">${ED_CINE.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select>`;
+  // los tipos de párrafo (con su atajo de Final Draft) y las herramientas de la v1: deshacer, rehacer, negrita, itálica,
+  // subrayado, resaltar (con su paleta) y revisión (guion-formato.js · fmtBarHTML)
+  const types = (av ? '' : `<div class="v2-seg v2-types" role="group" aria-label="Tipo de párrafo">${V2_TYPES.map(([k, n]) => `<button type="button" data-v2t="${k}" aria-pressed="false" title="${ea(v2TypeTip(k, n))}">${esc(n)}</button>`).join('')}</div>
+    <select id="edType" class="v2-hide" aria-hidden="true" tabindex="-1">${ED_CINE.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select>`)
+    + `<div class="v2-edtools" role="group" aria-label="Herramientas del guion"><button type="button" class="v2-tb" data-act="ed-undo" title="Deshacer (${V2_MOD}+Z)" aria-label="Deshacer">${ICO.undo}</button><button type="button" class="v2-tb" data-act="ed-redo" title="Rehacer (${V2_MOD}+${V2_MAC ? 'Mayús+Z' : 'Y'})" aria-label="Rehacer">${ICO.redo}</button>${typeof fmtBarHTML === 'function' ? fmtBarHTML() : ''}</div>`;
   v.innerHTML = `<div class="v2-g3 v2-guion">
     <aside class="v2-col v2-scenes" id="side">
       <div class="v2-colh"><h2>Escenas</h2><span>${D.pages.length} ${D.pages.length === 1 ? 'pág.' : 'págs.'}</span></div>
       <ul class="v2-sclist" id="slist">${v2SceneCards('ed-goto')}</ul>
     </aside>
     <section class="v2-col v2-ed">
-      ${types}
+      <div class="v2-edbar">${types}</div>
       <p class="v2-pinfo" id="v2PInfo">${esc(v2PageInfo(null))}</p>
       <div class="v2-edscroll" id="edScroll" data-keep="scripted"><div id="edHost">${editorHTML()}</div></div>
     </section>
@@ -166,6 +169,10 @@ function v2EdCaret() {
 function v2GuionBind() {
   const v = $('#view');
   $$('.v2-types [data-v2t]', v).forEach(b => b.addEventListener('mousedown', e => e.preventDefault()));   // el cursor se queda en la hoja
+  // las herramientas: lo elegido en la hoja no se pierde al tocarlas (delegado: la v1 rehace sus botones)
+  const tl = $('.v2-edtools', v); if (tl) tl.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+  v2EdKeysBind();
+  v2EdFollowBind();
   $$('.v2-types [data-v2t]', v).forEach(b => b.addEventListener('click', () => {
     const ty = $('#edType'); if (!ty) return;
     ty.value = b.dataset.v2t; ty.dispatchEvent(new Event('change'));
@@ -228,3 +235,170 @@ Object.assign(V2_SHEET, {
     });
   } },
 });
+
+
+/* ============================================================
+   ATAJOS DE ESCRITURA, COMO EN FINAL DRAFT (lo pidió Ronald)
+   La v1 ya traía Ctrl + 1…7 (el orden de Final Draft: escena, acción, personaje, acotación, diálogo, transición,
+   plano), Intro al párrafo siguiente (personaje → diálogo → acción; vacío, pasa a acción), Ctrl + B · I · U,
+   deshacer y rehacer, Ctrl + F y el autocompletar de personajes y encabezados. Aquí se suma:
+   · Tab como en Final Draft: en una acción vacía, personaje; en un personaje vacío, transición; en un diálogo, una
+     acotación (con el cursor dentro); en la acotación, vuelve al diálogo. Mayús + Tab, al revés. En los demás casos,
+     el Tab de la v1.
+   · Ctrl + Alt + 1…7 (⌘ ⌥ 1…7 en Mac): lo mismo que Ctrl + 1…7, porque en el navegador Ctrl + número puede cambiar de
+     pestaña (Alt + 1…5 ya es la etapa). Con AltGr (la @ y la # de algunos teclados) no hace nada.
+   · Ctrl + G: ir a una escena (el «Ir a» de Final Draft).
+   · Autocompletar transiciones (CORTE A:, FUNDIDO A:…) y extensiones del personaje ((V.O.), (O.S.), (CONT.)).
+   ============================================================ */
+const V2_MAC = /Mac|iPhone|iPad/.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '');
+const V2_MOD = V2_MAC ? '⌘' : 'Ctrl';
+const v2TypeTip = (k, n) => { const i = ED_CINE.findIndex(x => x[0] === k) + 1; return i ? `${n} · ${V2_MOD}+${i} (${V2_MAC ? '⌘⌥' : 'Ctrl+Alt+'}${i})` : n; };
+const V2_TRANS = ['CORTE A:', 'CORTE DIRECTO A:', 'FUNDIDO A:', 'FUNDIDO A NEGRO.', 'FUNDIDO DE ENTRADA:', 'DISOLVENCIA A:', 'ENCADENADO A:', 'CORTE A NEGRO.'];
+const V2_EXT = ['V.O.', 'O.S.', 'CONT.', 'F.C.'];
+{
+  const _ek = edKey;
+  edKey = function (e, av) {
+    const mod = e.ctrlKey || e.metaKey;
+    if (!av && !ED.ac) {
+      // Ctrl + Alt + 1…7 (⌘ ⌥ 1…7): el tipo de párrafo
+      if (mod && e.altKey && !e.shiftKey && /^Digit[1-7]$/.test(e.code || '') && !(e.getModifierState && e.getModifierState('AltGraph'))) {
+        e.preventDefault(); const c = edCaret(); if (!c) return;
+        edPush(true); edSetType(c.i, ED_CINE[+e.code.slice(5) - 1][0]); edCommit(true); renderEditorDoc(c); return;
+      }
+      if (e.key === 'Tab' && !mod && !e.altKey) {
+        const c = edCaret(), p = c && P.paras[c.i];
+        if (p) {
+          const empty = !p.x.trim();
+          let t = null;
+          if (!e.shiftKey) {
+            if (p.t === 'a' && empty) t = 'c';
+            else if (p.t === 'c' && empty) t = 'tr';
+            else if (p.t === 'p') t = 'd';
+            else if (p.t === 'd') {
+              e.preventDefault(); edPush(true); edLockKeys();
+              let at;
+              if (empty) { edSetType(c.i, 'p'); at = c.i; }
+              else {
+                // la acotación entra donde está el cursor: lo de antes queda como diálogo; lo de después, también
+                if (c.o < p.x.length && c.o > 0) edSplit(c.i, c.o, 'd');
+                at = c.o === 0 ? c.i : c.i + 1;
+                edInsert(at, [{ t: 'p', x: '' }]);
+              }
+              edCommit(true); renderEditorDoc({ i: at, o: 0 }); return;
+            }
+          } else {
+            if (p.t === 'c' && empty) t = 'a';
+            else if (p.t === 'tr' && empty) t = 'c';
+            else if (p.t === 'p' && empty) t = 'd';
+          }
+          if (t) { e.preventDefault(); edPush(true); edSetType(c.i, t); edCommit(true); renderEditorDoc(c); return; }
+        }
+      }
+    }
+    if (mod && !e.altKey && !e.shiftKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); v2GoScene(); return; }
+    return _ek.apply(this, arguments);
+  };
+}
+/* el autocompletar de la v1 (personajes, encabezados) más transiciones y extensiones del personaje */
+{
+  const _al = edAcList;
+  edAcList = function (i) {
+    const p = P.paras[i], L = _al.apply(this, arguments);
+    if (!p) return L;
+    const q = (p.x || '').toUpperCase().trimStart();
+    if (p.t === 'tr') return V2_TRANS.filter(x => x.startsWith(q) && x !== q).slice(0, 8);
+    if (p.t === 'c' && !L.length) {
+      const m = q.match(/^(.*?\S)\s*\(([^)]*)$/);
+      if (m) return V2_EXT.filter(x => x.startsWith(m[2].trim()) && x !== m[2].trim()).map(x => `${m[1]} (${x})`);
+    }
+    return L;
+  };
+}
+/* Ctrl + G: ir a una escena por su número o por parte de su encabezado */
+function v2GoScene() {
+  if (!D || !D.sc) return;
+  const anchor = $('#v2PInfo') || $('.v2-edbar');
+  popover(anchor, `<div class="v2-goto"><label for="v2GoQ">Ir a la escena</label><input id="v2GoQ" type="text" autocomplete="off" placeholder="Número o parte del encabezado"><p class="hint" id="v2GoH"></p></div>`, pp => {
+    const q = $('#v2GoQ', pp), h = $('#v2GoH', pp);
+    const find = () => {
+      const t = deaccent(q.value.trim().toLowerCase()); if (!t) return -1;
+      const sc = D.sc.scenes;
+      let k = sc.findIndex(s => String(s.key).toLowerCase() === t);
+      if (k < 0) k = sc.findIndex(s => deaccent(String(s.heading || P.paras[s.p0].x || '').toLowerCase()).includes(t));
+      return k;
+    };
+    q.addEventListener('input', () => { const k = find(); h.textContent = k < 0 ? (q.value.trim() ? 'No hay una escena así.' : '') : `${D.sc.scenes[k].key} · ${P.paras[D.sc.scenes[k].p0].x}`; });
+    q.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); const k = find(); if (k < 0) return; closePop(); edSetCaret(D.sc.scenes[k].p0, 0); });
+    setTimeout(() => q.focus(), 0);
+  });
+}
+/* cada vez que se arma la hoja: el autocompletar de las transiciones (la v1 solo lo abre en personajes y encabezados) */
+function v2EdKeysBind() {
+  const v = $('#view'); if (!v || v._v2k) return;   // en #view (queda): la hoja (#ed) se rehace
+  v._v2k = true;
+  v.addEventListener('input', e => {
+    if (UI.tab !== 'script' || !e.target.closest || !e.target.closest('#ed')) return;
+    const c = edCaret(); if (!c || !P.paras[c.i] || P.paras[c.i].t !== 'tr') return;
+    const el = $(`#ed .ep[data-i="${c.i}"]`); if (el) edAcShow(el, c.i);
+  });
+}
+/* los atajos, en «Atajos de teclado» (Ctrl + K › atajos) y en el «⋯» del Guion */
+if (typeof KEYS !== 'undefined') {
+  const g = KEYS.find(x => x[0] === 'Guion');
+  if (g) g[1] = [
+    ['Intro', 'Pasa al párrafo siguiente, como en Final Draft: personaje → diálogo → acción; en un párrafo vacío, lo vuelve acción'],
+    ['Tab · Mayús + Tab', 'Como en Final Draft: en una acción vacía, personaje; en un personaje vacío, transición; en un diálogo, una acotación; en la acotación, de vuelta al diálogo'],
+    ['Ctrl + 1…7 · Ctrl + Alt + 1…7', 'Escena, acción, personaje, acotación, diálogo, transición y plano (si Ctrl + número cambia de pestaña en tu navegador, usa Ctrl + Alt + número)'],
+    ['Ctrl + B · I · U', 'Negrita, itálica y subrayado'],
+    ['Ctrl + Z · Ctrl + Y', 'Deshacer y rehacer'],
+    ['Ctrl + F', 'Buscar en el guion'],
+    ['Ctrl + G', 'Ir a una escena (por su número o su encabezado)'],
+    ['Tab · ↑ ↓', 'En la lista de sugerencias (personajes, encabezados, transiciones, (V.O.)…): elige'],
+    ['Ctrl + Intro', 'En AV: agrega una fila'],
+  ];
+}
+{
+  const f = TOOLS_EXTRA.script;
+  TOOLS_EXTRA.script = function () { return [...(f ? f.apply(this, arguments) : []), [ICO.list, 'Atajos de teclado', () => keysDialog()]]; };
+}
+
+/* ============================================================
+   LA ESCENA Y LA PÁGINA SIGUEN A LA HOJA (lo pidió Ronald): al desplazarse por el guion, la escena que está arriba se
+   marca en la lista de la izquierda (que se corre para que se vea), «Página N de M» cambia y el panel de la derecha
+   muestra esa escena, salvo si se está escribiendo una nota. Con el cursor sigue mandando la escena donde se escribe.
+   ============================================================ */
+function v2EdTopPara() {
+  const sc = $('#edScroll'), eps = $$('#ed .ep'); if (!sc || !eps.length) return -1;
+  const y = sc.getBoundingClientRect().top + 48;
+  let lo = 0, hi = eps.length - 1, k = 0;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (eps[m].getBoundingClientRect().bottom < y) lo = m + 1; else { k = m; hi = m - 1; } }
+  return +eps[k].dataset.i;
+}
+function v2EdFollow() {
+  if (UI.tab !== 'script' || !D || !D.sc || D.sc.sceneOf.length !== P.paras.length) return;
+  const i = v2EdTopPara(); if (i < 0) return;
+  const pi = $('#v2PInfo'); if (pi) pi.textContent = v2PageInfo(i);
+  const si = D.sc.sceneOf[i]; if (si == null || si < 0) return;
+  const list = $('#slist');
+  if (list) {
+    let cur = null;
+    $$('.v2-sc', list).forEach(b => { const on = +b.dataset.i === si; b.setAttribute('aria-current', on ? 'true' : 'false'); if (on) cur = b; });
+    const box = list.closest('.v2-scenes');
+    if (cur && box) {
+      const r = cur.getBoundingClientRect(), R = box.getBoundingClientRect();
+      if (r.top < R.top + 50) box.scrollTop += r.top - R.top - 50;
+      else if (r.bottom > R.bottom - 12) box.scrollTop += r.bottom - R.bottom + 12;
+    }
+  }
+  const side = $('#v2Side');
+  if (side && side.dataset.si !== String(si)) {
+    const ta = $('#v2Reply');
+    if (!(ta && (ta.value.trim() || document.activeElement === ta))) { UI.scene = si; side.innerHTML = v2GuionSide(); side.dataset.si = String(si); }
+  }
+}
+function v2EdFollowBind() {
+  const sc = $('#edScroll'); if (!sc || sc._v2f) return;
+  sc._v2f = true;
+  let raf = 0;
+  sc.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; v2EdFollow(); }); }, { passive: true });
+}

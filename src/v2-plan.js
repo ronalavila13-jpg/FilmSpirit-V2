@@ -12,8 +12,12 @@ const V2_WD = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 V2_ACTS.plan = () => `<div class="v2-seg" role="group" aria-label="Vista del plan">
     <button type="button" data-v2a="plv" data-v="days" aria-pressed="${ea(!v2Dood())}">Tiras</button><button type="button" data-v2a="plv" data-v="cast" aria-pressed="${ea(v2Dood())}">DOOD</button></div>`
+  // agregar una etapa o una jornada, a la vista (en la v1 estaban en la barra del plan; en la v2 quedaban escondidos)
+  + (typeof planEditable === 'function' && planEditable() && !v2Dood() ? `<button type="button" class="v2-btn" data-v2a="pladdst" title="Una etapa nueva: su nombre y desde qué jornada empieza">${v2I('plus')}<span>Etapa</span></button><button type="button" class="v2-btn" data-v2a="pladdday" title="Agrega una jornada vacía al final: arrastra a ella las escenas de «Sin programar»">${v2I('plus')}<span>Jornada</span></button>` : '')
   + v2Hist() + `<button type="button" class="v2-btn y" data-v2a="plpdf">${v2I('print')}<span>Ver y exportar PDF</span></button>`;
 V2_DO.plv = b => { ls.set('plView', b.dataset.v === 'cast' ? 'cast' : 'days'); if (typeof plSel === 'function') plSel().clear(); render(); };
+V2_DO.pladdst = b => ACT['pl-addstage'](b);
+V2_DO.pladdday = b => ACT['pl-addday'](b);
 V2_DO.plpdf = b => { if (typeof exportPDF === 'function') exportPDF(v2Dood() ? 'dood' : 'plan', b); };
 
 /* «sáb 31 y dom 1» · «sáb 31 oct – dom 8 nov» */
@@ -49,7 +53,7 @@ function v2PlanTiras() {
     <span class="v2-grow"></span>
     <label class="v2-chk"><input type="checkbox" data-v2plth ${th ? 'checked' : ''}><i aria-hidden="true"></i>Miniaturas del storyboard</label>
     <span class="v2-hint">Arrastra las tiras para cambiar el orden</span>
-    <button type="button" class="v2-xl${planXL() ? ' on' : ''}" data-act="pl-style" data-v="${planXL() ? 'apple' : 'excel'}" aria-pressed="${ea(planXL())}" title="${ea(planXL() ? 'Estilo Excel, en cuadros (en la pantalla y en el PDF): toca para volver al estilo Apple' : 'Estilo Apple (en la pantalla y en el PDF): toca para pasar al estilo Excel, en cuadros')}" aria-label="Estilo Excel">${v2I('grid')}</button>
+    <button type="button" class="v2-xl${planXL() ? ' on' : ''}" data-act="pl-style" data-v="${planXL() ? 'apple' : 'excel'}" aria-pressed="${ea(planXL())}" title="${ea(planXL() ? 'Estilo Cuadrícula (en la pantalla y en el PDF): toca para volver al estilo Limpio' : 'Estilo Limpio (en la pantalla y en el PDF): toca para pasar al estilo Cuadrícula')}" aria-label="Estilo Cuadrícula">${v2I('grid')}</button>
   </div>`;
 }
 V2_ICO.grid = '<rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9.7h16M4 14.3h16M9.3 5v14M14.7 5v14"/>';

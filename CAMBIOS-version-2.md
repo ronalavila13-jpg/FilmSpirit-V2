@@ -47,12 +47,37 @@ con las escenas 1 y 2, tiempos, equipo y reparto). Solo el ejemplo; en inglés, 
 - **Los octavos del ejemplo** salen del texto del guion (3/8, 4/8…), no de los del PDF (5/8, 6/8…), y las horas del
   llamado las calcula el plan (07:00–08:30) en vez de las del PDF (07:30–09:00).
 - **El punto amarillo del «⋯»** en el ejemplo avisa que no se guarda (de la v1).
+- **La hoja del Guion sigue el estándar, no el dibujo del PDF:** página carta con acción de 60 caracteres, personaje a
+  22, acotación a 16 (26 de ancho) y diálogo a 10 (35 de ancho), como `LAYOUT` (core.js) y el PDF exportado. La letra va
+  de 14 a 11 px para que quepa; si no cabe, se angostan los márgenes del papel, nunca las líneas. En el celular, adaptada.
+- **Barra del Guion:** además de los tipos del PDF, «Plano» y las herramientas de la v1 (deshacer, rehacer, negrita,
+  itálica, subrayado, resaltar con su paleta y revisión).
+- **Plan de rodaje:** «+ Etapa» y «+ Jornada» a la vista en la cabecera; la columna «Momento» de 100 px (el PDF: 86)
+  para que «MADRUGADA» o «CREPÚSCULO» no pisen la locación; el estilo Cuadrícula también cambia la pantalla.
+- **«Excel» y «Apple» se llaman «Cuadrícula» y «Limpio»** (Plan de rodaje y Hoja de llamado). El dato guardado sigue
+  siendo `excel` o `apple`.
+
+## Atajos de escritura (como en Final Draft)
+
+| Atajo | Qué hace |
+|---|---|
+| Ctrl/⌘ + 1…7 | Escena, acción, personaje, acotación, diálogo, transición, plano (de la v1) |
+| Ctrl + Alt + 1…7 (⌘ ⌥ 1…7) | Lo mismo, para navegadores donde Ctrl + número cambia de pestaña (con AltGr no hace nada) |
+| Intro | Al párrafo siguiente (personaje → diálogo → acción); vacío, lo vuelve acción (de la v1) |
+| Tab | Acción vacía → personaje; personaje vacío → transición; diálogo → acotación; acotación → diálogo |
+| Mayús + Tab | Al revés |
+| Ctrl + G | Ir a una escena |
+| Ctrl + B · I · U, Ctrl + Z · Y, Ctrl + F | Formato, deshacer y rehacer, buscar (de la v1) |
+| Autocompletar | Personajes y encabezados (v1), transiciones (CORTE A:…) y extensiones ((V.O.), (O.S.), (CONT.), (F.C.)) |
+
+Al desplazarse por el guion, la escena de arriba se marca en la lista, «Página N de M» cambia y el panel de la derecha
+la muestra (salvo si se está escribiendo una nota).
 
 ## Archivos
 
 - Nuevos: `src/v2.js`, `src/v2.css`, `src/v2-pant.css`, `src/v2-guion.js`, `src/v2-plan.js`, `src/v2-desglose.js`,
   `src/v2-presupuesto.js`, `src/v2-storyboard.js`, `src/v2-llamado.js`, `src/v2-inicio.js`, `src/v2-sup.js`,
-  `src/v2-pestanas.js`, `src/v2-ejemplo.js`, `tools/v2-compat.js`, `server/web/portada/sb-*.webp`.
+  `src/v2-pestanas.js` (Tipo de proyecto y nombres de los estilos), `src/v2-ejemplo.js`, `tools/v2-compat.js`, `server/web/portada/sb-*.webp`.
 - Cambiados: `build.sh`, `server/web/index.html`, `server/web/portada.css`, `server/web/entrar.html`,
   `server/web/entrar.js` (botón de Google rectangular y ancho), `server/web/sitio.css`, `server/i18n/*.json`.
 

@@ -123,7 +123,7 @@ RENDER.call = (orig => function () {
     <div class="v2-card v2-clsheet">
       <div class="v2-cltop">${changes && !X.free ? `<span>Lo que cambies aquí no toca el plan de rodaje. <button type="button" class="v2-link" data-v2reset>Volver a lo del plan</button></span>` : '<span></span>'}
         ${miss.length ? `<button type="button" class="v2-btn sm v2-pill" data-v2miss><i class="v2-dot" style="--v2-dc:var(--v2-red)"></i>Faltan ${miss.length} ${miss.length === 1 ? 'dato' : 'datos'} para enviarla</button>` : '<span class="v2-ok2">Lista para enviar</span>'}
-        <button type="button" class="v2-xl${callXL() ? ' on' : ''}" data-act="cl-style" data-v="${callXL() ? 'apple' : 'excel'}" aria-pressed="${ea(callXL())}" title="${ea(callXL() ? 'Estilo Excel (en cuadros) en la hoja y el PDF: toca para volver al estilo Apple' : 'Estilo Apple: toca para pasar al estilo Excel, en cuadros')}" aria-label="Estilo Excel">${v2I('grid')}</button></div>
+        <button type="button" class="v2-xl${callXL() ? ' on' : ''}" data-act="cl-style" data-v="${callXL() ? 'apple' : 'excel'}" aria-pressed="${ea(callXL())}" title="${ea(callXL() ? 'Estilo Cuadrícula (en la hoja y en el PDF): toca para volver al estilo Limpio' : 'Estilo Limpio (en la hoja y en el PDF): toca para pasar al estilo Cuadrícula')}" aria-label="Estilo Cuadrícula">${v2I('grid')}</button></div>
       ${v2CallHead(X)}
       ${v2CallScenes(X)}
       ${v2CallTalent(X)}

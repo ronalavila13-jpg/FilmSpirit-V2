@@ -35,27 +35,51 @@
 .v2-sct small{margin-top:7px;font:400 11.8px/17px var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 .v2-ed{display:flex;flex-direction:column;min-height:0}
+.v2-edbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .v2-types{align-self:flex-start;height:38px;padding:3px;background:var(--v2k-eaebe6)}
+/* las herramientas de la v1 (deshacer, rehacer, negrita, itálica, subrayado, resaltar, revisión), en la forma v2 */
+.v2-edtools{display:flex;align-items:center;gap:2px;height:38px;box-sizing:border-box;padding:3px 4px;background:var(--v2k-eaebe6)}
+.v2-edtools .ed-fmt{display:flex;align-items:center;gap:2px;margin-left:4px;padding-left:5px;border-left:1px solid var(--v2k-d6d7d1, var(--line))}
+.v2-edtools :is(.v2-tb,.ed-fmt .btn.icon){display:inline-grid;place-items:center;width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:3px;background:none;color:var(--ink);box-shadow:none;cursor:pointer}
+.v2-edtools .ed-fmt .fmt-hm{width:16px;min-width:16px;margin-left:-2px}
+.v2-edtools :is(.v2-tb,.ed-fmt .btn):hover{background:var(--surface)}
+.v2-edtools .ed-fmt .btn[aria-pressed="true"]{background:var(--surface);box-shadow:inset 0 0 0 1px var(--ink)}
+.v2-edtools :is(.v2-tb,.ed-fmt .btn) :is(svg,.ic){width:18px;height:18px}
+.v2-edtools .ed-fmt .fmt-hm :is(svg,.ic){width:12px;height:12px}
+.v2-goto{display:grid;gap:6px;padding:4px;min-width:260px}
+.v2-goto label{font:600 12.5px/16px var(--font-ui)}
+.v2-goto input{height:34px;padding:0 10px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:400 14px/1 var(--font-ui)}
+.v2-goto .hint{margin:0;min-height:16px;font:400 12px/16px var(--font-ui);color:var(--muted)}
 .v2-types>button{padding:0 12px;font:400 12.5px/1 var(--font-ui);color:var(--ink)}
 .v2-types>button[aria-pressed="true"]{font-weight:700;font-size:12.2px}
 :root[data-theme="dark"] .v2-types{background:var(--fill)}
 .v2-pinfo{margin:10px 0 12px;font:400 12.5px/18px var(--font-ui);color:var(--muted)}
 .v2-edscroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;padding-bottom:40px}
-/* la hoja: blanca, línea fina, Courier Prime de 14 px y 18 px de interlínea; los márgenes del diseño */
+/* la hoja: una página carta con las medidas del guion estándar (las de LAYOUT, core.js, que usan la cuenta de páginas
+   y el PDF): Courier de 10 caracteres por pulgada, acción y encabezados de 60 caracteres, personaje a 22, acotación a
+   16 (26 de ancho), diálogo a 10 (35 de ancho); márgenes de 1,5" a la izquierda y 1" a la derecha. La letra va de
+   14 px a 11 px para que la hoja quepa en su columna; si aun así no cabe, se angostan los márgenes del papel, nunca
+   el largo de las líneas (lo pidió Ronald: antes la hoja se estiraba con la pantalla) */
+@property --v2W{syntax:'<length>';inherits:true;initial-value:0px}
+@property --v2pl{syntax:'<length>';inherits:true;initial-value:0px}
+@property --v2pr{syntax:'<length>';inherits:true;initial-value:0px}
+.v2-edscroll{container-type:inline-size}
 .v2-ed #edHost .ed-cover{display:none}
-.v2-ed #edHost .ed-page{width:auto;margin:0;padding:57px 65px 80px 85px;border:1px solid var(--line);outline:0;border-radius:3px;box-shadow:none;background:var(--page);font-size:14px;line-height:18px;--fs:14px;--ez:1}
-.v2-ed #edHost .ed-page::before{content:"1.";position:absolute;top:24px;right:36px;font:400 13px/1 var(--font-script);color:var(--page-ink)}
+.v2-ed #edHost .ed-page{--fs:14px;--ez:1;font-size:clamp(11px,calc(100cqw / 40.2),14px);line-height:1.286;--v2W:min(85.3ch,100cqw);--v2pl:max(3.7ch,calc((var(--v2W) - 60.3ch) * .6));--v2pr:max(2.3ch,calc((var(--v2W) - 60.3ch) * .4));
+  box-sizing:border-box;width:var(--v2W);margin:0;padding:4em var(--v2pr) 5.7em var(--v2pl);border:1px solid var(--line);outline:0;border-radius:3px;box-shadow:none;background:var(--page)}
+.v2-ed #edHost .ed-page::before{content:"1.";position:absolute;top:1.8em;right:var(--v2pr);font:400 .93em/1 var(--font-script);color:var(--page-ink)}
+.v2-ed #edHost .ed-pb span{right:var(--v2pr)}
 .v2-ed .ed-doc{caret-color:var(--page-ink)}
-.v2-ed .ed-doc .ep{margin-top:17px;min-height:18px}
+.v2-ed .ed-doc .ep{margin-top:1.214em;min-height:1.286em}
 .v2-ed .ed-doc .ep:first-child{margin-top:0}
-.v2-ed .ed-doc .t-h{margin-top:27px;margin-left:-6px;padding-right:5ch}
+.v2-ed .ed-doc .t-h{margin-top:1.93em;margin-left:0;padding-right:0}
 .v2-ed .ed-doc .t-h:first-child{margin-top:0}
-.v2-ed .ed-doc .t-h+.ep{margin-top:13px}
-.v2-ed .ed-doc .t-c{margin-left:17.3ch;margin-top:16px}
-.v2-ed .ed-doc .t-p{margin-left:13.7ch;margin-right:14ch;margin-top:0}
-.v2-ed .ed-doc .t-d{margin-left:10ch;margin-right:12ch;margin-top:0}
-.v2-ed .ed-page.nums .ep.t-h::before{left:-34px;width:auto;text-align:left}
-.v2-ed .ed-page.nums .ep.t-h::after{right:0}
+.v2-ed .ed-doc .t-h+.ep{margin-top:.93em}
+.v2-ed .ed-doc .t-c{margin-left:22ch;margin-top:1.14em}
+.v2-ed .ed-doc .t-p{margin-left:16ch;margin-right:18ch;margin-top:0}
+.v2-ed .ed-doc .t-d{margin-left:10ch;margin-right:15ch;margin-top:0}
+.v2-ed .ed-page.nums .ep.t-h::before{left:auto;right:calc(100% + 1.6ch);width:auto;text-align:right}
+.v2-ed .ed-page.nums .ep.t-h::after{right:auto;left:calc(100% + 1.6ch)}
 .v2-ed .ed-ico{display:none !important}
 /* el párrafo donde se escribe: amarillo suave, un poco más ancho que el texto */
 .v2-ed .ed-doc .ep.v2-cur{background:var(--v2-soft);box-shadow:-10px -5px 0 0 var(--v2-soft),10px -5px 0 0 var(--v2-soft),-10px 5px 0 0 var(--v2-soft),10px 5px 0 0 var(--v2-soft),0 -5px 0 0 var(--v2-soft),0 5px 0 0 var(--v2-soft);border-radius:1px}
@@ -790,11 +814,13 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-ed #edHost .ed-page{padding:30px 14px 40px 26px;font-size:12px;line-height:15.5px;--fs:12px}
   .v2-ed #edHost .ed-page::before{top:10px;right:12px;font-size:11px}
   .v2-ed .ed-doc .ep{margin-top:14px}
+  .v2-ed .ed-doc .ep:is(.t-p,.t-d){margin-top:0}   /* el diálogo y la acotación, pegados a su personaje */
   .v2-ed .ed-doc .t-h{margin-top:22px;margin-left:0;padding-right:0}
   .v2-ed .ed-doc .t-c{margin-left:12ch;margin-top:14px}
   .v2-ed .ed-doc .t-p{margin-left:8ch;margin-right:4ch}
   .v2-ed .ed-doc .t-d{margin-left:5ch;margin-right:3ch}
-  .v2-ed .ed-page.nums .ep.t-h::before{left:-22px}
+  .v2-ed .ed-page.nums .ep.t-h::before{left:-22px;right:auto}
+  .v2-ed .ed-page.nums .ep.t-h::after{display:none}
   /* plan: las tiras como tarjetas (escena, I/E, momento y páginas; la locación; el reparto y el tiempo) */
   :root[data-v2][data-tab="plan"] #view .scroller.pad{padding:4px 16px 40px}
   .v2-tiras{flex-wrap:wrap;height:auto;gap:8px 12px;margin:0 0 14px}
