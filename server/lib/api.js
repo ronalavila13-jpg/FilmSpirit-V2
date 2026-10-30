@@ -88,6 +88,7 @@ function m3Ok(b) {
 const HIST_KEEP = 40, HIST_GAP = 5 * 60e3, HIST_GAP_OTHER = 60e3;
 const SECNAME = { guion: 'Guion', desglose: 'Desglose', storyboard: 'Storyboard', animatic: 'Animatic', plan: 'Plan de rodaje', calendario: 'Calendario', llamado: 'Hoja de llamado', presupuesto: 'Presupuesto', hoja: 'Hoja de script', notas: 'Notas', gastos: 'Gastos' };
 const MAX_GA_FRAME = 2 * MB;   // la foto de un recibo llega comprimida a unos 300 kB
+const MAX_GA_ORPHANS = 50;     // fotos de Gastos de gastos que aún no se guardan, por persona y proyecto
 const ACT_GAP = 180e3, ACT_KEEP = 3000;
 const REF_RE = /^[a-z]+\|[a-z]{1,12}\|[\w:.~-]{0,100}$/;
 
@@ -507,7 +508,8 @@ function makeApi(S, auth, live, cfg) {
     if (r.ro) fail(403, roMsg(r), 'read_only');
     // fotos de Gastos (recibos, órdenes de compra, reembolsos): de Pro y Studio, y cada quien las de lo suyo
     if (ga && !gaPlanOk(p)) fail(403, GA_PLAN, 'plan_gastos');
-    if (ga && !P.gaFrameEdit(gaCur(p.id) || {}, gaWho(r, u.id), k)) fail(403, 'No puedes cambiar esta foto: el gasto es de otra persona o ya se revisó.', 'no_edit');
+    const g = ga ? gaCur(p.id) || {} : null;
+    if (ga && !P.gaFrameEdit(g, gaWho(r, u.id), k)) fail(403, 'No puedes cambiar esta foto: el gasto es de otra persona o ya se revisó.', 'no_edit');
     if (!ga && !P.canEdit(r, sec)) fail(403, `No tienes permiso para guardar imágenes ${sec === 'desglose' ? (k.startsWith('ca~') ? 'del casting' : 'del desglose') : sec === 'plan' ? 'del scouting' : sec === 'llamado' ? 'de la hoja de llamado' : sec === 'hoja' ? 'de la hoja de script' : 'del storyboard'}.`, 'no_edit');
     const ar = sec === 'desglose' ? P.areasOf(r) : null;
     if (ar) {
@@ -541,6 +543,9 @@ function makeApi(S, auth, live, cfg) {
     }
     const limit = P.PLANS[ownerPlan(p)].storageMB * MB;
     const old = S.one('SELECT v, bytes FROM frames WHERE pid=? AND k=?', p.id, k);
+    // la foto de un gasto que aún no se guardó (la app la sube antes que el gasto; sin conexión, todas antes): con un
+    // tope por persona, nadie llena el espacio de la cuenta con fotos de gastos inventados. 429: la app la deja en espera
+    if (ga && !old && !P.gaFrameItem(g, k).x && S.all("SELECT k FROM frames WHERE pid=? AND by=? AND k LIKE 'ga~%'", p.id, u.id).filter(f => !(P.gaFrameItem(g, f.k) || {}).x).length >= MAX_GA_ORPHANS) fail(429, 'Hay demasiadas fotos de gastos que aún no se guardaron. Guarda los recibos pendientes y vuelve a intentarlo.', 'rate_limited');
     if (storageOf(p.owner) - (old ? old.bytes : 0) + data.length > limit) fail(413, quotaMsg, 'quota');
     const v = (old ? old.v : 0) + 1;
     S.run('INSERT OR REPLACE INTO frames(pid,k,v,mime,data,bytes,by,ts) VALUES(?,?,?,?,?,?,?,?)', p.id, k, v, mm[1], data, data.length, u.id, t);

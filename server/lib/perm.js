@@ -7,7 +7,7 @@
 const path = require('node:path');
 const { SECS, SEC_DEPS, PRODUCER_ROLES, seesScriptStage, ALLP, cleanPerms, permReadSet, permCanEdit, permAreas, frameSec, PLAN_KEYS, PLAN_TIER, PLAN_NAME, PLAN_DEFAULTS,
   bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
-  GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit } = require(path.join(__dirname, '..', 'areas.js'));
+  GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameItem, gaFrameOk, gaFrameEdit } = require(path.join(__dirname, '..', 'areas.js'));
 
 const cleanRole = r => String(r || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 60);
 // role: { admin, role, perms, ro } (api.js · roleOf)
@@ -189,4 +189,4 @@ module.exports = {
   jsonDepth, MAX_DEPTH, SECS, SEC_DEPS, PRODUCER_ROLES, ALLP, cleanPerms, cleanRole, readSet, canEdit, areasOf, frameSec, PLANS, TIER, PLAN_NAME, isPaidPlan, planOf, KINDS, kindOf, activeLimit, peopleLimit, SCRIPT_SECS, bdFilter, bdViolates, bdCanon, bdAreaOfCat, scriptLockCheck, lockPerson, LOCK_MSG,
   NOTES, DATA_SECS, canReadSec, canEditData, notesView, notesMerge, notesOf, canonJ, cleanText,
   histHidden, guionView, guionKeepHist, noteOnHist,
-  GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameOk, gaFrameEdit };
+  GASTOS, gaRole, gaSeesAll, gaClean, gaView, gaFilter, gaFrameItem, gaFrameOk, gaFrameEdit };
