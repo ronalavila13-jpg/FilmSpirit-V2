@@ -4,7 +4,7 @@
    node test/pdf-ah.test.js */
 const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
 const R = path.join(__dirname, '..');
-const leer = f => fs.readFileSync(path.join(R, f), 'utf8');
+const leer = f => fs.readFileSync(path.join(R, f), 'utf8').replace(/\r\n/g, '\n');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 

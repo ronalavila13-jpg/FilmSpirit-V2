@@ -303,7 +303,9 @@ test('el PDF: sin encabezado ni pie de página (ni «1 de 2», ni la fecha y la 
   assert.ok(t.some(x => /Hoja de llamado · Jornada 1 de \d+/.test(x)), 'la hoja y la jornada en la cabecera');
   for (const s of ['Cierre de set', '10:30', 'Wrap', 'Jefes de área', 'Hora · Esc.']) assert.ok(t.includes(s), s);
   const ti = t.findIndex(x => /^Talentos/.test(x)), eq = t.findIndex(x => /^Equipo técnico/.test(x)), ut = t.indexOf('Utilería especial'), hs = t.indexOf('Centro de salud');
-  assert.ok(ti > 0 && eq > ti && ut > eq && hs > ut, 'talentos, equipo técnico, utilería y centro de salud, en ese orden');
+  assert.ok(ti > 0 && eq > ti && ut > eq, 'talentos, equipo técnico y utilería, en ese orden');
+  // (lote AJ) el centro de salud pasó a la cabecera, antes de los bloques del cuerpo
+  assert.ok(hs >= 0 && hs < ti, 'el centro de salud, en la cabecera');
   assert.ok(t.indexOf('Jefes de área') < t.indexOf('Hora · Esc.'), 'los jefes de área, bajo la cabecera');
   // las líneas negras de la planilla y sin la cabecera de página de los demás documentos
   const src = fs.readFileSync(R + 'src/pdf-llamado.js', 'utf8');

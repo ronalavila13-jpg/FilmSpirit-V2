@@ -7,7 +7,7 @@ let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 
 // solo las funciones: el resto necesita la app entera
-const call = fs.readFileSync(R + '/src/tab-call.js', 'utf8'), plan = fs.readFileSync(R + '/src/tab-plan.js', 'utf8');
+const call = fs.readFileSync(R + '/src/tab-call.js', 'utf8').replace(/\r\n/g, '\n'), plan = fs.readFileSync(R + '/src/tab-plan.js', 'utf8').replace(/\r\n/g, '\n');
 const fn = (src, name) => { const m = new RegExp(`function ${name}\\([\\s\\S]*?\\n}\\n`).exec(src); assert.ok(m, name + ' está'); return m[0]; };
 const line = (src, name) => { const m = new RegExp(`^const ${name} = .*$`, 'm').exec(src); assert.ok(m, name + ' está'); return m[0]; };
 const c = { Math, isFinite, Object, Array, String };
@@ -90,7 +90,7 @@ test('tiras: interior de día blanca, exterior de día amarilla, interior de noc
   assert.strictEqual(k('EXT', 'N', 'DUSK'), 'dd');
 });
 test('la leyenda tiene las tres tiras nuevas y el plan y la hoja de llamado las muestran', () => {
-  const lg = fs.readFileSync(R + '/src/leyenda.js', 'utf8');
+  const lg = fs.readFileSync(R + '/src/leyenda.js', 'utf8').replace(/\r\n/g, '\n');
   for (const key of ['di', 'ne', 'dd']) assert.ok(new RegExp(`\\n    ${key}: \\['`).test(lg), 'LG.plan.' + key);
   assert.ok(/const LG_STRIPS = \['di', 'd', 'n', 'ne', 'dd'\]/.test(lg));
 });

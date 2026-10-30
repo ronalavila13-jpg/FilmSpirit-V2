@@ -9,7 +9,7 @@ let fail = 0;
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
 const has = (s, re, msg) => assert.ok(re.test(s), msg || String(re));
-const SRC = f => fs.readFileSync(R + f, 'utf8');
+const SRC = f => fs.readFileSync(R + f, 'utf8').replace(/\r\n/g, '\n');
 const LIB = ['desktop/app/lib/', 'server/public/app/lib/', 'node_modules/'].map(d => R + d).find(d => fs.existsSync(d + 'jspdf.umd.min.js') && fs.existsSync(d + 'jspdf.plugin.autotable.min.js'))
   || (fs.existsSync(R + 'node_modules/jspdf/dist/jspdf.umd.min.js') ? 'nm' : null);
 const LIBF = LIB === 'nm' ? [R + 'node_modules/jspdf/dist/jspdf.umd.min.js', R + 'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js'] : LIB ? [LIB + 'jspdf.umd.min.js', LIB + 'jspdf.plugin.autotable.min.js'] : [];
@@ -62,7 +62,7 @@ function app() {
   c.window = c; c.globalThis = c; c.self = c;
   vm.createContext(c);
   vm.runInContext(js, c, { filename: 'src' });
-  for (const f of LIBF) vm.runInContext(fs.readFileSync(f, 'utf8'), c, { filename: f });
+  for (const f of LIBF) vm.runInContext(fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n'), c, { filename: f });
   const run = s => vm.runInContext(s, c);
   if (LIBF.length) run(`if (!window.jspdf.jsPDF.API.autoTable && typeof applyPlugin === 'function') applyPlugin(window.jspdf.jsPDF);`);
   run(`globalThis.__pops = []; popover = (anchor, html, onMount) => { __pops.push(html); }; confirmBox = (t, x, ok, fn) => fn();`);
@@ -204,7 +204,9 @@ test('el PDF de la hoja en Apple: sin rejilla ni marcos negros; secciones con su
   const all = t.join(' ').replace(/\s+/g, ' ');
   for (const s of ['Cierre de set', 'Wrap', 'Hora · Esc.', 'Nota para el equipo', 'Ropa oscura', 'Centro de salud', 'Canales de radio', 'Hospital Belén', '1 Producción']) assert.ok(all.includes(s), s);
   const ix = s => t.findIndex(x => x === s);
-  assert.ok(ix('Jefes de área') < ix('Hora · Esc.') && ix('Hora · Esc.') < ix('Talentos') && ix('Talentos') < ix('Equipo técnico') && ix('Equipo técnico') < ix('Utilería especial') && ix('Utilería especial') < ix('Centro de salud'), 'el orden');
+  assert.ok(ix('Jefes de área') < ix('Hora · Esc.') && ix('Hora · Esc.') < ix('Talentos') && ix('Talentos') < ix('Equipo técnico') && ix('Equipo técnico') < ix('Utilería especial') && ix('Utilería especial'), 'el orden');
+  // (lote AJ) el centro de salud va en la cabecera, antes de los bloques del cuerpo
+  assert.ok(ix('Centro de salud') >= 0 && ix('Centro de salud') < ix('Jefes de área'), 'el centro de salud, en la cabecera');
   // la cabecera sin marco: ningún rectángulo de contorno (solo los rellenos: la tira, la nota)
   assert.ok(!J(`__RECT.filter(r => r[4] === 'S').length`), 'sin marcos');
   // A4 también

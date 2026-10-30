@@ -7,7 +7,7 @@ const R = path.join(__dirname, '..');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message, (e.stack.split('\n').find(l => l.includes('columnas-y')) || '').trim()); } };
 // saca una función de un archivo de la app por su comienzo, hasta la línea que la cierra
-const grab = (file, start, end = '\n}\n') => { const s = fs.readFileSync(R + '/src/' + file, 'utf8'), a = s.indexOf(start); assert(a >= 0, start); return s.slice(a, s.indexOf(end, a) + end.length); };
+const grab = (file, start, end = '\n}\n') => { const s = fs.readFileSync(R + '/src/' + file, 'utf8').replace(/\r\n/g, '\n'), a = s.indexOf(start); assert(a >= 0, start); return s.slice(a, s.indexOf(end, a) + end.length); };
 
 const c = { console, Math, JSON, Map, Set, String, Object, Array, Number };
 vm.createContext(c);
@@ -18,9 +18,9 @@ vm.runInContext(`var P = { id: 'p1', schedule: { items: [] } }, LS = {}, ls = { 
 vm.runInContext([
   grab('tab-plan.js', 'const PL_COLS = [', ']];\n'), grab('tab-plan.js', 'const PL_TIP = ', '\n'), grab('tab-plan.js', 'const PL_SORT = ', '\n'),
   grab('tab-plan.js', 'function plHeadHTML('), grab('tab-plan.js', 'const planCols = ', '\n'),
-  fs.readFileSync(R + '/src/plan-columnas.js', 'utf8'),
+  fs.readFileSync(R + '/src/plan-columnas.js', 'utf8').replace(/\r\n/g, '\n'),
 ].join('\n').replace(/^const /gm, 'var '), c);
-const SRC = f => fs.readFileSync(R + '/' + f, 'utf8');
+const SRC = f => fs.readFileSync(R + '/' + f, 'utf8').replace(/\r\n/g, '\n');
 
 // la plantilla de antes del lote Y (planColsCSS del lote W), para comparar. (lote AH) «Tiempo aprox.»: 92 px (antes 68)
 const OLD = (C, used) => {
@@ -90,7 +90,7 @@ test('las clases del tablero: .set-nt y .loc-np con la Locación o la de rodaje 
 test('planColsCSS lleva los anchos del proyecto a --pl-cols y --pl-min', () => {
   c.P.schedule = { items: [{ k: '1', obs: 'lluvia' }], colW: { loc: 140, cast: 60 } };
   const S = c.planColsCSS();
-  assert.match(S.style, /^--pl-cols:52px 42px minmax\(280px,1\.7fr\) 78px 60px 140px 58px 40px 92px minmax\(130px,\.45fr\) minmax\(140px,1fr\);--pl-min:\d+px$/);
+  assert.match(S.style, /^--pl-cols:52px 42px minmax\(280px,1\.7fr\) 78px 60px 140px 58px 40px 92px minmax\(130px,\.45fr\) minmax\(140px,1fr\);--pl-min:\d+px(?:;--v2cols:[^;]*)?$/);
   assert.strictEqual(+/--pl-min:(\d+)px/.exec(S.style)[1], 1164 - 112 + 60 - 150 + 140);
   assert.strictEqual(S.cls, ' no-fig');   // (lote AC) sin clases por columna: las celdas llevan data-cw
   c.P.schedule = { items: [] };

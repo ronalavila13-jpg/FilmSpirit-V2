@@ -23,7 +23,7 @@ vm.runInContext([pieza(T, 'const TAKE_ST'), pieza(T, 'const supTakes'), pieza(T,
   pieza(T, 'function supStats('), pieza(T, 'function supRolls('), pieza(T, 'function supCur('), pieza(T, 'function supNextOf('),
   pieza(T, 'const supStHTML'), pieza(T, 'function supStepHTML('), pieza(T, 'const supNextN'), pieza(T, 'const supAddBtn'), pieza(T, 'const supDoneBtn'),
   pieza(T, 'function supClockHTML('), pieza(T, 'function supMarkHTML('), pieza(T, 'function supTakeNew('), pieza(T, 'function supTakeAdd('), pieza(T, 'function supRec('), pieza(T, 'function supMarkTake('),
-  pieza('cabecera.js', 'function hdStep(')].join('\n'), c);
+  pieza('cabecera.js', 'function hdStep('), pieza('tab-board.js', 'function setShotDone(')].join('\n'), c);
 // las acciones de la tarjeta (del objeto ACT), tal cual
 const act = k => { const a = src.indexOf(`  '${k}': b => {`); assert(a > 0, k); const b = src.indexOf('\n  },\n', a); return src.slice(a, b + 5); };
 vm.runInContext(`var ACT = {\n${act('sup-step')}\n${act('sup-next')}\n${act('sup-mark')}\n};`, c);

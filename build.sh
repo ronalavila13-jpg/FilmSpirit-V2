@@ -97,6 +97,7 @@ if [ "$TARGET" = desktop ] || [ "$TARGET" = server ]; then
   # en escritorio y en el servidor el código va en app.js (archivo aparte, no en línea)
   python3 - "$OUT" <<'PY'
 import sys
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p=sys.argv[1]; h=open(p).read()
 head,rest=h.split("<script>\n",1)
 js,tail=rest.rsplit("</script>",1)
@@ -109,6 +110,7 @@ fi
 if [ -z "$FS_NOMIN" ] && [ -d node_modules/esbuild ]; then
   python3 - "$OUT" <<'PY'
 import sys, subprocess
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p = sys.argv[1]
 esb = ['node', 'tools/compactar.js']
 def mini(js):
@@ -132,6 +134,7 @@ fi
 CHK="${TMPDIR:-/tmp}/filmspirit-chk-$$.js"
 python3 - "$OUT" "$CHK" <<'PY'
 import re,sys,os
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p=sys.argv[1]; h=open(p).read()
 js=open(p.replace('index.html','app.js')).read() if p.endswith('index.html') else h.split("<script>\n",1)[1].rsplit("</script>",1)[0]
 open(sys.argv[2],'w').write(js)
