@@ -62,28 +62,15 @@ function v2CallHead(X) {
     </div>`;
 }
 /* (lote AJ) el clima y los datos del día, dentro del recuadro del centro de la cabecera, bajo las páginas: el clima, y debajo
-   máxima, mínima, humedad y lluvia; y viento, amanecer y anochecer; cada uno con su ícono */
-Object.assign(V2_ICO, {
-  wxsun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
-  wxcloud: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.5 4.3 4.3 0 0 0 7 18z"/>',
-  wxrain: '<path d="M7 15h10a3.8 3.8 0 0 0 .5-7.6A5.2 5.2 0 0 0 7.2 6.8 4 4 0 0 0 7 15z"/><path d="M8.5 18l-1 2.5M12.5 18l-1 2.5M16.5 18l-1 2.5"/>',
-  wxhi: '<path d="M9 14.5V5a2 2 0 0 1 4 0v9.5a3.5 3.5 0 1 1-4 0z"/><path d="M17 9V3.5M14.8 5.7 17 3.5l2.2 2.2"/>',
-  wxlo: '<path d="M9 14.5V5a2 2 0 0 1 4 0v9.5a3.5 3.5 0 1 1-4 0z"/><path d="M17 3.5V9M14.8 6.8 17 9l2.2-2.2"/>',
-  wxhum: '<path d="M12 3.5s6 6.2 6 10.5a6 6 0 0 1-12 0c0-4.3 6-10.5 6-10.5z"/>',
-  wxumb: '<path d="M3.5 12a8.5 8.5 0 0 1 17 0z"/><path d="M12 12v6a2 2 0 0 1-4 0"/>',
-  wxwind: '<path d="M3 9h10a2.5 2.5 0 1 0-2.5-2.5M3 14h15a2.5 2.5 0 1 1-2.5 2.5M3 19h7"/>',
-  wxsr: '<path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 4v6M9.5 6.5 12 4l2.5 2.5"/>',
-  wxss: '<path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 10V4M9.5 7.5 12 10l2.5-2.5"/>',
-});
+   máxima, mínima, humedad y lluvia; y viento, amanecer y anochecer */
 function v2CallWx(X) {
   const ed = callEditable(), dd = X.dd;
-  const cell = (lab, f, bind, ph, u, tmc, ico, cls) => {
+  const cell = (lab, f, bind, ph, u, tmc, cls) => {
     const raw = dd[f] || '', n = wxNum(raw), val = n !== null ? n : raw;
-    return `<div class="${cls}"><span>${v2I(ico)}${esc(lab)}</span>${ed ? `<span class="v2-wu"><input type="text" class="${tmc ? 'tm' : ''}" data-bind="${bind}" data-f="${f}" value="${esc(val)}" placeholder="${ea(ph)}" aria-label="${ea(lab)}"${tmc ? ' inputmode="numeric" maxlength="5"' : ''}>${u && n !== null ? `<i>${esc(u)}</i>` : ''}</span>` : `<b>${esc(val ? val + (n !== null ? u : '') : '—')}</b>`}</div>`;
+    return `<div class="${cls}"><span>${esc(lab)}</span>${ed ? `<span class="v2-wu"><input type="text" class="${tmc ? 'tm' : ''}" data-bind="${bind}" data-f="${f}" value="${esc(val)}" placeholder="${ea(ph)}" aria-label="${ea(lab)}"${tmc ? ' inputmode="numeric" maxlength="5"' : ''}>${u && n !== null ? `<i>${esc(u)}</i>` : ''}</span>` : `<b>${esc(val ? val + (n !== null ? u : '') : '—')}</b>`}</div>`;
   };
-  const clima = /lluv|torment|chub|llovizna/i.test(dd.wx || '') ? 'wxrain' : /nubl|nuboso|cubiert/i.test(dd.wx || '') ? 'wxcloud' : 'wxsun';
-  const F = Object.fromEntries(WX_FIELDS.map(x => [x.f, x])), c3 = (f, ico, lab) => cell(lab || F[f].lab, f, 'cs-wx', F[f].ph, WX_U[f], false, ico, 'c3');
-  return `<div class="v2-clwx" aria-label="Clima y datos del día">${cell('Clima', 'wx', 'cs-wx', 'Soleado, nublado…', WX_U.wx, false, clima, 'c12')}${c3('hi', 'wxhi')}${c3('lo', 'wxlo')}${c3('hum', 'wxhum')}${c3('rain', 'wxumb', 'Lluvia')}${cell('Viento', 'wind', 'cs-wx', F.wind.ph, WX_U.wind, false, 'wxwind', 'c4')}${cell('Amanece', 'sunrise', 'cs-day', '--:--', '', true, 'wxsr', 'c4')}${cell('Anochece', 'sunset', 'cs-day', '--:--', '', true, 'wxss', 'c4')}</div>`;
+  const F = Object.fromEntries(WX_FIELDS.map(x => [x.f, x])), c3 = (f, lab) => cell(lab || F[f].lab, f, 'cs-wx', F[f].ph, WX_U[f], false, 'c3');
+  return `<div class="v2-clwx" aria-label="Clima y datos del día">${cell('Clima', 'wx', 'cs-wx', 'Soleado, nublado…', WX_U.wx, false, 'c12')}${c3('hi')}${c3('lo')}${c3('hum')}${c3('rain', 'Lluvia')}${cell('Viento', 'wind', 'cs-wx', F.wind.ph, WX_U.wind, false, 'c4')}${cell('Amanece', 'sunrise', 'cs-day', '--:--', '', true, 'c4')}${cell('Anochece', 'sunset', 'cs-day', '--:--', '', true, 'c4')}</div>`;
 }
 function v2CallNote(X) {
   const ed = callEditable(), n = X.dd.notes || '';

@@ -31,13 +31,6 @@ function pdfCallIco(doc, k, x, y, s = 9, col = MUTED) {
   const l = (x1, y1, x2, y2) => doc.line(x + x1 * s, y + y1 * s, x + x2 * s, y + y2 * s);
   const box = () => doc.roundedRect(x + .04 * s, y + .04 * s, .92 * s, .92 * s, .2 * s, .2 * s, 'S');
   if (k === 'wx') { c(.36, .36, .15); l(.36, .06, .36, .13); l(.06, .36, .13, .36); l(.15, .15, .2, .2); l(.57, .15, .52, .2); doc.roundedRect(x + .32 * s, y + .56 * s, .64 * s, .32 * s, .16 * s, .16 * s, 'S'); }
-  else if (k === 'wsun') { c(.5, .5, .2); for (const [a, b, d, e] of [[.5, .08, .5, .18], [.5, .82, .5, .92], [.08, .5, .18, .5], [.82, .5, .92, .5], [.2, .2, .27, .27], [.73, .73, .8, .8], [.2, .8, .27, .73], [.73, .27, .8, .2]]) l(a, b, d, e); }
-  else if (k === 'wcloud' || k === 'wrain') { doc.roundedRect(x + .08 * s, y + (k === 'wrain' ? .12 : .3) * s, .84 * s, .36 * s, .18 * s, .18 * s, 'S'); if (k === 'wrain') { l(.3, .62, .24, .86); l(.5, .62, .44, .86); l(.7, .62, .64, .86); } }
-  else if (k === 'whi' || k === 'wlo') { l(.4, .1, .4, .62); c(.4, .78, .16); l(.8, k === 'whi' ? .45 : .1, .8, k === 'whi' ? .1 : .45); k === 'whi' ? (l(.8, .1, .68, .24), l(.8, .1, .92, .24)) : (l(.8, .45, .68, .31), l(.8, .45, .92, .31)); }
-  else if (k === 'whum') { l(.5, .06, .28, .5); l(.5, .06, .72, .5); c(.5, .64, .24); }
-  else if (k === 'wumb') { l(.08, .5, .92, .5); l(.5, .08, .5, .5); l(.08, .5, .2, .24); l(.92, .5, .8, .24); l(.2, .24, .5, .08); l(.8, .24, .5, .08); l(.5, .5, .5, .8); l(.5, .8, .36, .8); }
-  else if (k === 'wwind') { l(.06, .3, .66, .3); l(.06, .5, .9, .5); l(.06, .7, .5, .7); }
-  else if (k === 'wsr' || k === 'wss') { l(.04, .8, .96, .8); c(.5, .8, .26); doc.setFillColor(...PDF_WHITE); doc.rect(x, y + .82 * s, s, .2 * s, 'F'); l(.04, .8, .96, .8); l(.5, k === 'wsr' ? .46 : .1, .5, k === 'wsr' ? .1 : .46); k === 'wsr' ? (l(.5, .1, .38, .22), l(.5, .1, .62, .22)) : (l(.5, .46, .38, .34), l(.5, .46, .62, .34)); }
   else if (k === 'sun') { c(.5, .72, .24); doc.setFillColor(...PDF_WHITE); doc.rect(x, y + .74 * s, s, .3 * s, 'F'); l(.04, .74, .96, .74); l(.5, .18, .5, .34); l(.16, .4, .26, .5); l(.84, .4, .74, .5); l(.3, .92, .7, .92); }
   else if (k === 'park' || k === 'hosp') { box(); if (k === 'hosp') { l(.5, .27, .5, .73); l(.27, .5, .73, .5); } else { doc.setFont('helvetica', 'bold'); doc.setFontSize(s * .7); doc.setTextColor(...col); doc.text('P', x + s * .52, y + s * .54, { align: 'center', baseline: 'middle' }); } }
   else if (k === 'pin') { c(.5, .38, .28); c(.5, .38, .09); l(.27, .55, .5, .96); l(.73, .55, .5, .96); }
@@ -177,25 +170,22 @@ function pdfCallHead(doc, X, V, y0, ap) {
     return h + CLF.ft * 1.1 + P6 - 1;
   });
   // (lote AJ) el clima y los datos del día, en el mismo recuadro, bajo las páginas: el clima y, debajo, máxima, mínima, humedad y
-  // lluvia; viento, amanecer y anochecer; cada uno con su ícono
+  // lluvia; viento, amanecer y anochecer
   cols[1].push((draw, x, y, w) => {
     const Wd = X.dd, F = Object.fromEntries(WX_FIELDS.map(f => [f.f, f]));
-    const cl = /lluv|torment|chub|llovizna/i.test(Wd.wx || '') ? 'wrain' : /nubl|nuboso|cubiert/i.test(Wd.wx || '') ? 'wcloud' : 'wsun';
-    const rows = [[['Máx.', wxShow('hi', Wd.hi), 'whi'], ['Mín.', wxShow('lo', Wd.lo), 'wlo'], ['Hum.', wxShow('hum', Wd.hum), 'whum'], ['Lluvia', wxShow('rain', Wd.rain), 'wumb']], [['Viento', wxShow('wind', Wd.wind), 'wwind'], ['Amanece', Wd.sunrise, 'wsr'], ['Anochece', Wd.sunset, 'wss']]];
-    const I = 9, rh = 6 + I + 3 + CLF.bd * 1.1 + CLF.cap * 1.2 + 4, ch = 8 + I + 2;
+    const rows = [[['Máx.', wxShow('hi', Wd.hi)], ['Mín.', wxShow('lo', Wd.lo)], ['Hum.', wxShow('hum', Wd.hum)], ['Lluvia', wxShow('rain', Wd.rain)]], [['Viento', wxShow('wind', Wd.wind)], ['Amanece', Wd.sunrise], ['Anochece', Wd.sunset]]];
+    const rh = 6 + CLF.bd * 1.1 + CLF.cap * 1.2 + 4, ch = 8 + CLF.bd + 2;
     if (draw) {
-      pdfCallIco(doc, cl, x + w / 2 - I - 22, y + 8, I, INK);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(Wd.wx ? INK : K.c2));
-      doc.text(trDone(pdfSafe(Wd.wx ? wxShow('wx', Wd.wx) : tr('Clima'))), x + w / 2 - 14, y + 8 + I * .8, { align: 'left' });
+      doc.text(trDone(pdfSafe(Wd.wx ? wxShow('wx', Wd.wx) : tr('Clima'))), x + w / 2, y + 8 + CLF.bd * .8, { align: 'center' });
       rows.forEach((r, ri) => {
         const cw = w / r.length, yy = y + ch + ri * rh;
         doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x, yy, x + w, yy);
-        r.forEach(([l, v, ic], i) => {
+        r.forEach(([l, v], i) => {
           const cx = x + cw * i + cw / 2;
           if (i && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, yy, x + cw * i, yy + rh); }
-          pdfCallIco(doc, ic, cx - I / 2, yy + 5, I, K.c3);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(v ? INK : K.c2)); doc.text(pdfSafe(v || '—'), cx, yy + 5 + I + 3 + CLF.bd * .8, { align: 'center' });
-          lab(l, cx, yy + 5 + I + 3 + CLF.bd * 1.1 + CLF.cap * .9, 'center');
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(v ? INK : K.c2)); doc.text(pdfSafe(v || ''), cx, yy + 6 + CLF.bd * .8, { align: 'center' });
+          lab(l, cx, yy + 6 + CLF.bd * 1.1 + CLF.cap * .9, 'center');
         });
       });
     }

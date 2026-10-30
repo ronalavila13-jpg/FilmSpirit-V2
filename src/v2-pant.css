@@ -1318,7 +1318,7 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .v2-clsc tr.sc small,.v2-clsc tr.sc .syn{opacity:1}
 .v2-clsheet ::placeholder{color:var(--ink);opacity:1}
 
-/* (lote AJ) el clima, en el recuadro del centro: la primera fila, el clima; después de cuatro y de tres, con su ícono */
+/* (lote AJ) el clima, en el recuadro del centro: la primera fila, el clima; después de cuatro y de tres */
 .v2-clwx{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border:0;border-top:1px solid var(--line);border-radius:0;margin:0}
 .v2-clwx>div{display:grid;gap:3px;justify-items:center;text-align:center;padding:9px 4px;border-left:0}
 .v2-clwx>div+div{border-left:0}
@@ -1327,8 +1327,6 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .v2-clwx .c4{grid-column:span 4;border-top:1px solid var(--line)}
 .v2-clwx .c3+.c3,.v2-clwx .c4+.c4,.v2-clwx .c3+.c4{border-left:1px solid var(--line)}
 .v2-clwx span:first-child{display:inline-flex;align-items:center;gap:5px;font:600 11px/14px var(--font-ui);letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
-.v2-clwx span:first-child svg{width:17px;height:17px;flex:none;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.v2-clwx .c12 span:first-child{font-size:0}
-.v2-clwx .c12 span:first-child svg{width:22px;height:22px}
+.v2-clwx .c12 span:first-child{display:none}
 .v2-clwx .c12 .v2-wu input,.v2-clwx .c12 b{font:700 15px/22px var(--font-ui)}
 .v2-clwx .c3 b,.v2-clwx .c3 input,.v2-clwx .c4 b,.v2-clwx .c4 input{font:700 15px/20px var(--font-ui)}
