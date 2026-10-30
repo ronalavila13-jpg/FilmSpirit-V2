@@ -2,8 +2,8 @@
    LÁMINAS DEL DESGLOSE — fotos de los elementos etiquetados
    Cada caja de la hoja de desglose (reparto, vestuario, atrezzo…) abre una
    hoja A4 donde su área sube fotos JPG, PNG o WebP de cada elemento, con una nota.
-   Las fotos se guardan en WebP de unos 170 kB (imagenes.js: lado mayor de hasta 1600 px y la mejor calidad que
-   entra). Se imprimen con o sin fotos.
+   Las fotos se guardan en WebP con calidad 90 % (imagenes.js: lado mayor de hasta 1600 px).
+   Se imprimen con o sin fotos.
    Datos: elemento.ref = { ph: [{ id, w, h }], note }; imagen en FRAMES['bd~<elemento>~<foto>'].
    ============================================================ */
 const phKey = (elId, pid) => `bd~${elId}~${pid}`;
@@ -12,7 +12,7 @@ const photosOf = e => (refOf(e).ph || []).filter(x => frameHas(phKey(e.id, x.id)
 const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' kB';
 const lamEditable = box => !UI.readOnly && (typeof canEditArea !== 'function' || canEditArea(box));
 const CAM_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.2h2.6l1.2-1.8h4.4l1.2 1.8H14v7.6H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8.9" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
-/* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP de unos 170 kB (imagenes.js);
+/* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP con calidad 90 % (imagenes.js);
    un PNG transparente queda sobre blanco, como en el papel. top: otro tope (la hoja de script: 200 kB) */
 async function compressPhoto(file, top) {
   const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }), top ? { top } : {});
@@ -147,7 +147,7 @@ async function openLamina(box, si) {
   const m = modal({
     title: `Lámina · ${B.name}`, wide: true,
     body: `<div class="lam-wrap"><div class="a4 lam" id="lamPage"></div></div>`,
-    foot: `<span class="hint lam-foot">${ed ? 'JPG, PNG o WebP. Se guardan en WebP de 1200 px, unos 175 kB cada una.' : 'Solo lectura.'}</span>
+    foot: `<span class="hint lam-foot">${ed ? 'JPG, PNG o WebP. Se guardan en WebP, calidad 90 %.' : 'Solo lectura.'}</span>
       <button class="btn" id="lamNo">PDF sin fotos</button><button class="btn" id="lamYes">PDF con fotos</button><button class="btn primary" data-close>Listo</button>`,
   });
   m.querySelector('.dlg').classList.add('lam-dlg');

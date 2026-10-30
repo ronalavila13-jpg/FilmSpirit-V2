@@ -1911,7 +1911,7 @@
 "+ Foto de la hoja": "+ Sheet photo",
 "Fotos de las hojas llenas, como respaldo (no se lee la letra)": "Photos of the filled-in sheets, as a backup (the handwriting isn't read)",
 "Hoja de script en papel": "Paper script supervisor sheet",
-"Agregar fotos (se guardan en WebP de unos 200 kB)": "Add photos (saved as WebP, about 200 kB)",
+"Agregar fotos (se guardan en WebP, calidad 90 %)": "Add photos (saved as WebP, 90% quality)",
 "Foto de continuidad": "Continuity photo",
 "Nota de la toma": "Take note",
 "Nota:": "Note:",

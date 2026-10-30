@@ -1,11 +1,12 @@
 /* ============================================================
-   IMÁGENES QUE SE SUBEN · toda imagen que entra al programa pasa por aquí antes de guardarse: WebP de unos 170 kB.
+   IMÁGENES QUE SE SUBEN · toda imagen que entra al programa pasa por aquí antes de guardarse: WebP con calidad 90 %.
    La usan las fotos del desglose (láminas), scouting, casting, hoja de llamado y gastos (compressPhoto, laminas.js),
    las viñetas y fotos del storyboard, el dibujo 2D, las fotos del personaje, los planos de planta y los logos.
-   Busca la mejor calidad que entra en el tope; si ni con calidad baja entra, achica la imagen y vuelve a probar.
-   Safari no genera WebP desde el navegador: ahí sale en JPEG (o PNG si tiene transparencia) con el mismo tope.
+   La calidad es siempre 90 %, sin tope de peso (el lado mayor sí tiene tope: IMG_MAX). Solo con o.top (las texturas de un
+   modelo 3D, que no pasan de lo que acepta el servidor) busca la mejor calidad que entra y, si no, achica la imagen.
+   Safari no genera WebP desde el navegador: ahí sale en JPEG con calidad 90 % (o PNG si tiene transparencia, con tope).
    ============================================================ */
-const IMG_TOP = 170 * 1024;   // el tamaño al que se apunta
+const IMG_TOP = 170 * 1024;   // el tamaño al que se apunta en un PNG (sin WebP) y en las texturas de los modelos
 const IMG_MAX = 1600;         // lado mayor de una foto
 const IMG_WEBP = (() => { try { const c = document.createElement('canvas'); c.width = c.height = 2; return c.toDataURL('image/webp').startsWith('data:image/webp'); } catch (e) { return false; } })();
 const imgBytes = u => u ? Math.round((u.length - u.indexOf(',') - 1) * 3 / 4) : 0;
@@ -15,11 +16,13 @@ function imgScaled(src, f) {
   const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, 0, 0, c.width, c.height);
   return c;
 }
-/* un lienzo → { url, w, h } en WebP de hasta unos 170 kB.
-   o.top: otro tope · o.alpha: conserva la transparencia (sin WebP, PNG) · o.fixed: nunca achica (solo baja la calidad) */
+/* un lienzo → { url, w, h } en WebP con calidad 90 %.
+   o.top: pesa a lo más eso (baja la calidad y, si hace falta, achica) · o.alpha: conserva la transparencia (sin WebP, PNG) ·
+   o.fixed: con o.top, nunca achica (solo baja la calidad) · o.maxQ: otra calidad (por defecto .9) */
 function imgEncode(c, o = {}) {
-  const top = o.top || IMG_TOP, type = IMG_WEBP ? 'image/webp' : o.alpha ? 'image/png' : 'image/jpeg';
+  const type = IMG_WEBP ? 'image/webp' : o.alpha ? 'image/png' : 'image/jpeg', top = o.top || IMG_TOP;
   const out = (cv, url) => ({ url, w: cv.width, h: cv.height });
+  if (type !== 'image/png' && !o.top) return out(c, c.toDataURL(type, o.maxQ || .9));
   let cv = c;
   for (let pass = 0; pass < 8; pass++) {
     if (type === 'image/png') {

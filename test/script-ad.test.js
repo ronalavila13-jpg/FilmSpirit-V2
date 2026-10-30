@@ -96,9 +96,9 @@ test('las fotos de la hoja de script («sp~») viajan con su sección («hoja»)
   assert.strictEqual(c.spKey('f9'), 'sp~f9');
   assert.ok(/sec === 'hoja' \? 'de la hoja de script'/.test(leer('server/lib/api.js')));
 });
-test('las fotos se comprimen a unos 200 kB (imgEncode con o.top) y van a FRAMES como las demás', () => {
-  assert.ok(/const SUP_TOP = 200 \* 1024/.test(leer(T)));
-  assert.ok(/photosAdd\(files, \{ keyOf: spKey, top: SUP_TOP/.test(leer(T)));
+test('las fotos se comprimen a WebP con calidad 90 % (imgEncode, sin tope) y van a FRAMES como las demás', () => {
+  assert.ok(!/SUP_TOP/.test(leer(T)));
+  assert.ok(/photosAdd\(files, \{ keyOf: spKey, paint/.test(leer(T)));
   assert.ok(/compressPhoto\(f, o\.top\)/.test(leer('laminas.js')));
   assert.ok(/imgEncode\(await imgCanvas\(file, \{ max: IMG_MAX \}\), top \? \{ top \} : \{\}\)/.test(leer('laminas.js')));
 });

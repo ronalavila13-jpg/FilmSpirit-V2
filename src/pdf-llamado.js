@@ -171,9 +171,10 @@ function pdfCallHead(doc, X, V, y0, ap) {
     if (draw) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); doc.text(trDone(pdfSafe(sum)), x + w / 2, y + h + CLF.ft * .8, { align: 'center' }); }
     return h + CLF.ft * 1.1 + P6 - 1;
   });
-  // (lote AJ) el clima y los datos del día, en el mismo recuadro, bajo las páginas: el clima y, debajo, máxima, mínima, humedad y
+  // (lote AJ) el clima y los datos del día, en el mismo recuadro: el clima y, debajo, máxima, mínima, humedad y
   // lluvia; viento, amanecer y anochecer
-  cols[1].push((draw, x, y, w) => {
+  const cWx = [];
+  cWx.push((draw, x, y, w) => {
     const Wd = X.dd, F = Object.fromEntries(WX_FIELDS.map(f => [f.f, f]));
     const rows = [[['Máx.', wxShow('hi', Wd.hi)], ['Mín.', wxShow('lo', Wd.lo)], ['Hum.', wxShow('hum', Wd.hum)], ['Lluvia', wxShow('rain', Wd.rain)]], [['Viento', wxShow('wind', Wd.wind)], ['Amanece', Wd.sunrise], ['Anochece', Wd.sunset]]];
     const rh = 6 + CLF.bd * 1.1 + CLF.cap * 1.2 + 4, ch = 8 + CLF.bd + 2;
@@ -225,6 +226,8 @@ function pdfCallHead(doc, X, V, y0, ap) {
     for (const v of [hs.addr, hs.phone].filter(Boolean)) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); const t2 = lines(pdfSafe(v), tw, 2); if (draw) { doc.setTextColor(...K.c2); raw.text(t2, tx, yy); } yy += t2.length * CLF.ft * 1.3; }
     return yy - y - CLF.ft + P6 + 4;
   });
+  // el clima, al pie de la columna de la derecha (la del centro era la más alta y la hoja pasaba de 2 páginas)
+  cols[2].push(...cWx);
   // medir, luego dibujar: la caja entera, las líneas entre columnas y entre celdas
   const hs = cols.map((c, i) => c.map(f => f(false, xs[i], 0, ws[i])));
   const H = Math.max(...hs.map(a => a.reduce((s, v) => s + v, 0)));
