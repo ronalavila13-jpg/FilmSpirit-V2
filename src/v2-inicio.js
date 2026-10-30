@@ -161,18 +161,19 @@ function v2HomeMain(H) {
   else if (!H.own.length) hello = 'Empieza por tu guion: escríbelo aquí o importa Final Draft, Fountain o PDF.';
   const scripts = homeSort(H.scripts.filter(match)).slice(0, 4);
   const coll = [...H.invites, ...H.collab].filter(match);
+  // sin deslizador: el saludo arriba; los proyectos a la izquierda y los guiones y colaboraciones a su lado (v2-pant.css)
   return `<section class="v2-hleft">
-    <p class="v2-hdate">${esc(v2Cap(now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')))}</p>
+    <div class="v2-hgreet"><p class="v2-hdate">${esc(v2Cap(now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')))}</p>
     <h1 class="v2-hhi">Hola${name ? ', ' + esc(v2First(name)) : ''}</h1>
-    ${hello ? `<p class="v2-hsum">${esc(hello)}</p>` : ''}
-    <div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2><div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div></div>
+    ${hello ? `<p class="v2-hsum">${esc(hello)}</p>` : ''}</div>
+    <div class="v2-hproj"><div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2><div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div></div>
     ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: v2SampleProg().prog, next: v2SampleProg().next, team: [] }) : ''}
-    ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>` : !H.own.length ? `<div class="v2-hempty"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button>${feat ? `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>` : ''}</div>` : ''}
-    <div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="impg" title="También abre un proyecto guardado (.${PROJ_EXT})">Importar .fdx o .fountain</button></div>
+    ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>` : !H.own.length ? `<div class="v2-hempty"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button>${feat ? `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>` : ''}</div>` : ''}</div>
+    <div class="v2-hside"><div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="impg" title="También abre un proyecto guardado (.${PROJ_EXT})">Importar .fdx o .fountain</button></div>
     <div class="v2-hscripts">${scripts.length ? scripts.map(o => v2ScriptThumb(o, H.sum(o))).join('') : sample ? v2ScriptThumb(sample, { script: v2SampleScript(), draft: 'Versión de muestra' }) : ''}</div>
     <div class="v2-hsec" id="v2hCollab"><h2>Colaboro en</h2><span class="v2-hsub">Proyectos de otras personas que te invitaron</span></div>
     ${coll.length ? `<div class="v2-card v2-hcoll">${coll.map(o => { const s = H.sum(o); return `<button type="button" class="v2-hcr" ${o.invited ? `data-open="${ea(o.id)}"` : `data-open="${ea(o.id)}"`}><span class="v2-av lg ${v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 0 ? 'k' : v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 1 ? 'g' : 'y2'}">${esc(v2Ini(o.owner || o.title))}</span><span class="t"><b>${esc(o.title || 'Sin título')}</b><small>de ${esc(o.owner || 'otra persona')}</small></span>${v2Chip(s.stage || 'g')}<span class="ro">${esc(o.invited ? 'Invitación' : cap1(String(o.role || '')))}</span><span class="pm">${o.invited ? 'Responder' : /lect|ver|read/i.test(String(o.perm || o.role || '')) ? 'Solo ver' : 'Puede editar'}</span>${v2HI('chev')}</button>`; }).join('')}</div>`
-      : `<div class="v2-card v2-hcoll empty"><p class="v2-mut">Cuando alguien te invite a su proyecto, aparece aquí.</p></div>`}
+      : `<div class="v2-card v2-hcoll empty"><p class="v2-mut">Cuando alguien te invite a su proyecto, aparece aquí.</p></div>`}</div>
   </section>`;
 }
 function v2HomeRight(H) {
