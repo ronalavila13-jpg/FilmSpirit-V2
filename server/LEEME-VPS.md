@@ -178,6 +178,38 @@ Sin esto todo funciona; solo no se envían correos (la persona igual ve e imprim
 
 Si el servicio de correo falla (caído, sin cupo), FilmSpirit reintenta solo: al minuto, a los 5, a los 15, a la hora… hasta unas 48 horas. Lo que el servicio rechaza (una dirección inválida, el remitente sin verificar) o lo que no sale en ese plazo queda anotado en el panel de administración, pestaña **Bitácora**, como `mail_failed`. Para ver la cola: `sudo sqlite3 /var/lib/filmspirit/filmspirit.db "SELECT id, kind, to_addr, tries, err FROM outbox WHERE sent IS NULL AND dead IS NULL"`.
 
+## Actualizar la web a una versión nueva
+
+Tus datos (`/var/lib/filmspirit`) y tus claves (`/etc/filmspirit/filmspirit.env`) no se tocan: solo se reemplaza la app en `/opt/filmspirit`. Cuenta con **1 o 2 minutos** en los que la web se reinicia.
+
+1. **En tu computadora**, con el `filmspirit-servidor.zip` nuevo (PowerShell en Windows, Terminal en Mac):
+
+   ```
+   scp filmspirit-servidor.zip root@IP_DE_TU_VPS:/root/
+   ssh root@IP_DE_TU_VPS
+   ```
+
+2. **Ya dentro de la VPS**, descomprime en una carpeta limpia (la carpeta `/root/server` solo es de paso: se puede borrar sin riesgo) y entra a ella:
+
+   ```
+   cd /root && rm -rf server && unzip -o filmspirit-servidor.zip
+   cd /root/server
+   ```
+
+3. **Actualiza:**
+
+   ```
+   sudo bash deploy/actualizar.sh
+   ```
+
+   El programa hace un respaldo de la base de datos, copia la versión nueva, actualiza los límites de nginx, reinicia el servicio y comprueba que responde. Al terminar debe decir **«✔ Actualizado y funcionando»** y, más abajo, **«✔ Respaldo diario funcionando»**. Si algo falla, se detiene con un mensaje y la versión instalada sigue igual.
+
+4. **Compruébalo:** abre `https://tudominio.pe` y recarga sin caché (`Ctrl + Shift + R`, o `Cmd + Shift + R` en Mac). Las pestañas que ya estaban abiertas siguen con la versión anterior hasta que se recargan. También puedes mirar `curl -fsS https://tudominio.pe/healthz` (debe responder `ok`).
+
+5. **Si algo sale mal:** mira los registros con `journalctl -u filmspirit -n 50`. Para volver atrás, sube y descomprime el zip de la versión anterior y repite los pasos 2 y 3; si la base de datos quedó mal, restaúrala con el respaldo de la sección «Restaurar un respaldo».
+
+**Antes de actualizar** conviene bajar a tu computadora el último respaldo (ver «Copia fuera de la VPS»). Si cambiaste a mano archivos dentro de `/opt/filmspirit`, se pierden al actualizar: lo propio va en `/etc/filmspirit/filmspirit.env`.
+
 ## Día a día
 
 | Para | Comando |
