@@ -530,7 +530,7 @@ function r3Sync(s3, st, opts) {
   const seen = new Set();
   const held = [];
   // la mano que sostiene un cuchillo, una pistola, una taza… se cierra
-  const fist = {};
+  const fist = Object.create(null); // hold.a viene del JSON compartido: '__proto__' no debe llegar a Object.prototype
   for (const o of s3.objs) if (o.hold && GRIP[o.kind] && OBJ_FIST[o.kind] && o.hold.at !== 'pecho') (fist[o.hold.a] ||= {})[o.hold.at || 'R'] = OBJ_FIST[o.kind];
   for (const ob of s3.objs) {
     if (ob.kind === 'luz') continue;
