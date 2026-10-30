@@ -680,7 +680,7 @@ Object.assign(ACT, {
   'sup-next': b => {
     const X = supCtx(), sh = P.shots[b.dataset.id]; if (!sh) return;
     supStopAll();
-    sh.done = true;
+    setShotDone(sh, true);
     // (lote AI) la toma que quedó lista y nunca se grabó (sin nota) no queda en el registro del plano rodado
     const L = supTakes(sh.id), r = L.findIndex(t => t.rdy && !String(t.note || '').trim());
     if (r >= 0) L.splice(r, 1);
@@ -765,7 +765,7 @@ Object.assign(BIND, {
   'sup-day': el => { UI.supDay = +el.value; if (UI.supDay >= 0) UI.callDay = UI.supDay; render(); },   // la misma jornada en la hoja de llamado
   'sup-g': (el, ev) => { P.sup[el.dataset.f] = el.value.trim(); changed('data'); if (ev === 'change') render(); },
   'sup-obs': el => { P.sup.obs = P.sup.obs || {}; if (el.value.trim()) P.sup.obs[el.dataset.id] = el.value; else delete P.sup.obs[el.dataset.id]; changed('data'); if (el.classList.contains('hs-grow')) supGrow(el); },
-  'sup-done': el => { const sh = P.shots[el.dataset.id]; if (!sh) return; sh.done = el.checked; if (!el.checked) UI.supCur = sh.id; changed('data'); render(); },
+  'sup-done': el => { const sh = P.shots[el.dataset.id]; if (!sh) return; setShotDone(sh, el.checked); if (!el.checked) UI.supCur = sh.id; changed('data'); render(); },
   'sup-sc': (el, ev) => {
     if (el.classList.contains('tm')) { if (ev !== 'change') return; el.value = normHM(el.value); }
     const k = el.dataset.k, m = P.sup.sc[k] = P.sup.sc[k] || {};
@@ -865,7 +865,7 @@ function supQuick() {
     const rd = L.findIndex(x => x.rdy && +x.n === n); if (rd >= 0) L.splice(rd, 1);
     let j = L.findIndex(x => +x.n > n); if (j < 0) j = L.length;
     L.splice(j, 0, t);
-    if (st === 'bn') sh.done = true;
+    if (st === 'bn') setShotDone(sh, true);
     changed('data');
     saved.push({ sh, code: D.code[sh.id], n, st, t: t.t, d, r, s: t.s || (supMos(sh.id) ? 'MOS' : ''), note: t.note });
     $('#sqErr', m).textContent = '';

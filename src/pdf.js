@@ -15,7 +15,9 @@ function loadPdfLib() {
   const local = DESK || typeof LOCAL_LIBS !== 'undefined';
   const urls = local ? ['lib/jspdf.umd.min.js', 'lib/jspdf.plugin.autotable.min.js']
     : ['https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js'];
-  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); });
+  // (el CDN con su huella: si el archivo cambiara, el navegador no lo usa)
+  const SRI = { 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js': 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js': 'sha384-A77YsHWitrPuAj8E0AuB033EXzymUxIajnWKPzrrzqFoYYSCEpFennDUjMG2R1L3' };
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; if (SRI[src]) { s.integrity = SRI[src]; s.crossOrigin = 'anonymous'; } s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); });
   return (PDFLIB_P = (async () => {
     if (!(window.jspdf && window.jspdf.jsPDF)) await load(urls[0]);
     if (!(window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)) await load(urls[1]);

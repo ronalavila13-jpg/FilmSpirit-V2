@@ -12,7 +12,7 @@
    (en cuadros), con el botón «Excel | Apple» de la barra (callXL).
    ============================================================ */
 const CS_DEPTS = [
-  ['prod', 'Producción', ['Dirección', 'Producción', 'Producción ejecutiva', 'Jefatura de producción', 'Asistencia de producción']],
+  ['prod', 'Producción', ['Dirección', 'Producción', 'Producción ejecutiva', 'Jefatura de producción', 'Productor de campo', 'Asistencia de producción']],
   ['dir', 'Equipo de dirección', ['1.er asistente de dirección', '2.º asistente de dirección', 'Script / continuidad']],
   ['cam', 'Cámara', ['Dirección de fotografía', '1.er asistente de cámara', '2.º asistente de cámara', 'DIT / manejo de material']],
   ['ge', 'Eléctricos y maquinistas', ['Jefe de eléctricos (gaffer)', 'Eléctrico', 'Jefe de maquinistas (key grip)', 'Maquinista']],
@@ -41,9 +41,11 @@ const WX_FIELDS = [
   { f: 'hi', lab: 'Máx.', u: '°', ph: '°C', aria: 'Máxima', tip: 'Máxima (°C)' },
   { f: 'lo', lab: 'Mín.', u: '°', ph: '°C', aria: 'Mínima', tip: 'Mínima (°C)' },
   { f: 'hum', lab: 'Hum.', u: '%', ph: '%', aria: 'Humedad', tip: 'Humedad (%)' },
+  { f: 'rain', lab: 'Lluvia', u: '%', ph: '%', aria: 'Probabilidad de lluvia', tip: 'Probabilidad de lluvia (%)' },
+  { f: 'wind', lab: 'Viento', u: ' km/h', ph: 'km/h', aria: 'Viento', tip: 'Viento (km/h)' },
 ];
 const WX_U = { wx: '°', ...Object.fromEntries(WX_FIELDS.map(x => [x.f, x.u])) };
-const wxBare = v => String(v ?? '').trim().replace(/\s*(?:[°º]\s*[cC]?|%)$/, '').trim();
+const wxBare = v => String(v ?? '').trim().replace(/\s*(?:[°º]\s*[cC]?|%|km\/h)$/i, '').trim();
 /* el número de un dato del clima, sin su unidad (o null si lo escrito no es un número) */
 const wxNum = v => { const b = wxBare(v); return /^[-−]?\d+(?:[.,]\d+)?$/.test(b) ? b : null; };
 const wxShow = (f, v) => { const n = wxNum(v); return n !== null ? n + WX_U[f] : String(v ?? '').trim(); };
@@ -645,6 +647,18 @@ function callKeyMore(keyCrew) {
   const jp = (keyCrew[0] || {}).name || '', pr = prods.filter(x => x !== jp).join(', ');
   return [pr ? { lab: 'Producción', name: pr, phone: '' } : null, (CALL().client || '').trim() ? { lab: 'Cliente', name: CALL().client.trim(), phone: '' } : null].filter(Boolean);
 }
+/* (lote AJ) el cuadro de contactos de rodaje: los asistentes de dirección y el productor de campo, con su teléfono (del directorio) */
+const CL_CONTACTS = [['1.er asistente de dirección', /^(1\.?\s*er|primer)a? asistente de direcci|^1st ad\b/i], ['2.º asistente de dirección', /^(2\.?\s*[ºo]|segund[oa])\.?\s*asistente de direcci|^2nd ad\b/i], ['Productor de campo', /productor[a]? de campo|jef[ae] de locaci/i]];
+const callContacts = dd => {
+  // sin «1.er» ni «2.º» en el cargo, los asistentes de dirección que haya, en el orden del directorio
+  const ads = crewBy(/asistente de direcci/i, dd), pick = (re, alt) => crewBy(re, dd)[0] || alt;
+  const a1 = pick(CL_CONTACTS[0][1], ads[0]), a2 = pick(CL_CONTACTS[1][1], ads.find(c => c !== a1)), pc = pick(CL_CONTACTS[2][1]);
+  return [[CL_CONTACTS[0][0], a1], [CL_CONTACTS[1][0], a2], [CL_CONTACTS[2][0], pc]].map(([lab, c]) => ({ lab, name: c ? c.name.trim() : '', phone: c ? (c.phone || '').trim() : '' }));
+};
+/* (lote AJ) la frase del día para animar al equipo: la que se escribe en la hoja (dd.quote) o, si no, una de estas, según la jornada */
+const CL_QUOTES = ['Cada plano que hoy cuidamos es una escena que mañana nadie tendrá que arreglar.', 'Una película se hace entre muchas manos: hoy somos todas.', 'La paciencia en el set se paga en la pantalla.', 'Escuchar al equipo es la mejor lente que tenemos.', 'Lo que hoy rodamos con cariño, mañana lo verá el público.', 'Un set tranquilo es un set que filma mejor.', 'Cuidarnos entre todos es parte del plano.', 'Cada jornada cuenta: hagámosla memorable.', 'Hoy es un buen día para filmar algo que valga la pena.', 'Las grandes historias empiezan con un equipo que confía.', 'Sin prisa pero sin pausa: plano a plano llegamos al final.', 'Que el cansancio no nos quite las ganas de contar esta historia.'];
+const callQuote = (dd, n) => (dd.quote || '').trim() || CL_QUOTES[Math.max(0, n) % CL_QUOTES.length];
+
 /* (lote AH) los jefes de área, con su teléfono, en un cuadro bajo la cabecera. En cada área, el jefe es quien se marcó
    como jefe (clic derecho en su fila: «Jefe de área»); si nadie, el primero con nombre cuyo cargo es el de jefe del área
    (dirección de fotografía, gaffer y key grip, maquillaje, diseño de vestuario, dirección de arte, sonidista…; en las
@@ -801,7 +815,7 @@ RENDER.call = function () {
       ${tmCellH('Cierre de set', 'cierre', dd.cierre || '', Sc.cierreAuto, !dd.cierre && !!Sc.cierreAuto, 'Cuando termina la última escena (vacío: la del plan)')}${tmCellH('Wrap', 'end', dd.end || '', Sc.endAuto, !dd.end && !!Sc.endAuto, 'El fin de la jornada, con el desmontaje (vacío: la del plan)')}</div>
     ${ed || (dd.craft || '').trim() ? `<div class="cl-cell cl-sub"><label class="cl-craft"><span>Catering</span>${inp('craft', ph('Opcional'), 'aria-label="Catering" title="Por ejemplo: durante la jornada"')}</label></div>` : ''}
     ${free ? '' : `<div class="cl-cell cl-sum">${inf.e ? esc(fmtEighths(inf.e)) + ' págs. · ' : ''}${de.keys.length} ${de.keys.length === 1 ? 'escena' : 'escenas'}${Sc.byShot ? ` · ${Sc.rows.reduce((a, r) => a + (r.shots ? r.shots.length : 0), 0)} planos` : ''}</div>`}</div>`;
-  const wxKeys = ['wx', 'hi', 'lo', 'hum', 'sunrise', 'sunset'], wxOpen = wxKeys.some(k => (dd[k] || '').trim()) || (UI.csOpen && UI.csOpen.has('wx'));
+  const wxKeys = ['wx', 'hi', 'lo', 'hum', 'rain', 'wind', 'sunrise', 'sunset'], wxOpen = wxKeys.some(k => (dd[k] || '').trim()) || (UI.csOpen && UI.csOpen.has('wx'));
   // (lote AH) la locación en la cabecera: solo su nombre, su dirección y «Ver mapa»; lo demás del punto de encuentro, abajo
   const L = callLoc(de, dd), lMiss = !L.addr && !(m.addr || '').trim();
   const colR = `<div class="cl-c3">
@@ -1627,6 +1641,18 @@ EXPORTS_NOTE.call = () => {
   const who = S.free ? `<span data-no-tr>${esc(callSheetName(S))}</span>` : `Jornada ${S.n + 1}`;
   return `<p class="xnote">${ICO.warn}<span><b>${who} · ${a.length === 1 ? 'falta 1 dato:' : `faltan ${a.length} datos:`}</b> ${list}. <span>Puedes exportarla igual: lo que falte dice «Por confirmar».</span></span></p>`;
 };
+/* (lote AJ) «Miniaturas del storyboard» en Exportar: la viñeta de cada plano como referencia en el PDF (P.call.noThumbs) */
+{
+  const miss = EXPORTS_NOTE.call;
+  EXPORTS_NOTE.call = () => miss() + (() => { try { return callSched(callSheet(callRef()).d).byShot ? `<label class="opt xopt"><input type="checkbox" data-cl-thumbs ${callThumbs() ? 'checked' : ''} ${callEditable() ? '' : 'disabled'}><span><b>Miniaturas del storyboard</b><span class="hint">En el PDF: la viñeta de cada plano como referencia</span></span></label>` : ''; } catch (e) { return ''; } })();
+}
+document.addEventListener('change', e => {
+  const el = e.target; if (!el || !el.matches || !el.matches('#pop input[data-cl-thumbs]') || !P) return;
+  if (!callEditable()) { el.checked = callThumbs(); return; }
+  histNote(el.checked ? 'Miniaturas en la hoja de llamado' : 'Hoja de llamado sin miniaturas');
+  if (el.checked) delete CALL().noThumbs; else CALL().noThumbs = true;
+  changed('data'); render();
+});
 /* datos de una hoja listos para imprimir (PDF y Excel). (lote AH) ref: la jornada o la hoja libre; con lo cambiado en la
    hoja, los jefes de área, el cierre de set y el wrap, la locación de la cabecera y el avance elegido */
 function callSheetData(ref) {
@@ -1655,6 +1681,7 @@ function callSheetData(ref) {
     keyCrew, props: (P => P ? P.split(/\s*,\s*/).filter(Boolean) : [])(callPropsText(de, dd)), propsTxt: callPropsText(de, dd), adv: advs[0] || null, advs, lastDay: !S.free && n === days.length - 1 && !Array.isArray(dd.adv), radio: C.radio || '',
     keyMore: callKeyMore(keyCrew),   // (lote W) la producción y el cliente, en la cabecera
     heads: callHeads(crewSets, keyCrew),   // (lote AH) los jefes de área con su teléfono
+    contacts: callContacts(dd), quote: callQuote(dd, n), quoteOwn: !!(dd.quote || '').trim(),   // (lote AJ)
   };
 }
 function exportCallXLSX(all) {
@@ -1685,7 +1712,7 @@ function callSheetXLSX(X) {
   const gap = () => row([{ v: '', cs: NC, s: { border: false } }], 6);
   // 1. la cabecera: el proyecto, la hoja y su versión (solo el número); tres columnas como en la hoja
   row([{ v: P.meta.title + (X.eps ? ' · ' + X.eps : ''), cs: 6, s: { bold: true, size: 16, font: 'title', line: L } }, { v: trDone(tr('Hoja de llamado') + ' · ' + tr(X.title)) + (X.ver ? ' · ' + callVerNum(X.ver) : ''), cs: 4, s: { size: 10, bold: true, line: L, h: 'right' } }], 30);
-  const key = [P.meta.company, ...[...X.keyCrew, ...(X.keyMore || [])].map(k => `${k.lab}: ${k.name || 'Por confirmar'}${k.phone ? ' · ' + k.phone : ''}`)].filter(Boolean).join('\n');
+  const key = [P.meta.company, ...[...X.keyCrew.slice(0, 2), ...X.contacts, ...(X.keyMore || [])].map(k => `${k.lab}: ${k.name || 'Por confirmar'}${k.phone ? ' · ' + k.phone : ''}`)].filter(Boolean).join('\n');
   const date = X.date ? capFirst(X.date.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) : 'Sin fecha';
   const mid = [date, 'LLAMADO GENERAL', X.call || '—', X.dd.craft && 'Catering: ' + X.dd.craft].filter(Boolean).join('\n');
   const W = wxParts(X.dd), wx = [W.wx, ...W.pairs.map(p => p.join(' '))].filter(Boolean).join(' · ');   // (lote Y) con la unidad pegada al número
@@ -1719,14 +1746,6 @@ function callSheetXLSX(X) {
   }
   const WR = { bold: true, line: L, fill: '#222222', color: '#FFFFFF' };
   row([{ v: X.end || '', s: { ...WR, h: 'center' } }, { v: 'Wrap · fin de jornada', cs: NC - 2, s: WR }, { v: X.free ? '' : fmtEighths(dayInfo(X.de.keys, X.de.rows).e), s: { ...WR, h: 'right' } }], 20);
-  // 5. el avance: las jornadas elegidas (o «Fin de rodaje»)
-  for (const A of X.advs) {
-    gap(); band(trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') + (A.locs.length ? ' · ' + A.locs.join(', ') : ''));
-    row([{ v: 'Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 5, s: H }, { v: 'Reparto', cs: 2, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
-    for (const r of A.rows) { const fc = r.col; row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}`, s: B }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5, s: B }, { v: r.cast.join(', '), cs: 2, s: B }, { v: fmtEighths(r.e8), s: { ...B, h: 'right', bold: true } }]); }
-    row([{ v: `Total ${fmtEighths(A.e8)} págs.` + (A.cast.length ? ' · Reparto: ' + A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') : ''), cs: NC, s: { ...MU, h: 'right' } }]);
-  }
-  if (!X.advs.length && X.lastDay) { gap(); band('FIN DE RODAJE'); }
   // 6. (lote AH) la citación en dos cuadros: los talentos y, después, el equipo técnico por área (con su citación)
   const tel = (t, e) => [t, e].filter(Boolean).join('\n');
   gap(); band('Talentos');
@@ -1752,5 +1771,15 @@ function callSheetXLSX(X) {
   }
   gap();
   row([{ v: 'Centro de salud: ' + ([X.hosp.name, X.hosp.phone, X.hosp.addr].filter(Boolean).join(' · ') || 'Por confirmar'), cs: 6, s: { bold: true, line: L } }, { v: 'Canales de radio: ' + (X.radio || 'Por confirmar'), cs: 4, s: { line: L } }]);
+  // (lote AJ) la frase del día y, al final de todo, el avance
+  gap(); band('Frase del día'); row([{ v: '«' + X.quote + '»', cs: NC, s: { ...CC, bold: true } }]);
+  // el avance: las jornadas elegidas (o «Fin de rodaje»)
+  for (const A of X.advs) {
+    gap(); band(trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')) + (A.call ? ' · ' + trDone(tr(`llamado ${A.call}`)) : '') + (A.locs.length ? ' · ' + A.locs.join(', ') : ''));
+    row([{ v: 'Esc.', s: H }, { v: 'I/E · D/N', s: H }, { v: 'Escena', cs: 5, s: H }, { v: 'Reparto', cs: 2, s: H }, { v: 'Págs.', s: { ...H, h: 'right' } }]);
+    for (const r of A.rows) { const fc = r.col; row([{ v: r.code, s: { bold: true, fill: fc, line: L } }, { v: `${r.ie} · ${r.dn}`, s: B }, { v: r.set + (r.syn ? '\n' + r.syn : ''), cs: 5, s: B }, { v: r.cast.join(', '), cs: 2, s: B }, { v: fmtEighths(r.e8), s: { ...B, h: 'right', bold: true } }]); }
+    row([{ v: `Total ${fmtEighths(A.e8)} págs.` + (A.cast.length ? ' · Reparto: ' + A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', ') : ''), cs: NC, s: { ...MU, h: 'right' } }]);
+  }
+  if (!X.advs.length && X.lastDay) { gap(); band('FIN DE RODAJE'); }
   return { name: X.free ? String(X.title).slice(0, 28) : `Jornada ${X.n + 1}`, cols: COLS, rows, landscape: false };
 }

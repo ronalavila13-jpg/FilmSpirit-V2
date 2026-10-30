@@ -59,7 +59,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
     echo '<script src="lib/three.min.js"></script>'
   else
     v2forma < src/shell.html
-    echo '<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>'
+    echo '<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js" integrity="sha384-Lwojr+0fOVR25P8bdL6E0T2dv0q0ZT4Yy2Ia1dGOz6b5jLSzWZkdqlw0cKTQYKzT" crossorigin="anonymous"></script>'
   fi
   # versión 2: el sistema visual nuevo va después de todo el CSS de la v1 (solo cambia la forma)
   echo '<style>'; cat src/v2.css src/v2-pant.css; echo '</style>'

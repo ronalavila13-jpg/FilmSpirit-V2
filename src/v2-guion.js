@@ -4,9 +4,21 @@
    y el párrafo donde se escribe resaltado) y, a la derecha, la escena (datos y personajes) y sus notas.
    El editor es el de la v1 (guion-editor.js): mismo texto, mismas marcas y mismo deshacer; aquí cambia la forma.
    ============================================================ */
-const V2_TYPES = [['h', 'Escena'], ['a', 'Acción'], ['c', 'Personaje'], ['d', 'Diálogo'], ['p', 'Paréntesis'], ['tr', 'Transición'], ['sh', 'Plano']];
+const V2_TYPES = [['h', 'Escena'], ['a', 'Acción'], ['c', 'Personaje'], ['p', 'Paréntesis'], ['d', 'Diálogo'], ['tr', 'Transición'], ['sh', 'Plano']];
+const V2_TYPE_ICO = {
+  h: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-4 4 3 3-2 6 4"/><circle cx="8.5" cy="9.5" r="1.3"/>',
+  a: '<circle cx="14.5" cy="4.8" r="1.8"/><path d="m10.5 21 2.5-5.5L9.5 13l1.8-4.2 4 1.2 2.4 3.2M13 15.5l2.4 5.5M9 9.5l-3.2 1.2"/>',
+  c: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5z"/>',
+  p: '<path d="M8.5 4c-3.4 4.4-3.4 11.6 0 16M15.5 4c3.4 4.4 3.4 11.6 0 16"/>',
+  d: '<path d="M4.5 5h15v10.5H10L6 19.5v-4H4.5z"/>',
+  tr: '<path d="M4 8h13l-3.2-3.2M20 16H7l3.2 3.2"/>',
+  sh: '<rect x="3" y="7" width="12.5" height="10" rx="2"/><path d="m15.5 11 5.5-3v8l-5.5-3"/>',
+};
 
-V2_ACTS.script = () => v2Hist() + v2Share() + v2Export();
+V2_ACTS.script = () => v2WkBtn() + v2Hist() + v2Share() + v2Export();
+/* la racha de escritura (guion-racha.js), que estaba en el «⋯» */
+const v2WkBtn = () => !PHONE() && UI.scriptEdit && typeof edEditable === 'function' && edEditable() && typeof wkPanel === 'function' ? `<button type="button" class="v2-btn ic" data-v2a="wk" aria-haspopup="dialog" title="Escritura: tu racha y tu meta" aria-label="Escritura">${wkFlame(wkStreak(wkRec()).state)}</button>` : '';
+V2_DO.wk = b => wkPanel(b);
 
 function v2SceneCards(act) {
   const { scenes } = D.sc;
@@ -95,7 +107,10 @@ const v2GuionRender = function () {
   const av = edFormat() === 'av';
   // los tipos de párrafo (con su atajo de Final Draft) y las herramientas de la v1: deshacer, rehacer, negrita, itálica,
   // subrayado, resaltar (con su paleta) y revisión (guion-formato.js · fmtBarHTML)
-  const types = (av ? '' : `<div class="v2-seg v2-types" role="group" aria-label="Tipo de párrafo">${V2_TYPES.map(([k, n]) => `<button type="button" data-v2t="${k}" aria-pressed="false" title="${ea(v2TypeTip(k, n))}">${esc(n)}</button>`).join('')}</div>
+  const typeBtns = V2_TYPES.map(([k, n]) => `<button type="button" data-v2t="${k}" aria-pressed="false" title="${ea(v2TypeTip(k, n))}"><svg class="v2-ti" viewBox="0 0 24 24" aria-hidden="true">${V2_TYPE_ICO[k]}</svg><span class="v2-tn">${esc(n)}</span><kbd>${V2_MOD} + ${ED_CINE.findIndex(x => x[0] === k) + 1}</kbd></button>`).join('');
+  // dos copias del mismo menú: la tira de arriba (pantallas medianas y teléfono) y la columna a la izquierda de la hoja (grandes)
+  const sideTypes = av ? '' : `<div class="v2-types v2-types-side" role="group" aria-label="Tipo de párrafo">${typeBtns}</div>`;
+  const types = (av ? '' : `<div class="v2-seg v2-types v2-types-top" role="group" aria-label="Tipo de párrafo">${typeBtns}</div>
     <select id="edType" class="v2-hide" aria-hidden="true" tabindex="-1">${ED_CINE.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select>`)
     + `<div class="v2-edtools" role="group" aria-label="Herramientas del guion"><button type="button" class="v2-tb" data-act="ed-undo" title="Deshacer (${V2_MOD}+Z)" aria-label="Deshacer">${ICO.undo}</button><button type="button" class="v2-tb" data-act="ed-redo" title="Rehacer (${V2_MOD}+${V2_MAC ? 'Mayús+Z' : 'Y'})" aria-label="Rehacer">${ICO.redo}</button>${typeof fmtBarHTML === 'function' ? fmtBarHTML() : ''}</div>`;
   v.innerHTML = `<div class="v2-g3 v2-guion">
@@ -106,11 +121,10 @@ const v2GuionRender = function () {
     <section class="v2-col v2-ed">
       <div class="v2-edbar">${types}</div>
       <p class="v2-pinfo" id="v2PInfo">${esc(v2PageInfo(null))}</p>
-      <div class="v2-edscroll" id="edScroll" data-keep="scripted"><div id="edHost">${editorHTML()}</div></div>
+      <div class="v2-edscroll" id="edScroll" data-keep="scripted"><div class="v2-edrow">${sideTypes}<div id="edHost">${editorHTML()}</div></div></div>
     </section>
-    <aside class="v2-col v2-side" id="v2Side">${v2GuionSide()}</aside>
-  </div>
-  <aside class="insp rev v2-insp" id="insp" aria-label="Revisión del guion">${reviewHTML()}</aside>`;
+    <div class="v2-col v2-rcol"><aside class="v2-side" id="v2Side">${v2GuionSide()}</aside><aside class="insp rev v2-insp" id="insp" aria-label="Revisión del guion">${reviewHTML()}</aside></div>
+  </div>`;
   bindView(); bindEditorDoc(); bindEdPinch(); bindReview();
   v2GuionBind();
   v2EdCaret();
@@ -401,4 +415,10 @@ function v2EdFollowBind() {
   sc._v2f = true;
   let raf = 0;
   sc.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; v2EdFollow(); }); }, { passive: true });
+}
+
+/* (lote AJ) en la computadora la revisión del guion está siempre a la vista: «⋯» ya no la ofrece (en el teléfono, sí) */
+{
+  const f = typeof TOOLS_EXTRA !== 'undefined' && TOOLS_EXTRA.script;
+  if (f) TOOLS_EXTRA.script = function () { return PHONE() ? f.apply(this, arguments) : []; };   // (el teléfono conserva su «⋯»)
 }

@@ -334,7 +334,7 @@ function v2SampleScript() {
     h.innerHTML = `${v2HomeSide(H)}<div class="v2-hmain">
       <header class="v2-hhead"><label class="v2-hq">${v2HI('search')}<input type="search" id="v2HomeQ" placeholder="Buscar proyectos, guiones o personas" value="${esc(V2H.q)}" autocomplete="off" aria-label="Buscar"><kbd>Ctrl K</kbd></label>
         <span class="v2-grow"></span><button type="button" class="v2-btn ic" data-v2go="notes" aria-label="Notas y avisos">${v2HI('bell')}${H.invites.length || H.own.some(o => (H.sum(o).notes || []).some(n => !n.mine)) ? '<i class="v2-dotb"></i>' : ''}</button>
-        <button type="button" class="v2-btn y" data-v2go="new">${v2I('plus')}<span>Nuevo proyecto</span></button></header>
+        <button type="button" class="v2-btn y" data-v2go="new">${v2I('plus')}<span>Nuevo proyecto</span></button>${v2MeHTML(true)}</header>
       ${loading ? '<p class="v2-mut" style="padding:40px">Cargando proyectos…</p>' : `<div class="v2-hgrid">${v2HomeMain(H)}${v2HomeRight(H)}</div>`}
     </div>`;
     if (HOME.err) { const b = $('.v2-hleft', h); if (b) b.insertAdjacentHTML('afterbegin', '<p class="pj-empty bad">No se pudo cargar la lista de proyectos. <button class="btn sm" data-h="retry">Reintentar</button></p>'); }

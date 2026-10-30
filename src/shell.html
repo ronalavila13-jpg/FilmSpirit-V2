@@ -76,9 +76,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 @supports selector(::-webkit-scrollbar){
   ::-webkit-scrollbar{width:6px;height:6px;background:transparent}
   ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
-  ::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;border:1px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;border:2px solid transparent;background-clip:padding-box}   /* la zona para arrastrar sigue en 6 px; lo que se ve, 2 px (antes 4) */
   :hover::-webkit-scrollbar-thumb,.scrolling::-webkit-scrollbar-thumb{background-color:var(--sb)}
-  ::-webkit-scrollbar-thumb:hover,::-webkit-scrollbar-thumb:active{background-color:var(--sb-h)}
+  ::-webkit-scrollbar-thumb:hover,::-webkit-scrollbar-thumb:active{background-color:var(--sb-h);border-width:1px}   /* al tocarla, 4 px */
   ::-webkit-scrollbar-button{display:none;width:0;height:0}
 }
 @supports not selector(::-webkit-scrollbar){
@@ -1375,7 +1375,7 @@ span.hs-chip{cursor:default}
 /* el cuerpo: el registro a la izquierda, «En cámara» a la derecha */
 .hs-body{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
 .hs-log{flex:999 1 760px;min-width:0;display:flex;flex-direction:column;gap:16px}
-.hs-side{flex:1 1 320px;max-width:380px;min-width:0;display:flex;flex-direction:column;gap:16px;position:sticky;top:0;max-height:var(--hs-vh,none);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;border-radius:14px}
+.hs-side{flex:1 1 320px;max-width:380px;min-width:0;display:flex;flex-direction:column;gap:16px;position:sticky;top:0;max-height:var(--hs-vh,none);overflow-y:auto;overscroll-behavior:contain;border-radius:14px}
 /* sin lugar al costado, «En cámara» va arriba del registro (y al lado, las incidencias, las notas y la hoja en papel) */
 @media (max-width:1227px){ .hs-side{order:-1;flex-basis:100%;max-width:none;position:static;max-height:none;overflow:visible;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
   .hs-side>.hs-cam{grid-row:span 3} }
@@ -2289,6 +2289,15 @@ details.lx-box[open]{display:grid}
 .dlg>header .s2-ws{flex:none}
 .s2-grp{display:flex;gap:2px;align-items:center}
 .s2-ib{min-width:34px;justify-content:center;padding-inline:8px}
+.s2-jump{gap:6px;font-weight:700;white-space:nowrap}
+.s2-jump small{font-size:var(--fs-1);font-weight:600;color:var(--muted)}
+.pop .s2-jmenu{display:block;max-height:min(60vh,460px);overflow-y:auto;overflow-x:hidden;width:min(300px,calc(100vw - 48px))}
+.s2-jh{display:block;font-size:var(--fs-1);font-weight:700;color:var(--muted);padding:8px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop .s2-jmenu button{width:100%;min-width:0}
+.pop .s2-jmenu button b{min-width:44px}
+.pop .s2-jmenu button span{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop .s2-jmenu button em{font-style:normal;font-size:var(--fs-1);color:var(--muted)}
+.pop .s2-jmenu button.on{background:var(--fill)}
 .s2i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none;display:block}
 .s2-ib .s2i{width:18px;height:18px}
 .s2-body{display:grid;grid-template-columns:58px minmax(0,1fr) 316px;min-height:0}
@@ -2391,7 +2400,7 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .s2-play{width:38px;height:38px;border-radius:50%;padding:0;justify-content:center;min-width:0;flex:none}
 .s2-play .s2i{width:16px;height:16px}
 .s2-sel{width:auto;padding:5px 8px;font-size:var(--fs-3)}
-.s2-strip{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:120px;padding:3px;align-items:flex-start;scrollbar-width:thin}
+.s2-strip{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:120px;padding:3px;align-items:flex-start;}
 .s2-fth{flex:none;display:grid;gap:3px;justify-items:center;border:0;background:none;padding:3px;border-radius:var(--r-sm);cursor:pointer;color:var(--muted);font-size:var(--fs-1);font-weight:650;font-variant-numeric:tabular-nums}
 .s2-fth:hover{background:var(--fill)}
 .s2-fth canvas{height:58px;width:auto;border-radius:var(--r-xs);box-shadow:0 0 0 1px var(--line);background:#FFFFFF;display:block}
@@ -2503,7 +2512,7 @@ button.s2-eye:hover{background:var(--fill-2);color:var(--ink)}
 .bladeln b{position:absolute;top:2px;left:4px;font-size:var(--fs-1);font-weight:700;background:#FFD25A;color:#1E1E1E;border-radius:var(--r-xs);padding:1px 5px;white-space:nowrap}
 .nle-heads{border-right:var(--l1) solid var(--nle-line)}
 .nh{display:flex;align-items:center;padding:0 8px;font-size:var(--fs-1);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--nle-muted);border-bottom:var(--l1) solid var(--nle-line)}
-.nle-scroll{overflow-x:auto;overflow-y:hidden;position:relative;touch-action:pan-x;scrollbar-color:#515151 transparent}
+.nle-scroll{overflow-x:auto;overflow-y:hidden;position:relative;touch-action:pan-x;}
 .nle-inner{position:relative;min-width:100%}
 .ruler{position:relative;border-bottom:var(--l1) solid var(--nle-line);background:repeating-linear-gradient(to right,#515151 0 1px,transparent 1px var(--pps)) left bottom/100% 6px no-repeat;cursor:col-resize}
 .rt{position:absolute;top:2px;font-size:10px;color:var(--nle-muted);padding-left:3px;border-left:1px solid #515151;height:12px;line-height:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -6683,8 +6692,8 @@ details.sec .tbl td.num input{display:block;margin-left:auto}
     <button class="tab" data-g="0" role="tab" id="tab-build" aria-controls="view" data-tab="build"><span class="n">1</span>Historia</button>
     <button class="tab" data-g="0" role="tab" id="tab-script" aria-controls="view" data-tab="script"><span class="n">2</span>Guion</button>
     <button class="tab" data-g="p" role="tab" id="tab-project" aria-controls="view" data-tab="project" tabindex="-1"><span class="n">3</span>Proyecto</button>
-    <button class="tab" data-g="1" role="tab" id="tab-lined" aria-controls="view" data-tab="lined"><span class="n">4</span>Guion rayado</button>
-    <button class="tab" data-g="1" role="tab" id="tab-breakdown" aria-controls="view" data-tab="breakdown"><span class="n">5</span>Desglose</button>
+    <button class="tab" data-g="1" role="tab" id="tab-breakdown" aria-controls="view" data-tab="breakdown"><span class="n">4</span>Desglose</button>
+    <button class="tab" data-g="1" role="tab" id="tab-lined" aria-controls="view" data-tab="lined"><span class="n">5</span>Guion rayado</button>
     <button class="tab" data-g="1" role="tab" id="tab-scout" aria-controls="view" data-tab="scout"><span class="n">6</span>Scouting</button>
     <button class="tab" data-g="1" role="tab" id="tab-casting" aria-controls="view" data-tab="casting"><span class="n">7</span>Casting</button>
     <button class="tab" data-g="2" role="tab" id="tab-board" aria-controls="view" data-tab="board"><span class="n">4</span>Storyboard</button>

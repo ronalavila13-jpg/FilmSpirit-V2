@@ -136,6 +136,8 @@ function derive() {
   return D;
 }
 const sceneOfKey = k => D.sc.byKey[k];
+// todos los planos del proyecto en orden: escena por escena, como en el guion (para ir de un plano al siguiente en los editores)
+const shotOrder = () => D.sc.scenes.flatMap(s => D.shotsBy[s.key] || []);
 // La sinopsis de una escena: la que se escribió o la primera acción del guion, cortada a «max» letras con «…» en una
 // palabra. (lote X) Con «sentence» (la hoja de llamado: callSyn, tab-call.js) el corte cae al final de una oración, sin
 // «…», si hay una que cierre después de la mitad del largo

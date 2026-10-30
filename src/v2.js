@@ -16,16 +16,14 @@ function v2Sidebar() {
   const nav = $('#tabs'); if (!nav || nav.querySelector('.v2-sb-head')) return;
   document.documentElement.dataset.v2 = '1';
   const head = document.createElement('div'); head.className = 'v2-sb-head';
-  head.innerHTML = `<button type="button" class="v2-back" id="v2Back">${v2Svg('<path d="m15 18-6-6 6-6"/>')}<span>Tu página</span></button>`;
   nav.prepend(head);
-  // «Tu página» vuelve a Inicio, como el logo de la v1
-  $('#v2Back', head).onclick = () => { const b = $('#brand'); if (b) b.click(); };
   // el botón del proyecto de la v1 (abre «Proyecto»: datos, logos y equipo) pasa a la lateral, con su ícono y sus datos
   const pb = $('#projBtn');
   if (pb) {
     if (!pb.querySelector('.v2-tile')) {
       const tile = document.createElement('span'); tile.className = 'v2-tile'; tile.setAttribute('aria-hidden', 'true');
       tile.innerHTML = typeof markSVG === 'function' ? markSVG() : '';
+      tile.title = 'Tu página'; tile.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); const b = $('#brand'); if (b) b.click(); });
       pb.prepend(tile);
       const t = pb.querySelector('.t'), box = document.createElement('span'); box.className = 'v2-pt';
       t.before(box); box.append(t);
@@ -112,16 +110,23 @@ const v2Share = () => `<button type="button" class="v2-btn" data-v2a="share">Com
 const v2Export = (label = 'Exportar', ic = 'down') => `<button type="button" class="v2-btn y" data-v2a="export" aria-haspopup="menu">${v2I(ic)}<span>${esc(label)}</span></button>`;
 /* las herramientas que la v1 tenía al final de la barra de cada pestaña (las propias, Ajustes y Ayuda): en la v2, «⋯» en la
    cabecera (y en el teléfono, en el «⋯» de arriba). Así no se pierde nada de lo que los proyectos ya usan. */
-function v2ToolItems(tab = UI.tab) {
+const v2ExtraItems = (tab = UI.tab) => {
   const it = [];
   try { for (const x of (TOOLS_EXTRA[tab] && TOOLS_EXTRA[tab]()) || []) it.push([x[0], x[1], a => x[2](a)]); } catch (e) { }
+  return it;
+};
+function v2ToolItems(tab = UI.tab) {
+  const it = v2ExtraItems(tab);
   if (typeof SETTINGS !== 'undefined' && SETTINGS[tab]) it.push([ICO.gear, 'Ajustes', a => ACT.settings(a)]);
   if (typeof HELP !== 'undefined' && HELP[tab]) it.push([ICO.help, 'Ayuda', a => ACT.help(a)]);
   return it;
 }
-const v2More = () => typeof UI !== 'undefined' && v2ToolItems().length ? `<button type="button" class="v2-btn ic" data-v2a="more" aria-haspopup="menu" title="Ajustes y herramientas de esta pestaña" aria-label="Ajustes y herramientas de esta pestaña">${v2I('dots')}</button>` : '';
+const v2More = () => typeof UI !== 'undefined' && v2ExtraItems().length ? `<button type="button" class="v2-btn ic" data-v2a="more" aria-haspopup="menu" title="Más herramientas de esta pestaña" aria-label="Más herramientas de esta pestaña">${v2I('dots')}</button>` : '';
+/* (lote AJ) Ajustes y Ayuda, cada uno con su botón, a la derecha de las acciones */
+const v2Gear = () => typeof SETTINGS !== 'undefined' && SETTINGS[UI.tab] ? `<button type="button" class="v2-btn ic" data-v2a="settings" title="Ajustes" aria-label="Ajustes">${ICO.gear}</button>` : '';
+const v2HelpBtn = () => typeof HELP !== 'undefined' && HELP[UI.tab] ? `<button type="button" class="v2-btn ic" data-v2a="help" title="Ayuda" aria-label="Ayuda">${ICO.help}</button>` : '';
 function v2MoreMenu(b) {
-  const it = v2ToolItems();
+  const it = v2ExtraItems();
   popover(b, `<div class="menu">${it.map((x, j) => `<button type="button" data-j="${j}">${x[0]} ${x[1]}</button>`).join('')}</div>`, p => p.addEventListener('click', e => {
     const x = e.target.closest('[data-j]'); if (!x) return; closePop();
     setTimeout(() => it[+x.dataset.j][2](b.isConnected ? b : $('.v2-acts [data-v2a="more"]') || $('#moreBtn') || b), 0);
@@ -129,21 +134,61 @@ function v2MoreMenu(b) {
 }
 const V2_DO = {
   more: b => v2MoreMenu(b),
+  settings: b => ACT.settings(b),
+  help: b => ACT.help(b),
   hist: () => { if (typeof histPanelToggle === 'function') histPanelToggle(); },
   share: b => { if (typeof shareProject === 'function') shareProject(b); },
   export: b => { if (typeof ACT !== 'undefined' && ACT.export && EXPORTS[UI.tab]) ACT.export(b); },
 };
 function v2Acts() {
   const tb = $('.topbar'); if (!tb) return;
-  let a = $('.v2-acts', tb);
-  if (!a) {
-    a = document.createElement('div'); a.className = 'v2-acts'; tb.append(a);
+  let r = $('.v2-right', tb);
+  if (!r) {   // (lote AJ) acciones · Ajustes · Ayuda · campana · avatar, en este orden y siempre juntos
+    r = document.createElement('div'); r.className = 'v2-right'; tb.append(r);
+    const a = document.createElement('div'); a.className = 'v2-acts'; r.append(a);
+    const nt = $('.tb-notes', tb); if (nt) r.append(nt);
     a.addEventListener('click', e => { const b = e.target.closest('[data-v2a]'); if (!b || b.disabled) return; const f = V2_DO[b.dataset.v2a]; if (f) f(b, e); });
   }
-  const tab = UI.tab, f = V2_ACTS[tab];
-  const html = v2More() + (f ? f() : v2Hist() + v2Share() + (typeof EXPORTS !== 'undefined' && EXPORTS[tab] ? v2Export() : ''));
+  const a = $('.v2-acts', r), tab = UI.tab, f = V2_ACTS[tab];
+  let own = ''; try { own = f ? f() : v2Hist() + v2Share() + (typeof EXPORTS !== 'undefined' && EXPORTS[tab] ? v2Export() : ''); } catch (e) { }   // (sin proyecto cargado todavía, algunas pestañas no tienen con qué dibujar sus acciones)
+  const html = v2More() + own + v2Gear() + v2HelpBtn();
   if (a._html !== html) { a.innerHTML = html; a._html = html; }
+  const me = v2MeHTML(false);
+  let m = $('.v2-me', r);
+  if (!m) { r.insertAdjacentHTML('beforeend', me); m = $('.v2-me', r); m._html = me; }
+  else if (m._html !== me) { m.outerHTML = me; $('.v2-me', r)._html = me; }
 }
+/* ---------- (lote AJ) el avatar (a la derecha de la cabecera y de Inicio): su menú trae Ver perfil, Personalizar e Idioma ---------- */
+const V2_ME_ICO = {
+  look: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  person: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z"/>',
+  card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+};
+function v2MeHTML(home) {
+  const name = typeof v2HomeName === 'function' ? v2HomeName() : '';
+  const av = name ? esc(v2Ini(name)) : v2Svg(V2_ME_ICO.person);
+  return `<span class="v2-me"><button type="button" class="v2-meav" data-v2me="av" aria-haspopup="menu" title="${ea(name || 'Tu perfil')}" aria-label="Tu perfil y personalización">${av}</button></span>`;
+}
+function v2MeMenu(b) {
+  const home = document.body.classList.contains('home'), lang = typeof LANG !== 'undefined' ? LANG : 'es';
+  const acct = typeof APITEAM !== 'undefined' && APITEAM.me && typeof accountMenu === 'function';
+  const it = (k, ico, t, extra = '') => `<button type="button" data-k="${k}"${extra}>${v2Svg(V2_ME_ICO[ico])}<span>${t}</span></button>`;
+  popover(b, `<div class="menu v2-memenu">${it('prof', 'person', 'Ver perfil')}${it('look', 'look', 'Personalizar<small>Modo, colores y letra</small>')}
+    <h6>Idioma</h6>${LANGS_APP.map(([k, n]) => `<button type="button" data-k="lang" data-l="${ea(k)}" aria-pressed="${ea(k === lang)}"><span data-no-tr>${esc(n)}</span>${k === lang ? v2Svg(V2_ME_ICO.check) : ''}</button>`).join('')}
+    ${acct ? '<hr>' + it('acct', 'card', 'Cuenta y plan…') : ''}</div>`, p => p.addEventListener('click', e => {
+    const x = e.target.closest('[data-k]'); if (!x) return;
+    const k = x.dataset.k; closePop();
+    setTimeout(() => {
+      if (k === 'prof') { if (!home) { const br = $('#brand'); if (br) br.click(); } else if (acct) accountMenu(b); else if (typeof v2NameDialog === 'function') v2NameDialog(); }
+      else if (k === 'look') lookToggle('me');
+      else if (k === 'acct') accountMenu(b);
+      else if (k === 'lang' && x.dataset.l !== lang) langSet(x.dataset.l);
+    }, 0);
+  }));
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-v2me="av"]'); if (b) v2MeMenu(b); });
 /* debajo del nombre del proyecto: cuántas escenas y páginas tiene */
 function v2ProjSub() {
   const s = $('#v2ProjSub'); if (!s || typeof P === 'undefined' || !P) return;

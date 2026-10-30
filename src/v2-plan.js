@@ -12,11 +12,8 @@ const V2_WD = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 V2_ACTS.plan = () => `<div class="v2-seg" role="group" aria-label="Vista del plan">
     <button type="button" data-v2a="plv" data-v="days" aria-pressed="${ea(!v2Dood())}">Tiras</button><button type="button" data-v2a="plv" data-v="cast" aria-pressed="${ea(v2Dood())}">DOOD</button></div>`
-  // agregar una etapa o una jornada, a la vista (en la v1 estaban en la barra del plan; en la v2 quedaban escondidos)
-  + (typeof planEditable === 'function' && planEditable() && !v2Dood() ? `<button type="button" class="v2-btn" data-v2a="pladdst" title="Una etapa nueva: su nombre y desde qué jornada empieza">${v2I('plus')}<span>Etapa</span></button><button type="button" class="v2-btn" data-v2a="pladdday" title="Agrega una jornada vacía al final: arrastra a ella las escenas de «Sin programar»">${v2I('plus')}<span>Jornada</span></button>` : '')
   + v2Hist() + `<button type="button" class="v2-btn y" data-v2a="plpdf">${v2I('print')}<span>Ver y exportar PDF</span></button>`;
 V2_DO.plv = b => { ls.set('plView', b.dataset.v === 'cast' ? 'cast' : 'days'); if (typeof plSel === 'function') plSel().clear(); render(); };
-V2_DO.pladdst = b => ACT['pl-addstage'](b);
 V2_DO.pladdday = b => ACT['pl-addday'](b);
 V2_DO.plpdf = b => { if (typeof exportPDF === 'function') exportPDF(v2Dood() ? 'dood' : 'plan', b); };
 
@@ -47,19 +44,17 @@ function v2PlanCards(o) {
 }
 /* ---------- la fila de las tiras: leyenda, miniaturas y el ícono de las columnas ---------- */
 function v2PlanTiras() {
-  const th = planCols().thumb;
   return `<div class="v2-tiras"><h2>Tiras</h2>
     ${Object.values(V2_STRIP).map(([n, c]) => `<span class="v2-sw"><i style="background:${ea(c)}"></i>${esc(n)}</span>`).join('')}
     <span class="v2-grow"></span>
-    <label class="v2-chk"><input type="checkbox" data-v2plth ${th ? 'checked' : ''}><i aria-hidden="true"></i>Miniaturas del storyboard</label>
     <span class="v2-hint">Arrastra las tiras para cambiar el orden</span>
+    ${typeof planEditable === 'function' && planEditable() && !v2Dood() ? `<button type="button" class="v2-agr" data-act="v2-pladd" aria-haspopup="menu" title="Agregar una jornada o una etapa">${v2I('plus')}<span>Agregar</span></button>` : ''}
     <button type="button" class="v2-xl${planXL() ? ' on' : ''}" data-act="pl-style" data-v="${planXL() ? 'apple' : 'excel'}" aria-pressed="${ea(planXL())}" title="${ea(planXL() ? 'Estilo Cuadrícula (en la pantalla y en el PDF): toca para volver al estilo Limpio' : 'Estilo Limpio (en la pantalla y en el PDF): toca para pasar al estilo Cuadrícula')}" aria-label="Estilo Cuadrícula">${v2I('grid')}</button>
   </div>`;
 }
 V2_ICO.grid = '<rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9.7h16M4 14.3h16M9.3 5v14M14.7 5v14"/>';
 
 /* el primer plano de la escena: «1.1» (o «—» si no tiene) */
-const v2FirstShot = k => { const sh = (D.shotsBy[k] || [])[0]; return sh && D.code[sh.id] ? D.code[sh.id] : '—'; };
 const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperCase() : (DN_LAB[stripDN(s)] || '').toUpperCase(); };
 
 /* ---------- las piezas del tablero, en la forma v2 (envuelven las de la v1) ---------- */
@@ -68,8 +63,7 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
   planHeadHTML = function (o) { return v2PlanOn() ? v2PlanCards(o) : _ph.apply(this, arguments); };
   plHeadHTML = function () {
     if (!v2PlanOn()) return _plh.apply(this, arguments);
-    const th = planCols().thumb;
-    return `<div class="pl-head v2-plh${th ? '' : ' noth'}">${th ? '<span>Plano</span>' : ''}<span>Esc.</span><span>I/E</span><span>Momento</span><span>Locación y sinopsis</span><span>Págs.</span><span>Reparto</span><span>Tiempo aprox.</span></div>`;
+    return `<div class="pl-head v2-plh"><span>Esc.</span><span>I/E</span><span>Momento</span><span>Locación y sinopsis</span><span>Págs.</span><span>Reparto</span><span>Tiempo aprox.</span><span>Notas</span>${planEditable() ? plRzHTML() : ''}</div>`;
   };
   planStartHTML = function (d, n, dates, ed) {
     if (!v2PlanOn()) return _ps.apply(this, arguments);
@@ -89,10 +83,8 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
     const s = sceneOfKey(it.k);
     const sk = stripKey(s), hc = hlc(it), col = hc || V2_STRIP[sk][1];
     const syn = synopsisOf(s);
-    const th = planCols().thumb;
     const est = v2Hours(rowEstDur(it));   // «1 h 30 min», como el PDF (parseDur lo entiende igual)
-    return `<div class="prow sc v2-prow${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}${th ? '' : ' noth'}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}" data-strip="${ea(hc ? 'hl' : sk)}" style="--v2rc:${ea(col)}">
-      ${th ? `<span class="v2-pc"><span class="v2-shot">${esc(v2FirstShot(it.k))}</span></span>` : ''}
+    return `<div class="prow sc v2-prow${ea(it.sp ? ' part' : '')}${ea(sel ? ' sel' : '')}" data-i="${i}" data-key="${esc(key)}" data-note="scene:${esc(s.key)}" data-strip="${ea(hc ? 'hl' : sk)}" style="--v2rc:${ea(col)}">
       <span class="v2-pe tnum">${esc(rowCode(it))}</span>
       <span class="v2-pi">${esc(ieLab(s))}</span>
       <span class="v2-pm">${esc(v2Mom(s))}</span>
@@ -100,6 +92,7 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
       <span class="v2-ppg tnum">${esc(fmtEighths(partEighths(it)))}</span>
       <span class="v2-pr">${esc(castText(s))}</span>
       <span class="v2-pt"><input type="text" class="dur" maxlength="10" value="${esc(it.dur ? v2Hours(num(it.dur)) : '')}" placeholder="${esc(est)}" data-bind="pl-f" data-f="dur" data-i="${i}" aria-label="Tiempo aproximado" ${dis}></span>
+      <span class="v2-pn"><textarea rows="1" data-bind="pl-f" data-f="obs" data-i="${i}" aria-label="Notas" placeholder="${ea(ed ? 'Notas' : '')}" ${dis}>${esc(it.obs || '')}</textarea></span>
     </div>`;
   };
   planBreakHTML = function (d, n, dates, ed) {
@@ -111,8 +104,9 @@ const v2Mom = s => { const t = String(s.tod || '').trim(); return t ? t.toUpperC
   };
   legendHTML = function (tab) { if (tab === 'plan' && v2PlanOn()) return v2Dood() ? '' : v2PlanTiras(); return _lg.apply(this, arguments); };
 }
-/* «Miniaturas del storyboard»: la columna «Plano» */
-document.addEventListener('change', e => {
-  const c = e.target.closest && e.target.closest('[data-v2plth]'); if (!c) return;
-  ls.set('plThumb', !!c.checked); render();
-});
+
+/* (lote AJ) «Agregar» (en la fila de las tiras): una jornada vacía al final o una etapa nueva */
+ACT['v2-pladd'] = b => popover(b, `<div class="menu v2-addm"><button type="button" data-k="day"><b>Jornada</b><small>Una jornada vacía al final: arrastra a ella las escenas</small></button><button type="button" data-k="stage"><b>Etapa</b><small>Su nombre y desde qué jornada empieza</small></button></div>`, p => p.addEventListener('click', e => {
+  const x = e.target.closest('[data-k]'); if (!x) return;
+  closePop(); setTimeout(() => ACT[x.dataset.k === 'day' ? 'pl-addday' : 'pl-addstage'](b.isConnected ? b : $('.v2-tiras .v2-agr') || b), 0);
+}));

@@ -103,7 +103,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   if (fk.length && !waited) { framesNeed(fk).finally(() => openShotEditor(id, isNew, from2d, true)); return; }
   const E = EDT = {
     id, sh, s, isNew, from2d: !!from2d, t: 0, sel: null, playing: false, tab: 'shot', autokey: false, custom: !!sh.s3, cam: 'a',
-    s3: (x => { if (x.atm == null && typeof envFromScene === 'function') { const a = envFromScene(s).atm; if (a !== 'dia') x.atm = a; } return x; })(clone(s3Of(sh))), form: { size: sh.size, angle: sh.angle, move: sh.move, support: sh.support, snd: sh.snd || '', desc: sh.desc, notes: sh.notes, done: !!sh.done, names: !sh.noNames, p0: sh.p0 ?? s.p0, p1: sh.p1 ?? s.p1 - 1 },
+    s3: (x => { if (x.atm == null && typeof envFromScene === 'function') { const a = envFromScene(s).atm; if (a !== 'dia') x.atm = a; } return x; })(clone(s3Of(sh))), form: { size: sh.size, angle: sh.angle, move: sh.move, support: sh.support, snd: sh.snd || '', tog: sh.tog || '', desc: sh.desc, notes: sh.notes, done: !!sh.done, names: !sh.noNames, p0: sh.p0 ?? s.p0, p1: sh.p1 ?? s.p1 - 1 },
     // la referencia y la anotación que el dibujo 2D trajo como capas se ven allá (d2Imp), no aquí otra vez
     dur: shotDur(sh), durSet: !!(sh.dur && num(sh.dur) > 0), ref: (d2On(sh) && d2Imp(sh.d2, 'ref') ? null : FRAMES[id]) || null, refBack: !!sh.refBack, l2: ls.get('ed2d', true), refDirty: false, anno: null, annoDirty: false, hist: [], fut: [], gesture: false, tmp: null, gd: new Set(ls.get('guias', ls.get('guides', true) ? ['tercios', 'segura'] : [])),
     draw: { tool: 'pen', color: '#C8382C', w: 4, undo: [] },
@@ -113,6 +113,7 @@ function openShotEditor(id, isNew, from2d, waited) {
   const ar = ASPECTS[P.meta.aspect] || 16 / 9;
   const list = D.shotsBy[sh.sc] || [];
   const i = list.indexOf(sh);
+  const all = shotOrder(), ai = all.indexOf(sh);   // Anterior / Siguiente siguen de una escena a la otra
   const m = modal({
     title: `Plano ${D.code[id] || ''} · Esc. ${s.key}`, wide: true,
     body: `<div class="sx">
@@ -187,8 +188,8 @@ function openShotEditor(id, isNew, from2d, waited) {
           <div class="seg sx-tabs" role="group" aria-label="Panel del plano">${SX_TABS.map(([k, n, ic]) => `<button data-tab="${k}" aria-pressed="${ea(k === 'shot')}" title="${n}" aria-label="${n}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${n}</span></button>`).join('')}</div>
           <div id="sxPanel" class="sx-panel"></div>
         </div></div>`,
-    foot: `<div class="left"><button class="btn" id="edMore" aria-haspopup="menu" title="Duplicar o eliminar el plano" aria-label="Más acciones del plano">${ICO.more}</button>
-      <button class="btn ghost" id="edPrev" ${i > 0 ? '' : 'disabled'} title="Guardar e ir al plano anterior" aria-label="Plano anterior">◀<span class="hide-sm"> Anterior</span></button><button class="btn ghost" id="edNext" ${i >= 0 && i < list.length - 1 ? '' : 'disabled'} title="Guardar e ir al plano siguiente" aria-label="Plano siguiente"><span class="hide-sm">Siguiente </span>▶</button></div>
+    foot: `<div class="left"><button class="btn" id="edMore" aria-haspopup="menu" title="Duplicar o eliminar el plano" aria-label="Más acciones del plano">${ICO.more}</button></div>
+      <div class="ed-nav" role="group" aria-label="Cambiar de plano"><button class="ed-arr" id="edPrev" ${all[ai - 1] ? '' : 'disabled'} title="${all[ai - 1] ? `Plano ${esc(D.code[all[ai - 1].id] || '')}: guardar e ir (←)` : 'Es el primer plano'}" aria-label="Plano anterior" aria-keyshortcuts="ArrowLeft"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg></button><span class="ed-pos" title="Posición del plano en el proyecto">${esc(D.code[id] || '')}<small>${ai + 1}/${all.length}</small></span><button class="ed-arr" id="edNext" ${all[ai + 1] ? '' : 'disabled'} title="${all[ai + 1] ? `Plano ${esc(D.code[all[ai + 1].id] || '')}: guardar e ir (→)` : 'Es el último plano'}" aria-label="Plano siguiente" aria-keyshortcuts="ArrowRight"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg></button></div>
       <button class="btn hide-sm" data-close>Cancelar</button><button class="btn primary" id="edSave">Guardar</button>`,
     // con cambios, cerrar (✕, Esc, Cancelar) pregunta; tocar fuera no cierra
     keep: true,
@@ -1988,6 +1989,7 @@ function openShotEditor(id, isNew, from2d, waited) {
           <label class="fld"><span>Soporte</span><select data-f="support"><option value=""></option>${SUPPORTS.map(a => `<option ${a === f.support ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
           <label class="fld" title="Para la hoja de llamado y el reporte de sonido: se graba sonido directo, solo ambiente o nada (MOS)"><span>Sonido</span><select data-f="snd">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(f.snd || '') === k ? 'selected' : ''}>${k ? t : 'Sin definir'}</option>`).join('')}</select></label></div>
         <div id="sxRead">${readHTML()}</div>${masterHint()}
+        ${list.length > 1 ? `<label class="fld" title="Varios planos con un solo tiro de cámara: comparten color en el storyboard y la claqueta lleva el número del más bajo"><span>Se graba junto con</span><select data-f="tog"><option value="">— ningún otro plano —</option>${list.filter(x => x.id !== id).map(x => `<option value="${ea(x.id)}" ${x.id === f.tog ? 'selected' : ''}>${esc(D.code[x.id] || '')} · ${esc(String(x.desc || x.size || '').slice(0, 40))}</option>`).join('')}</select></label>` : ''}
         <label class="fld"><span>Descripción del plano</span><textarea data-f="desc" rows="2" placeholder="Qué se ve y qué pasa en el cuadro">${esc(f.desc)}</textarea></label>
         <div class="grid2"><label class="fld"><span>Desde</span><select data-f="p0">${paraOpts(f.p0)}</select></label><label class="fld"><span>Hasta</span><select data-f="p1">${paraOpts(f.p1)}</select></label></div>
         <label class="fld"><span>Notas (sonido, arte, continuidad)</span><textarea data-f="notes" rows="2">${esc(f.notes)}</textarea></label>
@@ -2783,6 +2785,12 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (E.tab === 'draw' && (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || e.key.toLowerCase() === 'z')) { e.preventDefault(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); histGo(1); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); histGo(-1); }
+    else if (['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      // (lote AJ) guardar e ir al plano anterior o siguiente del proyecto; no con un menú abierto
+      if (document.querySelector('#pop')) return;
+      const t = all[ai + (e.key === 'ArrowLeft' || e.key === 'PageUp' ? -1 : 1)];
+      if (t) { e.preventDefault(); save(t); }
+    }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && E.sel && E.sel !== 'cam') { snapshot(); s3DelObj(E.s3, E.sel); E.sel = null; commit(); redraw(); }
     else if (e.key === ' ' && !(document.activeElement && document.activeElement.tagName === 'BUTTON' && document.activeElement.id !== 'tlPlay')) { e.preventDefault(); $m('#tlPlay').click(); }
   }
@@ -2808,8 +2816,11 @@ function openShotEditor(id, isNew, from2d, waited) {
   async function save(next, to2d) {
     histNote(`Editar el plano ${D.code[id] || ''}`.trim(), null, 'board');
     if (E.from2d && !to2d) sh.ws = '3d';
+    const wasDone = !!sh.done;
     Object.assign(sh, { size: E.form.size, angle: E.form.angle, move: E.form.move, support: E.form.support, desc: E.form.desc, notes: E.form.notes, done: E.form.done });
     if (E.form.snd) sh.snd = E.form.snd; else delete sh.snd;
+    if (!!sh.done !== wasDone) setShotDone(sh, !!sh.done);   // (lote AJ) rodado en grupo
+    if ((E.form.tog || '') !== (sh.tog || '')) setTogether(sh, E.form.tog);
     if (E.form.names) delete sh.noNames; else sh.noNames = true;
     let p0 = E.form.p0, p1 = E.form.p1; if (p1 < p0) [p0, p1] = [p1, p0]; sh.p0 = p0; sh.p1 = p1;
     if (E.durSet) sh.dur = String(E.dur);
@@ -2857,8 +2868,8 @@ function openShotEditor(id, isNew, from2d, waited) {
   }
   $m('#edSave').onclick = () => save();
   E.saveNow = () => save();   // al cerrar la app de escritorio con el editor abierto
-  $m('#edPrev').onclick = () => save(list[i - 1]);
-  $m('#edNext').onclick = () => save(list[i + 1]);
+  $m('#edPrev').onclick = () => save(all[ai - 1]);
+  $m('#edNext').onclick = () => save(all[ai + 1]);
   const delShot = () => { E.saved = true; closeModal(); deleteShot(id); };
   $m('#edMore').onclick = ev => popover(ev.currentTarget, `<div class="menu"><button data-m="copy" ${i > 0 && list[i - 1] ? '' : 'disabled'} title="Figuras, objetos, luces y su animación; la cámara de este plano no cambia">Copiar la escena del plano anterior</button>${UI.readOnly ? '' : `<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>`}<button data-m="dup">Duplicar plano</button><button data-m="del" style="color:var(--bad)">Eliminar plano</button></div>`, p => p.addEventListener('click', e2 => {
     const b = e2.target.closest('[data-m]'); if (!b || b.disabled) return; closePop();

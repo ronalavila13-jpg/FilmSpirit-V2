@@ -920,6 +920,8 @@ function autoBreakdown(P, opts = {}) {
   }
   const used = new Set(P.tags.map(t => t.el));
   for (const id of Object.keys(P.elements)) if (!used.has(id)) delete P.elements[id];
+  // (lote AJ) las marcas ya vienen confirmadas: no hay sugerencias pendientes que revisar
+  P.tags.forEach(t => { t.auto = false; }); Object.values(P.elements).forEach(e => { e.auto = false; });
   return added;
 }
 function importFdTags(P, fdTags) {

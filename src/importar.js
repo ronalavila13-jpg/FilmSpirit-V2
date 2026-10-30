@@ -12,7 +12,9 @@ function loadPdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if (PDFJS_P) return PDFJS_P;
   const base = DESK || typeof LOCAL_LIBS !== 'undefined' ? 'lib/' : 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
-  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el lector de PDF. Revisa tu conexión e inténtalo de nuevo.')); document.head.appendChild(s); });
+  // (el CDN con su huella: si el archivo cambiara, el navegador no lo usa)
+  const SRI = { 'pdf.worker.min.js': 'sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2', 'pdf.min.js': 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e' };
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; if (base[0] === 'h') { s.integrity = SRI[src.slice(base.length)]; s.crossOrigin = 'anonymous'; } s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el lector de PDF. Revisa tu conexión e inténtalo de nuevo.')); document.head.appendChild(s); });
   return (PDFJS_P = load(base + 'pdf.worker.min.js').then(() => load(base + 'pdf.min.js')).then(() => window.pdfjsLib).catch(e => { PDFJS_P = null; throw e; }));
 }
 async function readPDFScript(file) {

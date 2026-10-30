@@ -3,7 +3,7 @@
    (Guion rayado). Las dos pestañas comparten esta vista: Guion abre el editor; Guion rayado, las páginas para marcar.
    ============================================================ */
 /* capas del guion rayado: en la pestaña Guion (solo lectura, sin editor) el texto se ve limpio */
-const LAYERS = () => UI.tab === 'lined' ? UI.mode : { tags: false, cov: false };
+const LAYERS = () => UI.tab === 'lined' ? { ...UI.mode, tags: false } : UI.tab === 'breakdown' ? { tags: true, cov: false } : { tags: false, cov: false };   // (lote AJ) las etiquetas van en el Desglose, sobre las páginas de la escena
 function sceneListHTML(act) {
   const { scenes } = D.sc;
   return `${hdSide('Escenas', `${scenes.length} · ${D.pages.length} ${D.pages.length === 1 ? 'pág.' : 'págs.'}`, 'Buscar escena o locación')}
@@ -64,17 +64,14 @@ RENDER.script = function () {
         ${UI.tab === 'script' && typeof myScriptsBtnHTML === 'function' ? myScriptsBtnHTML() : ''}
         ${scriptModeHTML()}
         ${UI.tab === 'lined' ? `<div class="hd-togs hide-sm" role="group" aria-label="Capas">
-          <button type="button" data-act="mode" data-m="tags" aria-pressed="${ea(UI.mode.tags)}" title="Los colores del desglose sobre el texto">${ICO.ok}Etiquetas</button>
           <button type="button" data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}" title="Las líneas de los planos sobre el texto">${ICO.ok}Rayado</button>
           ${typeof anoChipHTML === 'function' ? anoChipHTML() : ''}
         </div>${typeof anoBtnHTML === 'function' ? anoBtnHTML() : ''}` : ''}
-        ${UI.tab === 'lined' && !UI.readOnly ? mkBtnHTML() : ''}
         <div class="seg hide-sm" role="group" aria-label="Zoom"><button data-act="zoom" data-z="-1" aria-label="Alejar">−</button><button data-act="zoom" data-z="1" aria-label="Acercar">+</button></div>
         <span class="grow"></span>${lockChipHTML()}
         <button class="btn ghost only-narrow for-insp" data-act="drawer" data-d="#insp">Escena ${esc(D.sc.scenes[UI.scene] ? D.sc.scenes[UI.scene].key : '')}</button>
         ${toolsHTML()}
       </div>
-      ${UI.tab === 'lined' && UI.mode.tags ? legendHTML('lined') : ''}
       <div class="scroller" id="scroller" data-keep="script"><div class="pages${ea(edFormat() === 'av' ? ' av-pages' : '')}" id="pages">${pagesHTML()}</div></div>
     </section>
     <aside class="insp ins" id="insp">${inspectorHTML()}</aside>
@@ -247,7 +244,7 @@ function lineContent(ln, tbp) {
   }
   return out;
 }
-function pagesHTML() {
+function pagesHTML(range) {   // range: [primera, última] página (el Desglose muestra solo las de su escena)
   const tbp = tagsByPara();
   if (edFormat() === 'av') return avPagesHTML(tbp);
   const nums = edNumsOn();
@@ -255,6 +252,7 @@ function pagesHTML() {
   MN.items = mnOn() && !notesHidden() ? mnItems() : new Map(); MN.sig = mnOn() ? mnSigOf() : '';
   if (typeof anoPrep === 'function') anoPrep();   // anotaciones a mano (guion-anotar.js)
   return D.pages.map((pg, pi) => {
+    if (range && (pi < range[0] || pi > range[1])) return '';
     let marks = '';
     const lines = pg.map((ln, li) => {
       if (ln.blank) return '<div class="ln blank"></div>';
@@ -285,6 +283,7 @@ function avPagesHTML(tbp) {
 function coverageHTML(pi) {
   if (!LAYERS().cov) return '';
   let out = '';
+  const G = typeof shotGroups === 'function' ? shotGroups() : new Map();   // (lote AJ) los planos que se graban juntos, con el color del storyboard
   for (const sh of Object.values(P.shots)) {
     if (sh.p0 == null || !D.code[sh.id]) continue;
     const a = D.pos[sh.p0], b = D.pos[sh.p1];
@@ -293,9 +292,48 @@ function coverageHTML(pi) {
     const to = pi === b.pg1 ? b.li1 : D.pages[pi].length - 1;
     const st = pi === a.pg0, en = pi === b.pg1;
     // la línea va sobre el texto (no tapa la selección); el número, arriba, es lo que se toca para abrir el plano
-    out += `<div class="cv${ea(st ? ' st' : ' cont')}${ea(en ? ' en' : '')}${ea(sh.done ? ' done' : '')}" data-act="shot" data-id="${ea(sh.id)}" style="--lane:${ea(D.lanes[sh.id] || 0)};--n:${ea(D.laneN[sh.id] || 1)};--a:${ea(from)};--b:${ea(to)}"><span class="cvl" title="Plano ${ea(D.code[sh.id])} · ${esc(shotLabel(sh))}${st ? '' : ' (sigue)'}">${esc(D.code[sh.id])}</span></div>`;
+    out += `<div class="cv${ea(st ? ' st' : ' cont')}${ea(en ? ' en' : '')}${ea(sh.done ? ' done' : '')}" data-act="raya" data-id="${ea(sh.id)}" style="--lane:${ea(D.lanes[sh.id] || 0)};--n:${ea(D.laneN[sh.id] || 1)};--a:${ea(from)};--b:${ea(to)}${G.get(sh.id) ? `;--cvc:${ea(G.get(sh.id).color)}` : ''}"><i class="cvb"></i><span class="cvl" title="Plano ${ea(D.code[sh.id])} · ${esc(shotLabel(sh))}${G.get(sh.id) ? ' · se graba junto con ' + esc(G.get(sh.id).members.filter(m => m.id !== sh.id).map(m => D.code[m.id]).join(', ')) : ''}${st ? '' : ' (sigue)'}">${esc(D.code[sh.id])}</span></div>`;
   }
   return out;
+}
+/* (lote AJ) la raya de un plano: su menú (abrir, ajustar el texto que cubre, quitarla o eliminar el plano) y el resalte del texto al pasar el mouse */
+function rayaMenu(b) {
+  const cv = b.closest('.cv') || b, id = cv.dataset.id, sh = P.shots[id]; if (!sh) return;
+  const ed = !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('storyboard'));
+  const it = (k, t, d, cls = '') => `<button type="button" data-k="${k}"${cls ? ' class="' + cls + '"' : ''}><span>${t}</span>${d ? `<small>${d}</small>` : ''}</button>`;
+  popover(cv.querySelector('.cvl') || cv, `<div class="menu v2-rayam"><h5>Plano ${esc(D.code[id] || '')}</h5>${it('open', 'Abrir el plano')}${ed ? `<hr>
+    ${it('a-', 'Empieza antes', 'Sube el inicio un párrafo')}${it('a+', 'Empieza después', 'Baja el inicio un párrafo')}${it('b-', 'Termina antes', 'Sube el final un párrafo')}${it('b+', 'Termina después', 'Baja el final un párrafo')}<hr>
+    ${it('none', 'Quitar la raya', 'El plano sigue en el storyboard, sin texto')}${it('del', 'Eliminar el plano', '', 'dng')}` : ''}</div>`, p => p.addEventListener('click', e => {
+    const x = e.target.closest('[data-k]'); if (!x) return;
+    const k = x.dataset.k; closePop();
+    if (k === 'open') { openShot(id); return; }
+    if (k === 'del') { deleteShot(id); return; }
+    const s = sceneOfKey(sh.sc); if (!s) return;
+    const lab = k === 'none' ? 'Quitar la raya del plano ' : 'Cambiar la raya del plano ';
+    histNote(lab + (D.code[id] || ''));
+    if (k === 'none') { sh.p0 = null; sh.p1 = null; }
+    else {
+      let a = sh.p0 ?? s.p0, z = sh.p1 ?? a;
+      if (k === 'a-') a = Math.max(s.p0, a - 1); else if (k === 'a+') a = Math.min(z, a + 1);
+      else if (k === 'b-') z = Math.max(a, z - 1); else if (k === 'b+') z = Math.min(s.p1 - 1, z + 1);
+      sh.p0 = a; sh.p1 = z;
+    }
+    changed('data'); derive(); render();
+    if (k !== 'none') setTimeout(() => { const nv = $(`#pages .cv[data-id="${id}"]`); if (nv) rayaMenu(nv); }, 60);   // el menú sigue abierto para seguir ajustando
+  }));
+}
+function rayaHoverBind(pages) {
+  if (UI.tab !== 'lined') return;
+  let cur = null;
+  const set = c => { if (c === cur) return; if (cur) cur.classList.remove('hov'); cur = c; if (cur) cur.classList.add('hov'); };
+  pages.addEventListener('mousemove', e => {
+    const pg = e.target.closest && e.target.closest('.page'); let hit = null;
+    if (pg) for (const cv of pg.querySelectorAll('.cv')) {
+      const r = cv.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { hit = cv; break; }
+    }
+    set(hit || (e.target.closest && e.target.closest('.cvl') ? e.target.closest('.cv') : null));
+  });
+  pages.addEventListener('mouseleave', () => set(null));
 }
 function shotLabel(sh) { return [sh.size, sh.angle && sh.angle !== 'Normal' ? sh.angle : '', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean).join(' · ') || 'Sin datos'; }
 
@@ -329,8 +367,8 @@ function refreshInspector() { const i = $('#insp'); if (i) { const open = i.clas
 function refreshPages() {
   const pages = $('#pages');
   if (!pages) return;
-  pages.innerHTML = pagesHTML();
-  fitPages();
+  pages.innerHTML = pagesHTML(UI.tab === 'breakdown' && typeof v2BdRange === 'function' ? v2BdRange(D.sc.scenes[UI.scene]) : undefined);
+  fitPages(); if (UI.tab === 'breakdown' && typeof v2BdDim === 'function') v2BdDim();
 }
 
 /* ---------- interacción con el texto ---------- */
@@ -343,6 +381,7 @@ function bindScript() {
     get: () => UI.zoom, set: z => { UI.zoom = z; fitPages(); } });
   const pages = $('#pages');
   mnBind(pages);
+  rayaHoverBind(pages);
   if (typeof anoBind === 'function') anoBind(pages);   // anotar a mano (guion-anotar.js)
   pages.addEventListener('click', e => {
     const tg = e.target.closest('.tg');
@@ -437,8 +476,8 @@ function mkCursor(col) {
 }
 function mkPaint() {
   const c = MK.cat && CAT[MK.cat], pages = $('#pages');
-  document.body.classList.toggle('mk-on', !!c && UI.tab === 'lined');
-  if (pages) pages.style.cursor = c && UI.tab === 'lined' ? mkCursor(c.color) : '';
+  document.body.classList.toggle('mk-on', !!c && (UI.tab === 'lined' || UI.tab === 'breakdown'));
+  if (pages) pages.style.cursor = c && (UI.tab === 'lined' || UI.tab === 'breakdown') ? mkCursor(c.color) : '';
   const b = $('#view .mk-btn'); if (b) b.outerHTML = mkBtnHTML();
 }
 function mkSet(cat, silent) {
@@ -654,6 +693,7 @@ const ACT = {
   zoom: b => { UI.zoom = clamp(UI.zoom * (+b.dataset.z > 0 ? 1.15 : 1 / 1.15), ZOOM_MIN, ZOOM_MAX); fitPages(); },
   'cat-toggle': b => { const c = b.dataset.c; UI.hidden.has(c) ? UI.hidden.delete(c) : UI.hidden.add(c); b.setAttribute('aria-pressed', !UI.hidden.has(c)); refreshPages(); },
   shot: b => openShot(b.dataset.id),
+  raya: b => rayaMenu(b),
   'shot-scene': b => { const s = D.sc.scenes[b.dataset.i != null ? +b.dataset.i : UI.scene]; if (s) newShot(s, s.p0 + 1 < s.p1 ? s.p0 + 1 : s.p0, s.p1 - 1, { size: 'PG' }, true); },
   suggest: b => { const s = D.sc.scenes[b.dataset.i != null ? +b.dataset.i : UI.scene]; if (s) suggestShots(s); },
   pdf: b => exportPDF(b.dataset.k, b),
@@ -800,7 +840,7 @@ SETTINGS.script = () => `${typeof edEditable === 'function' && edEditable() ? `<
   ${epCan() || isSeries(P) ? `<div class="fld"><span>Serie de TV</span><div class="menu">${isSeries(P) ? `<button data-act="ep-open" data-pclose>Episodios (${(D.sc.eps || []).length})…</button>` : '<button data-act="ep-convert" data-pclose>Convertir en serie…</button>'}</div><span class="hint">${isSeries(P) ? 'Cada episodio numera sus escenas con su número delante (101-1, 101-2…) y empieza en página nueva.' : 'Para una serie: un episodio tras otro en el mismo proyecto, con sus escenas numeradas 101-1, 101-2…'}</span></div>` : ''}
   <div class="fld"><span>Guion final</span>${scriptLock() ? `<div class="menu"><button data-act="lk-panel" data-pclose>${ICO.lock} Guion cerrado: revisiones y acceso…</button></div>` : lockCanClose() ? `<div class="menu"><button data-act="lk-close" data-pclose>${ICO.lock} Cerrar el guion final…</button></div>` : ''}
     <span class="hint">${scriptLock() ? 'Cerrado: los cambios se hacen en revisiones de color; los números de escena y de página no se mueven.' : 'Al cerrarlo queda de solo lectura, con los números de escena y de página fijos; los cambios se hacen en revisiones de color.'}</span></div>`;
-SETTINGS.lined = () => `<div class="fld sm-fld"><span>Ver en el guion</span><div class="seg" role="group" aria-label="Capas"><button data-act="mode" data-m="tags" aria-pressed="${ea(UI.mode.tags)}">Etiquetas</button><button data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}">Rayado</button>${typeof anoOn === 'function' && anoOn() ? `<button data-act="mode" data-m="ink" aria-pressed="${ea(UI.mode.ink !== false)}">Anotaciones</button>` : ''}</div></div>
+SETTINGS.lined = () => `<div class="fld sm-fld"><span>Ver en el guion</span><div class="seg" role="group" aria-label="Capas"><button data-act="mode" data-m="cov" aria-pressed="${ea(UI.mode.cov)}">Rayado</button>${typeof anoOn === 'function' && anoOn() ? `<button data-act="mode" data-m="ink" aria-pressed="${ea(UI.mode.ink !== false)}">Anotaciones</button>` : ''}</div></div>
   <div class="fld"><span>Categorías de las etiquetas</span><div class="legend cat-chips">${CATS.map(c => `<button data-act="cat-toggle" data-c="${ea(c.id)}" aria-pressed="${ea(!UI.hidden.has(c.id))}" style="--c:${ea(c.color)};--ci:${ea(mkInk(c.color))}" title="Mostrar u ocultar ${ea(c.name)} en el guion">${esc(c.name)}</button>`).join('')}</div>
   <span class="hint">Toca una categoría para ocultarla o mostrarla en el guion.</span></div>${typeof anoSettingsHTML === 'function' ? anoSettingsHTML() : ''}`;
 HELP.script = [
@@ -808,7 +848,7 @@ HELP.script = [
   ['Formato y revisión', 'La barra tiene negrita (Ctrl+B), itálica (Ctrl+I), subrayado (Ctrl+U) y resaltar: elige el texto (o deja el cursor en una palabra) y toca el botón. La flechita del resaltador elige entre seis colores (o lo quita). Salen en el PDF y en Fountain; el resaltado es una marca de trabajo, no se imprime y se oculta con el guion cerrado. El último botón marca los cambios: lo cambiado queda resaltado con el color de la revisión y el párrafo con un asterisco (en el PDF, solo el asterisco).'],
   ['Escritura y racha', 'La llamita de la barra cuenta lo que escribes cada día: palabras netas, tiempo escribiendo y pensando. Si llegas a tu meta (100 palabras o 15 minutos, la cambias en su panel), la racha suma un día; un día de descanso por semana no la corta. Es tuya: suma con todos tus guiones y nadie más la ve.'],
   ['AV a dos columnas', 'Video a la izquierda, audio a la derecha y la duración de cada fila. Tab pasa de celda en celda; Ctrl + Intro agrega una fila. En el audio, «NOMBRE: texto» cuenta como personaje para el desglose.'],
-  ['Marcar el desglose', 'Las etiquetas del desglose y el rayado de los planos están en la pestaña Guion rayado, en Desarrollo. Al pasar allí, el texto nuevo trae sus sugerencias.'],
+  ['Marcar el desglose', 'Las etiquetas del desglose se marcan en la pestaña Desglose (selecciona una palabra y elige su categoría); el Guion rayado es para el rayado de los planos y las anotaciones a mano.'],
   ['Guion final', 'En Ajustes («⋯» al final de la barra), «Cerrar el guion final» lo deja de solo lectura con los números de escena y de página fijos (lo nuevo va con letra: escena 12A, página 30A). Para cambiarlo, una persona autorizada abre una revisión de color con su código: cada párrafo cambiado queda con asterisco y el registro dice quién hizo qué. Solo producción lo reabre.'],
 ];
 HELP.lined = [
@@ -816,7 +856,7 @@ HELP.lined = [
   ['Crear planos', 'Selecciona el texto que cubre el plano y elige «Plano». Las líneas sobre el texto son el rayado: cada una muestra qué cubre su plano, con el número arriba (tócalo para abrir el plano).'],
   ['Notas al margen', 'Suelta el botón de nota (arriba) sobre una palabra del guion, o elige texto y toca «Nota»: la nota queda al costado de la página con la fecha del día y una flecha fina hasta ese lugar. Tócala para responder, editarla o resolverla. Si es tuya, toca la fecha para cambiarla y arrastra la punta de la flecha a otro lugar del texto. Salen en el PDF del guion rayado.'],
   ['Anotar a mano', 'El lápiz de la barra abre las herramientas: lápiz, marcador, flecha (recta o curva, sigue tu gesto), cuadro de texto y borrador, con cinco colores y tres grosores. Se dibuja sobre el texto y en los márgenes; cada anotación queda pegada a su renglón. Con un lápiz digital, el lápiz dibuja y el dedo desplaza la página. Las ve todo el equipo: toca una para ver quién la hizo. «Anotaciones» las muestra u oculta, y salen en el PDF del guion rayado.'],
-  ['Etiquetas y Rayado', 'Muestran u ocultan los colores del desglose y las líneas de los planos. En Ajustes («⋯» al final de la barra) eliges qué categorías se ven.'],
+  ['Rayado', 'Muestra u oculta las líneas de los planos. Pasa el mouse sobre una línea para ver el texto que cubre; toca su número para abrir un menú: ajustar dónde empieza o termina, quitar la raya o eliminar el plano.'],
   ['Exportar', 'El PDF del guion rayado sale como lo ves: con el rayado de los planos, con las etiquetas o con las dos, y con las categorías que tengas a la vista. También puedes sacar solo las etiquetas de un área (sonido, vestuario, atrezzo…) para cada departamento.'],
   ['Escenas', 'La lista de la izquierda salta a cada escena; el panel de la derecha muestra su sinopsis, sus planos y su desglose.'],
   ['Escribir', 'Para escribir o corregir el texto, usa la pestaña Guion.'],
