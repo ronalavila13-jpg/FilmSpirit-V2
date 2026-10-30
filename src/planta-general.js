@@ -13,6 +13,7 @@
 const PG_COLS = ['#2C47CF', '#C2410C', '#0F766E', '#A21CAF', '#4D7C0F', '#7C3AED', '#92400E', '#0369A1', '#BE123C', '#475569'];
 const pgCol = i => PG_COLS[i % PG_COLS.length];
 const pgDec = v => typeof EN !== 'undefined' && EN ? v : String(v).replace('.', ',');   // 0,98 m en español; 0.98 m en inglés
+const pgLn = S => S.cams.map(C => (C.letter ? C.letter + ' ' : '') + Math.round(C.cam.lens) + ' mm').join(' · ') + (S.hidden ? ' · con ' + S.rep.code : '');
 const pgShort = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
 
 /* lo que se dibuja: los planos de la escena (sin los dibujados a mano), su escena 3D (la del editor abierto, si es
@@ -35,6 +36,14 @@ function pgData(scKey, live) {
     if (s3HasB(s3)) one(s3ForB(s3), 'B');
     return { sh, s3, code, col: pgCol(i), cams, desc: pgShort(sh.desc || [sh.size, sh.angle && sh.angle !== 'Normal' ? sh.angle : '', sh.move && sh.move !== 'Fijo' ? sh.move : ''].filter(Boolean).join(' · '), 60) };
   });
+  // los planos que se graban de una vez (los grupos de color del Storyboard) comparten color y se dibuja solo la cámara del más
+  // bajo: las demás estarían encima (S.hidden; S.rep es la que se ve, también al elegir uno de ellos en la lista)
+  const grp = typeof shotGroups === 'function' ? shotGroups() : new Map(), lead = new Map();
+  for (const S of shots) {
+    const g = grp.get(S.sh.id); if (!g) continue;
+    S.col = g.color;
+    if (lead.has(g)) { S.hidden = true; S.rep = lead.get(g); } else lead.set(g, S);
+  }
   // las figuras: una vez cada personaje (la posición del máster o del primer plano en que aparece); en los demás planos,
   // si está en otro lugar, un punto tenue con el código; si se desplaza dentro de un plano, su recorrido
   const figs = new Map();
@@ -54,7 +63,7 @@ function pgData(scKey, live) {
   // las luces, objetos y animales de la escena (los de todos los planos): con su posición de la escena
   const els = scEls(scKey), elIds = new Set(els.map(x => x.ob.id));
   const props = base ? base.objs.filter(o => o.kind !== 'actor' && o.kind !== 'luz' && !o.hold && !elIds.has(o.id)) : [];
-  return { scKey, base, shots, figs: [...figs.values()], props, els, skipped: (D.shotsBy[scKey] || []).length - all.length };
+  return { scKey, base, shots, cams: shots.filter(S => !S.hidden), figs: [...figs.values()], props, els, skipped: (D.shotsBy[scKey] || []).length - all.length };
 }
 const pgLen = path => path.reduce((a, p, i) => i ? a + Math.hypot(p[0] - path[i - 1][0], p[1] - path[i - 1][1]) : 0, 0);
 
@@ -74,7 +83,8 @@ function pgDraw(ctx, W, H, G, opt = {}) {
   planDrawSet(ctx, G.base, V, toS, opt.redraw || (() => { }));
   ctx.restore();
   const font = (w, s) => `${w} ${Math.round(s * k * 10) / 10}px Archivo, Arial, sans-serif`;
-  const dim = id => opt.sel && id !== opt.sel;
+  const selS = opt.sel && G.shots.find(x => x.sh.id === opt.sel), selCam = selS && selS.hidden ? selS.rep.sh.id : opt.sel;   // el plano elegido, o la cámara de su grupo
+  const dim = id => selCam && id !== selCam;
   // rótulos sin pisarse: cada uno busca el primer lugar libre alrededor de su punto
   const boxes = [];
   // los objetos del lugar: una vez, como en la planta del plano pero sin manijas
@@ -193,15 +203,15 @@ function pgDraw(ctx, W, H, G, opt = {}) {
     ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(code, bx + 2 * k, by + h / 2); ctx.textBaseline = 'alphabetic';
   }
   // cámaras: los conos primero (cortos: varias cámaras no tapan la planta), después recorridos, cuerpos y rótulos
-  const order = [...G.shots].sort((a, b) => (a.sh.id === opt.sel) - (b.sh.id === opt.sel));
+  const order = [...G.cams].sort((a, b) => (a.sh.id === selCam) - (b.sh.id === selCam));
   for (const S of order) for (const C of S.cams) {
     const c = C.cam, [cx, cy] = toS(c.x, c.z);
     if (Math.abs(c.pitch) >= 80) continue;
     const hf = 2 * Math.atan((c.sw || 36) / 2 / clamp(c.lens, 8, 600)), L = Math.max(48 * k, 3 * V.sc);
     const dA = [-Math.sin(rad(c.yaw) - hf / 2), -Math.cos(rad(c.yaw) - hf / 2)], dB = [-Math.sin(rad(c.yaw) + hf / 2), -Math.cos(rad(c.yaw) + hf / 2)];
     ctx.save(); ctx.globalAlpha = dim(S.sh.id) ? .22 : 1;
-    ctx.fillStyle = planRGBA(S.col, opt.sel === S.sh.id ? .16 : .07); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + dA[0] * L, cy + dA[1] * L); ctx.lineTo(cx + dB[0] * L, cy + dB[1] * L); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = planRGBA(S.col, .75); ctx.lineWidth = (opt.sel === S.sh.id ? 1.8 : 1.1) * k; if (C.letter === 'B') ctx.setLineDash([5 * k, 4 * k]);
+    ctx.fillStyle = planRGBA(S.col, selCam === S.sh.id ? .16 : .07); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + dA[0] * L, cy + dA[1] * L); ctx.lineTo(cx + dB[0] * L, cy + dB[1] * L); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = planRGBA(S.col, .75); ctx.lineWidth = (selCam === S.sh.id ? 1.8 : 1.1) * k; if (C.letter === 'B') ctx.setLineDash([5 * k, 4 * k]);
     ctx.beginPath(); ctx.moveTo(cx + dA[0] * L, cy + dA[1] * L); ctx.lineTo(cx, cy); ctx.lineTo(cx + dB[0] * L, cy + dB[1] * L); ctx.stroke();
     ctx.restore();
   }
@@ -236,7 +246,7 @@ function pgRound(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.r
 /* el encuadre que muestra todo: cámaras (principio y fin), figuras, objetos y el plano importado */
 function pgFit(G, W, H, k = 1) {
   const pts = [];
-  for (const S of G.shots) for (const C of S.cams) { pts.push([C.cam.x, C.cam.z]); for (const p of C.path) pts.push(p); }
+  for (const S of G.cams) for (const C of S.cams) { pts.push([C.cam.x, C.cam.z]); for (const p of C.path) pts.push(p); }
   for (const F of G.figs) { pts.push([F.p.x, F.p.z]); for (const a of F.also) pts.push([a.p.x, a.p.z]); for (const m of F.moves) pts.push(...m.path); }
   if (G.base) {
     const st = s3At(G.base, 0); for (const ob of G.props) { const p = st.o[ob.id]; if (p) pts.push([p.x, p.z]); }
@@ -287,7 +297,7 @@ function plantaGeneral(scKey, opts = {}) {
     title: `Planta general · Esc. ${s.key}`, wide: true,
     dirty: () => false,   // lo que se cambia aquí ya queda en el proyecto (y se deshace con el historial): no hay nada que descartar
     body: `<div class="pg">
-      <div class="pg-stage"><canvas class="pg-c" tabindex="0" aria-label="Planta general de la escena ${esc(s.key)}: las cámaras de sus ${G.shots.length} planos"></canvas>
+      <div class="pg-stage"><canvas class="pg-c" tabindex="0" aria-label="Planta general de la escena ${esc(s.key)}: ${G.cams.length} cámaras de sus ${G.shots.length} planos"></canvas>
         <button type="button" class="pg-th" hidden title="Abrir el plano"><span class="pg-thi"><img alt=""><img class="pg-thb" alt="" hidden></span><span class="pg-thc"></span></button>
         ${ed ? `<div class="pg-add" role="toolbar" aria-label="Agregar a la escena">${[['luz', 'Luz'], ['obj', 'Objeto'], ['animal', 'Animal']].map(([k, n]) => `<button type="button" data-pga="${k}" aria-haspopup="menu" title="${ea(`Agregar ${n === 'Luz' ? 'una luz' : n === 'Objeto' ? 'un objeto' : 'un animal'} a la escena: va en todos sus planos`)}">${PG_ADD_IC[k]}<span>${n}</span></button>`).join('')}</div>` : ''}
         <div class="pl-ov pg-ov" role="toolbar" aria-label="Planta"><button data-pg="zo" title="Alejar" aria-label="Alejar">−</button><button data-pg="zi" title="Acercar" aria-label="Acercar">+</button><button data-pg="fit" title="Ver todo" aria-label="Ver todo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><circle cx="12" cy="12" r="2.4"/></svg></button></div></div>
@@ -299,7 +309,7 @@ function plantaGeneral(scKey, opts = {}) {
   const cv = $('.pg-c', m), ctx = cv.getContext('2d'), leg = $('.pg-leg', m), th = $('.pg-th', m), elc = $('.pg-elc', m), elw = $('.pg-elw', m);
   const paintLeg = () => {
     leg.innerHTML = G.shots.map(S => `<li><button class="pg-row" data-id="${ea(S.sh.id)}" aria-pressed="${ea(st.sel === S.sh.id)}" title="Toca para resaltarlo; doble toque para abrirlo">
-      <i class="pg-sw" style="--c:${ea(S.col)}" aria-hidden="true"></i><b class="tnum">${esc(S.code)}</b><span class="pg-ln tnum">${S.cams.map(C => (C.letter ? C.letter + ' ' : '') + Math.round(C.cam.lens) + ' mm').join(' · ')}</span><span class="pg-ds">${esc(S.desc)}</span></button>
+      <i class="pg-sw" style="--c:${ea(S.col)}" aria-hidden="true"></i><b class="tnum">${esc(S.code)}</b><span class="pg-ln tnum">${esc(pgLn(S))}</span><span class="pg-ds">${esc(S.desc)}</span></button>
       ${st.sel === S.sh.id ? `<button class="linkbtn pg-open" data-open="${ea(S.sh.id)}">Abrir el plano ›</button>` : ''}</li>`).join('');
     // las luces, objetos y animales de la escena: también se eligen desde aquí
     elw.hidden = !G.els.length;
@@ -573,7 +583,7 @@ function pdfPlantaPage(kind, opts) {
       doc.setFillColor(...rgb(S.col)); doc.rect(side, ty - 8, 9, 9, 'F');
       doc.setFont('title', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(pdfSafe(S.code), side + 15, ty);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
-      doc.text(pdfSafe(S.cams.map(C => (C.letter ? C.letter + ' ' : '') + Math.round(C.cam.lens) + ' mm').join(' · ')), side + 52, ty);
+      doc.text(pdfSafe(pgLn(S)), side + 52, ty);
       ty += 11;
       if (S.desc) { doc.setTextColor(...INK); const d = doc.splitTextToSize(pdfSafe(S.desc), sw - 15).slice(0, 2); doc.text(d, side + 15, ty); ty += d.length * 10; }
       ty += 6;
@@ -618,7 +628,7 @@ async function plantaPNG(kind, opts) {
         if (ty > Hd - 120) break;
         g.fillStyle = S.col; g.fillRect(sx, ty - 24, 26, 26);
         g.fillStyle = ink; g.font = tf(700, 34); g.fillText(S.code, sx + 42, ty);
-        g.fillStyle = mut; g.font = uf(600, 26); g.fillText(S.cams.map(C => (C.letter ? C.letter + ' ' : '') + Math.round(C.cam.lens) + ' mm').join(' · '), sx + 150, ty);
+        g.fillStyle = mut; g.font = uf(600, 26); g.fillText(pgLn(S), sx + 150, ty);
         ty += 38; g.fillStyle = ink; g.font = uf(400, 26); if (S.desc) ty = wrap(S.desc, sx + 42, ty, sw - 42, 32, 2); ty += 18;
       }
     } else {
