@@ -5,15 +5,19 @@ const src = fs.readFileSync(__dirname + '/../src/planta-general.js', 'utf8');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 
-test('pgData marca como ocultos los planos de un grupo salvo el primero, con el color del grupo, y devuelve las cámaras que se ven', () => {
+test('pgData marca como ocultos los planos de un grupo salvo el primero, con el color del grupo', () => {
   assert.ok(/const grp = typeof shotGroups === 'function' \? shotGroups\(\) : new Map\(\), lead = new Map\(\);/.test(src));
   assert.ok(/S\.col = g\.color;/.test(src) && /S\.hidden = true; S\.rep = lead\.get\(g\)/.test(src));
-  assert.ok(/cams: shots\.filter\(S => !S\.hidden\)/.test(src));
 });
-test('el dibujo y el encuadre usan solo esas cámaras; elegir un plano oculto resalta la cámara de su grupo', () => {
-  assert.ok(/const order = \[\.\.\.G\.cams\]/.test(src), 'dibujo');
-  assert.ok(/for \(const S of G\.cams\) for \(const C of S\.cams\) \{ pts\.push/.test(src), 'encuadre');
-  assert.ok(/selCam = selS && selS\.hidden \? selS\.rep\.sh\.id : opt\.sel/.test(src), 'resaltado');
+test('«Todos / Grupos» y el ojo deciden qué cámaras se dibujan; el dibujo y el encuadre usan solo esas', () => {
+  assert.ok(/const pgCams = G => G\.shots\.filter\(S => pgShown\(G, S\)\)/.test(src));
+  assert.ok(/return !\(S\.hidden && pgMode\(\) !== 'todos'\)/.test(src), 'con «Grupos» se esconde el resto del grupo');
+  assert.ok(/const order = \[\.\.\.cams\]/.test(src) && /for \(const S of pgCams\(G\)\) for \(const C of S\.cams\) \{ pts\.push/.test(src), 'dibujo y encuadre');
+  assert.ok(/data-pgm="todos"/.test(src) && /data-pgm="grupos"/.test(src), 'los dos botones');
+  assert.ok(/data-eye="\$\{ea\(S\.sh\.id\)\}"/.test(src) && /PG_VIEW\.off\.add\(S\.sh\.id\)/.test(src), 'el ojo');
+});
+test('elegir un plano cuya cámara no se ve resalta la de su grupo', () => {
+  assert.ok(/selS\.rep && cams\.includes\(selS\.rep\) \? selS\.rep\.sh\.id : null/.test(src));
 });
 test('la lista (pantalla y PDF) dice «con 2.1» en los planos cuya cámara está en otro', () => {
   assert.ok(/\(S\.hidden \? ' · con ' \+ S\.rep\.code : ''\)/.test(src));

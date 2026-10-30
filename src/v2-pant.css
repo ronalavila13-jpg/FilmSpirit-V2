@@ -1359,3 +1359,12 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
   #home.v2-home .v2-hmain{padding-top:8px;padding-bottom:8px}
   #home.v2-home .v2-hhead{margin-bottom:8px}
 }
+
+/* planta general: «Todos / Grupos» y el ojo de cada plano */
+.pg-view{margin:0}
+.pg-leg li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+.pg-leg li>.pg-open{grid-column:1/-1}
+.pg-eye{display:grid;place-items:center;width:32px;height:32px;margin:3px 2px 0 0;border:0;border-radius:3px;background:none;color:var(--muted);cursor:pointer}
+.pg-eye:hover{background:var(--fill);color:var(--ink)}
+.pg-eye svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pg-leg li.pg-off .pg-row{opacity:.5}
