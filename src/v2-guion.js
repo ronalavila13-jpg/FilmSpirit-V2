@@ -214,6 +214,23 @@ function v2GuionBind() {
   const _ems = typeof edMarkScene === 'function' ? edMarkScene : null;
   if (_ems) edMarkScene = function () { const r = _ems.apply(this, arguments); $$('#slist .v2-sc').forEach(b => b.setAttribute('aria-current', +b.dataset.i === UI.scene ? 'true' : 'false')); return r; };
 }
+/* elegir una escena en la lista la marca (y muestra sus notas) al instante: antes esperaba al siguiente desplazamiento, que
+   marcaba la escena de arriba de la hoja, o a un clic en el guion. El desplazamiento que provoca el salto no la cambia */
+let V2_HOLD = 0;
+{
+  const _go = ACT['ed-goto'];
+  if (_go) ACT['ed-goto'] = function (b) {
+    const r = _go.apply(this, arguments), s = D.sc && D.sc.scenes[+b.dataset.i];
+    if (s) {
+      V2_HOLD = performance.now() + 1500;
+      UI.scene = +b.dataset.i;
+      $$('#slist .v2-sc').forEach(x => x.setAttribute('aria-current', +x.dataset.i === UI.scene ? 'true' : 'false'));
+      const side = $('#v2Side'), ta = $('#v2Reply');
+      if (side && side.dataset.si !== String(UI.scene) && !(ta && ta.value.trim())) { side.innerHTML = v2GuionSide(); side.dataset.si = String(UI.scene); }
+    }
+    return r;
+  };
+}
 /* la lista de escenas que rehace el editor al cambiar la estructura (guion-editor.js · edDerive) sale con la forma v2 */
 {
   const _slh = sceneListHTML;
@@ -389,7 +406,7 @@ function v2EdTopPara() {
   return +eps[k].dataset.i;
 }
 function v2EdFollow() {
-  if (UI.tab !== 'script' || !D || !D.sc || D.sc.sceneOf.length !== P.paras.length) return;
+  if (UI.tab !== 'script' || !D || !D.sc || D.sc.sceneOf.length !== P.paras.length || performance.now() < V2_HOLD) return;
   const i = v2EdTopPara(); if (i < 0) return;
   const pi = $('#v2PInfo'); if (pi) pi.textContent = v2PageInfo(i);
   const si = D.sc.sceneOf[i]; if (si == null || si < 0) return;
@@ -415,6 +432,7 @@ function v2EdFollowBind() {
   sc._v2f = true;
   let raf = 0;
   sc.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; v2EdFollow(); }); }, { passive: true });
+  for (const ev of ['wheel', 'touchstart', 'pointerdown']) sc.addEventListener(ev, () => { V2_HOLD = 0; }, { passive: true });   // quien se desplaza o toca la hoja vuelve a mandar
 }
 
 /* (lote AJ) en la computadora la revisión del guion está siempre a la vista: «⋯» ya no la ofrece (en el teléfono, sí) */
