@@ -141,7 +141,9 @@ function pdfCallHead(doc, X, V, y0, ap) {
   });
   cols[1].push((draw, x, y, w) => {
     if (draw) {
-      lab('Llamado general', x + w / 2, y + P6 + CLF.cap * .78, 'center');
+      if (ap) { doc.setFillColor(...V2K.yellow); doc.rect(x, y, w, P6 + CLF.cap + 3 + CLF.hero * .74 + P6 + 2, 'F'); }   // (versión 2) el cuadro amarillo
+      if (ap) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.cap); doc.setTextColor(...INK); doc.text(trDone(pdfSafe(trDone(tr('Llamado general')))), x + w / 2, y + P6 + CLF.cap * .78, { align: 'center' }); }
+      else lab('Llamado general', x + w / 2, y + P6 + CLF.cap * .78, 'center');
       doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.hero); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), x + w / 2, y + P6 + CLF.cap + 3 + CLF.hero * .74, { align: 'center' });
     }
     return P6 + CLF.cap + 3 + CLF.hero * .74 + P6 + 2;
@@ -152,7 +154,7 @@ function pdfCallHead(doc, X, V, y0, ap) {
     const cw = w / 4, h = P6 + CLF.cap + CLF.h3 + P6;
     if (draw) four.forEach(([l, v], i) => {
       const cx = x + cw * i + cw / 2;
-      if (i && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
+      if (i) { doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
       lab(l, cx, y + P6 + CLF.cap * .78, 'center');
       if (v) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); doc.setTextColor(...INK); doc.text(pdfSafe(v), cx, y + P6 + CLF.cap + CLF.h3 * .82, { align: 'center' }); }
     });
@@ -180,10 +182,10 @@ function pdfCallHead(doc, X, V, y0, ap) {
       doc.text(trDone(pdfSafe(Wd.wx ? wxShow('wx', Wd.wx) : tr('Clima'))), x + w / 2, y + 8 + CLF.bd * .8, { align: 'center' });
       rows.forEach((r, ri) => {
         const cw = w / r.length, yy = y + ch + ri * rh;
-        doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x, yy, x + w, yy);
+        doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x, yy, x + w, yy);
         r.forEach(([l, v], i) => {
           const cx = x + cw * i + cw / 2;
-          if (i && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, yy, x + cw * i, yy + rh); }
+          if (i) { doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x + cw * i, yy, x + cw * i, yy + rh); }
           doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(v ? INK : K.c2)); doc.text(pdfSafe(v || ''), cx, yy + 6 + CLF.bd * .8, { align: 'center' });
           lab(l, cx, yy + 6 + CLF.bd * 1.1 + CLF.cap * .9, 'center');
         });
@@ -235,7 +237,7 @@ function pdfCallHead(doc, X, V, y0, ap) {
     });
   });
   // (lote AI) Apple: solo una línea fina (el gris de los separadores) entre las columnas, sin el marco
-  if (ap) { doc.setDrawColor(...K.sep); doc.setLineWidth(.5); doc.line(xs[1], y0 + 2, xs[1], y0 + H - 2); doc.line(xs[2], y0 + 2, xs[2], y0 + H - 2); doc.setTextColor(...INK); return y0 + H + 6; }
+  if (ap) { doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.line(xs[1], y0, xs[1], y0 + H); doc.line(xs[2], y0, xs[2], y0 + H); doc.roundedRect(M, y0, W - 2 * M, H, 3, 3, 'S'); doc.setTextColor(...INK); return y0 + H + 6; }   // (versión 2) el marco de la app
   doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(xs[1], y0, xs[1], y0 + H); doc.line(xs[2], y0, xs[2], y0 + H);
   doc.setLineWidth(CL_LW.out); doc.rect(M, y0, W - 2 * M, H, 'S');
   doc.setTextColor(...INK);
@@ -297,7 +299,7 @@ function pdfCall(opts = {}) {
   const withLine = (c, col) => c && typeof c === 'object' ? { ...c, styles: { ...(c.styles || {}), lineColor: col } } : { content: c || '', styles: { lineColor: col } };
   // (lote AI) Apple: los títulos de sección como en la pantalla, en la letra de la app, con su dato en gris a la derecha y
   // una regla fina de tinta (pdfSec sin cuadro)
-  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: INK, lw: .6, gap: 6, after: 10, box: false };
+  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: AP ? V2K.line : INK, lw: AP ? .8 : .6, gap: 6, after: 10, box: false };
   list.forEach((n, pi) => {
     if (pi) doc.addPage();
     const X = callSheetData(n), m = X.meet;

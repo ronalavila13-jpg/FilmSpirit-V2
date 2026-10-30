@@ -574,7 +574,7 @@ async function gsPdf(make, btn) {
   FR_HOLD++;
   try {
     // (lote AH) como todos los PDF, pasa por la vista previa (pdf-vista.js): el papel (A4 o carta), Imprimir y Descargar
-    const build = async paper => { PDF_PAPER = paper || null; try { pdfTheme(); return await make(); } finally { PDF_PAPER = null; } };
+    const build = async paper => { PDF_PAPER = paper || null; PDF_KIND = 'gastos'; try { pdfTheme(); return await make(); } finally { PDF_PAPER = null; PDF_KIND = ''; } };   // (versión 2) la etapa en la cabecera
     const first = await build(pdfPaperMem('gastos'));
     busy(false);
     await pdfPreview({ kind: 'gastos', first, make: build });
@@ -625,7 +625,7 @@ function gsOcDoc(o) {
   const R = { halign: 'right' };
   doc.autoTable({ ...TBL, startY: y + 12, head: [['Cant.', 'Descripción', { content: 'Monto', styles: R }]], body: [['1', pdfSafe(o.desc || ''), { content: gsPm(t.net), styles: R }]],
     columnStyles: { 0: { cellWidth: 40 }, 2: { cellWidth: 110 } } });
-  const sumRow = (lab, v, bold) => { const st = bold ? { font: 'title', fontStyle: 'bold', fontSize: 13, textColor: PT.deep } : {}; return [{ content: pdfSafe(lab), styles: st }, { content: gsPm(v), styles: { ...R, ...st } }, ...(fx ? [{ content: 'US$ ' + moneyNum(v / fx), styles: { ...R, ...st, textColor: bold ? INK : MUTED } }] : [])]; };
+  const sumRow = (lab, v, bold) => { const st = bold ? { font: 'title', fontStyle: 'bold', fontSize: 13, textColor: INK } : {}; return [{ content: pdfSafe(lab), styles: st }, { content: gsPm(v), styles: { ...R, ...st } }, ...(fx ? [{ content: 'US$ ' + moneyNum(v / fx), styles: { ...R, ...st, textColor: bold ? INK : MUTED } }] : [])]; };
   const W = doc.internal.pageSize.getWidth(), tw = fx ? 330 : 240;
   doc.autoTable({ ...TBL, startY: doc.lastAutoTable.finalY + 8, theme: 'plain', margin: { ...TBL.margin, left: W - 36 - tw }, tableWidth: tw,
     body: [sumRow('Subtotal', t.net), ...(o.igv ? [sumRow(`${tax.name} (${tax.rate} %)`, t.tax)] : []), sumRow('Total', t.total, true)] });
@@ -651,7 +651,7 @@ async function gsCajaDoc(c) {
   const sum = [['Entregado', S.given], [`Rendido (${S.n === 1 ? '1 recibo' : S.n + ' recibos'})`, S.rendered]];
   if (c.closed) sum.push([c.closed.how === 'reembolsado' ? 'Se le reembolsó' : 'Devolvió', num(c.closed.amount)]);
   sum.push([S.saldo < -0.005 ? 'Producción le debe' : 'Saldo en mano', Math.abs(S.saldo)]);
-  doc.autoTable({ ...TBL, startY: y + 4, theme: 'plain', tableWidth: 280, body: sum.map(([k, v], i) => { const b = i === sum.length - 1 ? { font: 'title', fontStyle: 'bold', fontSize: 13, textColor: PT.deep } : {}; return [{ content: pdfSafe(k), styles: b }, { content: gsPm(v), styles: { ...R, ...b } }]; }) });
+  doc.autoTable({ ...TBL, startY: y + 4, theme: 'plain', tableWidth: 280, body: sum.map(([k, v], i) => { const b = i === sum.length - 1 ? { font: 'title', fontStyle: 'bold', fontSize: 13, textColor: INK } : {}; return [{ content: pdfSafe(k), styles: b }, { content: gsPm(v), styles: { ...R, ...b } }]; }) });
   // las entregas
   doc.autoTable({ ...TBL, startY: doc.lastAutoTable.finalY + 12, head: [['Entregas', 'Entregó', { content: 'Monto', styles: R }]],
     body: (c.given || []).map(g => [gsPd(g.date), pdfSafe(g.name || ''), { content: gsPm(g.amount), styles: R }]), columnStyles: { 0: { cellWidth: 110 }, 2: { cellWidth: 100 } } });
@@ -659,7 +659,7 @@ async function gsCajaDoc(c) {
   doc.autoTable({ ...TBL, startY: doc.lastAutoTable.finalY + 12, head: [['N°', 'Fecha', 'Comercio', 'Qué se compró', 'Partida', 'Comprobante', 'Estado', { content: 'Monto', styles: R }]],
     body: recs.length ? recs.map((r, i) => [String(i + 1), gsPd(r.date), pdfSafe(r.shop || ''), pdfSafe(r.desc || ''), pdfSafe(gsShort(r)), pdfSafe(KIND_N[r.kind] || ''), st(r), { content: (r.void ? '(' : '') + gsPm(r.amount) + (r.void ? ')' : ''), styles: R }])
       : [[{ content: 'Sin recibos.', colSpan: 8, styles: { textColor: MUTED } }]],
-    foot: [[{ content: 'Total rendido', colSpan: 7 }, { content: gsPm(S.rendered), styles: R }]], footStyles: { fillColor: PT.fill, textColor: INK, fontStyle: 'bold' },
+    foot: [[{ content: 'Total rendido', colSpan: 7 }, { content: gsPm(S.rendered), styles: R }]], footStyles: { fillColor: V2K.bg, textColor: INK, fontStyle: 'bold' },
     columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 62 }, 5: { cellWidth: 70 }, 6: { cellWidth: 56 }, 7: { cellWidth: 64 } },
     didParseCell: d => { if (d.section === 'body' && recs[d.row.index] && recs[d.row.index].void) d.cell.styles.textColor = MUTED; } });
   // por partida (lo que va a cada cuenta del presupuesto)
@@ -682,7 +682,7 @@ async function gsPdfPhotos(doc, list) {
     if (i % 4 === 0) { doc.addPage(); pdfSec(doc, 36, 'Comprobantes', { need: 0 }); }   // (lote AH) el título en su cuadro
     const x = 36 + (i % 2) * (cw + 20), y = 66 + Math.floor((i % 4) / 2) * (ch + 20);
     const u = await jpg(FRAMES[list[i].k]);
-    doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x, y, cw, ch - 16);   // (lote AH) en negro
+    doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.roundedRect(x, y, cw, ch - 16, 3, 3, 'S');   // (versión 2) línea fina, esquinas de 3 pt
     if (u) pdfImg(doc, u, x + 4, y + 4, cw - 8, ch - 24); else { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin foto', x + cw / 2, y + ch / 2, { align: 'center' }); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...INK); doc.text(pdfSafe(list[i].cap), x, y + ch - 4);
   }
@@ -732,10 +732,10 @@ function gsOverDoc() {
   const red = [190, 30, 30];
   const kpi = [['Presupuestado (sin imprevistos ni impuesto)', T.sub], ['Comprometido', G.comp], ['Gastado', G.spent], ['Disponible', left], ['Imprevistos', T.cont], ['Sobrecosto de las partidas', overSum]];
   // (lote AH) cada cifra en su cuadro (rótulo arriba, cifra debajo), con líneas negras; antes, sin líneas
-  const pad = () => ({ left: 8, right: 8 }), gw = GRID.cell, lw = (t, b) => ({ top: t ? gw : 0, bottom: b ? gw : 0, left: gw, right: gw });
+  const pad = () => ({ left: 8, right: 8 }), gw = .5, lw = (t, b) => ({ top: t ? gw : 0, bottom: b ? gw : 0, left: gw, right: gw });
   doc.autoTable({ ...TBL, startY: y + 2, theme: 'plain',
     body: [kpi.map(([k], i) => ({ content: pdfSafe(k), styles: { fontSize: PF.small, textColor: MUTED, valign: 'bottom', lineWidth: lw(1, 0), cellPadding: { top: 6, bottom: 1, ...pad(i) } } })),
-      kpi.map(([, v], i) => ({ content: (v < 0 ? '- ' : '') + m(Math.abs(v)), styles: { font: 'title', fontStyle: 'bold', fontSize: 12, textColor: i === 5 ? (overSum > 0 ? red : PT.deep) : INK, lineWidth: lw(0, !fx), cellPadding: { top: 1, bottom: fx ? 1 : 8, ...pad(i) } } })),
+      kpi.map(([, v], i) => ({ content: (v < 0 ? '- ' : '') + m(Math.abs(v)), styles: { font: 'title', fontStyle: 'bold', fontSize: 12, textColor: i === 5 ? (overSum > 0 ? red : INK) : INK, lineWidth: lw(0, !fx), cellPadding: { top: 1, bottom: fx ? 1 : 8, ...pad(i) } } })),
       ...(fx ? [kpi.map(([, v], i) => ({ content: d(v), styles: { fontSize: PF.small, textColor: MUTED, lineWidth: lw(0, 1), cellPadding: { top: 0, bottom: 8, ...pad(i) } } }))] : [])],
     columnStyles: Object.fromEntries(kpi.map((_, i) => [i, { cellWidth: (doc.internal.pageSize.getWidth() - 72) / 6 }])) });
   y = doc.lastAutoTable.finalY + 10;
@@ -743,11 +743,11 @@ function gsOverDoc() {
   if (over.length) doc.autoTable({ ...TBL, startY: y + 2, head: [['Partida', { content: 'Presupuestado', styles: R }, { content: 'Comprometido', styles: R }, { content: 'Gastado', styles: R }, { content: 'Sobrecosto', styles: R }, ...(fx ? [{ content: 'Sobrecosto US$', styles: R }] : []), { content: '%', styles: R }, 'Motivo']],
     body: over.map(r => [`${r.code}  ${pdfSafe(r.name)}`, { content: m(r.budget), styles: R }, { content: m(r.comp), styles: R }, { content: m(r.spent), styles: R }, { content: m(r.over), styles: { ...R, fontStyle: 'bold', textColor: red } }, ...(fx ? [{ content: d(r.over), styles: R }] : []),
       { content: r.budget > 0 ? '+' + Math.round(r.over / r.budget * 100) + ' %' : '', styles: R }, { content: pdfSafe(g.motivos[r.id] || 'Sin motivo todavía.'), styles: g.motivos[r.id] ? {} : { textColor: MUTED } }]),
-    foot: [[{ content: 'Total', styles: { fontStyle: 'bold' } }, '', '', '', { content: m(overSum), styles: { ...R, fontStyle: 'bold' } }, ...(fx ? [{ content: d(overSum), styles: R }] : []), '', '']], footStyles: { fillColor: PT.fill, textColor: INK },
+    foot: [[{ content: 'Total', styles: { fontStyle: 'bold' } }, '', '', '', { content: m(overSum), styles: { ...R, fontStyle: 'bold' } }, ...(fx ? [{ content: d(overSum), styles: R }] : []), '', '']], footStyles: { fillColor: V2K.bg, textColor: INK },
     columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: 74 }, 2: { cellWidth: 74 }, 3: { cellWidth: 74 }, 4: { cellWidth: 74 }, ...(fx ? { 5: { cellWidth: 70 } } : {}), [fx ? 6 : 5]: { cellWidth: 46 } } });
   doc.autoTable({ ...TBL, startY: (over.length ? doc.lastAutoTable.finalY : y) + 14, styles: { ...TBL.styles, cellPadding: { ...PAD, top: 4, bottom: 4 } }, head: [['Todas las partidas', { content: 'Presupuestado', styles: R }, { content: 'Comprometido', styles: R }, { content: 'Gastado', styles: R }, { content: 'Saldo', styles: R }, ...(fx ? [{ content: 'Saldo US$', styles: R }] : []), { content: 'Avance', styles: R }]],
     body: rows.map(r => [`${r.code}  ${pdfSafe(r.name)}`, { content: m(r.budget), styles: R }, { content: m(r.comp), styles: R }, { content: m(r.spent), styles: R }, { content: (r.left < -0.005 ? '- ' : '') + m(Math.abs(r.left)), styles: { ...R, ...(r.left < -0.005 ? { textColor: [190, 30, 30], fontStyle: 'bold' } : {}) } }, ...(fx ? [{ content: d(r.left), styles: R }] : []), { content: Number.isFinite(r.pct) ? Math.round(r.pct) + ' %' : '', styles: R }]),
-    foot: [[{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: m(T.sub), styles: R }, { content: m(G.comp), styles: R }, { content: m(G.spent), styles: R }, { content: (left < 0 ? '- ' : '') + m(Math.abs(left)), styles: R }, ...(fx ? [{ content: d(left), styles: R }] : []), { content: T.sub ? Math.round((G.comp + G.spent) / T.sub * 100) + ' %' : '', styles: R }]], footStyles: { fillColor: PT.fill, textColor: INK, fontStyle: 'bold' } });
+    foot: [[{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: m(T.sub), styles: R }, { content: m(G.comp), styles: R }, { content: m(G.spent), styles: R }, { content: (left < 0 ? '- ' : '') + m(Math.abs(left)), styles: R }, ...(fx ? [{ content: d(left), styles: R }] : []), { content: T.sub ? Math.round((G.comp + G.spent) / T.sub * 100) + ' %' : '', styles: R }]], footStyles: { fillColor: V2K.bg, textColor: INK, fontStyle: 'bold' } });
   y = doc.lastAutoTable.finalY + 14;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED);
   doc.text(doc.splitTextToSize('Comprometido: órdenes de compra y reembolsos aprobados sin pagar. Gastado: lo pagado y los recibos de caja chica. Las órdenes de compra cuentan sin su impuesto, como el presupuesto.', doc.internal.pageSize.getWidth() - 72), 36, y);

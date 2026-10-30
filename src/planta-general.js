@@ -564,7 +564,7 @@ function pdfPlantaPage(kind, opts) {
   const M = 36, PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), ps = Math.min(PH - y - 40, 420), side = M + ps + 22, sw = PW - M - 10 - side;
   const cv = kind === 'gen' ? plantaGenCanvas(W.G, 600) : plantaShotCanvas(W.s3, 600);
   try { doc.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M, y, ps, ps); } catch (e) { PDF_MISS++; }
-  pdfBox(doc, M, y, ps, ps); pdfBox(doc, side - 10, y, PW - M - side + 10, ps);
+  pdfCardBox(doc, M, y, ps, ps); pdfCardBox(doc, side - 10, y, PW - M - side + 10, ps);
   let ty = y + 16;
   if (kind === 'gen') {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('PLANOS', side, ty); ty += 14;

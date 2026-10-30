@@ -2342,5 +2342,14 @@
 "En la barra, el estilo de la hoja, en la pantalla y en el PDF: «Apple» (así viene), con líneas finas y aire, o «Excel», toda en cuadros con líneas negras, como una planilla. Lo que dice la hoja es lo mismo en los dos. Se guarda en el proyecto: todo el equipo la ve y la exporta igual.": "In the toolbar, the sheet's style, on screen and in the PDF: “Apple” (the default), with thin lines and white space, or “Excel”, all in boxes with black lines, like a spreadsheet. The sheet says the same in both. It's saved in the project: the whole team sees and exports it the same way.",
 "En la barra, el estilo del plan: «Apple» (así viene), las tiras con una línea fina entre ellas, o «Excel», las columnas y las filas con líneas negras bien visibles, como una hoja de cálculo. Vale para el stripboard en la pantalla y para los PDF del plan de rodaje y del DOOD. Se guarda en el proyecto: todo el equipo lo ve y lo exporta igual.": "In the toolbar, the schedule's style: “Apple” (the default), the strips with a thin line between them, or “Excel”, the columns and rows with clearly visible black lines, like a spreadsheet. It applies to the stripboard on screen and to the Shooting Schedule and DOOD PDFs. It's saved in the project: the whole team sees and exports it the same way.",
 "// seguridad run-1 · gastos": "tope de fotos de gastos que aún no se guardan (30-oct-2026)",
-"Hay demasiadas fotos de gastos que aún no se guardaron. Guarda los recibos pendientes y vuelve a intentarlo.": "There are too many expense photos that haven't been saved yet. Save your pending receipts and try again."
+"Hay demasiadas fotos de gastos que aún no se guardaron. Guarda los recibos pendientes y vuelve a intentarlo.": "There are too many expense photos that haven't been saved yet. Save your pending receipts and try again.",
+"// PDF versión 2": "textos nuevos de las tarjetas y las barras de los PDF (30-oct-2026)",
+"Total del proyecto": "Project total",
+"Por jornada de rodaje": "Per shooting day",
+"total entre las jornadas": "total over the shooting days",
+"Fin de la jornada {0}": "End of day {0}",
+"de cámara": "of camera time",
+"Producción": "Production",
+"{0} partidas": "{0} budget sections",
+"{0} partida": "{0} budget section"
 }

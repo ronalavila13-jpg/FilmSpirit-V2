@@ -240,10 +240,10 @@ function photoViewer(src, name, opt = {}) {
    documento, A4 o carta; el nombre de cada elemento en su cuadro, con sus escenas a la derecha) */
 function drawLamina(doc, title, sub, entries, photos) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  let y = docHeader(doc, title, sub, { x0: M });
+  let y = docHeader(doc, title, sub, { x0: M, box: true });
   if (!entries.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Sin elementos.', M, y + 10); return; }
   if (!photos) {
-    doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
+    doc.autoTable({ ...TBLX, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
       body: entries.map((x, i) => [String(x.num || i + 1), { content: pdfSafe(x.label), styles: { fontStyle: 'bold' } }, pdfSafe(refOf(x.e).note || ''), pdfSafe(x.scenes || '')]),
       columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 150 }, 3: { cellWidth: 90 } } });
     return;
@@ -255,14 +255,14 @@ function drawLamina(doc, title, sub, entries, photos) {
     const noteL = note ? doc.splitTextToSize(pdfSafe(note), W - M * 2) : [];
     const rows = Math.ceil(ph.length / cols);
     const need = 18 + noteL.length * 10 + (rows ? rows * (bh + gap) : 14) + 10;
-    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
-    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6 } });
+    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M, box: true }); }
+    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6, box: true } });
     if (noteL.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(noteL, M, y + 6); y += noteL.length * 8.5 * doc.getLineHeightFactor() + 2; }
     if (!ph.length) { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin fotos.', M, y + 8); y += 14; }
     ph.forEach((p, j) => {
       const c = j % cols;
       if (c === 0 && j) y += bh + gap;
-      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
+      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M, box: true }); }
       const url = photoForPdf(phKey(x.e.id, p.id));
       let w = p.w || 4, h = p.h || 3;
       try { if (!p.w) { const pr = doc.getImageProperties(url); w = pr.width; h = pr.height; } } catch (e) { }

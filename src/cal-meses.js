@@ -269,14 +269,13 @@ function pdfCalMonths() {
     let y = docHeader(doc, 'Calendario de producción', `${ymName(ym)} ${ym.slice(0, 4)}`);
     y = pdfLegend(doc, y - 4, lgDocItems('calendar', cu).map(([nm, c]) => [nm, rgb(c)]));
     // la franja del mes con su año
-    const band = tabTone();
-    // (lote AH) en cuadro, con la rejilla de los días en negro (antes, líneas del color de la pestaña)
-    doc.setFillColor(...rgb(band.sel)); doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.frame); doc.rect(M, y, W - 2 * M, 30, 'FD');
-    doc.setTextColor(...rgb(band.selInk)); doc.setFont('title', 'bold'); doc.setFontSize(18); doc.text(pdfSafe(ymName(ym)), M + 12, y + 21);
+    // (versión 2) la franja del mes en amarillo, esquinas de 3 pt, y la rejilla de los días con la línea fina de la app
+    doc.setFillColor(...V2K.yellow); doc.roundedRect(M, y, W - 2 * M, 30, 3, 3, 'F');
+    doc.setTextColor(...V2K.black); doc.setFont('title', 'bold'); doc.setFontSize(18); doc.text(pdfSafe(ymName(ym)), M + 12, y + 21);
     const mw = doc.getTextWidth(pdfSafe(ymName(ym))); doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(ym.slice(0, 4), M + 20 + mw, y + 21);
     y += 34;
     const cw = (W - 2 * M) / 7;
-    CM_WD.forEach((n, i) => { doc.setFillColor(...PDF_HEADF); doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(M + i * cw, y, cw, 16, 'FD'); doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(n.toUpperCase(), M + i * cw + cw / 2, y + 11, { align: 'center' }); });
+    CM_WD.forEach((n, i) => { doc.setFillColor(...PDF_WHITE); doc.setDrawColor(...V2K.line); doc.setLineWidth(.6); doc.rect(M + i * cw, y, cw, 16, 'FD'); doc.setTextColor(...V2K.text2); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.4); doc.text(n.toUpperCase(), M + i * cw + cw / 2, y + 11, { align: 'center' }); });
     y += 16;
     const first = dOf(ym + '-01'), wd0 = (first.getDay() + 6) % 7, days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
     const weeks = Math.ceil((wd0 + days) / 7), noteH = 54, gridH = H - 40 - noteH - 8 - y, wh = gridH / weeks, a0 = addD(ym + '-01', -wd0);
@@ -285,8 +284,8 @@ function pdfCalMonths() {
       const w0 = addD(a0, w * 7), w6 = addD(w0, 6), yy = y + w * wh;
       for (let i = 0; i < 7; i++) {
         const d = addD(w0, i), out = ymOf(d) !== ym, x = M + i * cw;
-        const bg = shoot.has(d) ? mixc(rgb(lgCol('cal', 'rod')), PDF_WHITE, .12) : i >= 5 ? [246, 245, 243] : PDF_WHITE;
-        doc.setFillColor(...(out ? mixc(bg, PDF_WHITE, .45) : bg)); doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x, yy, cw, wh, 'FD');
+        const bg = shoot.has(d) ? mixc(rgb(lgCol('cal', 'rod')), PDF_WHITE, .12) : i >= 5 ? V2K.bg : PDF_WHITE;
+        doc.setFillColor(...(out ? mixc(bg, PDF_WHITE, .45) : bg)); doc.setDrawColor(...V2K.line); doc.setLineWidth(.6); doc.rect(x, yy, cw, wh, 'FD');
         doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...(out ? mixc(MUTED, PDF_WHITE, .45) : INK)); doc.text(String(dOf(d).getDate()), x + 5, yy + 11);
       }
       const lanes = [], hidden = new Array(7).fill(0);
@@ -306,8 +305,8 @@ function pdfCalMonths() {
     }
     // las notas del mes
     const ny = H - 40 - noteH;
-    pdfBox(doc, M, y, W - 2 * M, weeks * wh);   // el marco del mes
-    pdfBox(doc, M, ny, W - 2 * M, noteH, PDF_WHITE);
+    doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.roundedRect(M, y, W - 2 * M, weeks * wh, 3, 3, 'S');   // el marco del mes
+    pdfCardBox(doc, M, ny, W - 2 * M, noteH);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED); doc.text('Notas', M + 6, ny + 11);   // (lote K) en minúscula normal
     const nt = ((P.calendar.notes || {})[ym]) || '';
     if (nt) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(doc.splitTextToSize(pdfSafe(nt), W - 2 * M - 12).slice(0, 3), M + 6, ny + 24); }
