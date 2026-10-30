@@ -1766,7 +1766,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (ob.kind === 'puerta' || ob.kind === 'ventana') extra = rangeRow('Apertura', 'o:open', Math.round(p.open || 0), 0, 110, 1, '°');
     if (ob.kind === 'detalle') extra = `<select data-o="dmodel" aria-label="Se ve como">${DETAIL_MODELS.map(([k, n]) => `<option value="${k}" ${k === detailModel(ob) ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
     if (fp.small) extra = `<label class="fld"><span>Lo sostiene</span><select data-o="hold"><option value="">Nadie</option>${actors.map(a => `<option value="${ea(a.id)}" ${ob.hold && ob.hold.a === a.id ? 'selected' : ''}>${esc(a.name || 'Figura')}</option>`).join('')}</select></label>
-      ${ob.hold ? chips([['R', 'Mano derecha'], ['L', 'Mano izquierda'], ['pecho', 'Pecho']], 'data-o="holdat"', ob.hold.at || 'R') : rangeRow('Altura', 'o:h', round2(p.h || 0), 0, 2.2, .01, ' m') + '<div class="chipset"><button class="chip" data-o="hset" data-v="0">Suelo</button><button class="chip" data-o="hset" data-v="0.77">Sobre mesa</button><button class="chip" data-o="hset" data-v="1.03">Sobre mostrador</button></div>'}`;
+      ${ob.hold ? chips([['R', 'Mano derecha'], ['L', 'Mano izquierda'], ['pecho', 'Pecho']], 'data-o="holdat"', ob.hold.at || 'R') + gripPanel(ob) : rangeRow('Altura', 'o:h', round2(p.h || 0), 0, 2.2, .01, ' m') + '<div class="chipset"><button class="chip" data-o="hset" data-v="0">Suelo</button><button class="chip" data-o="hset" data-v="0.77">Sobre mesa</button><button class="chip" data-o="hset" data-v="1.03">Sobre mostrador</button></div>'}`;
     // color del vehículo o del pelaje
     if (fp.paint || VEH_KINDS.has(ob.kind)) {
       const list = isAnimal(ob.kind) ? ANI_COLORS : VEH_COLORS, cur = ob.paint || VEH_PAINT[ob.kind] || '#7D8C9C';
@@ -1778,6 +1778,20 @@ function openShotEditor(id, isNew, from2d, waited) {
     const scale = `<div class="fp-sc">${rangeRow('Escala', 'osc', pc, OBJ_SC[0] * 100, OBJ_SC[1] * 100, 1, ' %')}<button type="button" class="linkbtn" data-o="screset" ${pc === 100 ? 'disabled' : ''} title="Vuelve al 100 %">Tamaño original</button></div>`;
     return `<div class="fp-head"><select data-o="kind" aria-label="Objeto" title="${ea(fp.wall && E.s3.set === 'int' ? 'Arrástralo en la planta hasta un muro: se encaja y abre un vano' : 'Tipo de objeto')}">${propOptions(ob.kind)}</select><button class="icbtn" data-o="objmenu" aria-haspopup="menu" title="Posición y quitar" aria-label="Más">${SXI.more}</button></div>
       ${scale}${extra}`;
+  }
+  /* el agarre de un objeto sostenido, a mano: moverlo (cm) y girarlo (°) respecto a la mano o al pecho; se suma al agarre de siempre */
+  const GRIP_ROWS = [['Subir o bajar', 1, 'cm'], ['Adelante o atrás', 2, 'cm'], ['Hacia un lado', 0, 'cm'], ['Girar adelante', 3, '°'], ['Girar de lado', 5, '°'], ['Girar sobre su eje', 4, '°']];
+  function gripPanel(ob) {
+    const g = gripAdj(ob) || [0, 0, 0, 0, 0, 0];
+    return `<details class="fp-grip"${gripAdj(ob) ? ' open' : ''}><summary>Ajustar agarre</summary>
+      ${GRIP_ROWS.map(([n, i, u]) => rangeRow(n, 'og:' + i, i < 3 ? Math.round(g[i] * 100) : Math.round(deg(g[i])), i < 3 ? -50 : -180, i < 3 ? 50 : 180, i < 3 ? 1 : 5, ' ' + u)).join('')}
+      <button type="button" class="linkbtn" data-o="gripreset" ${gripAdj(ob) ? '' : 'disabled'}>Agarre original</button></details>`;
+  }
+  function gripSet(ob, i, v) {
+    if (!ob.hold) return;
+    const g = gripAdj(ob) || [0, 0, 0, 0, 0, 0];
+    g[i] = i < 3 ? v / 100 : rad(v);
+    if (g.every(x => Math.abs(x) < 1e-4)) delete ob.hold.g; else ob.hold.g = g.map(x => Math.round(x * 1e4) / 1e4);
   }
   /* extras en grupo: cuántos, en qué situación, qué tan juntos y la ropa; «Mezclar» los reacomoda */
   function gentePanel(ob) {
@@ -2061,6 +2075,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (key === 'sunAz') { snapshot(); E.s3.sunAz = v; E.custom = true; edited(); return; }
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
     if (key === 'focusD') { if (!E.gesture) snapshot(); E.gesture = true; focusSet(v, true); return; }
+    if (key.startsWith('og:')) { const ob = selOb(); if (!ob || !ob.hold) return; if (!E.gesture) snapshot(); E.custom = true; gripSet(ob, +key.slice(3), v); stCache = null; redraw(); return; }
     if (key === 'osc') { const ob = selOb(); if (!ob) return; if (!E.gesture) snapshot(); E.custom = true; scSet(ob, v / 100); stCache = null; redraw(); return; }
     if (key === 'esc') { const k = escFromSlider(v); if (out) out.textContent = Math.round(k * 100) + ' %'; escSet(k); return; }   // lote W
     if (key.startsWith('lk:')) {
@@ -2409,7 +2424,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     if ((b.dataset.o === 'expr' || b.dataset.o === 'pose') && ob) { const k = editKey(); k.o[ob.id][b.dataset.o] = b.dataset.v; edited(); commit(); }
     if (b.dataset.o === 'jreset' && ob) { snapshot(); E.custom = true; E.s3.keys.forEach(k => { if (k.o[ob.id]) delete k.o[ob.id].j; }); if (E.tmp && E.tmp.o[ob.id]) delete E.tmp.o[ob.id].j; commit(); redraw(); }
     if (b.dataset.o === 'paint' && ob) { snapshot(); ob.paint = b.dataset.v; E.custom = true; commit(); panel(); redraw(); }
-    if (b.dataset.o === 'holdat' && ob && ob.hold) { snapshot(); ob.hold.at = b.dataset.v; E.custom = true; commit(); redraw(); }
+    if (b.dataset.o === 'holdat' && ob && ob.hold) { snapshot(); ob.hold.at = b.dataset.v; delete ob.hold.g; E.custom = true; commit(); panel(); redraw(); }
+    if (b.dataset.o === 'gripreset' && ob && ob.hold) { snapshot(); delete ob.hold.g; E.custom = true; commit(); panel(); redraw(); }
     if (b.dataset.o === 'hset' && ob) { const k = editKey(); k.o[ob.id].h = +b.dataset.v; edited(); commit(); }
     if (b.dataset.o === 'kset' && ob) { const k = editKey(); k.o[ob.id].k = +b.dataset.v; edited(); commit(); }
     if (b.dataset.o === 'del' && ob) { snapshot(); s3DelObj(E.s3, ob.id); E.s3.objs.forEach(o => { if (o.hold && o.hold.a === ob.id) delete o.hold; if (o.aim === ob.id) o.aim = null; }); E.sel = null; E.custom = true; commit(); redraw(); }

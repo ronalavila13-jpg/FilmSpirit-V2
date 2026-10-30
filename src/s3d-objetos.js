@@ -37,7 +37,7 @@ Object.assign(GRIP, {
   ametralladora: { mano: [0, -.02, .02, OBJ_PI / 2, 0, 0], pecho: [-.1, -.26, .14, -OBJ_PI / 2, OBJ_PI / 4, OBJ_PI / 2] },
 });
 /* cuánto se cierra la mano que lo sostiene (1 = puño) */
-const OBJ_FIST = { cuchillo: 1, machete: 1, pistola: .9, ametralladora: .9, linterna: 1, paraguas: 1, maleta: 1, botella: .85, taza: .7, celular: .5, libro: .5, papel: .45, laptop: .5 };
+const OBJ_FIST = { cuchillo: 1, machete: 1, pistola: .9, ametralladora: .9, linterna: 1, paraguas: 1, maleta: 1, botella: .85, taza: .7, celular: .6, libro: .5, papel: .45, laptop: .5 };
 function objMats() {
   if (R3.mats.oPaper) return R3.mats;
   const P = (c, s, sp) => new THREE.MeshPhongMaterial({ color: c, shininess: s, specular: sp });

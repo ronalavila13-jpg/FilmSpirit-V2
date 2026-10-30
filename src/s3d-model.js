@@ -888,6 +888,15 @@ function findPose(s3, id) { for (const k of s3.keys) if (k.o[id]) return k.o[id]
    en el PDF (su huella: propFoot) */
 const OBJ_SC = [.1, 5];
 const scalable = ob => !!ob && !!ob.kind && ob.kind !== 'actor' && ob.kind !== 'luz' && ob.kind !== 'gente';
+/* el ajuste a mano del agarre de un objeto sostenido: ob.hold.g = [x, y, z (m), giro x, y, z (rad)] sumado al de GRIP (s3d-figs.js).
+   Viene del JSON compartido: solo seis números, limitados; si no, null */
+const GRIP_ADJ = [.5, .5, .5, Math.PI, Math.PI, Math.PI];
+const gripAdj = ob => {
+  const g = ob && ob.hold && ob.hold.g;
+  if (!Array.isArray(g) || g.length !== 6) return null;
+  const d = g.map((v, i) => isFinite(+v) ? clamp(+v, -GRIP_ADJ[i], GRIP_ADJ[i]) : 0);
+  return d.some(v => v) ? d : null;
+};
 const objSc = ob => { const v = scalable(ob) ? +ob.sc : 1; return v > 0 && isFinite(v) ? clamp(v, OBJ_SC[0], OBJ_SC[1]) : 1; };
 /* la huella del objeto en la planta (ancho y fondo en metros), con su escala */
 function propFoot(ob) {

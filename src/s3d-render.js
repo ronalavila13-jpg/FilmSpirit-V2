@@ -590,8 +590,10 @@ function r3Sync(s3, st, opts) {
     A.root.updateMatrixWorld(true);
     const at = ob.hold.at || 'R';
     const anchor = at === 'pecho' ? A.chest : at === 'L' ? A.armL.hand : A.armR.hand;
-    const g = GRIP[ob.kind][at === 'pecho' ? 'pecho' : 'mano'];
-    const off = _m4().compose(new T.Vector3(g[0], g[1], g[2]), new T.Quaternion().setFromEuler(new T.Euler(g[3], g[4], g[5])), new T.Vector3(1, 1, 1));
+    const g = GRIP[ob.kind][at === 'pecho' ? 'pecho' : 'mano'], d = gripAdj(ob);   // d: el ajuste a mano (editor · «Ajustar agarre»)
+    const q0 = new T.Quaternion().setFromEuler(new T.Euler(g[3], g[4], g[5]));
+    if (d) q0.multiply(new T.Quaternion().setFromEuler(new T.Euler(d[3], d[4], d[5])));   // el giro, sobre los ejes del objeto
+    const off = _m4().compose(new T.Vector3(g[0] + (d ? d[0] : 0), g[1] + (d ? d[1] : 0), g[2] + (d ? d[2] : 0)), q0, new T.Vector3(1, 1, 1));
     const m = _m4().multiplyMatrices(anchor.matrixWorld, off);
     const pos = new T.Vector3(), q = new T.Quaternion(), sc = new T.Vector3();
     m.decompose(pos, q, sc);

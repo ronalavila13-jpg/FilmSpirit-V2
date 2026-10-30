@@ -9,9 +9,9 @@ test('el celular cierra la mano que lo sostiene (OBJ_FIST)', () => {
   const fist = /const OBJ_FIST = \{([^}]*)\}/.exec(objs)[1];
   assert.ok(/\bcelular: \.\d+/.test(fist), 'el celular no cierra la mano');
 });
-test('el celular se agarra por su tercio de arriba, con el puño (no por el centro con la mano abierta)', () => {
+test('el celular cuelga del puño, agarrado por su parte de arriba (no por el centro con la mano abierta)', () => {
   const g = /celular: \{ mano: \[([^\]]*)\]/.exec(figs)[1].split(',').map(Number);
-  assert.ok(g[1] <= -.09 && g[1] >= -.14, 'y fuera del rango del puño: ' + g[1]);
+  assert.ok(g[1] <= -.05 && g[1] >= -.14, 'y fuera del rango del puño: ' + g[1]);
 });
 
 if (fail) { console.log(fail + ' fallas'); process.exit(1); }

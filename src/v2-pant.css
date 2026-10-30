@@ -1368,3 +1368,8 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .pg-eye:hover{background:var(--fill);color:var(--ink)}
 .pg-eye svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .pg-leg li.pg-off .pg-row{opacity:.5}
+
+/* editor de plano: el ajuste a mano del agarre de un objeto sostenido */
+.fp-grip{display:grid;gap:0;margin-top:6px}
+.fp-grip summary{cursor:pointer;padding:8px 0;font:600 13px/1 var(--font-ui);color:var(--ink)}
+.fp-grip .linkbtn{justify-self:start;margin-top:4px}
