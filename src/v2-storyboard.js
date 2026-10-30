@@ -52,7 +52,7 @@ V2_ICO.note = '<path d="M5 5h14v10H10l-4 4v-4H5z"/>';
 RENDER.board = (orig => function () {
   if (!V2.on || UI.sbView === 'table') {
     const r = orig.apply(this, arguments);
-    if (V2.on) { const s = $('#view .scroller'); if (s) s.insertAdjacentHTML('afterbegin', v2SbFilter()); }
+    if (V2.on) { const s = $('#view .scroller'); if (s) s.insertAdjacentHTML('afterbegin', v2SbFilter()); v2SbBind(); }
     return r;
   }
   const v = $('#view');
@@ -77,12 +77,19 @@ function v2SbOrdBtn() {
   const o = v2SbSort();
   return `<span class="v2-ord" role="group" aria-label="Orden de los planos" title="Número: el orden del guion. Color: cada grupo que se graba de una vez junto, en el lugar de su plano más bajo (los números no cambian)"><span class="lab">Orden</span><button type="button" data-v2ord="num" aria-pressed="${o !== 'grupo'}">Número</button><button type="button" data-v2ord="grupo" aria-pressed="${o === 'grupo'}">Color</button></span>`;
 }
+/* guion técnico: todos los planos o un plano por grupo de color (tab-board.js · sbColOn) */
+function v2SbColBtn() {
+  if (!shotGroups().size) return '';
+  const o = sbColOn();
+  return `<span class="v2-ord" role="group" aria-label="Planos de un mismo grupo" title="Todos: cada plano en su fila. Un plano: cada grupo de color deja solo su plano más bajo, para contar menos (con «+N»; un clic en él lo abre)"><span class="lab">Grupos</span><button type="button" data-v2col="" aria-pressed="${!o}">Todos</button><button type="button" data-v2col="1" aria-pressed="${o}">Un plano</button></span>`;
+}
 function v2SbFilter() {
   const withShots = D.sc.scenes.filter(s => (D.shotsBy[s.key] || []).length);
-  const all = Object.values(P.shots), done = all.filter(x => x.done).length, secs = all.reduce((a, x) => a + (num(x.dur) || 0), 0);
+  const every = Object.values(P.shots), G = shotGroups(), all = UI.sbView === 'table' ? every.filter(x => !sbColHidden(x, G)) : every;   // con «Un plano», cada grupo cuenta uno
+  const done = all.filter(x => x.done).length, secs = every.reduce((a, x) => a + (num(x.dur) || 0), 0);
   return `<div class="v2-sbfil"><span class="lab">Escena</span>
     <button type="button" class="v2-fb${UI.sbScene ? '' : ' on'}" data-v2sc="">Todas</button>${withShots.map(s => `<button type="button" class="v2-fb${UI.sbScene === s.key ? ' on' : ''}" data-v2sc="${ea(s.key)}">${esc(s.key)}</button>`).join('')}
-    <span class="v2-grow"></span>${v2SbOrdBtn()}<span class="v2-sbst">${all.length} ${all.length === 1 ? 'plano' : 'planos'} · ${done} ${done === 1 ? 'rodado' : 'rodados'}${secs ? ' · ' + v2Secs(secs) : ''}</span></div>`;
+    <span class="v2-grow"></span>${UI.sbView === 'table' ? v2SbColBtn() : v2SbOrdBtn()}<span class="v2-sbst">${all.length} ${all.length === 1 ? 'plano' : 'planos'}${all.length < every.length ? ` (${every.length} con sus grupos)` : ''} · ${done} ${done === 1 ? 'rodado' : 'rodados'}${secs ? ' · ' + v2Secs(secs) : ''}</span></div>`;
 }
 /* la leyenda de los planos que se graban de una vez: un color por grupo y la claqueta del más bajo */
 function v2SbLegend(G) {
@@ -110,6 +117,7 @@ function v2SbBind() {
   }, true);
   v.addEventListener('click', e => {
     if (UI.tab !== 'board') return;
+    const cg = e.target.closest('[data-v2col]'); if (cg) { UI.sbCol = cg.dataset.v2col; ls.set('sbCol', UI.sbCol); UI.sbOpen = new Set(); render(); return; }
     const od = e.target.closest('[data-v2ord]'); if (od) { UI.sbSort = od.dataset.v2ord; ls.set('sbSort', UI.sbSort); render(); return; }
     const f = e.target.closest('[data-v2sc]'); if (f && f.closest('.v2-sbfil')) { UI.sbScene = f.dataset.v2sc; render(); return; }
     // un clic elige solo ese plano (amarillo); Ctrl/Mayús+clic, arriba, suma o suelta

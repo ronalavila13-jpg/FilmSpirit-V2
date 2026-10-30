@@ -440,14 +440,26 @@ function boardPanelsHTML(scenes) {
         ${UI.readOnly ? '' : `<div class="sb-addc" data-i="${ea(s.idx)}"><button class="panel add" data-act="shot-scene" data-i="${ea(s.idx)}"><span class="hd-pl">${ICO.plus}</span>Nuevo plano</button>${sbImgBtn(s)}</div>`}</div></section>`;
   }).join('');
 }
+/* (lote AK) guion técnico con los grupos de color (los planos que se graban de una vez, como en las viñetas). «Un plano» deja de
+   cada grupo solo su plano más bajo, con «+N» (un clic lo abre), para contar menos planos. UI.sbCol: '1' = un plano */
+const sbColOn = () => (UI.sbCol === undefined ? (UI.sbCol = ls.get('sbCol', '')) : UI.sbCol) === '1';
+const sbOpenSet = () => UI.sbOpen || (UI.sbOpen = new Set());
+const sbColHidden = (sh, G) => { const g = G.get(sh.id); return !!g && sbColOn() && g.lead !== sh && !sbOpenSet().has(g.lead.id); };
+function sbGrpChip(sh, G) {
+  const g = G.get(sh.id); if (!g) return '';
+  const lead = g.lead === sh, n = g.members.length - 1, t = 'Se graba de una vez con ' + g.members.filter(x => x !== sh).map(x => D.code[x.id]).join(', ');
+  if (lead && sbColOn()) { const o = sbOpenSet().has(sh.id); return ` <button type="button" class="v2-gt" style="--gc:${g.color};border:0;cursor:pointer" data-act="sb-grp" data-id="${ea(sh.id)}" title="${ea(t + (o ? ' · Un clic los esconde' : ' · Un clic los muestra'))}">+${n} ${o ? '▾' : '▸'}</button>`; }
+  return ` <span class="v2-gt" style="--gc:${g.color}" title="${ea(t)}">${lead ? '+' + n : 'con ' + esc(D.code[g.lead.id])}</span>`;
+}
 function shotTableHTML(scenes) {
+  const G = shotGroups();
   const opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
   const cuts = typeof callShotCuts === 'function' ? callShotCuts() : {};   // (lote AH) quitados en una hoja de llamado
   return `<div class="tbl-wrap" style="max-width:1400px;margin:0 auto"><table class="tbl"><thead><tr><th>Plano</th><th>Tamaño</th><th>Ángulo</th><th>Movimiento</th><th>Lente</th><th>Soporte</th><th>Sonido</th><th>Dur. (s)</th><th style="min-width:240px">Descripción</th><th></th></tr></thead><tbody>
     ${scenes.map(s => {
-    const shots = D.shotsBy[s.key] || [];
+    const all = D.shotsBy[s.key] || [], shots = all.filter(sh => !sbColHidden(sh, G));
     return `<tr class="grp"><td colspan="10">Esc. ${esc(s.key)} · <span class="sch">${esc(s.heading)}</span> <span class="count">· ${fmtEighths(D.metrics.eighths[s.idx])} págs.</span> <button class="btn sm" style="float:right" data-act="shot-scene" data-i="${ea(s.idx)}">+ Plano</button></td></tr>` +
-      shots.map((sh, i) => `<tr data-id="${ea(sh.id)}"><td style="white-space:nowrap"><b>${esc(D.code[sh.id])}</b>${sh.done ? ' <span class="badge ok">Rodado</span>' : ''}${cuts[sh.id] ? ` <span class="badge cut" title="El plano sigue en el storyboard: se quitó en esa hoja de llamado">${esc(callCutLabel(cuts[sh.id]))}</span>` : ''}</td>
+      shots.map(sh => { const i = all.indexOf(sh), g = G.get(sh.id); return `<tr data-id="${ea(sh.id)}"><td style="white-space:nowrap${g ? ';box-shadow:inset 4px 0 0 ' + g.color : ''}"><b>${esc(D.code[sh.id])}</b>${sh.done ? ' <span class="badge ok">Rodado</span>' : ''}${cuts[sh.id] ? ` <span class="badge cut" title="El plano sigue en el storyboard: se quitó en esa hoja de llamado">${esc(callCutLabel(cuts[sh.id]))}</span>` : ''}${sbGrpChip(sh, G)}</td>
         <td><select class="w-sm" data-bind="sh" data-f="size" data-id="${ea(sh.id)}">${SIZES.map(([k, n]) => `<option value="${k}" ${k === sh.size ? 'selected' : ''} title="${n}">${k}</option>`).join('')}</select></td>
         <td><select class="w-md" data-bind="sh" data-f="angle" data-id="${ea(sh.id)}">${opt(ANGLES, sh.angle)}</select></td>
         <td><select class="w-md" data-bind="sh" data-f="move" data-id="${ea(sh.id)}">${opt(MOVES, sh.move)}${MOVES.includes(sh.move) ? '' : `<option selected>${esc(sh.move)}</option>`}</select></td>
@@ -456,7 +468,7 @@ function shotTableHTML(scenes) {
         <td><select class="w-sm" data-bind="sh" data-f="snd" data-id="${ea(sh.id)}" title="Sonido: directo, ambiente o MOS">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
         <td><input class="w-sm" type="number" min="0" value="${esc(sh.dur)}" data-bind="sh" data-f="dur" data-id="${ea(sh.id)}"></td>
         <td><input type="text" value="${esc(sh.desc)}" data-bind="sh" data-f="desc" data-id="${ea(sh.id)}" placeholder="${esc(shotTextExcerpt(sh, 60))}"></td>
-        <td style="white-space:nowrap"><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="1" ${i < shots.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="btn ghost sm" data-act="shot" data-id="${ea(sh.id)}">Abrir</button></td></tr>`).join('');
+        <td style="white-space:nowrap"><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="1" ${i < all.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="btn ghost sm" data-act="shot" data-id="${ea(sh.id)}">Abrir</button></td></tr>`; }).join('');
   }).join('')}</tbody></table></div>`;
 }
 /* el menú del título: todas las escenas o una */
@@ -467,6 +479,7 @@ function sbSceneMenu(b) {
 }
 Object.assign(ACT, {
   'sb-scene-menu': b => sbSceneMenu(b),
+  'sb-grp': b => { const S = sbOpenSet(), id = b.dataset.id; if (S.has(id)) S.delete(id); else S.add(id); render(); },
   'sb-view': b => { UI.sbView = b.dataset.v; render(); },
   'sb-ws': b => { ls.set('boardWs', b.dataset.v); },
   // las viñetas automáticas (las que nadie armó en 3D): la escena 3D sola o en blanco
