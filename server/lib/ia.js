@@ -31,7 +31,10 @@ function makeIa(dataDir, env = process.env) {
   function getSecret() {
     if (secret) return secret;
     const e = String(env.IA_KEY_SECRET || '').trim();
-    if (e) secret = crypto.createHash('sha256').update(e).digest();
+    if (e) {
+      if (e.length < 32) console.warn('[ia] IA_KEY_SECRET es corto: usa 32 caracteres aleatorios o más (o déjalo vacío y el servidor crea ia-secreto.key).');
+      secret = crypto.createHash('sha256').update(e).digest();
+    }
     else {
       const f = path.join(dataDir, 'ia-secreto.key');
       if (!fs.existsSync(f)) { fs.mkdirSync(dataDir, { recursive: true }); fs.writeFileSync(f, crypto.randomBytes(32).toString('base64'), { mode: 0o600, flag: 'wx' }); }
@@ -66,7 +69,7 @@ function makeIa(dataDir, env = process.env) {
       if (r.status === 401 || r.status === 403 || /API key|API_KEY/i.test(m) && r.status === 400) fail(400, MSG.ia_key, 'ia_key');
       if (r.status === 429 || st === 'RESOURCE_EXHAUSTED' || /billing|quota/i.test(m)) fail(402, MSG.ia_quota, 'ia_quota');
       if (r.status === 400 && /safety|blocked|policy/i.test(m)) fail(422, MSG.ia_blocked, 'ia_blocked');
-      fail(502, 'Google respondió con un error (' + r.status + '). Inténtalo otra vez.', 'ia_failed');
+      fail(502, `Google respondió con un error (${r.status})${m ? ': ' + m.slice(0, 200) : ''}. Inténtalo otra vez.`, 'ia_failed');
     }
     return j;
   }
@@ -92,7 +95,7 @@ function makeIa(dataDir, env = process.env) {
     fail(422, MSG.ia_blocked, 'ia_blocked');
   }
 
-  return { seal, unseal, iaModels, iaImage, ASPECTS };
+  return { seal, unseal, iaModels, iaImage };
 }
 
 module.exports = { makeIa, IA_MODELS, IA_DEFAULT, ASPECTS };

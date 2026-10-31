@@ -243,10 +243,12 @@ Cada persona con plan Studio guarda en su cuenta (menú de la cuenta › «Intel
 
 El cifrado usa un secreto de 32 bytes que el servidor crea solo la primera vez en `/var/lib/filmspirit/ia-secreto.key` (permiso 600), o el que pongas tú en `IA_KEY_SECRET` en `/etc/filmspirit/filmspirit.env`.
 
-- **Respáldalo junto con la base de datos.** Los respaldos diarios solo copian la base: sin `ia-secreto.key` (o sin el mismo `IA_KEY_SECRET`), una base restaurada no puede abrir las keys guardadas y cada persona tendría que pegar la suya otra vez. Nada se pierde más que eso. Cópialo con: `scp root@IP_DE_TU_VPS:/var/lib/filmspirit/ia-secreto.key .`
+- **Respáldalo, pero aparte de los respaldos de la base** (por ejemplo en tu gestor de contraseñas). Los respaldos diarios solo copian la base: sin `ia-secreto.key` (o sin el mismo `IA_KEY_SECRET`), una base restaurada no puede abrir las keys guardadas y cada persona tendría que pegar la suya otra vez; nada se pierde más que eso. Si lo guardas junto a los `.db.gz`, quien robe ese respaldo podría descifrar las keys. Cópialo con: `scp root@IP_DE_TU_VPS:/var/lib/filmspirit/ia-secreto.key .`
 - No lo subas a ningún repositorio (el `.gitignore` ya excluye `*.key`).
 - La VPS sale a `generativelanguage.googleapis.com` (HTTPS). Cada imagen tarda de 10 a 40 s: nginx ya da 120 s a `/`.
-- Límite: 12 imágenes por minuto por persona.
+- Límites por persona: 12 imágenes por minuto y 150 por día (`IA_MAX_DIA` en `/etc/filmspirit/filmspirit.env`; el contador diario se reinicia al reiniciar el servicio). Así una sesión robada no puede gastar sin límite la key de Google de la víctima.
+- `IA_KEY_SECRET`, si lo usas, debe ser aleatorio de 32 caracteres o más; con una frase corta el servidor avisa en el registro. Lo más simple es dejarlo vacío.
+- Guardar, cambiar o quitar una key queda anotado (persona, hora e IP, nunca la key) en la bitácora de auditoría.
 
 ## Seguridad de la VPS
 

@@ -115,6 +115,20 @@ test('alternar y generar no tocan la escena 3D del plano ni la imagen subida', (
   assert.ok(/const k = sh\.id \+ '~ia'/.test(use));
 });
 
+test('«Usar en la viñeta» guarda <plano>~ia sin pasar la imagen anterior al historial (rehacer no la borra)', async () => {
+  const notes = [], saved = [];
+  const { c } = make({
+    histNote: (...a) => notes.push(a), Store: { saveFrame: async (...a) => saved.push(a) }, frameDims: () => [64, 36],
+    imgLoad: async () => ({ naturalWidth: 128, naturalHeight: 72 }), imgEncode: () => ({ url: 'data:image/webp;base64,NUEVA' }),
+    document: { createElement: () => ({ getContext: () => ({ drawImage() { } }) }) }, problem() { }, flushSave: async () => { },
+  });
+  c.P.id = 'p1'; c.P.shots.s1 = sh0(); c.D.code.s1 = '1A'; c.FRAMES['s1~ia'] = 'data:image/webp;base64,VIEJA'; c.FRAMES.s1 = 'subida';
+  await c.iaShotUse(c.P.shots.s1, 'data:image/png;base64,X');
+  assert.strictEqual(notes.length, 1); assert.strictEqual(notes[0][1], null, 'sin imágenes «borradas» en el historial');
+  assert.strictEqual(c.FRAMES['s1~ia'], 'data:image/webp;base64,NUEVA'); assert.strictEqual(c.P.shots.s1.ia, true);
+  assert.deepStrictEqual(saved, [['p1', 's1~ia', 'data:image/webp;base64,NUEVA']]); assert.strictEqual(c.FRAMES.s1, 'subida');
+});
+
 test('escribir la descripción de la IA no rehace las miniaturas del personaje', () => {
   const { c } = make();
   c.P.elements = { juan: { look: { body: 'hombre' } } };
