@@ -127,7 +127,7 @@ function outlineAll(root) {
 const PROPM = new Map();
 function propMerge(inner, parts, key) {
   const T = THREE, keep = new Set();
-  for (const v of Object.values(parts || {})) if (v && v.isObject3D) v.traverse(o => keep.add(o));
+  for (const v of Object.values(parts || {}).flat()) if (v && v.isObject3D) v.traverse(o => keep.add(o));
   inner.updateMatrixWorld(true);
   const inv = new T.Matrix4().copy(inner.matrixWorld).invert(), groups = new Map();
   inner.traverse(o => {
@@ -315,7 +315,7 @@ function syncRoom(s3, st) {
   if (R3.room) { R3.sets.int.remove(R3.room); R3.room.traverse(o => { if (disposable(o.geometry)) o.geometry.dispose(); if (o.material && o.material.map) { o.material.map.dispose(); o.material.dispose(); } }); }
   const g = new T.Group();
   // cocina, sala, dormitorio…: su piso y el color de sus muros; si no, la sala neutra con su cuadrícula de 1 m
-  const dressed = roomDress(g, R);
+  const dressed = roomDress(g, R, s3.objs.some(o => o.kind === 'puerta' && o.type === 'ascensor'));
   if (!dressed) {
     const fl = new T.Mesh(new T.PlaneGeometry(R.w, R.d), R3.mats.floorInt || (R3.mats.floorInt = toon(C3.floorInt))); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; g.add(fl);
     const pts = [];
@@ -549,7 +549,7 @@ function r3Sync(s3, st, opts) {
       if (E.ext) ch3Dispose(E); else if (E.fig) fig3dDispose(E); else if (E.crowd) genteDispose(E); else if (E.shirt) for (const m of [E.shirt, E.skin, E.hairM, E.pants]) m.dispose();
       E = null;
     }
-    if (!E) { E = ob.kind === 'actor' ? (cutMode ? makeCutout(look) : makeActor(look)) : ob.kind === 'gente' ? makeCrowd(ob) : makeProp(ob.kind, ob.kind === 'detalle' ? detailModel(ob) : null); R3.objs.set(ob.id, E); }
+    if (!E) { E = ob.kind === 'actor' ? (cutMode ? makeCutout(look) : makeActor(look)) : ob.kind === 'gente' ? makeCrowd(ob) : makeProp(ob.kind, ob.kind === 'detalle' ? detailModel(ob) : ob.kind === 'puerta' ? ob.type : null); R3.objs.set(ob.id, E); }
     if (!E.root.parent) R3.scene.add(E.root);
     seen.add(ob.id);
     // sobre el suelo que tiene debajo (la vereda) más lo que se subió a mano (figuras y objetos pequeños)
@@ -575,7 +575,7 @@ function r3Sync(s3, st, opts) {
       // la parte del cuerpo elegida (solo en el visor del editor) se tiñe; en miniaturas y PDF, nunca
       if (E.fig) fig3dTint(E, opts.part && opts.part.id === ob.id ? opts.part.key : null);
     } else {
-      if (E.parts.leaf || E.parts.sashL) openProp(E, p);
+      if (E.parts.leaf || E.parts.sashL || E.parts.slide) openProp(E, p);
       if (E.paint) E.paint.color.set(ob.paint || VEH_PAINT[ob.kind] || '#7D8C9C');   // color del vehículo (o del animal)
       if (E.parts.hg) objLay(E.parts, false);   // cuchillo, pistola…: acostados salvo en una mano
       if (ob.hold && GRIP[ob.kind]) held.push([ob, E]);

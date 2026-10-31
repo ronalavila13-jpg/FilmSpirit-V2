@@ -79,8 +79,14 @@ function carOf(s3) {
 /* cambiar el modelo o el color (null: el de fábrica); lo de siempre (sedán, su color) no se anota */
 function carSet(s3, f, v) {
   const car = { ...((s3.car && typeof s3.car === 'object') ? s3.car : {}) };
-  if (f === 'm') { if (typeof v === 'string' && Object.hasOwn(CAB_MODELS, v) && v !== 'sedan') car.m = v; else delete car.m; }
+  if (f === 'm') { const m0 = car.m || 'sedan'; if (typeof v === 'string' && Object.hasOwn(CAB_MODELS, v) && v !== 'sedan') car.m = v; else delete car.m; if ((car.m || 'sedan') !== m0) { delete car.dr; delete car.wn; } }
+  // puertas (grados) y lunas (0 cerrada … 1 abajo), en el orden de carDoors; lo de fábrica no se anota
+  if (f === 'dr' || f === 'wn') {
+    const n = carDoors(car.m || 'sedan').length, d0 = carDoor0(car.m || 'sedan', f), L = Array.from({ length: n }, (_, i) => { const q = Array.isArray(v) ? +v[i] : NaN; return Number.isFinite(q) ? (f === 'dr' ? clamp(Math.round(q), 0, 75) : clamp(round2(q), 0, 1)) : d0; });
+    if (n && (f === 'dr' || car.m !== 'bus') && L.some(q => q !== d0)) car[f] = L; else delete car[f];
+  }
   if (f === 'c') { if (CAR_HEX.test(v || '')) car.c = v.toUpperCase(); else delete car.c; }
+  if (f === 'at') { const n = q => { q = v && typeof v === 'object' ? +v[q] : 0; return Number.isFinite(q) ? q : 0; }, x = clamp(round2(n('x')), -500, 500), z = clamp(round2(n('z')), -500, 500), r = carAng(n('r')); if (x || z || r) car.at = { x, z, r }; else delete car.at; }
   if (Object.keys(car).length) s3.car = car; else delete s3.car;
   return s3;
 }
@@ -88,7 +94,7 @@ function carSet(s3, f, v) {
 function carClean(s3) {
   if (!s3 || s3.car == null) return;
   const c = s3.car; delete s3.car;
-  if (c && typeof c === 'object' && !Array.isArray(c)) { if (c.m != null) carSet(s3, 'm', c.m); if (c.c != null) carSet(s3, 'c', c.c); }
+  if (c && typeof c === 'object' && !Array.isArray(c)) { if (c.m != null) carSet(s3, 'm', c.m); if (c.c != null) carSet(s3, 'c', c.c); if (c.at && typeof c.at === 'object') carSet(s3, 'at', c.at); for (const f of ['dr', 'wn']) if (Array.isArray(c[f])) carSet(s3, f, c[f]); }
 }
 /* el modelo que dice la locación: «INT. COMBI – NOCHE» es la van; «INT. AUTO DE ROSA» el sedán */
 function carFromLoc(L) {
@@ -101,6 +107,42 @@ function carFromLoc(L) {
 }
 /* del vehículo (frente hacia +z) a la escena (frente hacia −z) */
 const carW = (D, x, z) => [round2(-x) || 0, round2(D.oz - z) || 0];
+/* las puertas que se abren: en los autos, una por fila (hasta dos) a cada lado; en el bus, la de subida (que siempre
+   estuvo abierta: es lo de fábrica) */
+function carDoors(m) {
+  if (m === 'bus') return ['Puerta'];
+  const S = vehSpec((CAB_MODELS[m] || CAB_MODELS.sedan).v), nd = Math.min(2, S.rows.length, S.win);
+  return ['Puerta del conductor', 'Puerta del copiloto', 'Puerta de atrás, izquierda', 'Puerta de atrás, derecha'].slice(0, nd * 2);
+}
+const carDoor0 = (m, f) => f === 'dr' && m === 'bus' ? 75 : 0;
+/* cómo están las puertas y las lunas del plano: { dr: [grados], wn: [0…1] } */
+function carOpen(s3) {
+  const m = carOf(s3).m, c = (s3 && s3.car) || {}, n = carDoors(m).length;
+  const pick = f => Array.from({ length: n }, (_, i) => Array.isArray(c[f]) && Number.isFinite(c[f][i]) ? c[f][i] : carDoor0(m, f));
+  return { dr: pick('dr'), wn: m === 'bus' ? [] : pick('wn') };
+}
+/* dónde quedó el vehículo: s3.car.at = { x, z, r } (se arrastra y gira en la planta como un objeto); sin at, en el origen.
+   carTo lleva un punto del vehículo en el origen a su lugar; carFrom, al revés */
+function carAt(s3) { const a = (s3 && s3.car && s3.car.at) || {}; return { x: +a.x || 0, z: +a.z || 0, r: +a.r || 0 }; }
+const carTo = (A, x, z) => { const t = rad(A.r), c = Math.cos(t), s = Math.sin(t); return [round2(A.x + x * c + z * s) || 0, round2(A.z - x * s + z * c) || 0]; };
+const carFrom = (A, x, z) => { const t = rad(A.r), c = Math.cos(t), s = Math.sin(t), dx = x - A.x, dz = z - A.z; return [dx * c - dz * s, dx * s + dz * c]; };
+const carAng = a => Math.round(((a % 360) + 540) % 360 - 180);
+/* al empezar a mover el vehículo: lo que va dentro en cada clave (figuras, objetos, luces y la cámara), tal como está */
+function carGrab(s3) {
+  const A = carAt(s3), b = carPlan(s3).body, sol = new Set(s3.objs.filter(o => o.hold || (o.kind === 'luz' && o.type === 'sol')).map(o => o.id));
+  const inB = (x, z) => { const [u, v] = carFrom(A, x, z); return u >= b[0] && u <= b[2] && v >= b[1] && v <= b[3]; };
+  return { A, keys: s3.keys.map(k => ({ o: Object.fromEntries(Object.entries(k.o).filter(([id, p]) => !sol.has(id) && inB(p.x, p.z)).map(([id, p]) => [id, { x: p.x, z: p.z, rot: p.rot || 0 }])), cam: inB(k.cam.x, k.cam.z) ? { x: k.cam.x, z: k.cam.z, yaw: k.cam.yaw } : null })) };
+}
+/* el vehículo a { x, z, r }: lo que iba dentro (carGrab) se lleva con él, desde donde estaba al empezar */
+function carMove(s3, at, g) {
+  carSet(s3, 'at', at);
+  const A = carAt(s3), dr = A.r - g.A.r, mv = (x, z) => { const [u, v] = carFrom(g.A, x, z); return carTo(A, u, v); };
+  s3.keys.forEach((k, i) => {
+    const G = g.keys[i]; if (!G) return;
+    for (const id in G.o) { const p = k.o[id], q = G.o[id]; if (!p) continue; [p.x, p.z] = mv(q.x, q.z); p.rot = carAng(q.rot + dr); }
+    if (G.cam) { [k.cam.x, k.cam.z] = mv(G.cam.x, G.cam.z); k.cam.yaw = Math.round((((G.cam.yaw + dr) % 360 + 540) % 360 - 180) * 10) / 10 || 0; }
+  });
+}
 /* los puestos del modelo, en la escena: { x, z, pose, h }. En los autos la primera figura maneja; en el bus todos van
    de pasajeros (maneja el chofer de relleno) y, si no alcanzan los asientos, de pie en el pasillo. h: lo que se
    levanta la figura para quedar sobre el cojín (el sedán, nada: como siempre) */
@@ -119,12 +161,12 @@ function carSeats(m) {
 }
 /* en el vehículo, las figuras van sentadas: la primera maneja (en el bus, todas de pasajeras) */
 function envSeatCar(s3) {
-  const seats = carSeats(carOf(s3).m);
+  const A = carAt(s3), seats = carSeats(carOf(s3).m).map(p => { const [x, z] = carTo(A, p.x, p.z); return { ...p, x, z }; });
   let n = 0;
   for (const ob of s3.objs) {
     if (ob.kind !== 'actor') continue;
     const sp = seats[n++]; if (!sp) break;
-    for (const k of s3.keys) { const p = k.o[ob.id]; if (!p) continue; p.x = sp.x; p.z = sp.z; p.rot = 180; p.pose = sp.pose; if (sp.h) p.h = sp.h; else delete p.h; delete p.j; }
+    for (const k of s3.keys) { const p = k.o[ob.id]; if (!p) continue; p.x = sp.x; p.z = sp.z; p.rot = A.r ? carAng(180 + A.r) : 180; p.pose = sp.pose; if (sp.h) p.h = sp.h; else delete p.h; delete p.j; }
   }
 }
 /* cámara de inicio: por el parabrisas, mirando hacia los de adelante; en el bus, al frente del pasillo mirando a los
@@ -134,9 +176,10 @@ function envCarCam(s3) {
   const C = carOf(s3), D = C.def;
   if (C.m === 'bus') { const V = VEH_MICRO, [x, z] = carW(D, 0, V.drv[1] - .05); Object.assign(k.cam, { x, z, h: round2(V.fl + 1.66), yaw: 180, pitch: -12, roll: 0, lens: 18 }); }
   else { const S = vehSpec(D.v), [, z] = carW(D, 0, S.zWs + .48); Object.assign(k.cam, { x: -.18, z, h: round2((S.fh || .48) + .76), yaw: 180, pitch: -8, roll: 0, lens: 24 }); }
+  if (s3.car && s3.car.at) { const A = carAt(s3); [k.cam.x, k.cam.z] = carTo(A, k.cam.x, k.cam.z); k.cam.yaw = carAng(k.cam.yaw + A.r); }
   s3.aim = null;
 }
-/* la planta del vehículo en la escena: contorno, cabina, tolva, asientos, tablero, volante, ruedas, espejos y puerta
+/* la planta del vehículo en la escena (con el vehículo en el origen: planDrawSet lo pone en su lugar con carAt): contorno, cabina, tolva, asientos, tablero, volante, ruedas, espejos y puerta
    (rectángulos [x0, z0, x1, z1]) */
 function carPlan(s3) {
   const C = carOf(s3), D = C.def;
@@ -310,13 +353,20 @@ function envCarSync(s3) {
     g.position.z = D.oz; g.rotation.y = Math.PI; g.add(inner);
     if (C.m === 'bus') vehMicro(inner, paint); else vehCar(D.v, inner, paint, { hollow: true });
     inner.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
-    propMerge(inner, {}, null);
+    const mov = inner.userData.mov || {};
+    propMerge(inner, { ...mov, doors: (mov.doors || []).map(d => d.piv), wins: (mov.wins || []).map(w => w.m) }, null);   // lo que se mueve queda aparte
     outlineAll(inner);
     G.add(g);
-    all[C.m] = { g, paint, c: D.c };
+    all[C.m] = { g, paint, c: D.c, mov };
   }
   for (const m in all) all[m].g.visible = m === C.m;
-  const E = all[C.m];
+  const E = all[C.m], A = carAt(s3), t = rad(A.r);
+  E.g.position.set(A.x + C.def.oz * Math.sin(t), 0, A.z + C.def.oz * Math.cos(t)); E.g.rotation.y = Math.PI + t;
+  // puertas abiertas (bisagra adelante, hacia afuera) y lunas abajo; en el bus, las hojas plegadas o juntas
+  const O = carOpen(s3), mv = E.mov;
+  for (const d of mv.doors || []) d.piv.rotation.y = -d.sx * rad(O.dr[d.i] || 0);
+  for (const w of mv.wins || []) { const f = O.wn[w.i] || 0; w.m.scale.y = 1 - f; w.m.position.y = w.yA * f; w.m.visible = f < .99; }
+  if (mv.bus) { const f = clamp((O.dr[0] ?? 75) / 75, 0, 1), s = 1 - f * (1 - .3 / mv.lh); for (const g of mv.bus) g.scale.z = s; }
   if (E.c !== C.c) { E.paint.color.set(C.c); E.c = C.c; }
 }
 /* ---------- alumbrado público ----------

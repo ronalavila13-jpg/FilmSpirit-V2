@@ -31,6 +31,16 @@ function vehClipZ(pts, z0, z1) {
   };
   return cut(cut(pts, z0, z => z >= z0), z1, z => z <= z1);
 }
+/* lo que queda de un lado de una recta (Sutherland–Hodgman): f(p) >= 0 */
+function vehClipF(P, f) {
+  const out = [];
+  for (let i = 0; i < P.length; i++) {
+    const a = P[i], b = P[(i + 1) % P.length], fa = f(a), fb = f(b);
+    if (fa >= 0) out.push(a);
+    if ((fa >= 0) !== (fb >= 0)) { const t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  }
+  return out;
+}
 /* lo que queda macizo entre los tramos huecos */
 function vehGaps(holes, a, b) {
   const out = []; let z = a;
@@ -83,7 +93,6 @@ function vehShell(kind, S, inner, paint) {
   const zf = S.zWs - .03, zb = S.hb ?? S.zRw + .03, floorY = S.yb + .06, tw = S.wr * .62;
   const holes = [[zb, zf], ...(S.bed ? [S.bed] : [])];
   // costados finos de punta a punta y, entre ellos, lo macizo: el capó con el motor, la maletera, el muro de la tolva
-  for (const sx of [-1, 1]) put(vehExtrude(key + 'sd', lo, t, .012), paint, sx * (W / 2 - t / 2), 0, 0);
   for (const [a, b] of vehGaps(holes, -S.L / 2 - .1, S.L / 2 + .1)) {
     const P = vehClipZ(lo, a, b); if (P.length > 2) put(vehExtrude(key + 'm' + a.toFixed(2), P, W - 2 * t + .004, .035), paint, 0, 0, 0);
   }
@@ -103,14 +112,46 @@ function vehShell(kind, S, inner, paint) {
     }
   }
   // la cabina: costados con los vanos de las ventanas (pintura afuera, forro adentro), techo con su forro y lunas
-  const cab = vehSmooth(vehCabinProfile(S), 2, S.boxy ? .12 : .2), win = cabFitHoles(cab, vehSideWindows(S, S.win));
+  const cab = vehSmooth(vehCabinProfile(S), 2, S.boxy ? .12 : .2), raw = vehSideWindows(S, S.win), win = cabFitHoles(cab, raw);
+  // las puertas: una por fila de asientos (hasta dos por lado), cada una con su ventana. Se cortan por los pilares (una
+  // recta [z abajo, z arriba] de la ventana); abajo de la cintura, el corte es vertical. Bisagra adelante: se abren
+  // girando hacia afuera, y su luna baja (envCarSync). Cerradas se ven como siempre
+  const yA = raw[0][0][1], yB = raw[0][2][1], nd = Math.min(2, (S.rows || [0]).length, S.win);
+  const pil = i => [(raw[i - 1][1][0] + raw[i][0][0]) / 2, (raw[i - 1][2][0] + raw[i][3][0]) / 2];
+  const dr = [];
+  for (let k = 0; k < nd; k++) { const j = S.win - 1 - k; dr.push({ k, j, rear: j ? pil(j) : [raw[j][0][0] - .03, raw[j][3][0] - .03], front: k ? pil(j + 1) : [raw[j][1][0] + .03, raw[j][2][0] + .03] }); }
+  const side = (l, front) => p => (p[0] - (l[0] + (l[1] - l[0]) * (p[1] - yA) / (yB - yA))) * (front ? 1 : -1);
+  const last = dr[dr.length - 1];
+  // los tramos de adelante hacia atrás: lo fijo de adelante, cada puerta y lo fijo de atrás (con las ventanas que quedan)
+  const segs = [{ id: 'F', za: dr[0].front[0], zb: S.L / 2 + .2, cut: P => vehClipF(P, side(dr[0].front, true)), wins: [] },
+    ...dr.map(d => ({ id: 'D' + d.k, d, za: d.rear[0], zb: d.front[0], cut: P => vehClipF(vehClipF(P, side(d.front, false)), side(d.rear, true)), wins: [d.j] })),
+    { id: 'R', za: -S.L / 2 - .2, zb: last.rear[0], cut: P => vehClipF(P, side(last.rear, false)), wins: win.map((_, i) => i).filter(i => i < last.j) }];
+  const mov = { doors: [], wins: [] }, bySide = {};
   for (const sx of [-1, 1]) {
-    put(cabExtrude(key + 'cf', cab, win, t), paint, sx * (cw / 2 - t / 2), 0, 0);
-    put(cabExtrude(key + 'ci', cab, win, ti, .006), M.cTrim, sx * (cw / 2 - t - ti / 2 + .002), 0, 0);
-    win.forEach((w, i) => put(vehExtrude(key + 'gw' + i, w, .008, 0), M.cGlass, sx * (cw / 2 - t / 2), 0, 0));
-    // el alféizar: cubre la ranura entre el costado bajo y la cabina, más angosta
-    B((W - cw) / 2 + t + .01, .03, S.zWs - S.zRw - .02, sx * (W / 2 - ((W - cw) / 2 + t + .01) / 2), S.belt - .005, (S.zWs + S.zRw) / 2, paint, .012);
+    bySide[sx] = segs.map(g => {
+      let par = inner;
+      if (g.d) {
+        const piv = new T.Group(); piv.position.set(sx * W / 2, 0, g.zb); inner.add(piv);
+        par = new T.Group(); par.position.set(-sx * W / 2, 0, -g.zb); piv.add(par);
+        mov.doors.push({ piv, sx, i: g.d.k * 2 + (sx > 0 ? 0 : 1) });
+      }
+      const sk = key + g.id;
+      const P = vehClipZ(lo, g.za, g.zb); if (P.length > 2) put(vehExtrude(sk + 'sd', P, t, .012), paint, sx * (W / 2 - t / 2), 0, 0, par);
+      const Q = g.cut(cab), H = g.wins.map(i => win[i]);
+      if (Q.length > 2) {
+        put(cabExtrude(sk + 'cf', Q, H, t), paint, sx * (cw / 2 - t / 2), 0, 0, par);
+        put(cabExtrude(sk + 'ci', Q, H, ti, .006), M.cTrim, sx * (cw / 2 - t - ti / 2 + .002), 0, 0, par);
+      }
+      for (const i of g.wins) { const m = put(vehExtrude(key + 'gw' + i, win[i], .008, 0), M.cGlass, sx * (cw / 2 - t / 2), 0, 0, par); if (g.d) mov.wins.push({ m, yA, i: g.d.k * 2 + (sx > 0 ? 0 : 1) }); }
+      // el alféizar: cubre la ranura entre el costado bajo y la cabina, más angosta
+      const a = Math.max(g.za, S.zRw + .01), b = Math.min(g.zb, S.zWs - .01), sw = (W - cw) / 2 + t + .01;
+      if (b - a > .02) put(rbox(sw, .03, b - a - .006, .012), paint, sx * (W / 2 - sw / 2), S.belt - .005, (a + b) / 2, par);
+      return { za: g.za, zb: g.zb, par };
+    });
   }
+  // lo de cada puerta (las manijas de afuera, el forro de adentro) va en su grupo
+  const segAt = (sx, z) => (bySide[sx].find(g => z >= g.za && z < g.zb) || { par: inner }).par;
+  inner.userData.mov = mov; inner.userData.segAt = segAt;
   const top = cab.filter(p => p[1] > S.roof - .07).sort((a, b) => b[0] - a[0]);
   if (top.length > 1) put(cabExtrude(key + 'rf', [...top, ...[...top].reverse().map(([z, y]) => [z, y - .05])], null, cw - .004, .012), paint, 0, 0, 0);
   B(cw - 2 * t - .02, .02, S.zRf - S.zRr - .05, 0, S.roof - .085, (S.zRf + S.zRr) / 2, M.cHead, .008);   // forro del techo
@@ -121,7 +162,7 @@ function vehShell(kind, S, inner, paint) {
   };
   pane(S.zWs - .07, S.belt + .01, S.zRf + .02, S.roof - .045, cw - 2 * t);
   pane(S.zRw + .07, S.belt + .01, S.zRr - .02, S.roof - .045, cw - 2 * t);
-  vehInterior(S, inner, M, { floorY, cw, t, zb });
+  vehInterior(S, inner, M, { floorY, cw, t, zb, segs: bySide, segAt });
 }
 /* ---------- el interior de un auto ---------- */
 /* un asiento: base, cojín, respaldo reclinado y cabecera. w: ancho; heads: x de las cabeceras (banca trasera) */
@@ -159,8 +200,8 @@ function cabLayout(S) {
 }
 function vehInterior(S, inner, M, o) {
   const T = THREE, { floorY, cw, t, zb } = o, fh = S.fh || .48, { rows, zF, xD, big, zd, wz, wy } = cabLayout(S);
-  const put = (geo, m, x, y, z) => { const q = new T.Mesh(geo, m); q.position.set(x, y, z); inner.add(q); return q; };
-  const B = (w, h, d, x, y, z, m, r) => put(rbox(w, h, d, r ?? Math.min(.01, Math.min(w, h, d) * .3)), m, x, y, z);
+  const put = (geo, m, x, y, z, par = inner) => { const q = new T.Mesh(geo, m); q.position.set(x, y, z); par.add(q); return q; };
+  const B = (w, h, d, x, y, z, m, r, par) => put(rbox(w, h, d, r ?? Math.min(.01, Math.min(w, h, d) * .3)), m, x, y, z, par);
   const belt = S.belt, iw = cw - 2 * t - .02, dd = S.zWs - .04 - zd;
   // tablero: el cuerpo, la visera de los instrumentos, la consola central con la pantalla y las salidas de aire
   B(iw, .3, dd, 0, belt - .1, zd + dd / 2, M.cDash, .03);
@@ -191,11 +232,17 @@ function vehInterior(S, inner, M, o) {
   // paneles de puerta: forro, apoyabrazos, manija y parlante, en cada fila
   for (const sx of [-1, 1]) {
     const xp = sx * (S.W / 2 - t - .016), x2 = sx * (S.W / 2 - t - .055);
-    B(.03, belt - floorY - .03, Math.max(.2, zd + .1 - zb - .05), xp, (belt + floorY) / 2 - .01, (zd + .1 + zb + .05) / 2, M.cDoor, .012);
+    // el forro, partido en las puertas (cada tramo va con la suya)
+    const p0 = zb + .05, p1 = p0 + Math.max(.2, zd + .1 - zb - .05);
+    for (const g of o.segs ? o.segs[sx] : [{ za: p0, zb: p1, par: inner }]) {
+      const a = Math.max(p0, g.za), b = Math.min(p1, g.zb);
+      if (b - a > .02) B(.03, belt - floorY - .03, b - a - (o.segs ? .006 : 0), xp, (belt + floorY) / 2 - .01, (a + b) / 2, M.cDoor, .012, g.par);
+    }
     for (const [z] of rows) {
-      B(.07, .045, .3, x2, fh + .17, z + .12, M.cTrim, .01);
-      B(.016, .03, .1, sx * (S.W / 2 - t - .036), belt - .1, z + .4, M.vChrome, .006);
-      const sp = put(rcyl(.055, .012, .003, 14), M.cGauge, sx * (S.W / 2 - t - .034), floorY + .16, z + .38); sp.rotation.z = Math.PI / 2;
+      const par = o.segAt ? o.segAt(sx, z + .2) : inner;
+      B(.07, .045, .3, x2, fh + .17, z + .12, M.cTrim, .01, par);
+      B(.016, .03, .1, sx * (S.W / 2 - t - .036), belt - .1, z + .4, M.vChrome, .006, par);
+      const sp = put(rcyl(.055, .012, .003, 14), M.cGauge, sx * (S.W / 2 - t - .034), floorY + .16, z + .38, par); sp.rotation.z = Math.PI / 2;
     }
   }
   // parasoles y retrovisor
@@ -233,8 +280,17 @@ function vehMicro(inner, paint) {
   put(cabExtrude('microLi', side, winL, .02, .005), M.cWall, W / 2 - t - .012, 0, 0);
   put(cabExtrude('microRi', side, [...winR, doorH], .02, .005), M.cWall, -W / 2 + t + .012, 0, 0);
   for (const [sx, list] of [[1, winL], [-1, winR]]) list.forEach((w, i) => put(vehExtrude('mg' + sx + i, w, .01, 0), M.cGlass, sx * (W / 2 - t / 2), 0, 0));
-  // la puerta, abierta hacia afuera (dos hojas con vidrio, plegadas contra el vano)
-  for (const dz of [V.door[0] + .03, V.door[1] - .03]) { B(.04, H - .5 - yb, .06, -W / 2 - .05, (H - .36 + yb + .1) / 2, dz, M.vTrim, .015); B(.02, 1.1, .3, -W / 2 - .07, fl + 1.1, dz + (dz > (V.door[0] + V.door[1]) / 2 ? -.17 : .17), M.cGlass, .006); }
+  // la puerta: dos hojas con vidrio que se pliegan contra los costados del vano (abierta, como siempre) o se juntan al
+  // medio (cerrada): envCarSync estira cada hoja desde su borde
+  const leaves = [], lh = (V.door[1] - V.door[0]) / 2 - .03;
+  for (const dz of [V.door[0] + .03, V.door[1] - .03]) {
+    B(.04, H - .5 - yb, .06, -W / 2 - .05, (H - .36 + yb + .1) / 2, dz, M.vTrim, .015);
+    const sg = dz > (V.door[0] + V.door[1]) / 2 ? -1 : 1, g = new T.Group(); g.position.set(-W / 2 - .07, 0, dz + sg * .02); inner.add(g);
+    const q = (h, y, m) => { const o = new T.Mesh(rbox(.02, h, lh, .006), m); o.position.set(0, y, sg * lh / 2); g.add(o); };
+    q(1.1, fl + 1.1, M.cGlass); q(fl + .55 - yb - .1, (fl + .55 + yb + .1) / 2, M.vTrim); q(H - .36 - fl - 1.65, (H - .36 + fl + 1.65) / 2, M.vTrim);
+    leaves.push(g);
+  }
+  inner.userData.mov = { bus: leaves, lh };
   // frente y cola: con el parabrisas y la luneta
   const fr = cabRect(-W / 2 + .01, yb + .28, W / 2 - .01, H - .04), ws = cabRect(-W / 2 + .14, fl + .45, W / 2 - .14, H - .4);
   const rw = cabRect(-W / 2 + .3, fl + .95, W / 2 - .3, H - .45), fi = cabRect(-W / 2 + t + .02, yb + .3, W / 2 - t - .02, H - .1);

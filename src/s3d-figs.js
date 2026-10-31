@@ -562,6 +562,12 @@ function makeProp(kind, model) {
       for (const x of [-.35, .35]) B(.6, .13, .36, x, .53, -.74, M.body, .06);
       break;
     case 'puerta': {
+      if (model === 'ascensor') {
+        // las puertas del ascensor: dos hojas de acero que corren hacia los lados, por fuera del muro (el marco es de la cabina)
+        const m = M.elevDoor || (M.elevDoor = toon('#C4C8CC'));
+        parts.slide = [-1, 1].map(sx => { const hg = new T.Group(); hg.userData.sx = sx; hg.position.x = sx * .225; inner.add(hg); B(.444, 2.1, .03, 0, 1.05, -.03, m, .004, hg); return hg; });
+        break;
+      }
       for (const s of [-1, 1]) B(.08, 2.15, .14, s * .49, 1.07, 0, M.prop2, .012); B(1.06, .08, .14, 0, 2.15, 0, M.prop2, .012);
       const leaf = new T.Group(); leaf.position.set(-.45, 0, 0); inner.add(leaf);
       B(.9, 2.05, .045, .45, 1.03, 0, M.prop, .008, leaf);
@@ -673,7 +679,7 @@ function makeProp(kind, model) {
     default: B(.5, .5, .5, 0, .25, 0);
   }
   inner.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
-  propMerge(inner, parts, kind === 'detalle' ? 'detalle:' + (model || 'flores') : kind);
+  propMerge(inner, parts, kind === 'detalle' ? 'detalle:' + (model || 'flores') : model ? kind + ':' + model : kind);
   outlineAll(inner);
   const fp = S3_PROPS[kind] || { w: .5, d: .5 };
   const blob = new T.Mesh(G.blob, M.blob); blob.rotation.x = -Math.PI / 2; blob.position.y = .004; blob.scale.set(Math.max(.2, fp.w * .7), Math.max(.2, fp.d * .7), 1); g.add(blob);
@@ -696,6 +702,8 @@ function guitarGeo() {
 function openProp(E, p) {
   const a = (p.open || 0) * Math.PI / 180;
   if (E.parts.leaf) E.parts.leaf.rotation.y = -a;
+  // corredizas (el ascensor): 90° es abierta del todo
+  if (E.parts.slide) for (const hg of E.parts.slide) hg.position.x = hg.userData.sx * (.225 + .43 * clamp((p.open || 0) / 90, 0, 1));
   if (E.parts.sashL) { E.parts.sashL.rotation.y = -a; E.parts.sashR.rotation.y = a; }
 }
 /* cómo se sostiene cada objeto pequeño: desplazamiento y giro respecto a la mano o al pecho */

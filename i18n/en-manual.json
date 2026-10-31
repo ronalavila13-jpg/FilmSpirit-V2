@@ -426,7 +426,7 @@
 "Agregar una luz o el esquema de tres puntos": "Add a light or the three-point setup",
 "Ascensor": "Elevator",
 "Puertas": "Doors",
-"Ascensor: las puertas, la botonera y los pasamanos son parte de la cabina. Las figuras quedan adentro.": "Elevator: the doors, the button panel and the handrails are part of the car. The figures stay inside.",
+"Ascensor: la botonera y los pasamanos son parte de la cabina; las puertas se abren con «Apertura». Las figuras quedan adentro.": "Elevator: the button panel and the handrails are part of the car; the doors open with «Opening». The figures stay inside.",
 "Equipo ({0})": "Team ({0})",
 "Todavía no hay nadie más. Invita por correo.": "No one else yet. Invite people by email.",
 "{0} · administra el equipo": "{0} · manages the team",

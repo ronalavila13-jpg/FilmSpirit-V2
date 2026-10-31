@@ -259,7 +259,7 @@ function roomTex(spec, w, d) {
   return t;
 }
 /* el piso, los muros y los detalles fijos del ambiente (dentro de syncRoom) */
-function roomDress(g, R) {
+function roomDress(g, R, ownDoor) {
   const K = ROOM_KINDS[R.kind]; if (!K) return null;
   const T = THREE;
   const fl = new T.Mesh(new T.PlaneGeometry(R.w, R.d), toon('#FFFFFF', { map: roomTex(K.floor, R.w, R.d) })); fl.rotation.x = -Math.PI / 2; fl.position.y = .001; fl.receiveShadow = true; fl.userData.noOutline = true; g.add(fl);
@@ -271,7 +271,7 @@ function roomDress(g, R) {
       const p = new T.Mesh(new T.PlaneGeometry(L, K.band[2]), m2); p.position.set(x, K.band[2] / 2, z); p.rotation.y = ry; p.userData.noOutline = true; p.receiveShadow = true; g.add(p);
     }
   }
-  if (R.kind === 'ascensor') elevDress(g, R);
+  if (R.kind === 'ascensor') elevDress(g, R, ownDoor);
   return R3.mats['wall_' + R.kind] || (R3.mats['wall_' + R.kind] = toon(K.wall));
 }
 /* una textura dibujada una sola vez (el indicador de piso, la botonera); cada uso lleva su copia, que se libera sola */
@@ -287,7 +287,7 @@ function roomCanvasTex(key, w, h, draw) {
    siempre), el indicador de piso encima, la botonera al lado, pasamanos en los costados y las juntas de los paneles.
    Lo de cada muro va en su grupo: con la cámara del otro lado, se esconde junto con el muro (roomSideHide), como una
    pared que se retira en el set. Así el contraplano desde las puertas ve a los personajes */
-function elevDress(g0, R) {
+function elevDress(g0, R, ownDoor) {
   const T = THREE, hw = R.w / 2, hd = R.d / 2, M = R3.mats;
   const side = k => { const s = new T.Group(); s.userData.side = k; g0.add(s); (g0.userData.sides = g0.userData.sides || []).push(s); return s; };
   const gN = side('N'), gO = side('O'), gE = side('E');
@@ -298,8 +298,11 @@ function elevDress(g0, R) {
   const add = (geo, m, x, y, z, o = {}) => { const ms = new T.Mesh(geo, m); ms.position.set(x, y, z); if (o.rx) ms.rotation.x = o.rx; if (o.rz) ms.rotation.z = o.rz; ms.castShadow = !o.flat; ms.receiveShadow = true; if (o.flat) ms.userData.noOutline = true; g.add(ms); return ms; };
   const dw = Math.min(.9, R.w - .5), dh = Math.min(2.1, R.h - .3), zN = -hd;
   // puertas: dos hojas con la ranura al centro, el marco y el umbral
-  for (const sx of [-1, 1]) add(rbox(dw / 2 - .006, dh, .03, .004), door, sx * dw / 4, dh / 2, zN + .022);
-  add(rbox(.006, dh - .02, .034, .002), frame, 0, dh / 2, zN + .022, { flat: true });
+  // (los planos nuevos traen las hojas como objeto: se abren con «Apertura»; los de antes, fijas y cerradas)
+  if (!ownDoor) {
+    for (const sx of [-1, 1]) add(rbox(dw / 2 - .006, dh, .03, .004), door, sx * dw / 4, dh / 2, zN + .022);
+    add(rbox(.006, dh - .02, .034, .002), frame, 0, dh / 2, zN + .022, { flat: true });
+  }
   for (const sx of [-1, 1]) add(rbox(.07, dh + .07, .05, .006), frame, sx * (dw / 2 + .035), (dh + .07) / 2, zN + .025);
   add(rbox(dw + .14, .07, .05, .006), frame, 0, dh + .035, zN + .025);
   add(rbox(dw + .14, .012, .09, .003), frame, 0, .006, zN + .045, { flat: true });
@@ -356,6 +359,8 @@ function roomSideHide(cam) {
   const g = R3.room, L = g && g.userData.sides; if (!L) return '';
   const R = g.userData.R, p = cam.position, hw = R.w / 2, hd = R.d / 2;
   for (const s of L) { const k = s.userData.side; s.visible = k === 'N' ? p.z > -hd : k === 'S' ? p.z < hd : k === 'O' ? p.x > -hw : p.x < hw; }
+  // las puertas del ascensor (objeto) se van con su muro
+  for (const E of R3.objs.values()) if (E.parts && E.parts.slide) E.root.visible = p.z > -hd;
   return L.map(s => s.visible ? 1 : 0).join('');
 }
 /* los muebles de cada ambiente: [tipo, x, z, giro, extra] según el tamaño de la habitación */
@@ -390,6 +395,8 @@ function roomLayout(kind, R) {
     C('botella', .15, tz, 0, { h: .77 }); C('taza', -.3, tz + .15, 0, { h: .77 });
   } else if (kind === 'bano') {
     N('inodoro', -hw + .55); N('lavamanos', .4); W('tina', .6); wall('puerta', 'E', .3);
+  } else if (kind === 'ascensor') {
+    wall('puerta', 'N', 0);   // las puertas corredizas (type 'ascensor'): se abren con «Apertura»
   } else if (kind === 'oficina') {
     const tz = -hd + 1.05;
     C('escritorio', 0, tz, 0); C('silla_ofi', 0, tz - .6, 0); C('laptop', -.15, tz, 180, { h: .765 }); C('taza', .35, tz + .1, 0, { h: .765 });
@@ -409,7 +416,7 @@ function roomFurnish(s3, kind) {
   R.kind = kind; R.w = K.w; R.d = K.d; if (K.h) R.h = K.h; else if (!s3.room.h || s3.room.h > 3.2) R.h = 2.7;
   roomLayout(kind, R).forEach(([k, x, z, rot, o = {}], i) => {
     const id = 'r' + i + kind.slice(0, 2);
-    s3.objs.push({ id, kind: k, room: kind });
+    s3.objs.push({ id, kind: k, room: kind, ...(kind === 'ascensor' && k === 'puerta' ? { type: 'ascensor' } : {}) });
     const small = !!(S3_PROPS[k] || {}).small;
     for (const key of s3.keys) key.o[id] = { x: round2(x), z: round2(z), rot, ...(small ? { h: 0 } : {}), ...o };
   });

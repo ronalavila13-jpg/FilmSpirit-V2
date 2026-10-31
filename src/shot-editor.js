@@ -221,6 +221,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     state: () => stCache || (stCache = s3At(E.s3, E.t)),
     select: id => { E.sel = id; if (E.part && E.part.id !== id) E.part = null; const o = E.s3.objs.find(x => x.id === id); if (id === 'cam') E.tab = 'cam'; else if (o && o.kind === 'luz') E.tab = 'luz'; else if (id) E.tab = 'sel'; panel(); redraw(); },
     editKey, changed: () => edited(), commit,
+    carMove: (at, g) => { snapshot(); E.custom = true; E.tmp = null; stCache = null; carMove(E.s3, at, g); },
     // medir en la planta: las medidas van con el plano (s3.meas) y se deshacen como lo demás
     measuring: () => !!E.measure,
     measSet: L => { snapshot(); E.custom = true; if (L.length) E.s3.meas = L; else delete E.s3.meas; commit(); redraw(); measUi(); },
@@ -2004,7 +2005,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     // el color del vehículo (solo la carrocería): los mismos de los vehículos del menú y uno a elección
     const car = E.s3.set === 'auto' ? carOf(E.s3) : null, own = car && !VEH_COLORS.some(c => c.toLowerCase() === car.c.toLowerCase());
     return `<label class="fld"><span>Escenario</span><select data-c="set">${setOptions().map(([k, n]) => `<option value="${ea(k)}" ${k === setCur() ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
-      ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>` : ''}
+      ${car ? `<div class="fld"><span>Color</span>${sws(VEH_COLORS, 'data-c="carpaint"', car.c, `<label class="sw sw-pick" style="--sw:${ea(car.c)}" aria-pressed="${ea(own)}" title="Otro color"><input type="color" data-cpc="1" value="${ea(car.c)}" aria-label="Otro color"></label>`)}</div>
+        <details class="joints" ${E.carDoors ? 'open' : ''} data-more="carDoors"><summary>Puertas y lunas</summary>${carDoors(car.m).map((n, i) => rangeRow(n, 'cd:' + i, carOpen(E.s3).dr[i], 0, 75, 1, '°') + (car.m === 'bus' ? '' : rangeRow('Luna', 'cw:' + i, Math.round(carOpen(E.s3).wn[i] * 100), 0, 100, 1, ' %'))).join('')}</details>` : ''}
       ${d3 ? `<div class="e3-info"><span><b>${esc(d3.n)}</b><small>${set3dM((d3.b[2] - d3.b[0]) * escOf(d3))} × ${set3dM((d3.b[3] - d3.b[1]) * escOf(d3))} m · ${d3.int ? 'interior' : 'exterior'}${P.locSet3d && P.locSet3d[s.loc] === d3.id ? ' · de toda la locación' : ''}</small></span>
         <button class="btn sm ghost" data-c="edit3d">Ajustar…${set3dLock()}</button><button class="btn sm ghost" data-c="del3d" title="Quitar este escenario del proyecto">Quitar</button></div>
         ${set3dRoofy(d3) ? '<p class="hint e3-warn">¿El piso quedó en el techo? Muévelo en Piso (Ajustar…).</p>' : ''}` : ''}
@@ -2103,7 +2105,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (bound) E.lookDirty = true; else commit();
     stCache = null; panel(); redraw();
   }
-  panelEl.addEventListener('toggle', e => { const c = e.target.classList; if (!c) return; if (e.target.dataset.more === 'cam') E.camMore = e.target.open; else if (c.contains('lx-eq')) E.eqOpen = e.target.open; else if (c.contains('figlook')) E.lookOpen = e.target.open; else if (c.contains('joints')) E.jointsOpen = e.target.open; }, true);
+  panelEl.addEventListener('toggle', e => { const c = e.target.classList; if (!c) return; if (e.target.dataset.more === 'cam') E.camMore = e.target.open; else if (e.target.dataset.more === 'carDoors') E.carDoors = e.target.open; else if (c.contains('lx-eq')) E.eqOpen = e.target.open; else if (c.contains('figlook')) E.lookOpen = e.target.open; else if (c.contains('joints')) E.jointsOpen = e.target.open; }, true);
   const onPanelInput = e => {
     const el = e.target;
     if (el.dataset.lkc) { const ob = selOb(); if (ob) { el.parentElement.style.setProperty('--sw', el.value); setLook(ob, el.dataset.lkc, el.value, true); } return; }
@@ -2116,6 +2118,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (out) out.textContent = (el.step < 1 ? v.toFixed(el.step < .1 ? 2 : 1) : v) + (el.dataset.u || '');
     if (key === 'shake') { snapshot(); E.s3.shake = v; E.custom = true; edited(); return; }
     if (key === 'sunAz') { snapshot(); E.s3.sunAz = v; E.custom = true; edited(); return; }
+    // las puertas y las lunas del vehículo (del plano entero, como su color)
+    if (key.startsWith('cd:') || key.startsWith('cw:')) { snapshot(); const O = carOpen(E.s3), i = +key.slice(3); if (key[1] === 'd') { O.dr[i] = v; carSet(E.s3, 'dr', O.dr); } else { O.wn[i] = v / 100; carSet(E.s3, 'wn', O.wn); } E.custom = true; edited(); return; }
     if (key === 'aimTilt') { snapshot(); E.s3.aimTilt = v; E.custom = true; edited(); return; }
     if (key === 'focusD') { if (!E.gesture) snapshot(); E.gesture = true; focusSet(v, true); return; }
     if (key.startsWith('og:')) { const ob = selOb(); if (!ob || !ob.hold) return; if (!E.gesture) snapshot(); E.custom = true; gripSet(ob, +key.slice(3), v); stCache = null; redraw(); return; }
@@ -2674,7 +2678,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     const hadRoom = E.s3.objs.some(o => o.room) || roomOf(E.s3).kind, wasCar = E.s3.set === 'auto';
     E.s3.set = set; delete E.s3.set3d;
     // el ambiente trae sus muebles; al cambiar de ambiente o salir de la habitación, los de antes se van
-    if (kind && set === 'int') { roomFurnish(E.s3, kind); toast(kind === 'ascensor' ? 'Ascensor: las puertas, la botonera y los pasamanos son parte de la cabina. Las figuras quedan adentro.' : `${ROOM_KINDS[kind].name}: los muebles quedan como objetos, se mueven o se quitan como cualquier otro.`); }
+    if (kind && set === 'int') { roomFurnish(E.s3, kind); toast(kind === 'ascensor' ? 'Ascensor: la botonera y los pasamanos son parte de la cabina; las puertas se abren con «Apertura». Las figuras quedan adentro.' : `${ROOM_KINDS[kind].name}: los muebles quedan como objetos, se mueven o se quitan como cualquier otro.`); }
     else if (hadRoom) roomFurnish(E.s3, '');
     // el interior de vehículo: el modelo elegido (el color se queda); al salir, las figuras bajan de los asientos altos
     if (set === 'auto') {

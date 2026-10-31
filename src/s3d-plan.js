@@ -62,7 +62,8 @@ function planDrawSet(ctx, s3, V, toS0, redraw) {
       const dw = Math.min(.9, R.w - .5), [p0, q0] = toS(-dw / 2, -R.d / 2), [p1] = toS(dw / 2, -R.d / 2), lw = Math.max(3, .15 * V.sc);
       ctx.fillStyle = PLAN_C.bg; ctx.fillRect(p0, q0 - lw, p1 - p0, lw * 2);
       ctx.fillStyle = PLAN_C.wall; const [, qd] = toS(0, -R.d / 2 + .04);
-      ctx.fillRect(p0, q0 - 1, (p1 - p0) / 2 - 1, Math.max(2, qd - q0)); ctx.fillRect((p0 + p1) / 2 + 1, q0 - 1, (p1 - p0) / 2 - 1, Math.max(2, qd - q0));
+      // las hojas fijas de los planos de antes (en los nuevos, la puerta es un objeto que se abre)
+      if (!s3.objs.some(o => o.kind === 'puerta' && o.type === 'ascensor')) { ctx.fillRect(p0, q0 - 1, (p1 - p0) / 2 - 1, Math.max(2, qd - q0)); ctx.fillRect((p0 + p1) / 2 + 1, q0 - 1, (p1 - p0) / 2 - 1, Math.max(2, qd - q0)); }
       ctx.strokeStyle = PLAN_C.muted; ctx.lineWidth = 1.5;
       for (const sx of [-1, 1]) { const [rx, r0] = toS(sx * (R.w / 2 - .055), -R.d / 2 + .25), [, r1] = toS(0, R.d / 2 - .25); ctx.beginPath(); ctx.moveTo(rx, r0); ctx.lineTo(rx, r1); ctx.stroke(); }
       ctx.fillStyle = PLAN_C.muted; ctx.fillText('Puertas', (p0 + p1) / 2, q0 + 16);
@@ -82,7 +83,13 @@ function planDrawSet(ctx, s3, V, toS0, redraw) {
       const [a, b] = toS(-1.15, -2.4), [c, d] = toS(1.15, 3.2);
       ctx.fillStyle = '#E2D2BC'; ctx.strokeStyle = '#8B6F4E'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(a, b, c - a, d - b, 8) : ctx.rect(a, b, c - a, d - b); ctx.fill(); ctx.stroke();
     }
-  } else if (s3.set === 'auto' && typeof carPlan === 'function') planCar(ctx, carPlan(s3), V, toS);
+  } else if (s3.set === 'auto' && typeof carPlan === 'function') {
+    // el vehículo en su lugar (carAt): se dibuja en el origen, corrido y girado
+    const A = carAt(s3), [ox, oy] = toS(A.x, A.z), [zx, zy] = toS(0, 0);
+    ctx.save(); ctx.translate(ox, oy); ctx.rotate(-rad(A.r));
+    planCar(ctx, carPlan(s3), V, (x, z) => { const [a, b] = toS(x, z); return [a - zx, b - zy]; });
+    ctx.restore();
+  }
   else if (s3.set === 'calle') {
     const [, r0] = toS(0, -9), [, r1] = toS(0, -2);
     ctx.fillStyle = PLAN_C.road; ctx.fillRect(0, r0, V.W, r1 - r0);
@@ -142,7 +149,7 @@ function makePlan(canvas, ed, opt = {}) {
     for (const m of s3.meas || []) for (const q of [m.a, m.b]) if (q && typeof q.x === 'number') pts.push([q.x, q.z]);
     const fb = typeof set3dOf === 'function' && set3dFitBox(set3dOf(s3));
     if (fb) pts.push([fb[0], fb[1]], [fb[2], fb[3]]);
-    if (s3.set === 'auto' && typeof carPlan === 'function') { const cb = carPlan(s3).body; pts.push([cb[0], cb[1]], [cb[2], cb[3]]); }   // el vehículo entero
+    if (s3.set === 'auto' && typeof carPlan === 'function') { const cb = carPlan(s3).body, A = carAt(s3); for (const x of [cb[0], cb[2]]) for (const z of [cb[1], cb[3]]) pts.push(carTo(A, x, z)); }   // el vehículo entero
     if (!pts.length) pts.push([0, 0]);
     let x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), z0 = Math.min(...pts.map(p => p[1])), z1 = Math.max(...pts.map(p => p[1]));
     // un metro de aire alrededor y, además, un margen en pantalla: la cámara y su lente no quedan cortadas por el
@@ -219,6 +226,9 @@ function makePlan(canvas, ed, opt = {}) {
       ctx.fillRect(cx - vh * V.sc, cy - vh * V.sc / aspectOf(), vh * 2 * V.sc, vh * 2 * V.sc / aspectOf());
       ctx.strokeRect(cx - vh * V.sc, cy - vh * V.sc / aspectOf(), vh * 2 * V.sc, vh * 2 * V.sc / aspectOf());
     }
+    // el vehículo del interior se gira con un tirador delante de su frente
+    const ch = carHandle();
+    if (ch) { ctx.save(); ctx.strokeStyle = PLAN_C.propLine; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ch[2], ch[3]); ctx.lineTo(ch[0], ch[1]); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ch[0], ch[1], 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
     // objetos
     const sel = ed.sel;
     for (const ob of s3.objs.filter(o => o.kind === 'luz')) drawLight(ob, st.o[ob.id], st);
@@ -250,7 +260,11 @@ function makePlan(canvas, ed, opt = {}) {
         const w = (ob.kind === 'puerta' ? .9 : 1.3) * objSc(ob) * V.sc;
         ctx.fillStyle = PLAN_C.bg; ctx.fillRect(-w / 2 - 2, -Math.max(3, .15 * V.sc) / 2 - 1, w + 4, Math.max(3, .15 * V.sc) + 2);
         ctx.strokeStyle = sel === ob.id ? PLAN_C.cam : PLAN_C.ink; ctx.lineWidth = sel === ob.id ? 2.2 : 1.3;
-        if (ob.kind === 'puerta') {
+        if (ob.type === 'ascensor') {
+          // corredizas: dos hojas que se abren hacia los lados (90°, del todo)
+          const f = clamp((p.open || 0) / 90, 0, 1);
+          for (const sx of [-1, 1]) ctx.strokeRect(sx * w * (.25 + .48 * f) - w * .24, -2, w * .48, 4);
+        } else if (ob.kind === 'puerta') {
           const a = rad(p.open || 0);
           ctx.beginPath(); ctx.moveTo(-w / 2, 0); ctx.lineTo(-w / 2 + Math.cos(a) * w, Math.sin(a) * w); ctx.stroke();
           ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(-w / 2, 0, w, 0, Math.max(a, .02)); ctx.stroke(); ctx.setLineDash([]);
@@ -460,11 +474,19 @@ function makePlan(canvas, ed, opt = {}) {
     ctx.strokeStyle = PLAN_C.cam; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(sx, sy, R, 0, Math.PI * 2); ctx.setLineDash([2, 4]); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx, hy, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
+  /* el tirador para girar el vehículo: [x, y] en pantalla, a medio metro de su frente, y [x, y] del frente */
+  function carHandle() {
+    if (opt.static || ed.s3.set !== 'auto' || typeof carPlan !== 'function') return null;
+    const A = carAt(ed.s3), b = carPlan(ed.s3).body;
+    return [...toS(...carTo(A, 0, b[1] - Math.max(.5, 22 / V.sc))), ...toS(...carTo(A, 0, b[1]))];
+  }
   function hit(sx, sy) {
     const s3 = ed.s3, st = ed.state();
     const cam = st.cam;
     const [cx, cy] = toS(cam.x, cam.z);
     if (!s3.aim) { const hx = cx - Math.sin(rad(cam.yaw)) * 46, hy = cy - Math.cos(rad(cam.yaw)) * 46; if (Math.hypot(sx - hx, sy - hy) < 11) return { t: 'camrot' }; }
+    const ch = carHandle();
+    if (ch && Math.hypot(sx - ch[0], sy - ch[1]) < 11) return { t: 'carrot' };
     if (ed.sel && ed.sel !== 'cam') {
       const ob = s3.objs.find(o => o.id === ed.sel), p = ob && st.o[ob.id];
       if (p) {
@@ -488,6 +510,8 @@ function makePlan(canvas, ed, opt = {}) {
       const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
       if (Math.abs(lx) <= fp.w * V.sc / 2 + 4 && Math.abs(ly) <= fp.d * V.sc / 2 + 4) return { t: 'obj', id: ob.id };
     }
+    // lo último: la carrocería del vehículo (encima de ella, las figuras sentadas se siguen eligiendo)
+    if (ch) { const b = carPlan(s3).body, [u, v] = carFrom(carAt(s3), ...toW(sx, sy)); if (u >= b[0] && u <= b[2] && v >= b[1] && v <= b[3]) return { t: 'car' }; }
     return null;
   }
   const snap = (v, e) => e.shiftKey ? Math.round(v * 4) / 4 : Math.round(v * 100) / 100;
@@ -545,6 +569,7 @@ function makePlan(canvas, ed, opt = {}) {
     if ((!h || h.t === 'cam') && foHit(sx, sy)) { drag = { t: 'focus', k: foLine.k, fx: foLine.fx, fz: foLine.fz }; return; }
     if (!h) { drag = { t: 'pan', sx, sy, vx: V.x, vz: V.z }; return; }
     if (h.t === 'cam2') { drag = null; if (ed.switchCam) ed.switchCam(); return; }
+    if (h.t === 'car' || h.t === 'carrot') { const A = carAt(ed.s3), [wx, wz] = toW(sx, sy); drag = { t: h.t, ox: wx - A.x, oz: wz - A.z, g: carGrab(ed.s3), moved: false }; return; }
     if (h.t === 'obj' || h.t === 'rot') ed.select(h.id);
     if (h.t === 'cam' || h.t === 'camrot') ed.select('cam');
     const [wx, wz] = toW(sx, sy);
@@ -565,6 +590,13 @@ function makePlan(canvas, ed, opt = {}) {
       return;
     }
     const [wx, wz] = toW(sx, sy);
+    // el vehículo: lo que va dentro, en todas las claves, se mueve con él (no hace falta una clave nueva)
+    if (drag.t === 'car' || drag.t === 'carrot') {
+      const A = carAt(ed.s3);
+      if (drag.t === 'car') { A.x = snap(wx - drag.ox, e); A.z = snap(wz - drag.oz, e); }
+      else { A.r = deg(Math.atan2(-(wx - A.x), -(wz - A.z))); if (e.shiftKey) A.r = Math.round(A.r / 15) * 15; }
+      ed.carMove(A, drag.g); drag.moved = true; ed.changed('plan'); return;
+    }
     const k = ed.editKey();
     if (drag.t === 'obj') {
       const p = k.o[drag.id]; p.x = snap(wx - drag.ox, e); p.z = snap(wz - drag.oz, e);

@@ -199,7 +199,7 @@ function vehCar(kind, inner, paint, o = {}) {
     // espejos y manijas
     const mz = S.zWs - .18; B(.13, .09, .16, sx * (cw / 2 + .06), S.belt + .06, mz, paint, .03); B(.03, .05, .02, sx * (cw / 2 + .12), S.belt + .06, mz + .02, M.vBlack, .008);
     const doors = S.win > 1 ? [S.zWs - .55, (S.zWs - .55 + S.zRw) / 2 - .1] : [S.zWs - .7];
-    for (const dz of doors) B(.02, .025, .13, sx * (W / 2 + .004), S.belt - .1, dz, M.vChrome, .008);
+    for (const dz of doors) B(.02, .025, .13, sx * (W / 2 + .004), S.belt - .1, dz, M.vChrome, .008, inner.userData.segAt ? inner.userData.segAt(sx, dz) : inner);
   }
   B(.36, .11, .015, 0, S.yb + .27, zf - .02, M.vPlate, .006); B(.36, .11, .015, 0, Math.min(S.deckR - .33, S.belt - .25), zr + .02, M.vPlate, .006);
   if (S.spoiler) { B(W - .3, .03, .22, 0, S.deckR + .16, zr + .18, paint, .012); for (const sx of [-.45, .45]) B(.04, .16, .06, sx, S.deckR + .07, zr + .2, M.vTrim, .01); }
