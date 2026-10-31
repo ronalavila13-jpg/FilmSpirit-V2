@@ -1481,7 +1481,8 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 
 /* imágenes con IA (ia.js): pastilla de la tarjeta, ventana de generar, ajustes y pestaña de la ficha */
 .v2-ia{position:absolute;right:8px;bottom:9px;z-index:2;height:22px;padding:0 8px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);font:700 11.5px/1 var(--font-ui);letter-spacing:.04em;cursor:pointer}
-.v2-ia.on{background:var(--v2-black);border-color:var(--v2-black);color:var(--v2-yellow)}
+.v2-ia.gen{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
+.v2-ia:hover{border-color:var(--ink)}
 .v2-ia:disabled{cursor:default;opacity:.6}
 .v2-ord button:disabled{opacity:.5;cursor:default}
 .ia-d{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
@@ -1498,6 +1499,5 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .ia-slot img{width:96px;height:96px;object-fit:cover;border:1px solid var(--line);border-radius:3px}
 .ia-slot.empty{align-content:center;border:1px dashed var(--line);border-radius:3px;height:96px}
 @media (max-width:720px){.ia-d{grid-template-columns:1fr}}
-.v2-ia.gen{color:var(--ink)}
 
-.v2-sbc:has(.v2-ia) .v2-sbch{padding-right:64px}
+.v2-sbc:has(.v2-ia) .v2-sbch{padding-right:116px}

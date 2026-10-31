@@ -145,9 +145,9 @@ test('la pastilla y el interruptor solo aparecen si hay imagen de IA; «3D» gen
   const sh = sh0(); c.P.shots.s1 = sh;
   assert.ok(/data-v2iagen="s1"/.test(c.iaPillHTML(sh)), 'sin imagen: el botón para generarla'); assert.strictEqual(c.iaSwitchHTML(), '');
   c.FRAMES['s1~ia'] = 'ia'; sh.ia = true;
-  assert.ok(/class="v2-ia on"/.test(c.iaPillHTML(sh))); assert.ok(/data-v2iaall="1" aria-pressed="true"/.test(c.iaSwitchHTML()));
+  assert.ok(/class="v2-ia on"[^>]*>Ver 3D</.test(c.iaPillHTML(sh))); assert.ok(/data-v2iaall="1" aria-pressed="true"/.test(c.iaSwitchHTML()));
   c.P.meta.iaOff = true;
-  assert.ok(/class="v2-ia"/.test(c.iaPillHTML(sh))); assert.ok(/data-v2iaall="0" aria-pressed="true"/.test(c.iaSwitchHTML()));
+  assert.ok(/class="v2-ia"[^>]*>Ver IA</.test(c.iaPillHTML(sh))); assert.ok(/data-v2iaall="0" aria-pressed="true"/.test(c.iaSwitchHTML()));
   assert.ok(/data-m="iagen"/.test(c.iaMenuHTML(sh)) && /data-m="iatog"/.test(c.iaMenuHTML(sh)) && /data-m="iadel"/.test(c.iaMenuHTML(sh)));
 });
 
