@@ -1481,7 +1481,10 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 
 /* imágenes con IA (ia.js): pastilla de la tarjeta, ventana de generar, ajustes y pestaña de la ficha */
 .v2-ia{position:absolute;right:8px;bottom:9px;z-index:2;height:22px;padding:0 8px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);font:700 11.5px/1 var(--font-ui);letter-spacing:.04em;cursor:pointer}
-.v2-ia.gen{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
+/* sin imagen todavía: discreto, solo al pasar el cursor por la tarjeta (en pantallas táctiles, siempre) */
+.v2-ia.gen{background:none;border-color:transparent;opacity:0;transition:opacity .12s}
+.v2-sbc:hover .v2-ia.gen,.v2-sbc.sel .v2-ia.gen,.v2-ia.gen:focus-visible{opacity:1;background:var(--surface);border-color:var(--line);color:var(--ink)}
+@media (hover:none){.v2-ia.gen{opacity:1;background:var(--surface);border-color:var(--line)}}
 .v2-ia:hover{border-color:var(--ink)}
 .v2-ia:disabled{cursor:default;opacity:.6}
 .v2-ord button:disabled{opacity:.5;cursor:default}
@@ -1500,4 +1503,5 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .ia-slot.empty{align-content:center;border:1px dashed var(--line);border-radius:3px;height:96px}
 @media (max-width:720px){.ia-d{grid-template-columns:1fr}}
 
-.v2-sbc:has(.v2-ia) .v2-sbch{padding-right:116px}
+.v2-sbc:has(.v2-ia:not(.gen)) .v2-sbch{padding-right:70px}
+.v2-sbc:has(.v2-ia.gen) .v2-sbch{padding-right:116px}
