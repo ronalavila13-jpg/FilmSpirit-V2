@@ -1,26 +1,6 @@
 /* ============================================================
    Pestaña 2 · DESGLOSE — hojas por escena y catálogo de elementos
    ============================================================ */
-RENDER.breakdown = function () {
-  const v = $('#view');
-  if (!D.sc.scenes.length) { v.innerHTML = emptyScript(); bindView(); return; }
-  const sug = Object.values(P.elements).filter(e => e.auto).length;
-  v.innerHTML = `<div class="ws ws-2">
-    <aside class="side" id="side">${sceneListHTML('bd-scene')}</aside>
-    <section class="center">
-      <div class="bar">
-        <button class="btn ghost only-narrow" data-act="drawer" data-d="#side">Escenas</button>
-        ${hdSeg([{ label: 'Hoja por escena', attrs: 'data-act="bd-view" data-v="sheet"', on: UI.bdView === 'sheet' }, { label: 'Elementos', attrs: 'data-act="bd-view" data-v="elements"', on: UI.bdView === 'elements' }], 'Vista')}
-        <span class="grow"></span>
-        ${sug && canEditBdAll() && UI.bdView !== 'sheet' ? `<button class="btn m-more" data-act="bd-confirm-all" title="Confirma las sugerencias de todas las escenas del guion (se puede deshacer)">Confirmar ${sug} sugeridos<span class="hide-sm"> · todo el guion</span></button>` : ''}
-        ${toolsHTML()}
-      </div>
-      ${legendHTML('breakdown')}
-      <div class="scroller pad" data-keep="bd">${UI.bdView === 'sheet' ? breakdownSheetHTML() : elementsHTML()}</div>
-    </section></div>`;
-  bindView(); bindSceneSearch();
-  ensureFrames('index');   // para contar las fotos de cada caja (basta el índice)
-};
 /* datos de la hoja de desglose de una escena, en el formato de la productora */
 function dayOfScene(key) {
   const { days } = scheduleDays(P, D.sc);
@@ -50,90 +30,6 @@ function bdBar(hex) {
   return { bg, ink };
 }
 const itemLabel = e => (e.cat === 'vfx' ? 'VFX: ' : e.cat === 'stunts' ? 'Riesgo: ' : '') + e.name;
-function breakdownSheetHTML() {
-  const s = D.sc.scenes[UI.scene];
-  const d = sheetData(s), meta = P.scenes[s.key] || {};
-  const B = Object.fromEntries(SHEET.map(b => [b.id, b]));
-  const ORDER = ['cast', 'equip', 'sfx', 'extras', 'props', 'ward', 'veh', 'sound', 'notes'];
-  const filled = id => d.box[id].length || (id === 'notes' && (meta.notes || '').trim());
-  // en un proyecto compartido, cada jefe de área edita solo sus cajas
-  const box = id => {
-    const b = B[id], list = d.box[id], ed = canEditArea(id) && !UI.readOnly, full = filled(id);
-    const items = list.map(e => `<li class="${ea(e.auto ? 'sug' : '')}">${e.cat === 'cast' ? `<button class="elname" data-act="ficha" data-id="${ea(e.id)}" title="Ficha del personaje: cuerpo, tallas y fotos">${esc(itemLabel(e))}</button>` : `<span>${esc(itemLabel(e))}</span>`}${ed && e.auto ? `<button class="x" data-act="el-ok" data-id="${ea(e.id)}" title="Confirmar sugerido" aria-label="Confirmar ${esc(itemLabel(e))}">${ICO.ok}</button>` : ''}${ed ? `<button class="x" data-act="el-off" data-id="${ea(e.id)}" data-k="${esc(s.key)}" title="Quitar de esta escena" aria-label="Quitar ${esc(itemLabel(e))} de esta escena">${ICO.close}</button>` : ''}</li>`).join('');
-    // el tipo se elige al añadir solo cuando la caja junta varios (efectos especiales / VFX, atrezzo / decorado / armas…)
-    const sel = b.cats.length > 1 ? `<select data-addcat aria-label="Tipo">${b.cats.map(c => `<option value="${ea(c)}">${CAT[c].name}</option>`).join('')}</select>` : '';
-    const nph = id === 'notes' ? 0 : list.reduce((a, e) => a + photosOf(e).length, 0);
-    const cam = id === 'notes' || !list.length ? '' : `<button class="sbx-ph${ea(nph ? ' has' : '')}" data-act="bd-lam" data-box="${ea(id)}" title="Lámina con fotos de ${esc(b.name.toLowerCase())}" aria-label="Fotos de ${esc(b.name)}">${CAM_SVG}${nph ? `<span>${nph}</span>` : ''}</button>`;
-    const plus = ed ? `<button class="sbx-plus" data-act="bd-add" data-box="${ea(id)}" title="Añadir a ${esc(b.name.toLowerCase())}" aria-label="Añadir a ${esc(b.name)}">+</button>` : '';
-    const notes = id === 'notes' ? `<textarea class="ti" rows="${Math.min(8, Math.max(2, (meta.notes || '').split('\n').length + 1))}" data-bind="scnotes" data-key="${esc(s.key)}" placeholder="${ea(ed ? 'Permisos, horarios, riesgos…' : '')}" aria-label="Notas de la escena" ${ed ? '' : 'readonly'}>${esc(meta.notes || '')}</textarea>` : '';
-    return `<section class="sbx sbx-${ea(id)}${ea(full ? '' : ' vac adding')}${ea(list.length > 7 && id === 'props' ? ' two' : '')}${ea(ed ? '' : ' ro')}${ea(lgHexOk(b.color) && lgDark(lgMix(b.color, '#FFFFFF', .9)) ? ' dk' : '')}" style="--bg:${ea(b.color)};--bgb:${ea(bdBar(b.color).bg)};--bgi:${ea(bdBar(b.color).ink)}" data-box="${ea(id)}"><h3><i class="sbx-dot" aria-hidden="true"></i><span class="sbx-n">${b.name}</span>${list.length ? `<span class="sbx-c">${list.length}</span>` : ''}${SHARE && !ed ? '<span class="sbx-ro">solo lectura</span>' : ''}<span class="grow"></span>${cam}${plus}</h3>
-      ${list.length ? `<ol>${items}</ol>` : ''}${notes}
-      ${ed ? `<div class="sbx-add"><input type="text" placeholder="Añadir…" data-add="${ea(b.cats[0])}" list="dl-${ea(b.cats[0])}" aria-label="Añadir a ${ea(b.name)}">${sel}</div>` : ''}</section>`;
-  };
-  const gen = canEditBdAll() && !UI.readOnly, mine = myBdAreas();
-  const datalists = CATS.map(c => `<datalist id="dl-${ea(c.id)}">${Object.values(P.elements).filter(e => e.cat === c.id).map(e => `<option value="${esc(e.name)}">`).join('')}</datalist>`).join('');
-  const sug = Object.values(P.elements).filter(e => e.auto && D.sem[s.idx].has(e.id)).length;
-  // abiertas a mano desde «Sin elementos todavía» (solo en esta escena)
-  const opened = id => UI.bdOpenK === s.key && UI.bdOpen && UI.bdOpen.has(id);
-  // primero, siempre (aunque estén vacías): Reparto, Atrezzo y Vestuario; las demás (Figuración incluida) se acoplan
-  // debajo a medida que se activan: las que ya tienen algo, en el orden de la hoja, y las abiertas a mano, en el orden
-  // en que se abrieron (así una caja recién abierta no salta de lugar al escribirle lo primero)
-  const FIRST = ['cast', 'props', 'ward'];
-  const openList = UI.bdOpenK === s.key && UI.bdOpen ? [...UI.bdOpen].filter(id => ORDER.includes(id) && !FIRST.includes(id)) : [];
-  const full = [...FIRST, ...ORDER.filter(id => !FIRST.includes(id) && filled(id) && !openList.includes(id)), ...openList];
-  const empty = ORDER.filter(id => !full.includes(id));
-  // la cabecera (lote I): la escena como título, ‹ › al lado y los sugeridos como aviso que se abre
-  const stepA = dd => { const i = UI.scene + dd; return i >= 0 && i < D.sc.scenes.length ? `data-act="bd-step" data-d="${dd}"` : null; };
-  const act = (mine ? hdPill('info', `Puedes editar: ${esc(areasText(mine))}`) : !canEditSec('desglose') ? hdPill('info', 'Solo lectura') : '')
-    + (sug && (gen || mine) ? hdPill('warn', 'sugeridos por confirmar', { n: sug, chev: true, attrs: 'data-act="bd-sug" aria-haspopup="dialog"' }) : '');
-  const head = hdHead({ md: true, title: `<span class="bd-sec tnum">${esc(d.secuencia)}</span><span class="sch">${esc(s.heading)}</span>`, step: hdStep(stepA(-1), stepA(1), 'escena'),
-    sub: `Hoja de desglose ${d.no}${d.titulo ? ` · <span data-no-tr>${esc(d.titulo)}</span>` : ''}`, act });
-  const jd = d.jornada ? shootDates(P, scheduleDays(P, D.sc).days.length)[d.jornada - 1] : null;
-  const chips = `<div class="bd-chips"><span class="bd-ie" style="--rb:${ea(stripBar(s))}">${d.ie === 'EXT' ? 'Exterior' : d.ie === 'INT/EXT' ? 'Interior y exterior' : 'Interior'} · ${d.dn === 'NOCHE' ? 'Noche' : 'Día'}</span><span class="bd-chip tnum">${esc(d.pages)} págs.</span><span class="bd-chip" title="${ea(d.jornada ? 'Fecha de la jornada en el plan de rodaje' : 'La escena aún no está en el plan de rodaje')}">${d.jornada ? `Jornada ${d.jornada}${jd ? ' · ' + esc(fmtDate(jd)) : ''}` : 'Sin programar'}</span></div>`;
-  // las cajas sin nada: una fila con un botón por categoría (con su color) que abre su caja
-  const none = empty.length ? `<div class="bd-none"><span>Sin elementos todavía:</span>${empty.map(id => { const b = B[id], ed = canEditArea(id) && !UI.readOnly;
-    return ed ? `<button type="button" class="bd-nb" data-act="bd-open" data-box="${ea(id)}" style="--c:${ea(b.color)}" title="Añadir a ${esc(b.name.toLowerCase())}"><i>${ICO.plus}</i>${esc(b.name)}</button>`
-      : `<span class="bd-nb ro" style="--c:${ea(b.color)}"><i></i>${esc(b.name)}</span>`; }).join('')}</div>` : '';
-  return `<section class="hd bd-hd" aria-label="Cabecera de la hoja de desglose">${head}${chips}</section>
-    <div class="bds">
-    <section class="bd-hero">
-      <div class="bd-logo">${imgDataOk(P.meta.logo) ? `<img src="${esc(imgDataOk(P.meta.logo))}" alt="${esc(d.productora || 'Logo')}">` : d.productora ? `<b>${esc(d.productora)}</b>` : ''}</div>
-      <dl class="bd-fields">
-        <dt>Decorado</dt><dd><input type="text" class="ti" data-bind="bd-set" data-key="${esc(s.key)}" value="${esc(d.decorado)}" aria-label="Decorado" ${gen ? '' : 'readonly'}></dd>
-        <dt>Descripción</dt><dd><input type="text" class="ti" data-bind="synopsis" data-key="${esc(s.key)}" value="${esc(meta.synopsis || '')}" placeholder="${esc(synopsisOf({ ...s, key: '__' }))}" aria-label="Descripción" ${gen ? '' : 'readonly'}></dd>
-      </dl>
-    </section>
-    ${full.length ? `<div class="bd-grid masonry">${full.map(box).join('')}</div>` : ''}
-    ${none}
-    </div>${datalists}`;
-}
-function elementsHTML() {
-  const q = deaccent(UI.bdQ.toLowerCase());
-  const scenesOf = {};
-  D.sem.forEach((set, si) => set.forEach(id => { (scenesOf[id] = scenesOf[id] || []).push(D.sc.scenes[si].key); }));
-  let els = Object.values(P.elements).filter(e => (!UI.bdCat || e.cat === UI.bdCat) && (!UI.bdSug || e.auto) && (!q || deaccent(e.name.toLowerCase()).includes(q)));
-  const rows = CATS.filter(c => !UI.bdCat || c.id === UI.bdCat).map(c => {
-    const list = els.filter(e => e.cat === c.id).sort((a, b) => c.id === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : (scenesOf[b.id] || []).length - (scenesOf[a.id] || []).length || a.name.localeCompare(b.name));
-    if (!list.length) return '';
-    const ed = canEditCat(c.id), cats = CATS.filter(x => x.id === c.id || canEditCat(x.id));
-    return `<tr class="grp"><td colspan="5"><span class="dot" style="--c:${ea(c.color)}"></span> ${c.name} <span class="count">${list.length}</span>${SHARE && !ed ? ' <span class="count">solo lectura</span>' : ''}</td></tr>` + list.map(e => {
-      const sc = scenesOf[e.id] || [];
-      return `<tr data-note="el:${ea(e.id)}"><td style="min-width:180px"><input type="text" value="${esc(e.name)}" data-bind="el-name" data-id="${ea(e.id)}" aria-label="Nombre" ${ed ? '' : 'readonly'}>${e.auto ? '<span class="count">sugerido</span>' : ''}</td>
-        <td><select data-bind="el-cat" data-id="${ea(e.id)}" aria-label="Categoría" ${ed ? '' : 'disabled'}>${cats.map(x => `<option value="${ea(x.id)}" ${x.id === e.cat ? 'selected' : ''}>${x.name}</option>`).join('')}</select></td>
-        <td class="num">${sc.length}</td>
-        <td style="max-width:320px;font-size:12px;color:var(--muted)">${sc.slice(0, 18).map(k => esc(k)).join(', ')}${sc.length > 18 ? '…' : ''}</td>
-        <td style="white-space:nowrap">${ed ? `${e.auto ? `<button class="btn sm" data-act="el-ok" data-id="${ea(e.id)}">Confirmar</button> ` : ''}<button class="btn ghost sm danger" data-act="el-del" data-id="${ea(e.id)}">Eliminar</button>` : ''}</td></tr>`;
-    }).join('');
-  }).join('');
-  return `<div style="max-width:1080px;margin:0 auto;display:grid;gap:12px">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-      <input type="text" placeholder="Buscar elemento" value="${esc(UI.bdQ)}" data-bind="bd-q" style="max-width:240px">
-      <select data-bind="bd-cat" style="max-width:220px"><option value="">Todas las categorías</option>${CATS.map(c => `<option value="${ea(c.id)}" ${UI.bdCat === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}</select>
-      <label class="chip" style="cursor:pointer"><input type="checkbox" data-bind="bd-sug" ${UI.bdSug ? 'checked' : ''}> Solo sugeridos</label>
-      <span class="hint">Escribe el nombre de otro elemento de la misma categoría para fusionarlos.</span>
-    </div>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Elemento</th><th>Categoría</th><th class="num">Escenas</th><th>Dónde</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="hint" style="padding:18px">No hay elementos con ese filtro.</td></tr>'}</tbody></table></div></div>`;
-}
 Object.assign(ACT, {
   'bd-scene': b => { UI.scene = +b.dataset.i; closeDrawers(); UI.bdView = 'sheet'; render(); },
   'bd-view': b => { UI.bdView = b.dataset.v; render(); },

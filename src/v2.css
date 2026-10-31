@@ -54,8 +54,8 @@
 .btn:hover{background:var(--surface);border-color:color-mix(in srgb,var(--ink) 30%,var(--line))}
 .btn.primary{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
 .btn.primary:hover{background:#FFC72E;border-color:#FFC72E;filter:none}
-.btn.dark,.btn.v2-dark{background:var(--v2-black);border-color:var(--v2-black);color:#FFFFFF}
-.btn.dark:hover,.btn.v2-dark:hover{background:#000;border-color:#000}
+.btn.dark{background:var(--v2-black);border-color:var(--v2-black);color:#FFFFFF}
+.btn.dark:hover{background:#000;border-color:#000}
 .btn.ghost{background:transparent;border-color:transparent}
 .btn.ghost:hover{background:var(--fill);border-color:transparent}
 .btn.sm{min-height:28px;padding:4px 10px}
@@ -80,12 +80,10 @@ input::placeholder,textarea::placeholder{font-style:normal}
 /* ---------- tarjetas: blancas, línea fina, sin sombra ---------- */
 .card{border:1px solid var(--line);box-shadow:none;border-radius:3px}
 .v2-card{background:var(--surface);border:1px solid var(--line);border-radius:3px}
-.v2-card-dark{background:var(--v2-black);color:#FFFFFF;border-radius:3px}
 .v2-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:3px;background:var(--fill);font-size:var(--fs-2);font-weight:600;color:var(--ink);white-space:nowrap}
 .v2-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--v2-dc,var(--muted));flex:none}
 .v2-bar{height:4px;border-radius:2px;background:var(--fill);overflow:hidden}
 .v2-bar>i{display:block;height:100%;background:var(--v2-yellow);border-radius:2px}
-.v2-dark .v2-bar,.v2-card-dark .v2-bar{background:#3A3A38}
 
 /* ---------- la hoja del guion: papel blanco con línea fina, sin sombra ---------- */
 .page,.ed-page,.ed-cover{box-shadow:none;outline:1px solid var(--line)}

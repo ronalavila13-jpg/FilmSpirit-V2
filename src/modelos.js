@@ -287,6 +287,25 @@ async function m3Simplify(parts, budget, keep = 0) {
   return { tris: parts.reduce((a, P) => a + P.idx.length / 3, 0), cut: true, from: tris };
 }
 /* el modelo completo → bytes del formato propio (gzip). o: { kind: 'set'|'char', extra: datos del encabezado } */
+/* el esqueleto en reposo: nombre, padre, posición, giro y escala de cada hueso, y la matriz de lo que está arriba.
+   Entre un hueso y el de arriba puede haber nodos que no son huesos (Tripo: Spine02 › NeckTwist01 › NeckTwist02 › Head):
+   su transformación se pasa al hueso; si no, la cabeza quedaba suelta y fuera de lugar */
+function m3Bones(B) {
+  const T = THREE, bi = new Map(B.map((b, i) => [b, i]));
+  const anc = b => { for (let p = b.parent; p; p = p.parent) if (bi.has(p)) return p; return null; };
+  const top = B.find(b => !anc(b)), arm = top && top.parent ? top.parent.matrixWorld : new T.Matrix4();
+  const r6 = v => v.toArray().map(x => +x.toFixed(6));
+  const bones = B.map(b => {
+    const a = anc(b);
+    let t = b.position, q = b.quaternion, s = b.scale;
+    if (b.parent !== (a || (top && top.parent))) {
+      t = new T.Vector3(); q = new T.Quaternion(); s = new T.Vector3();
+      new T.Matrix4().copy(a ? a.matrixWorld : arm).invert().multiply(b.matrixWorld).decompose(t, q, s);
+    }
+    return { n: b.name || '', p: a ? bi.get(a) : -1, t: r6(t), q: r6(q), s: r6(s) };
+  });
+  return { bones, arm: arm.toArray() };
+}
 async function m3Pack(root, o) {
   const T = THREE, kind = o.kind;
   root.updateMatrixWorld(true);
@@ -308,10 +327,7 @@ async function m3Pack(root, o) {
   }
   if (kind === 'char') {
     // el esqueleto: nombre, padre, posición, giro y escala de cada hueso en reposo; y la matriz de lo que está arriba
-    const B = R.bones, bi = new Map(B.map((b, i) => [b, i]));
-    H.bones = B.map(b => ({ n: b.name || '', p: bi.has(b.parent) ? bi.get(b.parent) : -1, t: b.position.toArray().map(x => +x.toFixed(6)), q: b.quaternion.toArray().map(x => +x.toFixed(6)), s: b.scale.toArray().map(x => +x.toFixed(6)) }));
-    const top = B.find(b => !bi.has(b.parent));
-    H.arm = top && top.parent ? top.parent.matrixWorld.toArray() : new T.Matrix4().toArray();
+    const S = m3Bones(R.bones); H.bones = S.bones; H.arm = S.arm;
     H.skins = R.skins.map(inv => put(inv));
   }
   const hj = new TextEncoder().encode(JSON.stringify(H)), head = new Uint8Array(8);

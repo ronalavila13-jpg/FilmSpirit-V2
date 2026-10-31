@@ -73,8 +73,6 @@ const hdAuto = (html, on) => on ? html.replace(/class="tm"/, 'class="tm hd-auto"
 const hdAdd = (title, sub, attrs, tone) => `<button type="button" class="hd-add" ${attrs || ''}${tone ? ` style="--hd-tone:${ea(tone)}"` : ''}><span class="hd-pl${tone ? ' tone' : ''}">${ICO.plus}</span><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
 /* vacío de una sección entera: ícono en círculo, título, una frase y el botón */
 const hdEmpty = o => `<div class="hd-empty"><span class="hd-ico">${hdIco(o.icon || 'photo')}</span><h3>${o.title}</h3>${o.text ? `<p>${o.text}</p>` : ''}${o.btn || ''}</div>`;
-/* consejo de uso que se cierra: attrs, los del ✕ (el data-act de siempre) */
-const hdTip = (text, attrs) => `<div class="hd-tip">${HD_ICO.info}<span>${text}</span>${attrs ? `<button type="button" ${attrs} aria-label="Cerrar" title="Cerrar">${ICO.close}</button>` : ''}</div>`;
 /* la lista desplegable de un aviso (los pendientes): items = [{ txt, sub, attrs }] */
 const hdPopList = (title, items, foot) => `<h3 class="hd-poph">${title}</h3><div class="hd-popl">${items.map(x => `<button type="button" class="hd-row" ${x.attrs || ''}><span class="hd-dot" aria-hidden="true"></span><span class="k">${x.txt}${x.sub ? `<small>${x.sub}</small>` : ''}</span><span class="chev">${ICO.next}</span></button>`).join('')}</div>${foot ? `<footer class="hd-popf">${foot}</footer>` : ''}`;
 /* la cabecera de una lista de la izquierda (escenas, lugares, personajes): su título con la cuenta y el buscador */

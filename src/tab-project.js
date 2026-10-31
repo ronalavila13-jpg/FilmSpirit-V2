@@ -19,7 +19,6 @@ function headerPreviewHTML() {
   const right = cOn ? (imgDataOk(M.logo) ? `<img src="${esc(imgDataOk(M.logo))}" alt="">` : M.company ? `<b class="co">${esc(M.company.toUpperCase())}</b>` : '') : '';
   return `<div class="pj-prev"><div class="pv-l">${left}</div><div class="pv-r">${right}<span>${esc(new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }))}</span></div></div>`;
 }
-const SCRIPT_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M14 3v4h4M9 12h6M9 16h4"/></svg>';
 RENDER.project = function () {
   const v = $('#view');
   const M = P.meta, ed = projEditable();

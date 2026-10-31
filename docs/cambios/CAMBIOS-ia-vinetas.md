@@ -50,6 +50,7 @@ envío a Google (hay que hacerlo antes de abrirlo a clientes).
 
 ## Límites conocidos
 
-- Rehacer (Ctrl+Y) justo después de deshacer «Imagen de IA…» borra la imagen del plano (comportamiento general del historial de imágenes).
+- Deshacer «Imagen de IA…» solo vuelve el plano a mostrar lo anterior: la imagen reemplazada no se restaura (si se restaurara, rehacer borraría la nueva del servidor).
+- Lo generado y no usado se conserva en memoria por plano (`IA_LAST`) hasta usarlo o recargar la página.
 - Deshacer la *primera* imagen de IA de un plano oculta la imagen (`sh.ia` vuelve a nada) pero deja el archivo guardado hasta «Borrar la imagen de IA».
 - El animatic sigue mostrando la escena 3D animada.

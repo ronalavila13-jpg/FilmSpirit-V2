@@ -59,6 +59,7 @@ function config(over = {}) {
     dataDir: e.DATA_DIR || path.join(__dirname, 'data'), publicDir: e.PUBLIC_DIR || path.join(__dirname, 'public'),
     googleClientId: e.GOOGLE_CLIENT_ID || '', adminEmails: String(e.ADMIN_EMAILS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean),
     trustProxy: e.TRUST_PROXY === '1',
+    iaDaily: num('IA_MAX_DIA', 150),   // imágenes con IA por persona y día: una sesión robada no puede gastar sin límite la key de Google de la víctima
     price: { month: num('PEN_PRO_MONTH', 49), year: num('PEN_PRO_YEAR', 490) }, supportEmail: String(e.SUPPORT_EMAIL || '').trim(),
     // precios de los planes (PLANES-Y-PRECIOS.md): soles con IGV en el Perú (Mercado Pago), dólares fuera (Paddle)
     prices: {
@@ -345,7 +346,8 @@ function createServer(over) {
         if (req.method === 'GET') return sendJSON(res, 200, info());
         auth.checkWrite(req);
         rateLimit('iacfg:' + u.id, 20, 600e3);
-        if (req.method === 'DELETE') { S.run('UPDATE users SET ia_key=NULL, ia_model=NULL WHERE id=?', u.id); return sendJSON(res, 200, info()); }
+        const trace = what => S.run('INSERT INTO audit(ts,uid,action,detail) VALUES(?,?,?,?)', Date.now(), u.id, what, JSON.stringify({ ip: req.ip || '' }));   // quién cambió la key y cuándo (nunca la key)
+        if (req.method === 'DELETE') { S.run('UPDATE users SET ia_key=NULL, ia_model=NULL WHERE id=?', u.id); trace('ia_key_del'); return sendJSON(res, 200, info()); }
         if (planOf(u) !== 'studio') return sendJSON(res, 403, { error: 'Las imágenes con IA son parte de FilmSpirit Studio.', code: 'plan_studio' });
         const b = await readJSON(req, 2048);
         let listed = null;
@@ -353,7 +355,7 @@ function createServer(over) {
           const key = String(b.key).trim();
           if (!/^[\w-]{20,200}$/.test(key)) return sendJSON(res, 400, { error: 'Esa key no tiene el formato de una key de Google.', code: 'ia_key' });
           listed = await ia.iaModels(key);   // Google rechaza la key si no sirve; de paso dice qué modelos ve
-          S.run('UPDATE users SET ia_key=? WHERE id=?', ia.seal(key), u.id);
+          S.run('UPDATE users SET ia_key=? WHERE id=?', ia.seal(key), u.id); trace('ia_key_set');
         }
         if (b.model != null) {
           if (!IA_MODELS.some(m => m.id === b.model)) return sendJSON(res, 400, { error: 'Modelo no válido.', code: 'bad_model' });
@@ -369,6 +371,7 @@ function createServer(over) {
         const row = S.one('SELECT ia_key, ia_model FROM users WHERE id=?', u.id), key = row && row.ia_key && ia.unseal(row.ia_key);
         if (!key) return sendJSON(res, 409, { error: 'Primero guarda tu key de Google en los ajustes de IA.', code: 'ia_nokey' });
         rateLimit('ia:' + u.id, 12, 60e3);
+        rateLimit('iad:' + u.id, cfg.iaDaily, 86400e3);
         const b = await readJSON(req, 18e6);
         const prompt = String(b.prompt || '').trim(), refs = Array.isArray(b.refs) ? b.refs : [];
         if (!prompt || prompt.length > 4000) return sendJSON(res, 400, { error: 'La descripción debe tener entre 1 y 4000 caracteres.', code: 'bad_prompt' });

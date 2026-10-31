@@ -11,9 +11,6 @@ V2_DO.cldate = b => { if (typeof clDateMenu === 'function') clDateMenu(b); };
 V2_DO.clpdf = b => { if (typeof exportPDF === 'function') exportPDF('call', b, { all: false }); };
 
 const v2Hm = v => (v || '').replace('~', '');
-const v2CallIn = (bind, f, val, lab, extra = '') => callEditable()
-  ? `<input type="text" class="v2-cin${extra.includes('tm') ? ' tm' : ''}" data-bind="${ea(bind)}" data-f="${ea(f)}" value="${esc(val || '')}" aria-label="${ea(lab)}" ${extra.includes('tm') ? 'inputmode="numeric" maxlength="5" placeholder="--:--"' : ''}>`
-  : `<span>${esc(val || '—')}</span>`;
 /* «sábado 31 de octubre de 2026» */
 const v2LongDate = d => d ? d.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(',', '') : '';
 const v2ShortDay = d => d ? `${V2_WD[d.getDay()]} ${d.getDate()}` : '';

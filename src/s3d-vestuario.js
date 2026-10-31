@@ -195,16 +195,7 @@ function vestSkirt(acc, tp, K) {
     const k2 = closed ? (k + 1) % SEG : k + 1, a = r * cols + k, b = r * cols + k2, d = (r + 1) * cols + k, e = (r + 1) * cols + k2;
     idx.push(a, d, b, b, d, e);
   }
-  const geo = new T.BufferGeometry();
-  geo.setAttribute('position', new T.Float32BufferAttribute(P, 3));
-  geo.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
-  geo.setAttribute('skinIndex', new T.Uint16BufferAttribute(SI, 4));
-  geo.setAttribute('skinWeight', new T.Float32BufferAttribute(SW, 4));
-  geo.setAttribute('aInfl', new T.Float32BufferAttribute(IN, 2));
-  geo.setAttribute('aBox', new T.Float32BufferAttribute(BX, 3));
-  geo.setAttribute('aBN', new T.Float32BufferAttribute(N, 3));
-  geo.setIndex(idx);
-  return geo;
+  return clothGeo(P, N, SI, SW, IN, BX, idx);
 }
 /* ---------- gorra, gorro, sombrero y cascos: por encima del pelo ----------
    La copa sigue la forma del cráneo (la misma medida que usan los peinados, peloHead) separada `gap`: el pelo aplastado

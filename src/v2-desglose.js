@@ -26,7 +26,6 @@ function v2BdOf(el) {
   if (el.cat === 'equip') return el.sub === 'light' ? V2_BD[4] : null;
   return V2_BD.find(b => b.cats.includes(el.cat)) || null;
 }
-const v2BdColor = el => (CAT[el.cat] || {}).color || '#999';
 const v2BdName = el => { const b = v2BdOf(el); return b ? b.name : (CAT[el.cat] || {}).name || el.cat; };
 
 V2_ACTS.breakdown = () => v2Hist() + v2Export();
@@ -96,18 +95,6 @@ function v2BdCards(s) {
   const sorted = list => list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name));
   return V2_BD.map(b => card(b.id, b.name, b.color, sorted(byBox.get(b.id)), true)).join('')
     + [...extra].map(([c, list]) => card(c, (CAT[c] || {}).name || c, (CAT[c] || {}).color || '#999', sorted(list), true)).join('');
-}
-/* la tabla de todas las escenas */
-function v2BdTable() {
-  const fig = k => { const it = (P.schedule.items || []).filter(x => x.k === k && !x.e); const n = it.reduce((a, x) => a + (num(x.fig) || 0), 0); return n || ''; };
-  const cnt = (s, cats, sub) => [...D.sem[s.idx]].map(id => P.elements[id]).filter(e => e && cats.includes(e.cat) && (!sub || e.sub === sub)).length;
-  return `<h2 class="v2-h2">Todas las escenas</h2>
-    <div class="v2-card v2-tbl"><table><thead><tr><th>Esc.</th><th>Encabezado</th><th>Pág.</th><th>Reparto</th><th>Utilería</th><th>Vestuario</th><th>Extras</th></tr></thead><tbody>
-    ${D.sc.scenes.map(s => {
-      const cast = sceneCast(s.idx).map(e => D.castNum[e.id]).filter(Boolean).sort((a, b) => a - b).join(', ');
-      const u = cnt(s, ['props', 'weapons']), w = cnt(s, ['wardrobe', 'makeup']), f = fig(s.key);
-      return `<tr data-v2sc="${ea(s.idx)}"${s.idx === UI.scene ? ' class="on"' : ''}><td><b>${esc(s.key)}</b></td><td class="h">${esc(s.heading)}</td><td>${esc(fmtEighths(D.metrics.eighths[s.idx]))}</td><td>${esc(cast || '—')}</td><td>${u || '—'}</td><td>${w || '—'}</td><td>${f || '—'}</td></tr>`;
-    }).join('')}</tbody></table></div>`;
 }
 
 Object.assign(ACT, { 'bd-goto': b => { UI.scene = +b.dataset.i; render(); } });

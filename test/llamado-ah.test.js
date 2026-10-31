@@ -120,12 +120,10 @@ test('un plano quitado en la hoja lleva «Eliminado en la hoja de llamado · Jor
   assert.deepStrictEqual(J(`callShotCuts()`), { [sid]: [1] });
   assert.ok(!J(`callSched(callDays().days[0]).rows.find(r => r.key === 'k:2|').shots.map(x => x.k)`).includes('s:' + sid), 'ya no sale en la hoja');
   assert.strictEqual(run(`callCutLabel([1])`), 'Eliminado en la hoja de llamado · Jornada 1');
-  run(`UI.tab = 'board'; UI.sbView = 'panels'; UI.sbScene = '2'; render();`);
-  const board = String(run(`$('#view').innerHTML`));
-  has(board, /class="pcell[^"]* cut"/); has(board, /class="pcut"[^>]*>Eliminado en la hoja de llamado · Jornada 1</);
-  run(`UI.sbView = 'table'; render();`);
+  // (los cuadros los dibuja la v2; la etiqueta sale en el guion técnico y en su PDF)
+  run(`UI.tab = 'board'; UI.sbView = 'table'; UI.sbScene = '2'; render();`);
   has(String(run(`$('#view').innerHTML`)), /class="badge cut"[^>]*>Eliminado en la hoja de llamado · Jornada 1</, 'en el guion técnico');
-  run(`UI.sbView = 'panels'; UI.sbScene = null;`);
+  run(`UI.sbScene = null;`);
   // también el PDF del guion técnico
   has(fs.readFileSync(R + 'src/pdf.js', 'utf8'), /sh\.done \? 'Rodado' : cuts\[sh\.id\] \? callCutLabel\(cuts\[sh\.id\]\)/);
   // ↺: vuelve a la hoja y la etiqueta se va

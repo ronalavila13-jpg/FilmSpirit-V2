@@ -154,7 +154,6 @@ function v2EdBadges() {
   }
 }
 RENDER.script = (orig => function () { return UI.tab === 'script' ? v2GuionRender() : orig.apply(this, arguments); })(RENDER.script);
-RENDER.lined = (orig => function () { return orig.apply(this, arguments); })(RENDER.lined);
 
 /* el párrafo donde está el cursor: resaltado; su tipo, elegido en las pestañas; la página, arriba */
 let V2_CUR = -1;

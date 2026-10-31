@@ -115,8 +115,29 @@ test('cada error de Google llega con su código, sin la key', async () => {
   await caso({ status: 429, body: { error: { status: 'RESOURCE_EXHAUSTED', message: 'quota' } } }, 402, 'ia_quota');
   await caso({ status: 200, body: { steps: [{ content: [{ type: 'text', text: 'no puedo' }] }] } }, 422, 'ia_blocked');
   await caso({ status: 500, body: {} }, 502, 'ia_failed');
+  google.image = { status: 400, body: { error: { status: 'NOT_FOUND', message: 'model gemini-x not found' } } };
+  const r4 = await U.post('/api/ia/imagen', { prompt: 'x' });
+  assert.equal(r4.json.code, 'ia_failed'); assert.match(r4.json.error, /model gemini-x not found/, 'el mensaje de Google llega para diagnosticar');
   await caso({ hang: true }, 504, 'ia_timeout');
   const r = await U.del('/api/me/ia');
   assert.equal(r.json.hasKey, false);
   assert.equal((await U.post('/api/ia/imagen', { prompt: 'x' })).json.code, 'ia_nokey');
+});
+
+// va al final: start() cambia GOOGLE_JWKS_FILE y los inicios de sesión de las pruebas de arriba dejarían de valer
+test('tope diario por persona y bitácora de cambios de la key', async () => {
+  google.image = { status: 200, body: { steps: [{ type: 'model_output', content: [{ type: 'image', mime_type: 'image/png', data: 'AAAA' }] }] } };   // la prueba anterior la dejó colgada
+  google.models = { status: 200, body: { models: [] } };
+  const S2 = await start({ IA_MAX_DIA: '2' });
+  try {
+    const U = client(S2.base); await U.post('/api/auth/google', { credential: S2.token('tope@prueba.pe', 'Tope') });
+    S2.S.run("UPDATE users SET plan='studio' WHERE email='tope@prueba.pe'");
+    assert.equal((await U.put('/api/me/ia', { key: KEY })).status, 200);
+    const codes = []; for (let i = 0; i < 3; i++) codes.push((await U.post('/api/ia/imagen', { prompt: 'x' })).status);
+    assert.deepEqual(codes, [200, 200, 429], 'el tercero del día se rechaza');
+    await U.del('/api/me/ia');
+    const rows = S2.S.all("SELECT action, detail FROM audit WHERE action LIKE 'ia_key_%' ORDER BY ts");
+    assert.deepEqual(rows.map(r => r.action), ['ia_key_set', 'ia_key_del']);
+    assert.ok(!rows.some(r => r.detail.includes(KEY)), 'la bitácora no guarda la key');
+  } finally { await S2.stop(); }
 });

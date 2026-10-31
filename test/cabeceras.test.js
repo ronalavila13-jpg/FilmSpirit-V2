@@ -90,7 +90,8 @@ test('piezas: «del plan» marca la hora calculada; ‹ › sin a dónde ir qued
 });
 
 /* ---------- las 14 pestañas: cabecera nueva y sin relleno ---------- */
-const HEADS = { call: 'cl-hd', sup: 'hs-hd', breakdown: 'bd-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
+// (el desglose y la hoja de script ya no tienen pantalla v1: las dibuja la v2)
+const HEADS = { call: 'cl-hd', lined: 'ins-hd', build: 'b-hd', project: 'pj-top', scout: 'cand-hd', casting: 'cand-hd', board: 'sb-hd', plan: 'pl-hd', cal: 'cal-hd', budget: 'bud-hd' };
 const html = {};
 for (const t of Object.keys(HEADS).concat(['script', 'animatic'])) html[t] = A.show(t);
 test('las 14 pestañas tienen su cabecera nueva', () => {
@@ -167,22 +168,6 @@ test('desglose: la barra de cada categoría se lee (contraste de 4,5 o más) con
   // si ya se lee, el color queda tal cual
   assert.strictEqual(JSON.parse(run(`JSON.stringify(bdBar('#1AAEAD'))`)).bg, run(`lgContrast('#1AAEAD', '#1A1A1A') >= 4.6 ? '#1AAEAD' : bdBar('#1AAEAD').bg`));
   assert.strictEqual(JSON.parse(run(`JSON.stringify(bdBar('#F1E36E'))`)).bg, '#F1E36E');
-});
-test('desglose: cada caja lleva su color entero en la barra y las vacías salen como «Sin elementos todavía» con su color', () => {
-  run(`UI.scene = 0; UI.bdView = 'sheet';`);
-  const h = A.show('breakdown');
-  const boxes = [...h.matchAll(/<section class="sbx sbx-(\w+)[^"]*" style="--bg:(#\w+);--bgb:(#\w+);--bgi:(#\w+)"/g)];
-  assert.ok(boxes.length, 'no hay cajas');
-  for (const [, id, bg, bgb, bgi] of boxes) assert.ok(run(`lgContrast('${bgb}', '${bgi}')`) >= 4.5, `${id}: ${bgb} / ${bgi}`);
-  const none = /<div class="bd-none">([^]*?)<\/div>/.exec(h);
-  if (none) {
-    has(none[1], /^<span>Sin elementos todavía:<\/span>/);
-    for (const m of none[1].matchAll(/data-box="(\w+)" style="--c:(#\w+)"/g)) assert.strictEqual(m[2], run(`SHEET.find(b => b.id === '${m[1]}').color`));
-    // un toque abre la caja con su campo
-    const id = /data-box="(\w+)"/.exec(none[1])[1];
-    run(`ACT['bd-open']({ dataset: { box: '${id}' } })`);
-    has(A.show('breakdown'), new RegExp(`<section class="sbx sbx-${id} vac adding`));
-  }
 });
 test('desglose: el PDF pinta la barra con el mismo color que la pantalla', () => {
   const src = fs.readFileSync(R + 'src/pdf.js', 'utf8');

@@ -13,6 +13,7 @@ const IA_STYLES = {
   foto: ['Fotograma realista', 'Fotograma de película realista, iluminación cinematográfica, lente y profundidad de campo creíbles.'],
 };
 const IA_ASPECTS = { '1:1': 1, '3:2': 3 / 2, '2:3': 2 / 3, '3:4': 3 / 4, '4:3': 4 / 3, '4:5': 4 / 5, '5:4': 5 / 4, '9:16': 9 / 16, '16:9': 16 / 9, '21:9': 21 / 9 };
+const IA_LAST = new Map();   // plano → última imagen generada que aún no se usó
 const IA_MAX_REFS = 6, IA_PER_CHAR = 2, IA_FICHA_REFS = 3;
 
 /* ---------- lo que arma el pedido (sin red: se prueba aparte) ---------- */
@@ -150,6 +151,11 @@ async function iaShotDialog(sh) {
   const go = $('#iaGo', m);
   m.addEventListener('click', e => { const f = e.target.closest('[data-ficha]'); if (f) { closeModal(); openFicha(f.dataset.ficha, () => iaShotDialog(sh)); } });
   let res = null;
+  const showRes = () => {
+    $('#iaImg', m).src = res; $('#iaCap', m).textContent = 'Resultado';
+    go.disabled = false; go.textContent = 'Otra versión';
+    if (!$('#iaUse', m)) { go.insertAdjacentHTML('beforebegin', '<button class="btn primary" id="iaUse">Usar en la viñeta</button>'); go.classList.remove('primary'); $('#iaUse', m).onclick = async () => { const u = res; IA_LAST.delete(sh.id); closeModal(); await iaShotUse(sh, u); }; }
+  };
   const run = async () => {
     const o = { style: $('#iaStyle', m) ? $('#iaStyle', m).value : st0, notes: $('#iaNotes', m) ? $('#iaNotes', m).value : '' };
     if (P.meta.iaStyle !== o.style) { P.meta.iaStyle = o.style; changed('data'); }
@@ -157,21 +163,20 @@ async function iaShotDialog(sh) {
     go.disabled = true; go.textContent = 'Generando…'; $('#iaCap', m).textContent = 'Generando la imagen… puede tardar entre 10 y 40 segundos.';
     try { res = await iaRequest(iaShotPrompt(sh, o)); }
     catch (e) { if (m.isConnected) { go.disabled = false; go.textContent = 'Generar'; $('#iaCap', m).textContent = 'Viñeta actual'; } return iaFail(e); }
-    if (!m.isConnected) return;   // cerró la ventana mientras esperaba
-    $('#iaImg', m).src = res; $('#iaCap', m).textContent = 'Resultado';
-    go.disabled = false; go.textContent = 'Otra versión';
-    if (!$('#iaUse', m)) { go.insertAdjacentHTML('beforebegin', '<button class="btn primary" id="iaUse">Usar en la viñeta</button>'); go.classList.remove('primary'); $('#iaUse', m).onclick = async () => { const u = res; closeModal(); await iaShotUse(sh, u); }; }
+    IA_LAST.set(sh.id, res);   // ya se cobró: se conserva aunque se cierre la ventana
+    if (!m.isConnected) return toast('Tu imagen de IA está lista: vuelve a abrir «Generar imagen con IA…» del plano para usarla.', 8000);
+    showRes();
   };
   go.onclick = run;
+  if (IA_LAST.has(sh.id)) { res = IA_LAST.get(sh.id); showRes(); }   // un resultado anterior que no se llegó a usar
 }
 /* «Usar en la viñeta»: la imagen (a las medidas de la viñeta, WebP 90 %) se guarda aparte, en <plano>~ia, y se muestra */
 async function iaShotUse(sh, url) {
   const k = sh.id + '~ia', [W, H] = frameDims(1280);
   let out;
   try { out = imgEncode(await iaCover(url, W, H)).url; } catch (e) { return toast('No se pudo leer la imagen que devolvió Google.', 6000); }
-  if (frameHas(k) && !FRAMES[k]) await framesNeed([k]).catch(() => { });
-  const old = FRAMES[k] || null;
-  histNote(`Imagen de IA en el plano ${D.code[sh.id] || ''}`.trim(), old ? { [k]: old } : null, 'board');
+  // sin pasar la imagen anterior al historial: rehacer la borraría del servidor (historial.js · histApply)
+  histNote(`Imagen de IA en el plano ${D.code[sh.id] || ''}`.trim(), null, 'board');
   FRAMES[k] = out; IMGS.delete(k); sh.ia = true;
   changed('data'); render();
   toastUndo(`Imagen de IA puesta en el plano ${D.code[sh.id]}. La escena 3D sigue ahí: se alterna desde la viñeta («IA») o con «Viñetas: 3D | IA».`, 8000);
@@ -216,19 +221,19 @@ function iaMenuHTML(sh) {
   return `<button data-m="iagen">${has ? 'Otra imagen con IA…' : 'Generar imagen con IA…'}</button>`
     + (has ? `<button data-m="iatog">${shotIaKey(sh) ? 'Ver la viñeta 3D' : 'Ver la imagen de IA'}</button><button data-m="iadel">Borrar la imagen de IA</button>` : '');
 }
-const iaBlankBtn = sh => TARGET !== 'server' ? '' : `<button type="button" data-act="ia-gen" data-id="${ea(sh.id)}" title="Generar la imagen de este plano con IA (Studio)"><span>Generar con IA</span></button>`;
 /* la pastilla «IA» de la tarjeta: aparece solo si el plano tiene imagen de IA; encendida, la muestra */
 function iaPillHTML(sh) {
-  if (TARGET !== 'server' || !frameHas(sh.id + '~ia')) return '';
+  if (TARGET !== 'server') return '';
+  // sin imagen de IA todavía: el botón para generarla (si no, nadie encontraría la función)
+  if (!frameHas(sh.id + '~ia')) return UI.readOnly || sh.ws === '2d' ? '' : `<button type="button" class="v2-ia gen" data-v2iagen="${ea(sh.id)}" title="Generar la imagen de este plano con IA (Studio)">✦ Generar con IA</button>`;
   const on = !!shotIaKey(sh), off = !!P.meta.iaOff;
-  return `<button type="button" class="v2-ia${on ? ' on' : ''}" data-v2ia="${ea(sh.id)}" aria-pressed="${on}" ${UI.readOnly ? 'disabled' : ''} title="${ea(off ? 'Las viñetas están en 3D para todo el proyecto («Viñetas: 3D | IA»)' : on ? 'Muestra la imagen de IA. Un clic: ver la viñeta 3D' : 'Muestra la viñeta 3D. Un clic: ver la imagen de IA')}">IA</button>`;
+  return `<button type="button" class="v2-ia${on ? ' on' : ''}" data-v2ia="${ea(sh.id)}" ${UI.readOnly ? 'disabled' : ''} title="${ea(off ? 'Las viñetas están en 3D para todo el proyecto («Viñetas: 3D | IA»)' : on ? 'Muestra la imagen de IA. Un clic: ver la viñeta 3D' : 'Muestra la viñeta 3D. Un clic: ver la imagen de IA')}">${on ? 'Ver 3D' : 'Ver IA'}</button>`;
 }
 function iaSwitchHTML() {
   if (TARGET !== 'server' || !iaAny()) return '';
   const off = !!P.meta.iaOff;
   return `<span class="v2-ord" role="group" aria-label="Qué muestran las viñetas" title="3D: todas las viñetas muestran los muñecos, aunque tengan imagen de IA. IA: los planos con imagen de IA la muestran (cada plano se alterna con su pastilla «IA»). El PDF sigue lo que se ve"><span class="lab">Viñetas</span><button type="button" data-v2iaall="0" aria-pressed="${off}">3D</button><button type="button" data-v2iaall="1" aria-pressed="${!off}"${UI.readOnly ? ' disabled' : ''}>IA</button></span>`;
 }
-if (typeof ACT !== 'undefined') ACT['ia-gen'] = b => iaShotDialog(P.shots[b.dataset.id]);
 
 /* ---------- la ficha del personaje: pestaña «IA» ---------- */
 /* devuelve { html, click, input, save, cancel } para ficha.js (openFicha). Las fotos viven en FRAMES['ai~<id>~<n>'] y se

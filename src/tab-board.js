@@ -210,8 +210,6 @@ function drawMove(ctx, W, H, move, red, lw) {
   ctx.restore();
 }
 const frameOf = (sh, t = 0) => shotThumb(sh, t);
-// (un dibujo 2D con varios cuadros, o la escena 3D que se ve y se mueve)
-const isAnimated = sh => { if (d2On(sh) && sh.d2.frames.length > 1) return true; if (!shot3D(sh)) return false; const s3 = s3Of(sh); return s3.keys.length > 1 || !!s3.shake; };
 
 /* ---------- vista ---------- */
 /* el título (lote I): la escena elegida (o todas) con su menú, y en gris cuántos planos hay y cuántos se rodaron */
@@ -235,40 +233,13 @@ RENDER.board = function () {
       <button class="btn ghost m-more" data-act="fichas" title="Cuerpo, estatura, tallas y fotos de cada personaje">Personajes</button>
       ${toolsHTML()}
     </div>
-    <div class="scroller pad" data-keep="sb" style="--ar:${ea(ar)}">${boardHeadHTML(scenes, total)}${UI.sbView === 'panels' ? boardPanelsHTML(scenes) : shotTableHTML(scenes)}${UI.sbView === 'panels' && !UI.readOnly ? '<div class="sb-selbar" id="sbSelBar" role="status" hidden></div>' : ''}</div>
+    <div class="scroller pad" data-keep="sb" style="--ar:${ea(ar)}">${boardHeadHTML(scenes, total)}${shotTableHTML(scenes)}</div>
   </section></div>`;
   bindView();
   hydrateThumbs();
-  if (UI.sbView === 'panels' && !UI.readOnly) {
-    bindBoardDrag();
-    bindBoardSel();
-    sbSelPaint();
-    if (Object.keys(P.shots).length > 1) setTimeout(() => { if (UI.tab === 'board' && !$('#modal') && !document.body.classList.contains('home')) coach('sb-drag', 'Arrastra una viñeta para cambiar su orden en la escena. Con ⋯ la duplicas, la mueves o la eliminas.', $('.pcell')); }, 1200);
-  }
 };
 /* ---------- viñetas: arrastrar para cambiar el orden dentro de la escena ----------
    Con el ratón se agarra al primer movimiento; en el teléfono, manteniendo el dedo un instante. */
-function bindBoardDrag() {
-  const v = $('#view .scroller'); if (!v) return;
-  // imágenes soltadas sobre «Nuevo plano»: un plano por imagen
-  const imgDrag = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-  // y sobre una viñeta (que no sea un dibujo 2D): esa imagen pasa a ser la del plano
-  const cellOf = e => { const c = e.target.closest('.pcell'), sh = c && P.shots[c.dataset.sid]; return sh && sh.ws !== '2d' ? c : null; };
-  v.addEventListener('dragover', e => { if (!imgDrag(e)) return; const a = e.target.closest('.sb-addc') || cellOf(e); if (!a) return; e.preventDefault(); a.classList.add('drop'); });
-  v.addEventListener('dragleave', e => { const a = e.target.closest('.sb-addc, .pcell'); if (a && !a.contains(e.relatedTarget)) a.classList.remove('drop'); });
-  v.addEventListener('drop', e => {
-    if (!imgDrag(e)) return;
-    const a = e.target.closest('.sb-addc');
-    if (a) { e.preventDefault(); a.classList.remove('drop'); sbAddImgs(D.sc.scenes[+a.dataset.i], e.dataTransfer.files); return; }
-    const c = cellOf(e); if (!c) return;
-    e.preventDefault(); c.classList.remove('drop'); sbSetImg(P.shots[c.dataset.sid], e.dataTransfer.files[0]);
-  });
-  v.addEventListener('pointerdown', e => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    const cell = e.target.closest('.pcell'); if (!cell || e.target.closest('.sbmore')) return;
-    pressGesture(e, { target: cell, onLift: ev => boardDrag(cell, ev) });
-  });
-}
 function boardDrag(cell, e) {
   const grid = cell.parentElement, sc = grid.dataset.sc, sid = cell.dataset.sid, sh = P.shots[sid];
   if (!sh) return;
@@ -318,13 +289,9 @@ function sbFrames(sh) {
   if (!B) return img(sh, 'fr', `Plano ${D.code[sh.id]}`);
   return `<span class="fr-ab">${img(sh, 'fr', `Plano ${D.code[sh.id]}, cámara A`)}<span class="fr-b">${img(B, 'fr', `Plano ${D.code[sh.id]}, cámara B`)}<span class="fr-bl"><b>B</b> ${esc(String(lensB(sh)))} mm</span></span></span>`;
 }
-/* la planta general de la escena: si tiene planos con planta (los dibujados a mano no tienen) */
-const sbPlantaBtn = (s, shots) => shots.some(sh => shot3D(sh)) ? `<button class="btn sm ghost sb-pg" data-act="sb-planta" data-sc="${ea(s.key)}" title="Las cámaras de todos los planos de la escena en una sola planta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg>Planta general</button>` : '';
 /* «Nuevo plano» desde imágenes: para quien dibuja el storyboard en otro programa. Un plano por imagen, al final de la
    escena y en el orden de los nombres de los archivos; la imagen es la viñeta (la foto del plano, delante de la escena
-   3D), entera y sobre blanco si su formato es otro. También se pueden soltar las imágenes sobre «Nuevo plano» */
-const SB_IMG_IC = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12.5V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2H12"/><circle cx="8.5" cy="10" r="1.5"/><path d="m4 17.5 4.5-4.5 3.5 3.5 2.5-2.5 5.5 5"/><path d="M18 9.5V3M15.2 5.8 18 3l2.8 2.8"/></svg>';
-const sbImgBtn = s => `<button class="sb-img" data-act="shot-imgs" data-i="${ea(s.idx)}" title="Subir imágenes: un plano por imagen (storyboard hecho en otro programa). También puedes soltarlas aquí" aria-label="Nuevo plano desde imágenes">${SB_IMG_IC}</button>`;
+   3D), entera y sobre blanco si su formato es otro */
 function sbImgFrame(file, W, H) {
   return new Promise((ok, no) => {
     const u = URL.createObjectURL(file), im = new Image();
@@ -376,8 +343,6 @@ function sbImgMenu(sh) {
   return `<button data-m="img">${img ? 'Cambiar la imagen…' : 'Subir imagen…'}</button>${img ? '<button data-m="noimg">Quitar la imagen</button>' : ''}`
     + (bl ? '<button data-m="unblank">Volver a la escena 3D</button>' : img ? '' : '<button data-m="blank">Dejar en blanco</button>');
 }
-const sbBlankBtn = sh => UI.readOnly || sh.ws === '2d' || !shotBlank(sh) || sbHasImg(sh) ? ''
-  : `<span class="sb-blank"><button type="button" data-act="sb-img1" data-id="${ea(sh.id)}" title="Subir una imagen para este plano (también puedes soltarla aquí)">${SB_IMG_IC}<span>Subir imagen</span></button>${typeof iaBlankBtn === 'function' ? iaBlankBtn(sh) : ''}</span>`;
 function sbBlank(sh, on) {
   if (UI.readOnly || !sh) return;
   histNote(`${on ? 'Dejar en blanco' : 'Volver a la escena 3D en'} el plano ${D.code[sh.id] || ''}`.trim(), null, 'board');
@@ -424,21 +389,6 @@ function sbImgShots(s) {
   const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true;
   fi.onchange = () => sbAddImgs(s, fi.files);
   fi.click();
-}
-function boardPanelsHTML(scenes) {
-  // (lote AH) los planos quitados en una hoja de llamado llevan su etiqueta (tab-call.js)
-  const cuts = typeof callShotCuts === 'function' ? callShotCuts() : {}, cut = sh => cuts[sh.id] ? `<span class="pcut" title="El plano sigue en el storyboard: se quitó en esa hoja de llamado">${esc(callCutLabel(cuts[sh.id]))}</span>` : '';
-  return scenes.map(s => {
-    const shots = D.shotsBy[s.key] || [];
-    if (!shots.length) return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · sin planos</span></header>
-      ${hdEmpty({ icon: 'camera', title: 'Sin planos todavía', text: UI.readOnly ? '' : 'Sugiere los planos a partir del guion o agrega el primero.', btn: UI.readOnly ? '' : `<span class="sb-nb">${hdBtn('pri', 'Sugerir planos', { attrs: `data-act="suggest" data-i="${ea(s.idx)}"` })}${hdBtn('sec', 'Nuevo plano', { icon: 'plus', attrs: `data-act="shot-scene" data-i="${ea(s.idx)}"` })}${hdBtn('sec', 'Desde imágenes', { icon: 'photo', attrs: `data-act="shot-imgs" data-i="${ea(s.idx)}" title="Un plano por imagen (storyboard hecho en otro programa)"` })}</span>` })}</section>`;
-    return `<section class="sb-scene"><header data-note="scene:${esc(s.key)}"><h2><span class="sb-no tnum">${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span>${(d => d ? `<span class="scd">${esc(d)}</span>` : '')(synopsisOf(s))}</h2><span class="sb-hr"><span class="count">${fmtEighths(D.metrics.eighths[s.idx])} págs. · ${shots.length} ${shots.length === 1 ? 'plano' : 'planos'}</span>${sbPlantaBtn(s, shots)}</span></header>
-      <div class="sb-grid" data-sc="${esc(s.key)}">${shots.map(sh => `<div class="pcell${ea(sbSel().has(sh.id) ? ' sel' : '')}${cuts[sh.id] ? ' cut' : ''}" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"><button class="panel${ea(sh.done ? ' done' : '')}${ea(shotB(sh) ? ' has-b' : '')}" data-act="shot" data-id="${ea(sh.id)}">
-        ${sbFrames(sh)}
-        <span class="pb"><span class="ptop"><span class="pcode">${esc(D.code[sh.id])}</span><span class="badge" title="${esc(SIZE_NAME[sh.size] || '')}">${esc(sh.size || '—')}</span>${sh.angle && sh.angle !== 'Normal' ? `<span class="badge">${esc(sh.angle)}</span>` : ''}${sh.move && sh.move !== 'Fijo' ? `<span class="badge">${esc(sh.move)}</span>` : ''}${isMaster(sh) ? '<span class="badge mst" title="Máster de la escena: los demás planos toman de aquí la ubicación de los personajes y el escenario">Máster</span>' : ''}${sbStgMark(sh)}${d2On(sh) ? `<span class="badge s2b" title="${ea(shot3D(sh) ? 'Con dibujo 2D sobre la escena 3D' : 'Dibujado a mano en el espacio 2D')}">2D</span>` : ''}<span class="count">${!shot3D(sh) ? '' : esc(String(Math.round(s3Of(sh).keys[0].cam.lens))) + 'mm' + (lensEqText(s3Of(sh)) ? ' ' + esc(lensEqText(s3Of(sh))) : '') + ' · '}${shotDur(sh)}s${isAnimated(sh) ? (d2On(sh) && sh.d2.frames.length > 1 ? ` · ${sh.d2.frames.length} cuadros` : ' · animado') : ''}</span></span>
-        ${cut(sh)}${sh.desc ? `<span class="pd">${esc(sh.desc)}</span>` : ''}<span class="px">${esc(shotTextExcerpt(sh, 140))}</span></span></button>${sbBlankBtn(sh)}${UI.readOnly ? '' : `<button class="sbmore" data-act="sb-more" data-id="${ea(sh.id)}" aria-haspopup="menu" aria-label="Acciones del plano ${esc(D.code[sh.id])}" title="Duplicar, mover o eliminar · arrastra la viñeta para cambiarla de lugar">${ICO.more}</button>`}</div>`).join('')}
-        ${UI.readOnly ? '' : `<div class="sb-addc" data-i="${ea(s.idx)}"><button class="panel add" data-act="shot-scene" data-i="${ea(s.idx)}"><span class="hd-pl">${ICO.plus}</span>Nuevo plano</button>${sbImgBtn(s)}</div>`}</div></section>`;
-  }).join('');
 }
 /* (lote AK) guion técnico con los grupos de color (los planos que se graban de una vez, como en las viñetas). «Un plano» deja de
    cada grupo solo su plano más bajo, con «+N» (un clic lo abre), para contar menos planos. UI.sbCol: '1' = un plano */
@@ -576,7 +526,7 @@ function sbMoreMenu(anchor, sh) {
   // lo esencial arriba; lo que se usa poco, plegado en «Más opciones»; Eliminar, al final
   const many = picked && sbSelList().length > 1;
   const join = sbJoinGroups().length && picked ? `<button data-m="join" title="Comparten color y la claqueta del plano más bajo">Grabar juntos los elegidos de la escena</button>` : '';
-  popover(anchor, `<div class="menu sb-menu">${clone}${join}<button data-m="open">Abrir</button><button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="tog" title="Varios planos con un solo tiro de cámara: comparten color y la claqueta del más bajo">Se graba junto con…</button><button data-m="dup">Duplicar</button>${typeof iaMenuHTML === 'function' ? iaMenuHTML(sh) : ''}<button data-m="more" aria-expanded="false" class="sb-more">Más opciones</button><div class="sb-more-b" hidden>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}${pick}<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}</div><hr><button data-m="del" style="color:var(--bad)">${many ? `Eliminar los ${sbSelList().length} elegidos` : 'Eliminar'}</button></div>`, p => p.addEventListener('click', e => {
+  popover(anchor, `<div class="menu sb-menu">${clone}${join}<button data-m="open">Abrir</button>${typeof iaMenuHTML === 'function' ? iaMenuHTML(sh) : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="dup">Duplicar</button><button data-m="more" aria-expanded="false" class="sb-more">Más opciones</button><div class="sb-more-b" hidden><button data-m="tog" title="Varios planos con un solo tiro de cámara: comparten color y la claqueta del más bajo">Se graba junto con…</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}${pick}<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}</div><hr><button data-m="del" style="color:var(--bad)">${many ? `Eliminar los ${sbSelList().length} elegidos` : 'Eliminar'}</button></div>`, p => p.addEventListener('click', e => {
     const x = e.target.closest('[data-m]'); if (!x) return;
     if (x.dataset.m === 'more') {   // despliega o pliega lo menos usado sin cerrar el menú
       const b = $('.sb-more-b', p); b.hidden = !b.hidden; x.setAttribute('aria-expanded', String(!b.hidden)); x.textContent = b.hidden ? 'Más opciones' : 'Menos opciones';
@@ -611,7 +561,6 @@ function sbMoreMenu(anchor, sh) {
    lleva una marca chica y su editor, un aviso. «Actualizar escenario» trae del máster el decorado, sus muebles y objetos,
    las luces del set, la hora y la lluvia (s3TakeSet): la cámara y las figuras del plano no cambian. Al guardar el máster
    con otro escenario, un aviso ofrece «Actualizar los N planos». Todo se deshace */
-const sbStgMark = sh => stageStale(sh) ? `<span class="badge stg" title="El máster cambió de escenario: este plano sigue con el de antes. ⋯ › Actualizar escenario" aria-label="El máster cambió de escenario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.2v4.6h-4.6"/></svg></span>` : '';
 function stageUpdate(list, quiet) {
   list = list.filter(sh => sh && sh.s3 && stageStale(sh)); if (!list.length) return 0;
   const ms = shotMaster(list[0].sc); if (!ms) return 0;
@@ -678,24 +627,6 @@ function sbSelPaint() {
   if (!list.length) { bar.innerHTML = ''; return; }
   const how = TOUCHY ? 'Toca «⋯» en el plano que quieres copiar' : 'Clic derecho en el plano que quieres copiar';
   bar.innerHTML = `<span class="sb-sel-n"><b>${esc(list.length === 1 ? '1 plano elegido' : `${list.length} planos elegidos`)}</b> <span class="tnum">${esc(sbCodes(list))}</span></span>${list.length > 1 ? `<button class="btn primary sm" data-act="sb-sel-copy" title="Elige qué pasa: tamaño, ángulo, lente, la cámara 3D…">Copiar atributos de ${esc(D.code[sbSelLast()] || '')} a ${esc(sbCodes(list.filter(x => x.id !== sbSelLast())))}</button><span class="hint">El último que elegiste es el de origen</span>` : `<span class="hint">${esc(how)} › Clonar sus atributos</span>`}${(() => { const gs = sbJoinGroups(), G = shotGroups(); return (gs.length ? `<button class="btn sm" data-act="sb-sel-join" title="Comparten color y la claqueta del plano más bajo">Grabar juntos${gs.length === 1 ? ' ' + esc(sbCodes(gs[0])) : ' (por escena)'}</button>` : '') + (list.some(x => G.has(x.id)) ? '<button class="btn ghost sm" data-act="sb-sel-unjoin" title="Los saca del grupo en que se graban juntos">Separar</button>' : ''); })()}<button class="btn ghost sm sb-sel-del" data-act="sb-sel-del" title="Eliminar los planos elegidos (se pueden recuperar con Deshacer)">${esc(list.length === 1 ? 'Eliminar' : `Eliminar ${list.length}`)}</button><button class="btn ghost sm" data-act="sb-sel-clear" title="Quitar la selección (Esc)">Quitar</button>`;
-}
-function bindBoardSel() {
-  const v = $('#view .scroller'); if (!v) return;
-  // Ctrl+clic (⌘ en Mac) o Mayús+clic en una viñeta: la elige o la suelta, sin abrir su editor
-  v.addEventListener('click', e => {
-    if (!(e.ctrlKey || e.metaKey || e.shiftKey) || e.altKey) return;
-    const cell = e.target.closest('.pcell'); if (!cell || e.target.closest('.sbmore, .sb-blank')) return;
-    e.preventDefault(); e.stopPropagation();
-    sbSelToggle(cell.dataset.sid);
-  }, true);
-  // Mayús+clic no selecciona el texto de la viñeta
-  v.addEventListener('mousedown', e => { if (e.shiftKey && e.target.closest('.pcell')) e.preventDefault(); });
-  // clic derecho en una viñeta: su menú (el mismo de «⋯»), con «Clonar sus atributos…» si hay otras elegidas
-  v.addEventListener('contextmenu', e => {
-    const cell = e.target.closest('.pcell'); const sh = cell && P.shots[cell.dataset.sid]; if (!sh) return;
-    e.preventDefault();
-    sbMoreMenu({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, sh);
-  });
 }
 deselectOn('board', sbSelClear, '.pcell, #sbSelBar');
 // Supr o Retroceso con planos elegidos: los elimina (con «Deshacer»), salvo al escribir o con una ventana abierta
