@@ -67,12 +67,20 @@ function ch3AutoMap(bones) {
     if (map['lowerarm_' + s] == null && map['upperarm_' + s] != null) { const k = kids[map['upperarm_' + s]][0]; if (k != null) map['lowerarm_' + s] = k; }
     if (map['hand_' + s] == null && map['lowerarm_' + s] != null) { const k = kids[map['lowerarm_' + s]][0]; if (k != null) map['hand_' + s] = k; }
   }
-  // la columna: los huesos entre la cadera y el cuello (el primero, el del medio y el último)
-  if (map.pelvis != null && map.neck_01 != null) {
-    const chain = []; for (let p = bones[map.neck_01].p; p >= 0 && p !== map.pelvis; p = bones[p].p) chain.unshift(p);
+  // sin cuello con nombre: el padre de la cabeza es el cuello, salvo que de él salgan las clavículas (Tripo: Spine02 › Head),
+  // que entonces es el pecho y el modelo no tiene cuello
+  if (map.neck_01 == null && map.head != null && bones[map.head].p >= 0) {
+    const hp = bones[map.head].p;
+    if (!CH3_SIDES.some(s => map['clavicle_' + s] != null && bones[map['clavicle_' + s]].p === hp)) map.neck_01 = hp;
+  }
+  // la columna: los huesos entre la cadera y el cuello (o la cabeza), el primero, el del medio y el último. La columna
+  // puede no colgar de la cadera sino de lo de encima (Tripo: BoneRoot › Pelvis y BoneRoot › Waist): eso no es columna
+  const top = map.neck_01 != null ? map.neck_01 : map.head;
+  if (map.pelvis != null && top != null) {
+    const below = new Set(); for (let p = map.pelvis; p >= 0; p = bones[p].p) below.add(p);
+    const chain = []; for (let p = bones[top].p; p >= 0 && !below.has(p); p = bones[p].p) chain.unshift(p);
     if (chain.length) { map.spine_03 = chain[chain.length - 1]; if (chain.length >= 2) map.spine_01 = chain[0]; if (chain.length >= 3) map.spine_02 = chain[Math.floor(chain.length / 2)]; }
   }
-  if (map.neck_01 == null && map.head != null && bones[map.head].p >= 0) map.neck_01 = bones[map.head].p;
   // los dedos: bajo cada mano, por su nombre y en orden de profundidad
   for (const s of CH3_SIDES) {
     const h = map['hand_' + s]; if (h == null) continue;

@@ -44,6 +44,14 @@ test('Tripo: nodos que no son huesos entre Spine02 y Head (NeckTwist); la cabeza
   assert.ok(at(2, head) < 1e-5, 'Head donde estaba (con los NeckTwist en medio)');
 });
 
+test('Tripo: columna Waist › Spine01 › Spine02 (al lado de la cadera, bajo BoneRoot) y sin cuello: Spine02 es el pecho', () => {
+  const B = skel([['BoneRoot'], ['Pelvis', 'BoneRoot'], ['Waist', 'BoneRoot'], ['L_Thigh', 'Pelvis'], ['R_Thigh', 'Pelvis'], ['Spine01', 'Waist'], ['L_Calf', 'L_Thigh'], ['R_Calf', 'R_Thigh'],
+    ['Spine02', 'Spine01'], ['L_Foot', 'L_Calf'], ['R_Foot', 'R_Calf'], ['Head', 'Spine02'], ['L_Clavicle', 'Spine02'], ['R_Clavicle', 'Spine02'], ['L_ToeBase', 'L_Foot'], ['R_ToeBase', 'R_Foot'],
+    ['L_Upperarm', 'L_Clavicle'], ['R_Upperarm', 'R_Clavicle'], ['L_Forearm', 'L_Upperarm'], ['R_Forearm', 'R_Upperarm'], ['L_Hand', 'L_Forearm'], ['R_Hand', 'R_Forearm']]);
+  const M = X.ch3AutoMap(B), n = j => nameOf(B, M, j);
+  assert.deepStrictEqual(['pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'head'].map(n), ['Pelvis', 'Waist', 'Spine01', 'Spine02', null, 'Head']);
+  assert.deepStrictEqual(['clavicle_l', 'upperarm_l', 'lowerarm_l', 'hand_l', 'thigh_r', 'calf_r', 'foot_r', 'ball_r'].map(n), ['L_Clavicle', 'L_Upperarm', 'L_Forearm', 'L_Hand', 'R_Thigh', 'R_Calf', 'R_Foot', 'R_ToeBase']);
+});
 test('Mixamo: cada articulación del maniquí con su hueso', () => {
   const B = humanoid((n, s) => 'mixamorig:' + (s === 'C' ? '' : s === 'L' ? 'Left' : 'Right') + n), M = X.ch3AutoMap(B);
   assert.deepStrictEqual(J(X.ch3Missing(M)), []);
