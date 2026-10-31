@@ -26,6 +26,24 @@ function humanoid(fmt) {
   return skel(L);
 }
 
+test('Tripo: nodos que no son huesos entre Spine02 y Head (NeckTwist); la cabeza queda en su lugar, colgando de Spine02', () => {
+  const THREE = require('three'), c2 = { Math, console, THREE };
+  vm.createContext(c2); vm.runInContext(fs.readFileSync(R + '/src/modelos.js', 'utf8'), c2, { filename: 'modelos.js' });
+  const arm = new THREE.Object3D(), root = new THREE.Bone(), hip = new THREE.Object3D(), spine = new THREE.Bone(), n1 = new THREE.Object3D(), n2 = new THREE.Object3D(), head = new THREE.Bone();
+  root.name = 'BoneRoot'; spine.name = 'Spine02'; head.name = 'Head';
+  hip.position.set(0, .1, 0); spine.position.set(0, .5, 0); n1.position.set(0, .2, .05); n1.rotation.x = .3; n2.position.set(0, .1, 0); head.position.set(0, .08, 0);
+  arm.add(root); root.add(hip); hip.add(spine); spine.add(n1); n1.add(n2); n2.add(head); arm.updateMatrixWorld(true);
+  const S = vm.runInContext('m3Bones', c2)([root, spine, head]);
+  const B = S.bones;
+  assert.deepStrictEqual(B.map(b => b.p), [-1, 0, 1], 'Head cuelga de Spine02 y Spine02 de BoneRoot');
+  // rehacer las posiciones con lo guardado: deben ser las del modelo
+  const W = [];
+  B.forEach((b, i) => { const m = new THREE.Matrix4().compose(new THREE.Vector3(...b.t), new THREE.Quaternion(...b.q), new THREE.Vector3(...b.s)); W[i] = (b.p < 0 ? new THREE.Matrix4().fromArray(S.arm) : W[b.p].clone()).multiply(m); });
+  const at = (i, o) => { const a = new THREE.Vector3().setFromMatrixPosition(W[i]), e = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld); return a.distanceTo(e); };
+  assert.ok(at(1, spine) < 1e-5, 'Spine02 donde estaba (con Hip en medio)');
+  assert.ok(at(2, head) < 1e-5, 'Head donde estaba (con los NeckTwist en medio)');
+});
+
 test('Mixamo: cada articulación del maniquí con su hueso', () => {
   const B = humanoid((n, s) => 'mixamorig:' + (s === 'C' ? '' : s === 'L' ? 'Left' : 'Right') + n), M = X.ch3AutoMap(B);
   assert.deepStrictEqual(J(X.ch3Missing(M)), []);
