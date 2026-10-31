@@ -91,7 +91,7 @@ function pdfCallHead(doc, X, V, y0, ap) {
     if (co) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); const t = lines(trDone(pdfSafe(co)), w - 2 * P6); if (draw) { doc.setTextColor(...INK); raw.text(t, x + P6, y + h + CLF.h3 * .8); } h += t.length * CLF.h3 * 1.2; }
     return h + P6 - 2;
   });
-  for (const k of [...X.keyCrew, ...(X.keyMore || [])]) cols[0].push((draw, x, y, w) => {
+  const keyCell = k => (draw, x, y, w) => {
     let yy = y + P6 + CLF.cap * .78;
     if (draw) lab(k.lab, x + P6, yy);
     yy += CLF.bd * 1.25;
@@ -105,6 +105,15 @@ function pdfCallHead(doc, X, V, y0, ap) {
       if (draw) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); const t = pdfSafe(k.phone); raw.text(t, x + P6, yy); doc.link(x + P6, yy - 7, rw(t), 9, { url: 'tel:' + String(k.phone).replace(/[^\d+]/g, '') }); }
     }
     return yy - y + P6 - 1;
+  };
+  for (const k of [...X.keyCrew.slice(0, 2), ...(X.keyMore || [])]) cols[0].push(keyCell(k));
+  // (lote AJ) los contactos de rodaje, en su cuadro con su título: los asistentes de dirección y el productor de campo
+  cols[0].push((draw, x, y, w) => {
+    let h = P6;
+    if (draw) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...INK); doc.text(trDone(pdfSafe(trDone(tr('Contactos')))), x + P6, y + h + CLF.bd * .8); }
+    h += CLF.bd * 1.2;
+    for (const k of X.contacts) h += keyCell(k)(draw, x, y + h, w) - 1;
+    return h;
   });
   // centro: el proyecto (su logo o su nombre), la hoja y su versión (solo el número; sin la fecha ni la hora en que
   // salió); la fecha; el llamado general, la cifra más grande de la hoja; listos motor, almuerzo, cierre de set y wrap
@@ -132,7 +141,9 @@ function pdfCallHead(doc, X, V, y0, ap) {
   });
   cols[1].push((draw, x, y, w) => {
     if (draw) {
-      lab('Llamado general', x + w / 2, y + P6 + CLF.cap * .78, 'center');
+      if (ap) { doc.setFillColor(...V2K.yellow); doc.rect(x, y, w, P6 + CLF.cap + 3 + CLF.hero * .74 + P6 + 2, 'F'); }   // (versión 2) el cuadro amarillo
+      if (ap) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.cap); doc.setTextColor(...INK); doc.text(trDone(pdfSafe(trDone(tr('Llamado general')))), x + w / 2, y + P6 + CLF.cap * .78, { align: 'center' }); }
+      else lab('Llamado general', x + w / 2, y + P6 + CLF.cap * .78, 'center');
       doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.hero); doc.setTextColor(...INK); doc.text(pdfSafe(X.call || '--:--'), x + w / 2, y + P6 + CLF.cap + 3 + CLF.hero * .74, { align: 'center' });
     }
     return P6 + CLF.cap + 3 + CLF.hero * .74 + P6 + 2;
@@ -143,7 +154,7 @@ function pdfCallHead(doc, X, V, y0, ap) {
     const cw = w / 4, h = P6 + CLF.cap + CLF.h3 + P6;
     if (draw) four.forEach(([l, v], i) => {
       const cx = x + cw * i + cw / 2;
-      if (i && !ap) { doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
+      if (i) { doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x + cw * i, y, x + cw * i, y + h); }
       lab(l, cx, y + P6 + CLF.cap * .78, 'center');
       if (v) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); doc.setTextColor(...INK); doc.text(pdfSafe(v), cx, y + P6 + CLF.cap + CLF.h3 * .82, { align: 'center' }); }
     });
@@ -160,30 +171,63 @@ function pdfCallHead(doc, X, V, y0, ap) {
     if (draw) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.c2); doc.text(trDone(pdfSafe(sum)), x + w / 2, y + h + CLF.ft * .8, { align: 'center' }); }
     return h + CLF.ft * 1.1 + P6 - 1;
   });
-  // derecha: el clima (con el amanecer y el anochecer) y la locación: solo su nombre, su dirección y «Ver mapa»
-  const Dd = X.dd, Wx = wxParts(Dd);
-  if (Wx.wx || Wx.pairs.length || Dd.sunrise || Dd.sunset) cols[2].push((draw, x, y, w) => {
-    const tx = x + P6 + 15, tw = w - P6 * 2 - 15; let yy = y + P6 + CLF.bd * .8;
-    if (draw) pdfCallIco(doc, 'wx', x + P6, y + P6, 9, K.c3);
-    if (Wx.wx) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); const t = lines(pdfSafe(Wx.wx), tw, 2); if (draw) { doc.setTextColor(...INK); raw.text(t, tx, yy); } yy += t.length * CLF.bd * 1.3; }
-    if (Wx.pairs.length) yy += clPairs(doc, Wx.pairs, { x: tx, y: yy, w: tw, gap: 8, lh: CLF.ft * 1.34, draw }) * CLF.ft * 1.34;
-    const sun = [['Amanecer', Dd.sunrise], ['Anochece', Dd.sunset]].filter(([, v]) => v);
-    if (sun.length) yy += clPairs(doc, sun, { x: tx, y: yy, w: tw, gap: 8, lh: CLF.ft * 1.34, draw }) * CLF.ft * 1.34;
-    return yy - y - CLF.bd * .8 + P6 + 2;
+  // (lote AJ) el clima y los datos del día, en el mismo recuadro: el clima y, debajo, máxima, mínima, humedad y
+  // lluvia; viento, amanecer y anochecer
+  const cWx = [];
+  cWx.push((draw, x, y, w) => {
+    const Wd = X.dd, F = Object.fromEntries(WX_FIELDS.map(f => [f.f, f]));
+    const rows = [[['Máx.', wxShow('hi', Wd.hi)], ['Mín.', wxShow('lo', Wd.lo)], ['Hum.', wxShow('hum', Wd.hum)], ['Lluvia', wxShow('rain', Wd.rain)]], [['Viento', wxShow('wind', Wd.wind)], ['Amanece', Wd.sunrise], ['Anochece', Wd.sunset]]];
+    const rh = 6 + CLF.bd * 1.1 + CLF.cap * 1.2 + 4, ch = 8 + CLF.bd + 2;
+    if (draw) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(Wd.wx ? INK : K.c2));
+      doc.text(trDone(pdfSafe(Wd.wx ? wxShow('wx', Wd.wx) : tr('Clima'))), x + w / 2, y + 8 + CLF.bd * .8, { align: 'center' });
+      rows.forEach((r, ri) => {
+        const cw = w / r.length, yy = y + ch + ri * rh;
+        doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x, yy, x + w, yy);
+        r.forEach(([l, v], i) => {
+          const cx = x + cw * i + cw / 2;
+          if (i) { doc.setDrawColor(...(ap ? V2K.line : CL_LINE)); doc.setLineWidth(ap ? .8 : CL_LW.in); doc.line(x + cw * i, yy, x + cw * i, yy + rh); }
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); doc.setTextColor(...(v ? INK : K.c2)); doc.text(pdfSafe(v || ''), cx, yy + 6 + CLF.bd * .8, { align: 'center' });
+          lab(l, cx, yy + 6 + CLF.bd * 1.1 + CLF.cap * .9, 'center');
+        });
+      });
+    }
+    return ch + rh * rows.length;
   });
+  // derecha: la locación (más grande; si hay varias, cada una en su fila) y el centro de salud
+  const Lc = X.loc, own = ((X.dd.loc || {}).name || '').trim(), more = !own && Lc.locs.length > 1 ? Lc.locs : [];
   cols[2].push((draw, x, y, w) => {
-    const tx = x + P6 + 15, tw = w - P6 * 2 - 15, Lc = X.loc, addr = Lc.addr || (X.meet.addr || '').trim();
+    const tx = x + P6 + 15, tw = w - P6 * 2 - 15, addr = Lc.addr || (X.meet.addr || '').trim();
     let yy = y + P6 + CLF.cap * .78;
     if (draw) { pdfCallIco(doc, 'pin', x + P6, y + P6, 9, K.c3); lab('Locación', tx, yy); }
-    yy += CLF.bd * 1.3;
-    if (Lc.name) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); const t = lines(pdfSafe(Lc.name), tw, 2); if (draw) { doc.setTextColor(...INK); raw.text(t, tx, yy); } yy += t.length * CLF.bd * 1.25; }
-    doc.setFont('helvetica', addr ? 'normal' : 'normal'); doc.setFontSize(CLF.ft);
-    const t = lines(pdfSafe(addr || TBC), tw, 3);
-    if (draw) { doc.setTextColor(...(addr ? INK : K.c2)); addr ? raw.text(t, tx, yy) : doc.text(t, tx, yy); }
-    yy += t.length * CLF.ft * 1.3;
+    yy += CLF.h3 * 1.25;
+    if (more.length) for (const [n, ad] of more) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd); const t1 = lines(pdfSafe(n), tw, 2); if (draw) { doc.setTextColor(...INK); raw.text(t1, tx, yy); } yy += t1.length * CLF.bd * 1.25;
+      if (ad) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); const t2 = lines(pdfSafe(ad), tw, 2); if (draw) { doc.setTextColor(...K.c2); raw.text(t2, tx, yy); } yy += t2.length * CLF.ft * 1.3; }
+      yy += 4;
+    }
+    else {
+      if (Lc.name) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.h3); const t = lines(pdfSafe(Lc.name), tw, 2); if (draw) { doc.setTextColor(...INK); raw.text(t, tx, yy); } yy += t.length * CLF.h3 * 1.2 + 2; }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.bd);
+      const t = lines(pdfSafe(addr || TBC), tw, 3);
+      if (draw) { doc.setTextColor(...(addr ? INK : K.c2)); addr ? raw.text(t, tx, yy) : doc.text(t, tx, yy); }
+      yy += t.length * CLF.bd * 1.3;
+    }
     if (Lc.url) { if (draw) { doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.ft); doc.setTextColor(...K.acc); doc.text('Ver mapa', tx, yy + 1); doc.link(tx, yy - 6, doc.getTextWidth(trDone(tr('Ver mapa'))), 9, { url: Lc.url }); } yy += CLF.ft * 1.3; }
-    return yy - y - CLF.ft + P6 + 2;
+    return yy - y - CLF.ft + P6 + 4;
   });
+  cols[2].push((draw, x, y, w) => {
+    const tx = x + P6 + 15, tw = w - P6 * 2 - 15, hs = X.hosp;
+    let yy = y + P6 + CLF.cap * .78;
+    if (draw) { pdfCallIco(doc, 'hosp', x + P6, y + P6, 9, K.c3); lab('Centro de salud', tx, yy); }
+    yy += CLF.bd * 1.3;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(CLF.bd);
+    const t = lines(pdfSafe(hs.name || TBC), tw, 2); if (draw) { doc.setTextColor(...(hs.name ? INK : K.c2)); hs.name ? raw.text(t, tx, yy) : doc.text(t, tx, yy); } yy += t.length * CLF.bd * 1.25;
+    for (const v of [hs.addr, hs.phone].filter(Boolean)) { doc.setFont('helvetica', 'normal'); doc.setFontSize(CLF.ft); const t2 = lines(pdfSafe(v), tw, 2); if (draw) { doc.setTextColor(...K.c2); raw.text(t2, tx, yy); } yy += t2.length * CLF.ft * 1.3; }
+    return yy - y - CLF.ft + P6 + 4;
+  });
+  // el clima, al pie de la columna de la derecha (la del centro era la más alta y la hoja pasaba de 2 páginas)
+  cols[2].push(...cWx);
   // medir, luego dibujar: la caja entera, las líneas entre columnas y entre celdas
   const hs = cols.map((c, i) => c.map(f => f(false, xs[i], 0, ws[i])));
   const H = Math.max(...hs.map(a => a.reduce((s, v) => s + v, 0)));
@@ -196,7 +240,7 @@ function pdfCallHead(doc, X, V, y0, ap) {
     });
   });
   // (lote AI) Apple: solo una línea fina (el gris de los separadores) entre las columnas, sin el marco
-  if (ap) { doc.setDrawColor(...K.sep); doc.setLineWidth(.5); doc.line(xs[1], y0 + 2, xs[1], y0 + H - 2); doc.line(xs[2], y0 + 2, xs[2], y0 + H - 2); doc.setTextColor(...INK); return y0 + H + 6; }
+  if (ap) { doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.line(xs[1], y0, xs[1], y0 + H); doc.line(xs[2], y0, xs[2], y0 + H); doc.roundedRect(M, y0, W - 2 * M, H, 3, 3, 'S'); doc.setTextColor(...INK); return y0 + H + 6; }   // (versión 2) el marco de la app
   doc.setDrawColor(...CL_LINE); doc.setLineWidth(CL_LW.in); doc.line(xs[1], y0, xs[1], y0 + H); doc.line(xs[2], y0, xs[2], y0 + H);
   doc.setLineWidth(CL_LW.out); doc.rect(M, y0, W - 2 * M, H, 'S');
   doc.setTextColor(...INK);
@@ -258,7 +302,7 @@ function pdfCall(opts = {}) {
   const withLine = (c, col) => c && typeof c === 'object' ? { ...c, styles: { ...(c.styles || {}), lineColor: col } } : { content: c || '', styles: { lineColor: col } };
   // (lote AI) Apple: los títulos de sección como en la pantalla, en la letra de la app, con su dato en gris a la derecha y
   // una regla fina de tinta (pdfSec sin cuadro)
-  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: INK, lw: .6, gap: 6, after: 10, box: false };
+  const CL_SEC = { font: 'helvetica', fs: CLF.h3, rfs: CLF.ft, rcol: K.c2, line: AP ? V2K.line : INK, lw: AP ? .8 : .6, gap: 6, after: 10, box: false };
   list.forEach((n, pi) => {
     if (pi) doc.addPage();
     const X = callSheetData(n), m = X.meet;
@@ -295,7 +339,7 @@ function pdfCall(opts = {}) {
     if (notes && AP) T({ body: [[pdfRich([{ t: 'Nota para el equipo', st: 'bold', fs: CLF.bd, tr: 1 }, ...notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: 14 * CLK, tr: false }))], { halign: 'center', lineWidth: 0, cellPadding: { top: 9, bottom: 10, left: 14, right: 14 } })]],
       margin: { ...MG, left: M + 64, right: M + 64 },
       willDrawCell: d => { if (d.section !== 'body') return; d.cell.styles.fillColor = false; doc.setFillColor(...YEL); doc.setDrawColor(...mixc(YEL, INK, .9)); doc.setLineWidth(.5); doc.roundedRect(d.cell.x, d.cell.y, d.cell.width, d.cell.height, 7, 7, 'FD'); } });
-    else if (notes) T({ head: [[bandC('Nota para el equipo', 1, { fillColor: YEL })]], body: [[pdfRich(notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: CLF.bd, tr: false })), { fillColor: YEL2 })]] });
+    else if (notes) T({ head: [[bandC('Nota para el equipo', 1, { fillColor: YEL, halign: 'center' })]], body: [[pdfRich(notes.split('\n').filter(t => t.trim()).map(t => ({ t, fs: CLF.bd, tr: false })), { fillColor: YEL2, halign: 'center' })]] });
     // 3. el cronograma: la hora (eventos) o el número de escena con su hora; el encabezado, la sinopsis y el reparto con
     // su número; D/N y las páginas. Los traslados, una banda celeste con su dirección y el mapa. Debajo de cada escena,
     // sus planos: el plano con su hora, la miniatura, la descripción técnica y la acción, el lente y el sonido, y los
@@ -359,24 +403,6 @@ function pdfCall(opts = {}) {
     y = pdfBlocks(doc, y, { ...TB, margin: MG, head, rowPageBreak: 'avoid', ...hooks,
       didDrawCell: d => { hooks.didDrawCell(d); const r = d.cell.raw; if (d.section === 'body' && r && r._img) { try { doc.addImage(r._img, r._img.startsWith('data:image/png') ? 'PNG' : 'JPEG', d.cell.x + PSH.left, d.cell.y + 4, TW, TH); } catch (e) { PDF_MISS++; } } },
       columnStyles: { 0: { cellWidth: 52 }, 1: { cellWidth: 30 }, 3: { cellWidth: AP ? 66 : 62 }, 4: { cellWidth: AP ? 56 : 52, halign: 'right' } } }, blocks) + GAP;
-    // 4. el avance: las jornadas elegidas (de entrada, la siguiente) o «Fin de rodaje»
-    for (const A of X.advs) {
-      const tl = trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), tx = trDone([A.call ? tr(`Llamado general ${A.call}`) : tr('Llamado por confirmar'), ...A.locs].join('  ·  '));
-      // (lote Z) cada escena del avance a todo color, como en el cronograma
-      const ab = A.rows.map(r => { const col = rgb(r.col), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
-        return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: CL0, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
-          pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd, col: inkOn(col) }, r.syn ? sub(r.syn, mutedOn(col)) : null], SC), { content: r.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(r.cast.join(', ')), styles: { ...SC, fontStyle: 'bold' } }, { content: fmtEighths(r.e8), styles: { ...SC, halign: 'right', fontStyle: 'bold' } }]; });
-      if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);
-      ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', fontSize: CLF.ft, ...(AP ? { lineWidth: 0 } : {}) })]);
-      const cols = ['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }], cs = { 0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 52 } };
-      // (lote AI) Apple: el título de la jornada en su sección, con el llamado y las locaciones a la derecha
-      if (AP) { sec(tl, tx, 80); T({ head: [cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 0); }
-      else T({ head: [[bandC(pdfSafe(tl + '   ' + tx), 6)], cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 80);
-    }
-    if (!X.advs.length && X.lastDay) {
-      const fin = [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center', ...(AP ? { lineWidth: 0 } : {}) } }]];
-      if (AP) { sec('Avance de la jornada siguiente', '', 50); T({ body: fin }, 0); } else T({ head: [[bandC('Avance de la jornada siguiente', 1)]], body: fin });
-    }
     // 5. (lote AH) la citación en dos cuadros: primero los talentos (el reparto), con sus horarios; después el equipo
     // técnico por área (el área, una fila gris con su citación). El teléfono con el correo debajo, más chico.
     // (lote AI) Apple: dos secciones con su título y su regla; el área, chica y en el gris más claro, con su citación
@@ -440,6 +466,30 @@ function pdfCall(opts = {}) {
     if (AP) { if (y + pdfCallHR(doc, X, 0, false) > H - 14) { doc.addPage(); y = M; } y = pdfCallHR(doc, X, y); }
     else T({ head: [['Centro de salud', 'Canales de radio']], body: [[pdfRich([h.name ? { t: h.name, st: 'bold', tr: false } : { t: TBC, col: K.c2 }, ...[h.phone, h.addr].filter(Boolean).map(t => ({ t, fs: CLF.ft, col: K.c2, tr: false }))]),
       X.radio ? { content: pdfSafe(X.radio) } : pdfRich([{ t: TBC, col: K.c2 }])]], columnStyles: { 0: { cellWidth: (W - 2 * M) * .55 } } }, 44);
+    // (lote AJ) la frase del día, en su recuadro, y al final de todo el avance de la jornada siguiente
+    {
+      const q = pdfSafe('«' + X.quote + '»'), qs = { halign: 'center', fontStyle: 'italic', fontSize: CLF.h3 };
+      if (AP) { sec('Frase del día', '', 60); T({ body: [[{ content: q, styles: { ...qs, lineWidth: 0, cellPadding: { top: 4, bottom: 8, left: 24, right: 24 } } }]] }, 0); }
+      else T({ head: [[bandC('Frase del día', 1, { halign: 'center' })]], body: [[{ content: q, styles: { ...qs, cellPadding: { top: 7, bottom: 8, left: 20, right: 20 } } }]] }, 60);
+    }
+    // 4. el avance: las jornadas elegidas (de entrada, la siguiente) o «Fin de rodaje»
+    for (const A of X.advs) {
+      const tl = trDone(tr(`Avance · Jornada ${A.n}`) + (A.date ? ' · ' + advDate(A) : '')), tx = trDone([A.call ? tr(`Llamado general ${A.call}`) : tr('Llamado por confirmar'), ...A.locs].join('  ·  '));
+      // (lote Z) cada escena del avance a todo color, como en el cronograma
+      const ab = A.rows.map(r => { const col = rgb(r.col), SC = { fillColor: col, textColor: inkOn(col), cellPadding: PS };
+        return [{ content: r.code, styles: { ...SC, fontStyle: 'bold', fontSize: CLF.h3, cellPadding: { ...PS, left: CL0, right: 4 } }, _bar: barOfRGB(col) }, { content: r.ie, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } },
+          pdfRich([{ t: r.set, st: 'bold', fs: CLF.bd, col: inkOn(col) }, r.syn ? sub(r.syn, mutedOn(col)) : null], SC), { content: r.dn, styles: { ...SC, fontSize: CLF.ft, fontStyle: 'bold' } }, { content: pdfSafe(r.cast.join(', ')), styles: { ...SC, fontStyle: 'bold' } }, { content: fmtEighths(r.e8), styles: { ...SC, halign: 'right', fontStyle: 'bold' } }]; });
+      if (!ab.length) ab.push([{ content: 'Jornada sin escenas.', colSpan: 6, styles: { textColor: K.c2 } }]);
+      ab.push([pdfRich([{ segs: [{ t: 'Total: ', col: K.c2 }, { t: `${fmtEighths(A.e8)} págs.`, st: 'bold' }, ...(A.cast.length ? [{ t: '     Reparto: ', col: K.c2 }, { t: A.cast.map(c => (c.n ? c.n + ' ' : '') + c.name).join(', '), col: K.c2 }] : [])] }], { colSpan: 6, halign: 'right', fontSize: CLF.ft, ...(AP ? { lineWidth: 0 } : {}) })]);
+      const cols = ['Esc.', 'I/E', 'Escena', 'D/N', 'Reparto', { content: 'Págs.', styles: { halign: 'right' } }], cs = { 0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 3: { cellWidth: 54 }, 4: { cellWidth: 62 }, 5: { cellWidth: 52 } };
+      // (lote AI) Apple: el título de la jornada en su sección, con el llamado y las locaciones a la derecha
+      if (AP) { sec(tl, tx, 80); T({ head: [cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 0); }
+      else T({ head: [[bandC(pdfSafe(tl + '   ' + tx), 6)], cols], body: ab, rowPageBreak: 'avoid', ...hooks, columnStyles: cs }, 80);
+    }
+    if (!X.advs.length && X.lastDay) {
+      const fin = [[{ content: 'Fin de rodaje', styles: { fontStyle: 'bold', fontSize: CLF.h3, halign: 'center', ...(AP ? { lineWidth: 0 } : {}) } }]];
+      if (AP) { sec('Avance de la jornada siguiente', '', 50); T({ body: fin }, 0); } else T({ head: [[bandC('Avance de la jornada siguiente', 1)]], body: fin });
+    }
   });
   const one = callSheet(list[0], cd);
   return { doc, name: fileSafe(P.meta.title) + (opts.all ? '_hojas_de_llamado.pdf' : one && one.free ? `_hoja_de_llamado_${fileSafe(callSheetName(one))}.pdf` : `_hoja_de_llamado_J${(list[0] || 0) + 1}.pdf`) };

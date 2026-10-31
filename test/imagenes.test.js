@@ -1,4 +1,4 @@
-/* Las imágenes que se suben (src/imagenes.js): WebP de hasta unos 170 kB, con la mejor calidad que entra.
+/* Las imágenes que se suben (src/imagenes.js): WebP con calidad 90 %, sin tope de peso (con o.top, el de las texturas de un modelo, sí).
    Con un lienzo de mentira: el «archivo» pesa según los píxeles y la calidad.  node test/imagenes.test.js */
 const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
 const R = path.join(__dirname, '..');
@@ -25,14 +25,15 @@ function load(webp) {
 }
 const KB = 1024;
 
-test('una foto grande: WebP de hasta unos 170 kB, con la calidad más alta que entra', () => {
-  const { c, canvas } = load(true);
+test('una foto grande: WebP con calidad 90 %, de una sola vez y sin achicarla', () => {
+  const { c, canvas, calls } = load(true);
   assert.strictEqual(c.IMG_WEBP, true);
-  const r = c.imgEncode(canvas(1600, 1200, .2));   // 1,92 MP × q × .2 → q ≈ .45 entra en 170 kB
+  const n0 = calls.length;
+  const r = c.imgEncode(canvas(1600, 1200, .6));   // pesa más de 170 kB: igual no se toca la calidad
   assert.ok(r.url.startsWith('data:image/webp'));
-  const b = c.imgBytes(r.url);
-  assert.ok(b <= 170 * KB, `pesa ${Math.round(b / KB)} kB`);
-  assert.ok(b > 150 * KB, `aprovecha el tope (${Math.round(b / KB)} kB)`);
+  assert.ok(c.imgBytes(r.url) > 170 * KB, 'sin tope de peso');
+  assert.strictEqual(calls.length - n0, 1);
+  assert.strictEqual(calls[n0][1], .9);
   assert.deepStrictEqual([r.w, r.h], [1600, 1200]);
 });
 
@@ -45,24 +46,26 @@ test('una imagen liviana no se infla: calidad 90 y listo', () => {
   assert.strictEqual(calls[n0][1], .9);
 });
 
-test('si ni con calidad baja entra, se achica y vuelve a probar', () => {
+test('con o.top: la mejor calidad que entra; si ni con calidad baja entra, se achica y vuelve a probar', () => {
   const { c, canvas } = load(true);
-  const r = c.imgEncode(canvas(4000, 3000, 1));
+  const a = c.imgEncode(canvas(1600, 1200, .2), { top: 170 * KB });   // 1,92 MP × q × .2 → q ≈ .45 entra en 170 kB
+  assert.ok(c.imgBytes(a.url) <= 170 * KB && c.imgBytes(a.url) > 150 * KB, `pesa ${Math.round(c.imgBytes(a.url) / KB)} kB`);
+  const r = c.imgEncode(canvas(4000, 3000, 1), { top: 170 * KB });
   assert.ok(c.imgBytes(r.url) <= 170 * KB, `pesa ${Math.round(c.imgBytes(r.url) / KB)} kB`);
-  assert.ok(r.w < 4000 && r.w / r.h === 4000 / 3000 || Math.abs(r.w / r.h - 4 / 3) < .01, 'mantiene la proporción');
+  assert.ok(Math.abs(r.w / r.h - 4 / 3) < .01, 'mantiene la proporción');
 });
 
-test('fixed: nunca achica (planos de planta, capas del dibujo 2D)', () => {
+test('fixed con o.top: nunca achica (solo baja la calidad)', () => {
   const { c, canvas } = load(true);
-  const r = c.imgEncode(canvas(4000, 3000, 1), { fixed: true });
+  const r = c.imgEncode(canvas(4000, 3000, 1), { top: 170 * KB, fixed: true });
   assert.deepStrictEqual([r.w, r.h], [4000, 3000]);
 });
 
-test('sin WebP (Safari): JPEG con el mismo tope; con transparencia, PNG', () => {
-  const { c, canvas } = load(false);
+test('sin WebP (Safari): JPEG con calidad 90 %; con transparencia, PNG con tope', () => {
+  const { c, canvas, calls } = load(false);
   assert.strictEqual(c.IMG_WEBP, false);
   const r = c.imgEncode(canvas(1600, 1200, .2));
-  assert.ok(r.url.startsWith('data:image/jpeg') && c.imgBytes(r.url) <= 170 * KB);
+  assert.ok(r.url.startsWith('data:image/jpeg') && calls[calls.length - 1][1] === .9);
   const a = c.imgEncode(canvas(600, 300, 1), { alpha: true });
   assert.ok(a.url.startsWith('data:image/png') && c.imgBytes(a.url) <= 170 * KB);
 });

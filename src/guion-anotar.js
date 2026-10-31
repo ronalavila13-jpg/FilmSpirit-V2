@@ -31,12 +31,14 @@ const ANOT = { on: false, tool: 'p', c: 'r', w: 1, undo: [], draw: null, pan: nu
 { const m = ls.get('ink', null); if (m && typeof m === 'object') { if (ANOT_TOOLS.some(t => t[0] === m.tool)) ANOT.tool = m.tool; if (Object.hasOwn(ANOT_RGB, m.c)) ANOT.c = m.c; if ([1, 2, 3].includes(m.w)) ANOT.w = m.w; } }
 if (UI.mode && UI.mode.ink == null) UI.mode.ink = true;   // la capa «Anotaciones», encendida al abrir
 const anoSaveTool = () => ls.set('ink', { tool: ANOT.tool, c: ANOT.c, w: ANOT.w });
-const anoOn = () => UI.tab === 'lined' && typeof edFormat === 'function' && edFormat() !== 'av' && !!P;
+const anoOn = () => (UI.tab === 'lined' || UI.tab === 'breakdown') && typeof edFormat === 'function' && edFormat() !== 'av' && !!P;
+/* (lote AJ) el Guion rayado y el Desglose tienen cada uno sus anotaciones: no se mezclan (las de antes, sin «tab», son del Guion rayado) */
+const anoTab = () => UI.tab === 'breakdown' ? 'desglose' : 'lined';
 const anoShown = () => anoOn() && UI.mode.ink !== false;
 const anoCan = () => anoOn() && !UI.readOnly && typeof canWriteNotes === 'function' && canWriteNotes();
 const anoMineOnly = () => !!ls.get('anoMine', false);
 const anoMine = n => typeof noteMine === 'function' && (noteMine(n) || !SHARE);
-const anoAll = () => typeof NOTES === 'function' ? Object.values(NOTES()).filter(n => n && !n.re && n.on && n.on.t === 'ink' && Array.isArray(n.on.s) && (typeof noteCanRead !== 'function' || noteCanRead(n))) : [];
+const anoAll = (tab = anoTab()) => typeof NOTES === 'function' ? Object.values(NOTES()).filter(n => n && !n.re && n.on && n.on.t === 'ink' && (n.on.tab || 'lined') === tab && Array.isArray(n.on.s) && (typeof noteCanRead !== 'function' || noteCanRead(n))) : [];
 
 /* ---------- datos: limpieza al abrir un proyecto (lo mismo que hace el servidor) ---------- */
 function anoCleanOn(on) {
@@ -74,7 +76,7 @@ function anoItems(all) {
   const by = new Map();
   if (!all && !anoShown()) return by;
   const only = anoMineOnly();
-  for (const n of anoAll()) {
+  for (const n of anoAll(all ? 'lined' : anoTab())) {   // (el PDF del guion rayado lleva solo las del Guion rayado)
     if (only && !anoMine(n)) continue;
     const L = anoLine(n.on); if (!L) continue;
     if (!by.has(L.pg)) by.set(L.pg, []);
@@ -87,7 +89,7 @@ const anoSigOf = () => { try { return JSON.stringify([anoShown(), anoMineOnly(),
 function anoLabel(on) {
   try {
     const r = mnResolve(on), i = r && D.sc.sceneOf ? D.sc.sceneOf[r.p] : -1, s = i >= 0 ? D.sc.scenes[i] : null, L = anoLine(on);
-    return 'Guion rayado' + (s ? ' · escena ' + s.key : '') + (L ? ' · pág. ' + pageLabel(D.pages, L.pg) : '');
+    return (on.tab === 'desglose' ? 'Desglose' : 'Guion rayado') + (s ? ' · escena ' + s.key : '') + (L ? ' · pág. ' + pageLabel(D.pages, L.pg) : '');
   } catch (e) { return 'Guion rayado'; }
 }
 
@@ -216,7 +218,7 @@ function anoAdd(pg, st) {
     }
   }
   const me = noteMe(), id = uid('n'), dy = (6 + li) * 100;
-  const on = { t: 'ink', id: uid('ik'), sec: 'guion', tab: 'lined', label: '', p: ln.p, o: ln.o, q: P.paras[ln.p].x.slice(ln.o, ln.o + 30), s: [{ ...st, d: st.d.map((v, i) => i % 2 ? v - dy : v) }] };
+  const on = { t: 'ink', id: uid('ik'), sec: 'guion', tab: anoTab(), label: '', p: ln.p, o: ln.o, q: P.paras[ln.p].x.slice(ln.o, ln.o + 30), s: [{ ...st, d: st.d.map((v, i) => i % 2 ? v - dy : v) }] };
   on.label = anoLabel(on);
   const n = { id, on, by: me.id, name: me.name, ts: now, text: st.k === 't' ? String(st.tx).slice(0, 400) : 'Anotación a mano' };
   ANOT.last = st.k === 't' ? null : { nid: id, pg, t: now };

@@ -3,7 +3,7 @@
    cambiaban hasta salir y volver a la pestaña).  node test/presupuesto-ah.test.js */
 const assert = require('assert'), fs = require('fs'), path = require('path');
 const R = path.join(__dirname, '..');
-const src = fs.readFileSync(path.join(R, 'src/tab-budget.js'), 'utf8');
+const src = fs.readFileSync(path.join(R, 'src/tab-budget.js'), 'utf8').replace(/\r\n/g, '\n');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 const fn = name => { const m = new RegExp(`function ${name}\\([\\s\\S]*?\\n}\\n`).exec(src); assert.ok(m, name + ' está'); return m[0]; };

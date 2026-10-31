@@ -10,7 +10,7 @@
      Las escenas completas se pliegan en una línea.
    · Celular: el plano en cámara, grande (se desliza al costado para pasar de plano), y una barra fija abajo con
      «+ Toma» y «✓ Rodado · siguiente» (para una mano).
-   · Fotos de continuidad por escena y fotos de la hoja de papel llena (solo respaldo), en WebP de unos 200 kB.
+   · Fotos de continuidad por escena y fotos de la hoja de papel llena (solo respaldo), en WebP con calidad 90 %.
    · Carga rápida: pasar al programa una hoja llenada a mano, una toma por fila, con el teclado.
    Los PDF (la hoja para imprimir, la hoja llena, el parte diario y los reportes), en sup-partes.js.
 
@@ -30,7 +30,6 @@
    ============================================================ */
 // (en inglés, «Buena» del diccionario es «Print (circled)»: en los botones y la tabla, «Print»)
 const TAKE_ST = { ng: 'NG', ok: 'OK', bn: EN ? trDone('Print') : 'Buena' };
-const SUP_TOP = 200 * 1024;     // las fotos de la hoja de script: WebP de unos 200 kB (en Safari, JPEG con el mismo tope)
 const supEd = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEditSec('hoja'));
 const supTakes = id => (P.sup.takes || {})[id] || [];
 /* (lote AI) las tomas grabadas: sin la que está lista y nunca rodó (no cuenta en el avance, los reportes ni los PDF) */
@@ -361,7 +360,7 @@ function supPhotosHTML(list, ed, where, label, o = {}) {
   const ph = list.filter(p => frameHas(spKey(p.id)) || FRAMES[spKey(p.id)]);
   const W = where.k != null ? `data-k="${ea(where.k)}"` : `data-day="${ea(where.day)}"`;
   const th = ph.map((p, i) => { const u = FRAMES[spKey(p.id)]; return `<figure class="hs-th" data-sp="${ea(spKey(p.id))}">${u ? `<button type="button" class="hs-thb" data-act="sup-phview" ${W} data-v="${ea(p.id)}" aria-label="${ea(`Ver la foto ${i + 1}`)}"><img src="${ea(u)}" alt="${ea(`Foto ${i + 1}`)}"></button>` : '<span class="hs-wait" aria-hidden="true"></span>'}<figcaption class="tnum">${i + 1}</figcaption>${ed ? `<button type="button" class="hs-thx" data-act="sup-phdel" ${W} data-v="${ea(p.id)}" aria-label="Quitar la foto" title="Quitar">${ICO.close}</button>` : ''}</figure>`; }).join('');
-  const add = !ed ? '' : planAllows('photos') ? `<label class="hs-phadd" title="${ea(o.title || 'Agregar fotos (se guardan en WebP de unos 200 kB)')}">${ICO.camera}<span>${esc(o.add || '+ Foto')}</span><input type="file" class="file-in" accept="image/jpeg,image/png,image/webp" ${o.cap ? 'capture="environment"' : 'multiple'} data-bind="sup-ph" ${W}></label>`
+  const add = !ed ? '' : planAllows('photos') ? `<label class="hs-phadd" title="${ea(o.title || 'Agregar fotos (se guardan en WebP, calidad 90 %)')}">${ICO.camera}<span>${esc(o.add || '+ Foto')}</span><input type="file" class="file-in" accept="image/jpeg,image/png,image/webp" ${o.cap ? 'capture="environment"' : 'multiple'} data-bind="sup-ph" ${W}></label>`
     : `<button type="button" class="hs-phadd" data-act="sup-pro">${ICO.camera}<span>${esc(o.add || '+ Foto')} <i class="pro-chip">PRO</i></span></button>`;
   return `<div class="hs-phs">${th}${add}${!th && !add ? '<span class="hs-kv ph">Sin fotos</span>' : ''}</div>`;
 }
@@ -539,7 +538,7 @@ const supPhHolder = (b, make) => { const d = b.dataset; return d.k != null ? (ma
 async function supAddPhotos(el, files) {
   const where = { ...el.dataset }, Px = P;
   const hold = () => supPhHolder({ dataset: where }, true);
-  const r = await photosAdd(files, { keyOf: spKey, top: SUP_TOP, paint: () => { if (P === Px) render(); },
+  const r = await photosAdd(files, { keyOf: spKey, paint: () => { if (P === Px) render(); },
     add: x => { if (P !== Px) return false; const h = hold(); h.ph = [...(h.ph || []), x]; },
     drop: id => { const h = hold(); h.ph = (h.ph || []).filter(p => p.id !== id); } });
   if (r.n) toast(`${r.n} ${r.n === 1 ? 'foto agregada' : 'fotos agregadas'}.`);
@@ -680,7 +679,7 @@ Object.assign(ACT, {
   'sup-next': b => {
     const X = supCtx(), sh = P.shots[b.dataset.id]; if (!sh) return;
     supStopAll();
-    sh.done = true;
+    setShotDone(sh, true);
     // (lote AI) la toma que quedó lista y nunca se grabó (sin nota) no queda en el registro del plano rodado
     const L = supTakes(sh.id), r = L.findIndex(t => t.rdy && !String(t.note || '').trim());
     if (r >= 0) L.splice(r, 1);
@@ -765,7 +764,7 @@ Object.assign(BIND, {
   'sup-day': el => { UI.supDay = +el.value; if (UI.supDay >= 0) UI.callDay = UI.supDay; render(); },   // la misma jornada en la hoja de llamado
   'sup-g': (el, ev) => { P.sup[el.dataset.f] = el.value.trim(); changed('data'); if (ev === 'change') render(); },
   'sup-obs': el => { P.sup.obs = P.sup.obs || {}; if (el.value.trim()) P.sup.obs[el.dataset.id] = el.value; else delete P.sup.obs[el.dataset.id]; changed('data'); if (el.classList.contains('hs-grow')) supGrow(el); },
-  'sup-done': el => { const sh = P.shots[el.dataset.id]; if (!sh) return; sh.done = el.checked; if (!el.checked) UI.supCur = sh.id; changed('data'); render(); },
+  'sup-done': el => { const sh = P.shots[el.dataset.id]; if (!sh) return; setShotDone(sh, el.checked); if (!el.checked) UI.supCur = sh.id; changed('data'); render(); },
   'sup-sc': (el, ev) => {
     if (el.classList.contains('tm')) { if (ev !== 'change') return; el.value = normHM(el.value); }
     const k = el.dataset.k, m = P.sup.sc[k] = P.sup.sc[k] || {};
@@ -865,7 +864,7 @@ function supQuick() {
     const rd = L.findIndex(x => x.rdy && +x.n === n); if (rd >= 0) L.splice(rd, 1);
     let j = L.findIndex(x => +x.n > n); if (j < 0) j = L.length;
     L.splice(j, 0, t);
-    if (st === 'bn') sh.done = true;
+    if (st === 'bn') setShotDone(sh, true);
     changed('data');
     saved.push({ sh, code: D.code[sh.id], n, st, t: t.t, d, r, s: t.s || (supMos(sh.id) ? 'MOS' : ''), note: t.note });
     $('#sqErr', m).textContent = '';

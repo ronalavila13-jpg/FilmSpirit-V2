@@ -15,7 +15,9 @@ function loadPdfLib() {
   const local = DESK || typeof LOCAL_LIBS !== 'undefined';
   const urls = local ? ['lib/jspdf.umd.min.js', 'lib/jspdf.plugin.autotable.min.js']
     : ['https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js'];
-  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); });
+  // (el CDN con su huella: si el archivo cambiara, el navegador no lo usa)
+  const SRI = { 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js': 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js': 'sha384-A77YsHWitrPuAj8E0AuB033EXzymUxIajnWKPzrrzqFoYYSCEpFennDUjMG2R1L3' };
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; if (SRI[src]) { s.integrity = SRI[src]; s.crossOrigin = 'anonymous'; } s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); });
   return (PDFLIB_P = (async () => {
     if (!(window.jspdf && window.jspdf.jsPDF)) await load(urls[0]);
     if (!(window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable)) await load(urls[1]);
@@ -43,6 +45,17 @@ const tint = (hex, a) => rgb(hex).map(v => Math.round(255 - (255 - v) * a));
 // los colores de la app: tinta grafito, gris, líneas, el naranja de acento y el verde de «Rodado»
 const INK = [34, 34, 34], MUTED = [100, 100, 100], ACC = rgb('#D4370F'), OKC = rgb('#1F6B3E');
 const PDF_LINE = [221, 219, 215], PDF_BLACK = [34, 34, 34], PDF_WHITE = [255, 255, 255];
+/* ---------- (versión 2) el diseño del programa en los PDF (v2.css) ----------
+   Blanco, líneas finas, el amarillo de la marca como protagonista y el negro para lo activo y los totales; el rojo, solo
+   de acento. Las etapas (Guion, Preparación, Imagen, Producción, Rodaje) solo como un punto junto al nombre. No cambian
+   los documentos de la hoja de desglose, la hoja de script ni el guion: llevan su formato (TBLX y la cabecera en cuadro) */
+const V2K = { yellow: [255, 190, 11], black: [33, 33, 33], soft: [255, 244, 209], bg: [244, 244, 242], line: [228, 228, 224], line2: [237, 237, 234], text2: [99, 99, 95], red: [224, 38, 43] };
+const PDF_STAGE_DOT = [[92, 88, 82], [224, 38, 43], [133, 122, 111], [255, 190, 11], [240, 138, 36]];
+const V2_STAGE_NAME = ['Guion', 'Preparación', 'Imagen', 'Producción', 'Rodaje'];
+/* a qué etapa pertenece cada documento (el nombre que lleva arriba, con su punto de color) */
+const PDF_STAGE = { argumento: 0, escaleta: 0, tarjetas: 0, bios: 0, premisa: 0, estructura: 0, scouting: 1, casting: 1, planta: 2, plantagen: 2, storyboard: 2, shotlist: 2, animatic: 2,
+  plan: 3, dood: 3, calendar: 3, calmes: 3, budget: 3, gastos: 3, call: 4 };
+let PDF_KIND = '';   // el documento que se está armando (pdfMake)
 // las tiras de día y de noche, como en el plan, la hoja de llamado y la hoja de script de la app
 // (los colores de la leyenda del plan: leyenda.js)
 const stripRGB = s => rgb(s && s.dn === 'N' ? lgCol('plan', 'n') : lgCol('plan', 'd'));
@@ -69,6 +82,8 @@ function pdfBox(doc, x, y, w, h, fill, lw = GRID.frame) {
   if (fill) doc.setFillColor(...fill);
   doc.rect(x, y, w, h, fill ? 'FD' : 'S');
 }
+/* (versión 2) un recuadro como las tarjetas de la app: línea fina y esquinas de 3 pt */
+function pdfCardBox(doc, x, y, w, h, fill = PDF_WHITE) { doc.setFillColor(...fill); doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.roundedRect(x, y, w, h, 3, 3, 'FD'); }
 const pdfVLine = (doc, x, y1, y2, lw = GRID.frame) => { doc.setDrawColor(...PDF_RULE); doc.setLineWidth(lw); doc.line(x, y1, x, y2); };
 /* lo secundario sobre un color (una tira de día o de noche, una barra): la tinta que se lee encima, aclarada hacia el
    fondo, siempre legible */
@@ -98,7 +113,7 @@ function pdfBadgeDraw(doc, d) {
    de día y de noche y los colores de las categorías, enteros, como en pantalla. */
 /* la letra sobre un color: grafito en los claros, blanca en los oscuros */
 const inkOn = c => { const L = c.map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); const Y = .2126 * L[0] + .7152 * L[1] + .0722 * L[2]; return (Y + .05) / (.0134 + .05) >= 1.05 / (Y + .05) ? INK : PDF_WHITE; };
-let PT, PDF_THEAD, PDF_GROUP, TBL;
+let PT, PDF_THEAD, PDF_GROUP, TBL, TBLX;
 /* los PDF salen como la pantalla de quien exporta: el tema del proyecto (pestañas y leyendas) y sus ajustes de
    pantalla: las letras, el tono y el grosor de las líneas y las barras (de color, suaves o blancas con su filete) */
 function pdfTheme() {
@@ -116,11 +131,19 @@ function pdfTheme() {
   // (lote K) más letra y más aire. (lote AH) La rejilla entera, tipo Excel: todos los bordes de cada celda en negro
   // (antes, solo una línea fina de color debajo de cada fila) y la cabecera en gris claro con letra negra en negrita
   // (antes, en el color de la barra de la pestaña)
-  TBL = { theme: 'plain', styles: { font: 'helvetica', fontSize: PF.body, cellPadding: PAD, textColor: INK, lineColor: PDF_RULE, lineWidth: GRID.cell, overflow: 'linebreak', valign: 'top' },
+  TBLX = { theme: 'plain', styles: { font: 'helvetica', fontSize: PF.body, cellPadding: PAD, textColor: INK, lineColor: PDF_RULE, lineWidth: GRID.cell, overflow: 'linebreak', valign: 'top' },
     headStyles: { fillColor: PDF_HEADF, textColor: INK, fontStyle: 'bold', fontSize: PF.head, cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }, valign: 'middle', lineWidth: GRID.cell, lineColor: PDF_RULE },
     footStyles: { fillColor: PDF_HEADF, textColor: INK, fontStyle: 'bold', lineWidth: GRID.cell, lineColor: PDF_RULE },
     // (lote AH) sin pie de página, el margen de abajo es como los de los lados (antes, 44: dejaba lugar para el pie)
     alternateRowStyles: { fillColor: PDF_WHITE }, showFoot: 'lastPage', margin: { left: 36, right: 36, top: 36, bottom: 36 } };
+  // (versión 2) lo que ven todos los demás documentos: sin rejilla, solo la línea fina de abajo de cada fila; los títulos de
+  // las columnas en mayúsculas chicas y en gris (pdfTableHooks los pasa a mayúsculas: _v2) sobre una línea; las filas de
+  // grupo en el gris de fondo de la app
+  TBL = { theme: 'plain', styles: { font: 'helvetica', fontSize: PF.body, cellPadding: PAD, textColor: INK, lineColor: V2K.line2, lineWidth: HAIR, overflow: 'linebreak', valign: 'top' },
+    headStyles: { _v2: true, fillColor: PDF_WHITE, textColor: V2K.text2, fontStyle: 'bold', fontSize: 6.8, cellPadding: { top: 6, bottom: 5, left: 6, right: 6 }, valign: 'bottom', lineColor: V2K.line, lineWidth: { top: 0, right: 0, bottom: .9, left: 0 } },
+    footStyles: { fillColor: V2K.bg, textColor: INK, fontStyle: 'bold', lineWidth: 0 },
+    alternateRowStyles: { fillColor: PDF_WHITE }, showFoot: 'lastPage', margin: { left: 36, right: 36, top: 36, bottom: 36 } };
+  PDF_GROUP = V2K.bg;
   return PT;
 }
 pdfTheme();
@@ -220,7 +243,7 @@ function pdfFitLines(doc, t, w, fs, min, n, font = 'helvetica', st = 'normal') {
    Devuelve dónde sigue la página (debajo del cuadro) */
 const HDR = { top: 22, h: 50, pad: 7, pg: 15 };
 function docHeader(doc, label, sub, o = {}) {
-  if (o.flat) return docHeaderFlat(doc, label, sub, o);
+  if (!o.box) return docHeaderFlat(doc, label, sub, o);   // (versión 2) la cabecera en cuadro solo con o.box
   const W = doc.internal.pageSize.getWidth(), x0 = o.x0 || 36, x1 = W - x0, { top: y0, h, pad } = HDR, y1 = y0 + h;
   const page = doc.getCurrentPageInfo().pageNumber;
   (doc._hdr || (doc._hdr = new Set())).add(page);
@@ -277,54 +300,46 @@ function docHeader(doc, label, sub, o = {}) {
   doc.setTextColor(...INK);
   return y1 + 12;
 }
-/* (lote AI) o.flat: la cabecera sin el cuadro, para el estilo «Apple» (el plan de rodaje y el DOOD): la misma información
-   (el proyecto, el documento y su subtítulo, la empresa y «Página 1 de 3», sin la barra de color ni la fecha de
-   creación), como antes del lote AH: a la izquierda el proyecto (su logo, o su nombre en grande) y debajo (o al lado del
-   logo) el documento con su subtítulo en gris; a la derecha la empresa y, debajo, el número de página; abajo, una regla
-   fina. Ocupa el mismo alto que el cuadro: lo que sigue empieza en el mismo lugar */
+/* (versión 2) la cabecera de los documentos, como la de cada pestaña de la app: a la izquierda la etapa (con su punto de
+   color), el documento en grande (Familjen Grotesk) y su subtítulo en gris; a la derecha el proyecto (su logo, o su nombre),
+   la empresa y «Página 1 de 3» (lo escribe pageNumbers); abajo, una línea fina con una marca amarilla. Ocupa el mismo alto
+   que el cuadro (HDR): lo que sigue empieza en el mismo lugar. o.box: la cabecera en cuadro con líneas negras de siempre
+   (la hoja de desglose, el guion técnico y los reportes de la hoja de script; el plan y la hoja de llamado en «Cuadrícula») */
 function docHeaderFlat(doc, label, sub, o = {}) {
   const W = doc.internal.pageSize.getWidth(), x0 = o.x0 || 36, x1 = W - x0, { top: y0, h } = HDR, y1 = y0 + h;
-  const page = doc.getCurrentPageInfo().pageNumber, raw = doc._raw || doc;
+  const page = doc.getCurrentPageInfo().pageNumber, raw = doc._raw || doc, cs = typeof doc.setCharSpace === 'function';
   (doc._hdr || (doc._hdr = new Set())).add(page);
   if (!doc._label) doc._label = label;
-  const b1 = y0 + 20, b2 = y0 + 37;   // las dos líneas: el nombre grande y el documento (con el número de página)
-  // derecha: la empresa (logo o nombre), arriba; el número de página lo escribe pageNumbers debajo
+  // derecha: el proyecto (logo o nombre) y la empresa (logo o nombre); el número de página lo escribe pageNumbers
   doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small);
-  let rw = doc.getTextWidth('Página 88 de 88');
-  if (brandOn('company')) {
-    const lg = brandLogo('logo') ? pdfImgFit(doc, P.meta.logo, 130, 26) : null;
-    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x1 - lg.w, y0, lg.w, lg.h); } catch (e) { } rw = Math.max(rw, lg.w); }
-    else if (P.meta.company) { const F = pdfFitLines(doc, P.meta.company.toUpperCase(), 170, 10, 8, 1, 'title', 'bold'); doc.setTextColor(...INK); doc.text(F.L, x1, b1, { align: 'right' }); rw = Math.max(rw, F.w); }
-  }
-  // izquierda: el proyecto y, debajo, el documento (sin el nombre del proyecto, el documento en grande)
-  let xl = x0, big = '';
+  let rw = doc.getTextWidth('Página 88 de 88'), ry = y0 + 9;
   if (brandOn('project')) {
-    const lg = brandLogo('projLogo') ? pdfImgFit(doc, P.meta.projLogo, 130, h - 10) : null;
-    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x0, y0 + (h - 6 - lg.h) / 2, lg.w, lg.h); } catch (e) { } xl = x0 + lg.w + 14; }
-    else big = P.meta.title || '';
+    const lg = brandLogo('projLogo') ? pdfImgFit(doc, P.meta.projLogo, 130, 20) : null;
+    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x1 - lg.w, y0 - 1, lg.w, lg.h); } catch (e) { } rw = Math.max(rw, lg.w); ry = y0 + lg.h + 5; }
+    else if (P.meta.title) { const F = pdfFitLines(doc, P.meta.title, 190, 10.5, 8, 1, 'title', 'bold'); doc.setTextColor(...INK); raw.text(F.L, x1, y0 + 9, { align: 'right' }); rw = Math.max(rw, F.w); }
   }
-  const mw = x1 - rw - 24 - xl;
-  let y2 = b2;
-  if (big) { const F = pdfFitLines(doc, big, mw, 17, 12, 1, 'title', 'bold'); doc.setTextColor(...INK); raw.text(F.L, xl, b1); }
-  else { y2 = b1 + 2; }
-  // el documento en negrita (en grande si no hay nombre arriba), con su número en un cuadro negro si lleva, y el subtítulo
-  const fs = big ? 9.2 : 14;
-  const T = pdfFitLines(doc, label, mw, fs, fs - 2, 1, big ? 'helvetica' : 'title', 'bold');
-  doc.setTextColor(...INK); doc.text(T.L, xl, y2);
-  let xs = xl + T.w;
-  if (o.badge != null) {
-    doc.setFont('title', 'bold'); doc.setFontSize(fs); const k = String(o.badge), bw = Math.max(16, doc.getTextWidth(k) + 8), bh = fs + 5;
-    doc.setFillColor(...PDF_BLACK); doc.rect(xs + 7, y2 - fs * .78 - 2.5, bw, bh, 'F');
-    doc.setTextColor(255, 255, 255); doc.text(k, xs + 7 + bw / 2, y2 - fs * .78 - 2.5 + bh / 2, { align: 'center', baseline: 'middle' }); xs += 7 + bw;
+  if (brandOn('company')) {
+    const lg = brandLogo('logo') ? pdfImgFit(doc, P.meta.logo, 110, 14) : null;
+    if (lg) { try { doc.addImage(lg.url, imgFmt(lg.url), x1 - lg.w, ry + 1, lg.w, lg.h); } catch (e) { } rw = Math.max(rw, lg.w); }
+    else if (P.meta.company) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); const t = pdfCut(doc, pdfSafe(P.meta.company), 190); raw.text(t, x1, ry + 9, { align: 'right' }); rw = Math.max(rw, doc.getTextWidth(t)); }
   }
-  if (sub) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(big ? 9 : 9);
-    const s = (big ? '  ·  ' : '') + sub, sy = big ? y2 : y2 + 15, sx = big ? xs : xl;
-    doc.setTextColor(...MUTED); doc.text(pdfCut(doc, pdfSafe(s), x1 - rw - 24 - sx), sx, sy);
+  const mw = x1 - rw - 24 - x0;
+  // izquierda: la etapa, el documento y su subtítulo
+  const sg = PDF_STAGE[PDF_KIND];
+  if (sg != null) {
+    doc.setFillColor(...PDF_STAGE_DOT[sg]); doc.circle(x0 + 2.6, y0 + 4.6, 2.6, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...MUTED);
+    if (cs) doc.setCharSpace(.5);
+    doc.text(String(typeof trK === 'function' ? trK('stage', V2_STAGE_NAME[sg]) : tr(V2_STAGE_NAME[sg])).toUpperCase(), x0 + 9, y0 + 7);   // la etapa, en el idioma de la app
+    if (cs) doc.setCharSpace(0);
   }
-  // la regla fina de abajo y el lugar del número de página (a la derecha, en gris: pageNumbers)
-  doc.setDrawColor(...mixc(INK, PDF_WHITE, .55)); doc.setLineWidth(.6); doc.line(x0, y1, x1, y1);
-  (doc._pg || (doc._pg = {}))[page] = { x: x1 - rw, y: b2 - 9, w: rw, h: 12, al: 'right' };
+  const T = pdfFitLines(doc, label, mw, 19, 12, 1, 'title', 'bold');
+  doc.setTextColor(...INK); doc.text(T.L, x0, y0 + 29);
+  if (sub) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(...MUTED); doc.text(pdfCut(doc, pdfSafe(sub), mw), x0, y0 + 42); }
+  // la línea fina de abajo, con la marca amarilla, y el lugar del número de página (a la derecha, en gris: pageNumbers)
+  doc.setDrawColor(...V2K.line); doc.setLineWidth(.7); doc.line(x0, y1, x1, y1);
+  doc.setFillColor(...V2K.yellow); doc.rect(x0, y1 - 1.3, 30, 2.6, 'F');
+  (doc._pg || (doc._pg = {}))[page] = { x: x1 - rw, y: y1 - 17, w: rw, h: 12, al: 'right' };
   doc.setTextColor(...INK);
   return y1 + 12;
 }
@@ -335,11 +350,11 @@ function docHeaderFlat(doc, label, sub, o = {}) {
 /* (lote AH) dentro de un cuadro con líneas negras, a todo el ancho (antes, una regla fina debajo). st.box: false deja la
    regla de antes (line, lw, gap, after); st.fill: el fondo del cuadro (sin fondo, blanco) */
 function pdfSec(doc, y, title, { x0 = 36, x1, right, need = 96, st = {} } = {}) {
-  const { font = 'title', fs = PF.sec, rfs = PF.small, rcol = MUTED, box = true, fill = null, pad = 5.5 } = st;
+  const { font = 'title', fs = PF.sec, rfs = PF.small, rcol = MUTED, box = false, fill = null, pad = 5.5 } = st;   // (versión 2) sin cuadro; st.box: true, el de la hoja de desglose
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); x1 = x1 || W - x0;
   if (y + need > H - 44) { doc.addPage(); y = 44; }
   if (!box) {
-    const { line = mixc(INK, PDF_WHITE, .7), lw = .6, gap = 5, after = 11 } = st;
+    const { line = V2K.line, lw = .7, gap = 6, after = 12 } = st;
     doc.setFont(font, 'bold'); doc.setFontSize(fs); doc.setTextColor(...INK);
     doc.text(pdfSafe(title), x0, y + fs);
     if (right) { doc.setFont('helvetica', 'normal'); doc.setFontSize(rfs); doc.setTextColor(...rcol); doc.text(pdfSafe(right), x1, y + fs, { align: 'right' }); }
@@ -402,7 +417,8 @@ function pdfTableHooks(doc) {
     if (!o || typeof o !== 'object') return at(o);
     const p0 = o.didParseCell, w0 = o.willDrawCell, d0 = o.didDrawCell;
     return at({ ...o,
-      didParseCell: d => { pdfBadgeParse(d); if (p0) p0(d); pdfRichParse(doc, d); },
+      // (versión 2) los títulos de las columnas en mayúsculas chicas (headStyles._v2; el texto ya llega traducido)
+      didParseCell: d => { pdfBadgeParse(d); if (d.section === 'head' && o.headStyles && o.headStyles._v2 && d.cell.text) d.cell.text = d.cell.text.map(t => String(t).toUpperCase()); if (p0) p0(d); pdfRichParse(doc, d); },
       willDrawCell: d => { if (w0) w0(d); const r = d.cell.raw; if (d.section === 'body' && r && r._rich && !d.cell._rich) { d.cell._rich = r._rich; d.cell.text = []; } },
       didDrawCell: d => { pdfBadgeDraw(doc, d); pdfRichDraw(doc, d); if (d0) d0(d); },
     });
@@ -469,6 +485,28 @@ function pdfBlocks(doc, y, base, blocks) {
 function pdfProbe(w) {
   const d = newDoc('portrait', [w, 6000]);
   return d;
+}
+/* (versión 2) las tarjetas de resumen de cada pestaña (Jornadas, Páginas, Tiempo aprox., Reparto; Total, Gastado…): blancas, con
+   línea fina y esquinas de 3 pt; la que lleva dark, en negro con su nota en amarillo.
+   cards: [{ k: el título chico, v: la cifra, n: una nota chica, w: su peso en el ancho (1), dark, big: el tamaño de la cifra }].
+   Devuelve dónde sigue la página */
+function pdfCards(doc, y, cards, { x0 = 36, x1, h = 52, gap = 8 } = {}) {
+  x1 = x1 || doc.internal.pageSize.getWidth() - x0;
+  const tw = cards.reduce((a, c) => a + (c.w || 1), 0), avail = x1 - x0 - gap * (cards.length - 1);
+  let x = x0;
+  for (const c of cards) {
+    const w = avail * (c.w || 1) / tw, pad = 10;
+    if (c.dark) { doc.setFillColor(...V2K.black); doc.roundedRect(x, y, w, h, 3, 3, 'F'); }
+    else { doc.setFillColor(...PDF_WHITE); doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.roundedRect(x, y, w, h, 3, 3, 'FD'); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); doc.setTextColor(...(c.dark ? [196, 196, 192] : MUTED));
+    doc.text(pdfCut(doc, pdfSafe(c.k), w - pad * 2), x + pad, y + 14);
+    doc.setFont('title', 'bold'); doc.setFontSize(c.big || 17); doc.setTextColor(...(c.dark ? PDF_WHITE : INK));
+    doc.text(pdfCut(doc, pdfSafe(c.v), w - pad * 2), x + pad, y + 33);
+    if (c.n) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.4); doc.setTextColor(...(c.dark ? V2K.yellow : MUTED)); doc.text(pdfCut(doc, pdfSafe(c.n), w - pad * 2), x + pad, y + 45); }
+    x += w + gap;
+  }
+  doc.setTextColor(...INK);
+  return y + h;
 }
 /* la leyenda de colores del documento, como arriba de la tabla en la app: «LEYENDA ■ Día ■ Noche ■ …».
    items: [nombre, #color o [r,g,b]]; devuelve dónde sigue la página */
@@ -739,23 +777,23 @@ function pdfAV(rayado, allow, area) {
   const doc = newDoc();
   doc.setLineHeightFactor(1.15);   // formato de guion: queda como estaba (lote K)
   const total = P.paras.filter(p => p.t === 'v').reduce((a, p) => a + avSecs(p.dur), 0);
-  const y = docHeader(doc, rayado ? 'Guion AV rayado' + (area ? ' · ' + area.name : '') : 'Guion AV', [P.meta.author ? 'Guion: ' + P.meta.author : '', P.meta.draft || '', total ? 'Duración ' + avFmt(total) : ''].filter(Boolean).join('  ·  '));
+  const y = docHeader(doc, rayado ? 'Guion AV rayado' + (area ? ' · ' + area.name : '') : 'Guion AV', [P.meta.author ? 'Guion: ' + P.meta.author : '', P.meta.draft || '', total ? 'Duración ' + avFmt(total) : ''].filter(Boolean).join('  ·  '), { box: true });
   const nums = typeof edNumsOn === 'function' ? edNumsOn() : true, keys = edAutoKeys(P.paras);
   const tagsOf = i => P.tags.filter(t => t.p === i && P.elements[t.el] && (!allow || allow.has(P.elements[t.el].cat)));
   const body = [];
   let n = 0;
   for (let i = 0; i < P.paras.length; i++) {
     const p = P.paras[i];
-    if (p.t === 'h') { body.push([{ content: pdfSafe((nums ? keys.get(i) + '.  ' : '') + p.x.toUpperCase()), colSpan: rayado ? 5 : 4, styles: { fillColor: PDF_GROUP, fontStyle: 'bold' } }]); continue; }
+    if (p.t === 'h') { body.push([{ content: pdfSafe((nums ? keys.get(i) + '.  ' : '') + p.x.toUpperCase()), colSpan: rayado ? 5 : 4, styles: { fillColor: PT.fill, fontStyle: 'bold' } }]); continue; }
     const u = p.t === 'v' && P.paras[i + 1] && P.paras[i + 1].t === 'u' ? i + 1 : -1;
     const row = [String(++n), pdfSafe(p.x), u >= 0 ? pdfSafe(P.paras[u].x) : '', pdfSafe(p.dur || '')];
     if (rayado) row.push(pdfSafe([...tagsOf(i), ...(u >= 0 ? tagsOf(u) : [])].map(t => CAT[P.elements[t.el].cat].short + ': ' + P.elements[t.el].name).filter((x, k, a) => a.indexOf(x) === k).join('\n')));
     body.push(row);
     if (u >= 0) i = u;
   }
-  doc.autoTable({ ...TBL, startY: y, head: [rayado ? ['#', 'VIDEO', 'AUDIO', 'DUR.', 'DESGLOSE'] : ['#', 'VIDEO', 'AUDIO', 'DUR.']], body,
+  doc.autoTable({ ...TBLX, startY: y, head: [rayado ? ['#', 'VIDEO', 'AUDIO', 'DUR.', 'DESGLOSE'] : ['#', 'VIDEO', 'AUDIO', 'DUR.']], body,
     // (lote AH) el guion AV conserva su formato de guion: sus líneas finas de color (sin la rejilla negra de producción)
-    theme: 'striped', styles: { ...TBL.styles, fontSize: 9.5, cellPadding: 6, valign: 'top', lineWidth: .4, lineColor: PT.line }, headStyles: { fillColor: PT.bar, textColor: PT.barInk, fontStyle: 'bold' },
+    theme: 'striped', styles: { ...TBLX.styles, fontSize: 9.5, cellPadding: 6, valign: 'top', lineWidth: .4, lineColor: PT.line }, headStyles: { fillColor: PT.bar, textColor: PT.barInk, fontStyle: 'bold' },
     columnStyles: rayado ? { 0: { cellWidth: 22 }, 3: { cellWidth: 38, halign: 'right' }, 4: { cellWidth: 110, fontSize: 7.5 } } : { 0: { cellWidth: 22 }, 3: { cellWidth: 40, halign: 'right' } } });
   pageNumbers(doc, rayado ? 'Guion AV rayado' : 'Guion AV');
   return { doc, name: fileSafe(P.meta.title) + (rayado ? '_guion_AV_rayado' + (area ? '_' + fileSafe(area.name) : '') + '.pdf' : '_guion_AV.pdf') };
@@ -768,7 +806,7 @@ function drawSheetPage(doc, s) {
   const W = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), M = 36, R = W - M;
   // (lote AH) arriba, la cabecera en cuadro de todos los documentos: «Hoja de desglose» con su número en un cuadro negro
   // (como en la app), el proyecto y la productora (antes, en la barra de color de la pestaña)
-  let y = docHeader(doc, 'Hoja de desglose', '', { badge: d.no }) - 2;
+  let y = docHeader(doc, 'Hoja de desglose', '', { badge: d.no, box: true }) - 2;
   // (lote AH) los datos de la escena en una rejilla, como un formulario (antes, rótulos con una línea para escribir)
   const lab = t => ({ content: t, styles: { textColor: MUTED, fontSize: PF.small, fillColor: PDF_LABF } });
   const val = (v, cs, fs) => ({ content: pdfSafe(v || ''), colSpan: cs || 1, styles: { fontStyle: 'bold', ...(fs ? { fontSize: fs } : {}) } });
@@ -776,8 +814,8 @@ function drawSheetPage(doc, s) {
   // ocho columnas (los rótulos del renglón de la secuencia caben en una sola línea); los otros renglones las juntan
   const cw = [60, 34, 54, 0, 46, 38, 66, 44], fixed = cw.reduce((a, v) => a + v, 0);
   cw[3] = R - M - fixed;
-  doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M }, tableWidth: R - M,
-    styles: { ...TBL.styles, fontSize: 8.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, valign: 'middle', overflow: 'ellipsize' },
+  doc.autoTable({ ...TBLX, startY: y, margin: { left: M, right: M }, tableWidth: R - M,
+    styles: { ...TBLX.styles, fontSize: 8.5, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, valign: 'middle', overflow: 'ellipsize' },
     columnStyles: Object.fromEntries(cw.map((w, i) => [i, { cellWidth: w }])),
     body: [
       [L('Páginas de guion', 2), val(d.pages, 2), L('Fecha', 2), val(d.fecha, 2)],
@@ -848,7 +886,7 @@ function pdfBreakdown(opts = {}) {
   // reporte de elementos (solo con todas las escenas)
   if (pdfPart()) { pageNumbers(doc, 'Desglose'); return { doc, name: fileSafe(P.meta.title) + (opts.photos ? '_desglose_con_fotos.pdf' : '_desglose.pdf') }; }
   doc.addPage();
-  let y = docHeader(doc, 'Reporte de elementos', Object.keys(P.elements).length + ' elementos');
+  let y = docHeader(doc, 'Reporte de elementos', Object.keys(P.elements).length + ' elementos', { box: true });
   const scenesOf = {};
   D.sem.forEach((set, si) => set.forEach(id => { (scenesOf[id] = scenesOf[id] || []).push(D.sc.scenes[si].key); }));
   const blocks = [];
@@ -860,7 +898,7 @@ function pdfBreakdown(opts = {}) {
     for (const e of list) body.push([pdfSafe((c.id === 'cast' && D.castNum[e.id] ? D.castNum[e.id] + '. ' : '') + e.name), { content: String(scenesOf[e.id].length), styles: { halign: 'right' } }, pdfSafe(scenesOf[e.id].join(', '))]);
     blocks.push(body);
   }
-  pdfBlocks(doc, y, { ...TBL, head: [['Elemento', 'Esc.', 'Escenas']], columnStyles: { 0: { cellWidth: 180 }, 1: { cellWidth: 40 } } }, blocks);
+  pdfBlocks(doc, y, { ...TBLX, head: [['Elemento', 'Esc.', 'Escenas']], columnStyles: { 0: { cellWidth: 180 }, 1: { cellWidth: 40 } } }, blocks);
   pageNumbers(doc, 'Desglose');
   return { doc, name: fileSafe(P.meta.title) + (opts.photos ? '_desglose_con_fotos.pdf' : '_desglose.pdf') };
 }
@@ -868,7 +906,7 @@ function pdfBreakdown(opts = {}) {
 /* ---------- storyboard ---------- */
 /* la viñeta del plano en un recuadro de w×h: con cámara B, la A más angosta y la B más chica a su lado, con su lente */
 function pdfFrames(doc, sh, x, y, w, h) {
-  const put = (img, ix, iy, iw, ih) => { try { doc.addImage(img, img.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, ih); } catch (e) { PDF_MISS++; } doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(ix, iy, iw, ih); };   // (lote AH) el borde de la viñeta, negro
+  const put = (img, ix, iy, iw, ih) => { try { doc.addImage(img, img.startsWith('data:image/png') ? 'PNG' : 'JPEG', ix, iy, iw, ih); } catch (e) { PDF_MISS++; } doc.setDrawColor(...V2K.line); doc.setLineWidth(.6); doc.rect(ix, iy, iw, ih); };   // (lote AH) el borde de la viñeta, negro
   const B = shotB(sh);
   if (!B) { put(frameOf(sh), x, y, w, h); return w; }
   const gap = 6, ar = w / h, wa = (w - gap) * .68, wb = w - gap - wa, ha = wa / ar, hb = wb / ar;
@@ -911,7 +949,7 @@ function pdfStoryboardPlan(shots) {
   shots.forEach((sh, i) => {
     if (i % per === 0) { if (i) doc.addPage(); docHeader(doc, 'Storyboard con planta de cámara', P.meta.aspect); }
     const by = top + (i % per) * (rowH + pad * 2 + gap), y = by + pad;
-    pdfBox(doc, M, by, PW - 2 * M, rowH + pad * 2);
+    pdfCardBox(doc, M, by, PW - 2 * M, rowH + pad * 2);
     const fwA = pdfFrames(doc, sh, x0, y, fw, fh);
     try { doc.addImage(planImage(sh), 'JPEG', x0 + fw + 12, y, ps, ps); } catch (e) { PDF_MISS++; }
     doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0 + fw + 12, y, ps, ps);
@@ -954,7 +992,7 @@ function pdfStoryboard(opts = {}) {
     if (i % per === 0) { if (i) doc.addPage(); docHeader(doc, 'Storyboard', P.meta.aspect); }
     const k = i % per, c = k % cols, r = Math.floor(k / cols);
     const bx = M + c * (cw + gap), by = top + r * (cellH + gap), x = bx + pad, y = by + pad, w = cw - pad * 2;
-    pdfBox(doc, bx, by, cw, cellH);
+    pdfCardBox(doc, bx, by, cw, cellH);
     const iwA = pdfFrames(doc, sh, x + (w - iw) / 2, y, iw, ih);
     if (sh.done) { doc.setTextColor(...OKC); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('RODADO', x + (w - iw) / 2 + iwA - 4, y + 11, { align: 'right' }); }
     let ty = y + ih + 14;
@@ -1018,17 +1056,28 @@ function pdfOneLine(doc, t, w, fs, st) {
    en el tono de la barra y la leyenda y el reparto sin cuadros; con las miniaturas y «Tiempo aprox.» del lote AH */
 function pdfPlan() {
   const doc = newDoc('landscape');
-  const S = P.schedule, LAB = 'Plan de rodaje', XL = typeof planXL === 'function' && planXL();
+  const S = P.schedule, LAB = 'Plan de rodaje', XL = typeof planXL === 'function' && planXL(), TB = XL ? TBLX : TBL;   // (versión 2) «Limpio» (el de entrada) es el de la app; «Cuadrícula», el de siempre
   const { days, bank, bankRows } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
   const W = doc.internal.pageSize.getWidth(), M = 30, GRID = PDF_BLACK, GW = .7;
-  let y = docHeader(doc, LAB, `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`, XL ? {} : { flat: true, x0: M });
+  let y = docHeader(doc, LAB, `${days.filter(d => d.keys.length).length} jornadas${dates[0] ? ' · ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length - 1]) : ''}`, XL ? { box: true } : { x0: M });
   // (lote AH) Excel: la rejilla negra, bien visible, en todas las celdas, y los cuadros de la leyenda y del reparto.
   // (lote AI) Apple: solo la línea fina de abajo de cada fila (la de los planos, más clara)
-  const LINE = XL ? { lineColor: GRID, lineWidth: GW } : { lineColor: mixc(INK, PDF_WHITE, .2), lineWidth: { top: 0, right: 0, bottom: .6, left: 0 } };
+  const LINE = XL ? { lineColor: GRID, lineWidth: GW } : { lineColor: V2K.line, lineWidth: { top: 0, right: 0, bottom: .6, left: 0 } };
   const box = (y0, y1) => { doc.setDrawColor(...GRID); doc.setLineWidth(GW); doc.rect(M, y0, W - 2 * M, y1 - y0, 'S'); };
   const lg = lgDocItems('plan', pdfPlanUsed([...days.flatMap(d => d.rows), ...bankRows].map(i => S.items[i]), days.map(d => d.brk)));
-  if (!XL) y = pdfLegend(doc, y, lg, M) + 4;
+  if (!XL) {
+    // (versión 2) las cuatro tarjetas de la pestaña: jornadas (en negro), páginas, tiempo aprox. y reparto
+    const on = days.map((d, n) => pdfDayOk(n) && d.keys.length ? d : null).filter(Boolean), infs = on.map(d => dayInfo(d.keys, d.rows));
+    const e8 = infs.reduce((a, x) => a + x.e, 0), mins = on.reduce((a, d) => a + (planDayTimes(d).total || 0), 0);
+    const cast = [...new Set(infs.flatMap(x => [...x.cast]))].map(id => D.castNum[id] != null && S.castMode !== 'name' ? `${D.castNum[id]} ${titleCase(P.elements[id].name)}` : titleCase(P.elements[id].name));
+    y = pdfCards(doc, y + 2, [
+      { k: 'Jornadas', v: String(on.length), n: on.length && dates[0] ? `${fmtDate(dates[0])}${on.length > 1 ? ' a ' + fmtDate(dates[on.length - 1]) : ''}` : '', dark: true, w: .9 },
+      { k: 'Páginas', v: fmtEighths(e8), n: on.length ? `${fmtEighths(e8 / on.length)} por jornada` : '', w: .9 },
+      { k: 'Tiempo aprox.', v: fmtDur(mins) || '0 min', n: 'de cámara', w: .9 },
+      { k: 'Reparto', v: String(cast.length), n: cast.join(' · '), w: 2 }], { x0: M, x1: W - M, h: 50 }) + 12;
+    y = pdfLegend(doc, y, lg, M) + 4;
+  }
   else if (lg.length) { const y0 = y; y = pdfLegend(doc, y + 2, lg, M + 8); box(y0, y - 1); y += 6; } else y += 4;
   const NC = 12, INKP = INK;   // sin columna de fecha: la jornada va en su barra, como en la app
   const shade = (hex, k) => rgb(hex).map(v => Math.round(v * k));
@@ -1036,7 +1085,7 @@ function pdfPlan() {
   const FS = 8.4, bar = (txt, fill, color, extra) => [{ content: pdfSafe(txt), colSpan: NC, styles: { fillColor: fill, textColor: color || INKP, fontStyle: 'bold', ...(extra || {}) } }];
   // los anchos: todas fijas salvo la locación del guion (se estira). (lote AH) «Tiempo aprox.» entra entero en su título
   // (con la letra de la persona y en inglés, «Approx. time»); las notas ceden un poco
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(TBL.headStyles.fontSize || PF.head);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(TB.headStyles.fontSize || PF.head);
   const tW = Math.max(42, Math.ceil(doc.getTextWidth('Tiempo aprox.')) + 13);
   const CW = { 0: 30, 1: 26, 3: 50, 4: 62, 5: 30, 6: 88, 7: 36, 8: 30, 9: tW, 10: 80, 11: 76 };
   const setW = W - 2 * M - Object.values(CW).reduce((a, v) => a + v, 0) - 10;
@@ -1111,23 +1160,27 @@ function pdfPlan() {
     const tot = planDayTimes(d).total;
     const nsc = d.rows.filter(i => S.items[i] && S.items[i].k).length;
     const jtxt = [`Jornada ${n + 1}`, dt ? cap1(fmtDate(dt)) : 'Sin fecha', nsc ? `${nsc} ${nsc === 1 ? 'escena' : 'escenas'}` : '', tot ? fmtDur(tot) : '', done ? 'Completada' : ''].filter(Boolean).join('   ·   ');
-    head.push(bar(jtxt, jc, jdark ? (done ? [150, 222, 176] : [242, 242, 242]) : (done ? OKC : INKP), { font: 'title', fontSize: 9.2, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 } }));
+    if (XL) head.push(bar(jtxt, jc, jdark ? (done ? [150, 222, 176] : [242, 242, 242]) : (done ? OKC : INKP), { font: 'title', fontSize: 9.2, cellPadding: { top: 6, bottom: 6, left: 8, right: 8 } }));
+    else head.push([pdfRich([{ fs: 10.5, segs: [{ t: `Jornada ${n + 1}`, st: 'bold', font: 'title' }, { t: '·  ' + [dt ? cap1(fmtDate(dt)) : 'Sin fecha', nsc ? `${nsc} ${nsc === 1 ? 'escena' : 'escenas'}` : '', tot ? fmtDur(tot) : ''].filter(Boolean).join('  ·  '), col: MUTED, fs: PF.small }, ...(done ? [{ t: '·  Completada', st: 'bold', col: OKC, fs: PF.small }] : [])] }],
+      { colSpan: NC, fillColor: PDF_WHITE, lineWidth: 0, cellPadding: { top: 13, bottom: 5, left: 2, right: 2 } })]);
     const chunks = d.rows.map(chunk);
     if (!d.rows.length) chunks.push([[{ content: 'Jornada sin escenas', colSpan: NC, styles: { textColor: MUTED } }]]);
     const inf = dayInfo(d.keys, d.rows), tail = [];
     const cast = [...inf.cast].map(id => S.castMode === 'name' ? titleCase(P.elements[id].name) : D.castNum[id]).sort((a, c) => typeof a === 'number' ? a - c : String(a).localeCompare(c));
-    tail.push(bar(`Cierre de jornada ${n + 1} de ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
+    if (XL) tail.push(bar(`Cierre de jornada ${n + 1} de ${days.length}  ·  ${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${done ? '  ·  Completada' : ''}`,
       jc, jdark ? [242, 242, 242] : INKP, { fontSize: PF.small }));
+    // (versión 2) «Fin de la jornada N» en una barra negra, con lo que sigue en amarillo
+    else tail.push([pdfRich([{ fs: PF.small + .4, segs: [{ t: `Fin de la jornada ${n + 1}`, st: 'bold', col: PDF_WHITE }, { t: '·  ' + `${fmtEighths(inf.e)} págs.  ·  ${d.keys.length} ${d.keys.length === 1 ? 'escena' : 'escenas'}${inf.locs.size ? '  ·  ' + [...inf.locs].join(', ') : ''}${cast.length ? '  ·  Rep. ' + cast.join(', ') : ''}${inf.fig ? '  ·  Fig. ' + inf.fig : ''}${tot ? '  ·  ' + fmtDur(tot) + ' aprox.' : ''}`, col: V2K.yellow }, ...(done ? [{ t: '·  Completada', st: 'bold', col: [150, 222, 176] }] : [])] }], { colSpan: NC, fillColor: V2K.black, lineWidth: 0, cellPadding: { top: 6.5, bottom: 6.5, left: 9, right: 9 } })]);
     // un poco de aire entre jornada y jornada (sin rejilla: cada jornada queda en su cuadro)
     if (n < lastN || (bankOn && bankRows.length)) tail.push([{ content: '', colSpan: NC, styles: { fillColor: PDF_WHITE, minCellHeight: 10, cellPadding: 0, lineWidth: 0 } }]);
     put(head, chunks, tail);
   });
-  if (bankOn && bankRows.length) put([bar(`Sin programar (${bank.length})`, PT.fill2, INKP)], bankRows.map(chunk), []);
-  y = pdfBlocks(doc, y, { ...TBL, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo aprox.', 'Notas técnicas', 'Observaciones']],
+  if (bankOn && bankRows.length) put([bar(`Sin programar (${bank.length})`, XL ? PT.fill2 : V2K.bg, INKP)], bankRows.map(chunk), []);
+  y = pdfBlocks(doc, y, { ...TB, head: [['Esc.', 'I/E', 'Locación', 'D/N', 'Reparto', 'Fig.', 'Locación de rodaje', 'Págs.', 'Pág.', 'Tiempo aprox.', 'Notas técnicas', 'Observaciones']],
     margin: { left: M, right: M, bottom: 44, top: 38 }, rowPageBreak: 'avoid',
-    styles: { ...TBL.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, ...LINE },
+    styles: { ...TB.styles, fontSize: FS, cellPadding: { top: 4.5, bottom: 4.5, left: 5, right: 5 }, ...LINE },
     // (lote AI) Apple: la cabecera de las columnas como antes, en el tono de la barra de la pestaña y sin líneas
-    headStyles: XL ? { ...TBL.headStyles, ...LINE } : { ...TBL.headStyles, fillColor: PT.bar, textColor: PT.barInk, valign: 'bottom', lineWidth: 0, cellPadding: { top: 5.5, bottom: 5, left: 5, right: 5 } },
+    headStyles: XL ? { ...TBLX.headStyles, ...LINE } : { ...TBL.headStyles, cellPadding: { top: 5.5, bottom: 5, left: 5, right: 5 } },
     columnStyles: Object.fromEntries(Object.entries(CW).map(([k, w]) => [k, { cellWidth: w }])),
     // la franja de la tira y la viñeta de cada plano
     didDrawCell: d => {
@@ -1157,10 +1210,14 @@ function pdfBudget() {
   const m = v => cur + ' ' + moneyNum(v);
   const d = v => 'US$ ' + moneyNum(v / fx);
   const R = { halign: 'right' };
-  const sumRow = (lab, v, bold) => { const st2 = bold ? { font: 'title', fontStyle: 'bold', fontSize: 15, textColor: PT.deep } : {}; return [{ content: pdfSafe(lab), styles: st2 }, { content: m(v), styles: { ...R, ...st2 } }, ...(fx ? [{ content: d(v), styles: { ...R, ...st2, textColor: bold ? INK : MUTED } }] : [])]; };
-  doc.autoTable({ ...TBL, startY: y, theme: 'plain', body: [
-    sumRow('Subtotal', T.sub), sumRow(`Imprevistos (${P.budget.contingency}%)`, T.cont), ...(P.budget.igv ? [sumRow(`${tn} (${P.budget.igvRate}%)`, T.igv)] : []), sumRow('Total', T.total, true)],
-    tableWidth: fx ? 380 : 280, margin: { left: 36, right: 36, bottom: 36 } });
+  // (versión 2) las tarjetas de la pestaña: el total del proyecto (en negro), el subtotal, los imprevistos, el impuesto y lo de cada jornada
+  const nPart = BUD_SECTIONS.filter(s => P.budget.lines.some(l => l.sec === s.id)).length;
+  y = pdfCards(doc, y + 2, [
+    { k: 'Total del proyecto', v: m(T.total), n: fx ? d(T.total) : `${nPart} ${nPart === 1 ? 'partida' : 'partidas'} · ${st.shoot} ${st.shoot === 1 ? 'jornada' : 'jornadas'}`, dark: true, w: 1.35, big: 19 },
+    { k: 'Subtotal', v: m(T.sub), n: fx ? d(T.sub) : '' },
+    { k: `Imprevistos (${P.budget.contingency}%)`, v: m(T.cont), n: fx ? d(T.cont) : '' },
+    ...(P.budget.igv ? [{ k: `${tn} (${P.budget.igvRate}%)`, v: m(T.igv), n: fx ? d(T.igv) : '' }] : []),
+    ...(st.shoot ? [{ k: 'Por jornada de rodaje', v: m(T.total / st.shoot), n: fx ? d(T.total / st.shoot) : 'total entre las jornadas' }] : [])], { h: 54 });
   const NC = fx ? 7 : 6;
   const blocks = [];
   for (const s of BUD_SECTIONS) {
@@ -1171,7 +1228,7 @@ function pdfBudget() {
     body.push([{ content: `${s.code}  ${pdfSafe(s.name)}`, colSpan: 5, styles: fill }, { content: m(T.bySec[s.id] || 0), styles: { ...fill, ...R } }, ...(fx ? [{ content: d(T.bySec[s.id] || 0), styles: { ...fill, ...R } }] : [])]);
     for (const l of lines) body.push([pdfSafe(l.name), { content: String(l.qty), styles: R }, pdfSafe(l.unit), { content: String(l.mult), styles: R }, { content: m(l.rate), styles: R }, { content: m(lineTotal(l)), styles: R }, ...(fx ? [{ content: d(lineTotal(l)), styles: { ...R, textColor: MUTED } }] : [])]);
   }
-  const yEnd = pdfBlocks(doc, doc.lastAutoTable.finalY + PF.gap, { ...TBL, head: [['Concepto', 'Cant.', 'Unidad', 'Días/sem.', 'Tarifa', 'Total', ...(fx ? ['Total US$'] : [])]],
+  const yEnd = pdfBlocks(doc, y + PF.gap + 2, { ...TBL, head: [['Concepto', { content: 'Cant.', styles: R }, 'Unidad', { content: 'Días/sem.', styles: R }, { content: 'Tarifa', styles: R }, { content: 'Total', styles: R }, ...(fx ? [{ content: 'Total US$', styles: R }] : [])]],
     columnStyles: fx ? { 1: { cellWidth: 36 }, 2: { cellWidth: 50 }, 3: { cellWidth: 54 }, 4: { cellWidth: 66 }, 5: { cellWidth: 76 }, 6: { cellWidth: 72 } } : { 1: { cellWidth: 40 }, 2: { cellWidth: 56 }, 3: { cellWidth: 60 }, 4: { cellWidth: 72 }, 5: { cellWidth: 84 } },
     headStyles: { ...TBL.headStyles, halign: 'left' } }, blocks);
   if (NC && budProtected() && BUDS.who) { doc.setFont('helvetica', 'normal'); doc.setFontSize(PF.small); doc.setTextColor(...MUTED); doc.text(pdfSafe(`Exportado por ${BUDS.who.name}`), 36, yEnd + 16); }
@@ -1266,21 +1323,22 @@ function pdfCalTimeline(doc, y0, sub) {
   const head = y => {
     // meses y días; los fines de semana y los días de rodaje, sombreados de arriba abajo
     // (lote AH) en gris claro con letra negra, en cuadro (antes, en el color de la barra de la pestaña)
-    doc.setFillColor(...PDF_HEADF); doc.rect(x0, y, W - M - x0, 26, 'F');
+    // (versión 2) sin fondo y con líneas finas: los meses y los días sobre una línea
+    doc.setFillColor(...PDF_WHITE); doc.rect(x0, y, W - M - x0, 26, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...INK);
     let i = 0;
     while (i < n) { const m = list[i].slice(0, 7); let j = i; while (j < n && list[j].slice(0, 7) === m) j++; const ml = pdfSafe(capFirst(dOf(list[i]).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }))), ms = pdfSafe(capFirst(dOf(list[i]).toLocaleDateString('es-PE', { month: 'short' })).replace('.', ''));
-      const room = (j - i) * dw - 5; if (doc.getTextWidth(ml) < room) doc.text(ml, x0 + i * dw + 3, y + 10); else if (doc.getTextWidth(ms) < room) doc.text(ms, x0 + i * dw + 3, y + 10); if (i) { doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.line(x0 + i * dw, y, x0 + i * dw, y + 26); } i = j; }
+      const room = (j - i) * dw - 5; if (doc.getTextWidth(ml) < room) doc.text(ml, x0 + i * dw + 3, y + 10); else if (doc.getTextWidth(ms) < room) doc.text(ms, x0 + i * dw + 3, y + 10); if (i) { doc.setDrawColor(...V2K.line); doc.setLineWidth(GRID.cell); doc.line(x0 + i * dw, y, x0 + i * dw, y + 26); } i = j; }
     if (dw >= 6.5) { doc.setFont('helvetica', 'normal'); doc.setFontSize(Math.min(6.5, dw * .8)); list.forEach((d, k) => doc.text(String(dOf(d).getDate()), x0 + k * dw + dw / 2, y + 22, { align: 'center' })); }
-    doc.setFillColor(...PDF_HEADF); doc.rect(M, y, NW, 26, 'F');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...INK); doc.text('Tarea', M + 4, y + 17);
-    doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.line(M, y + 26, W - M, y + 26);
+    doc.setFillColor(...PDF_WHITE); doc.rect(M, y, NW, 26, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...V2K.text2); doc.text('TAREA', M + 4, y + 17);
+    doc.setDrawColor(...V2K.line); doc.setLineWidth(.9); doc.line(M, y + 26, W - M, y + 26);
     return y + 26;
   };
   const shade = (y1, y2) => list.forEach((d, k) => {
     const wd = dOf(d).getDay();
     if (shoot.has(d)) { doc.setFillColor(...ROD); doc.rect(x0 + k * dw, y1, dw, y2 - y1, 'F'); }
-    else if (wd === 0 || wd === 6) { doc.setFillColor(243, 242, 239); doc.rect(x0 + k * dw, y1, dw, y2 - y1, 'F'); }
+    else if (wd === 0 || wd === 6) { doc.setFillColor(...V2K.bg); doc.rect(x0 + k * dw, y1, dw, y2 - y1, 'F'); }
   });
   // primero se reparten las filas por página; en cada una: el sombreado de los días, las filas y encima las barras
   const pages = [];
@@ -1293,8 +1351,8 @@ function pdfCalTimeline(doc, y0, sub) {
     shade(top, top + L.length * RH);
     for (const r of L) {
       if (r.g) {
-        doc.setFillColor(...PT.fill); doc.rect(M, y, NW, RH, 'F');
-        doc.setFillColor(...PT.fill.map(v => Math.round(v * .5 + 127.5))); doc.rect(x0, y, W - M - x0, RH, 'F');
+        doc.setFillColor(...V2K.bg); doc.rect(M, y, NW, RH, 'F');
+        doc.setFillColor(...V2K.bg); doc.rect(x0, y, W - M - x0, RH, 'F');
         doc.setFont('title', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(pdfSafe(r.g), M + 4, y + RH / 2 + 3);
       } else {
         doc.setFont('helvetica', r.done ? 'normal' : 'bold'); doc.setFontSize(7.4); doc.setTextColor(...(r.done ? MUTED : INK));
@@ -1309,16 +1367,16 @@ function pdfCalTimeline(doc, y0, sub) {
         }
       }
       // (lote AH) cada fila con su línea negra fina (antes, del color de la pestaña)
-      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(.3); doc.line(M, y + RH, W - M, y + RH);
+      doc.setDrawColor(...V2K.line2); doc.setLineWidth(.5); doc.line(M, y + RH, W - M, y + RH);
       y += RH;
     }
     // el cuadro de la tabla y la columna de las tareas
-    pdfBox(doc, M, y0, W - 2 * M, y - y0); pdfVLine(doc, x0, y0, y, GRID.cell);
+    doc.setDrawColor(...V2K.line); doc.setLineWidth(.8); doc.roundedRect(M, y0, W - 2 * M, y - y0, 3, 3, 'S'); doc.line(x0, y0, x0, y);
   });
   // leyenda
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
   doc.setFillColor(...ROD); doc.rect(M, y + 8, 8, 8, 'F'); doc.text('Día de rodaje', M + 12, y + 14.5);
-  doc.setFillColor(243, 242, 239); doc.rect(M + 80, y + 8, 8, 8, 'F'); doc.text('Fin de semana', M + 92, y + 14.5);
+  doc.setFillColor(...V2K.bg); doc.rect(M + 80, y + 8, 8, 8, 'F'); doc.text('Fin de semana', M + 92, y + 14.5);
   return true;
 }
 function pdfCalendar() {
@@ -1456,19 +1514,19 @@ function pdfArea(opts = {}) {
   }
   // (lote K) el título traducido por su lado: entero, en inglés salía «Desglose por scenes»
   const ttl = tr('Desglose por escenas') + ' · ' + tr(B.name);
-  let y = docHeader(doc, ttl, rows.length ? `${rows.length} ${rows.length === 1 ? 'escena' : 'escenas'} · ${seen.size} ${seen.size === 1 ? 'elemento' : 'elementos'}` : 'Sin elementos');
+  let y = docHeader(doc, ttl, rows.length ? `${rows.length} ${rows.length === 1 ? 'escena' : 'escenas'} · ${seen.size} ${seen.size === 1 ? 'elemento' : 'elementos'}` : 'Sin elementos', { box: true });
   if (!rows.length) rows.push([{ content: 'Todavía ninguna escena tiene elementos de esta área. Márcalos en el guion rayado o agrégalos en su caja de la hoja de desglose.', colSpan: 5, styles: { textColor: MUTED } }]);
   const col = rgb(catHex(B.cats[0]));
-  doc.autoTable({ ...TBL, startY: y, head: [['Esc.', 'Encabezado de escena', '1/8', 'Jornada', B.name]], body: rows,
-    styles: { ...TBL.styles, valign: 'top' },
+  doc.autoTable({ ...TBLX, startY: y, head: [['Esc.', 'Encabezado de escena', '1/8', 'Jornada', B.name]], body: rows,
+    styles: { ...TBLX.styles, valign: 'top' },
     columnStyles: { 0: { cellWidth: 34 }, 1: { cellWidth: 180 }, 2: { cellWidth: 34, halign: 'center' }, 3: { cellWidth: 70 } },
     didDrawCell: h => { if (h.section === 'body' && h.column.index === 4 && h.row.raw.length === 5) { doc.setFillColor(...col); doc.rect(h.cell.x, h.cell.y, 2.4, h.cell.height, 'F'); } } });
   // cada elemento una vez, con sus escenas (para pedirlo, alquilarlo o grabarlo una sola vez)
   if (seen.size) {
     const order = Object.fromEntries(CATS.map((c, i) => [c.id, i]));
     const els = [...seen.keys()].map(id => P.elements[id]).sort((a, b) => B.id === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : (order[a.cat] - order[b.cat]) || a.name.localeCompare(b.name));
-    const y2 = pdfSec(doc, doc.lastAutoTable.finalY + PF.gap + 4, 'Elementos del área', { need: 80 });
-    doc.autoTable({ ...TBL, startY: y2, head: [['Elemento', 'Esc.', 'Escenas']],
+    const y2 = pdfSec(doc, doc.lastAutoTable.finalY + PF.gap + 4, 'Elementos del área', { need: 80, st: { box: true } });
+    doc.autoTable({ ...TBLX, startY: y2, head: [['Elemento', 'Esc.', 'Escenas']],
       body: els.map(e => [pdfSafe(lab(e)), { content: String(seen.get(e.id).length), styles: { halign: 'right' } }, pdfSafe(seen.get(e.id).join(', '))]),
       columnStyles: { 0: { cellWidth: 200 }, 1: { cellWidth: 36 } } });
   }
@@ -1480,7 +1538,7 @@ function pdfArea(opts = {}) {
    { doc, name, miss: imágenes que no entraron, call: las jornadas y versiones de la hoja de llamado, pages: si es una
    parte por páginas } o { err } */
 function pdfMake(kind, opts, paper) {
-  PDF_MISS = 0; PDF_CALL_DONE = null; PDF_PAPER = paper === 'a4' || paper === 'letter' ? paper : null;
+  PDF_MISS = 0; PDF_CALL_DONE = null; PDF_KIND = kind; PDF_PAPER = paper === 'a4' || paper === 'letter' ? paper : null;
   // una parte (pdf-rango.js): escenas o jornadas las filtra cada documento; las páginas, al final
   PDF_SEL = opts && opts.sel || null;
   try {

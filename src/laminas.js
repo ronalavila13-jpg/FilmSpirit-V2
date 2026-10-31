@@ -2,8 +2,8 @@
    LÁMINAS DEL DESGLOSE — fotos de los elementos etiquetados
    Cada caja de la hoja de desglose (reparto, vestuario, atrezzo…) abre una
    hoja A4 donde su área sube fotos JPG, PNG o WebP de cada elemento, con una nota.
-   Las fotos se guardan en WebP de unos 170 kB (imagenes.js: lado mayor de hasta 1600 px y la mejor calidad que
-   entra). Se imprimen con o sin fotos.
+   Las fotos se guardan en WebP con calidad 90 % (imagenes.js: lado mayor de hasta 1600 px).
+   Se imprimen con o sin fotos.
    Datos: elemento.ref = { ph: [{ id, w, h }], note }; imagen en FRAMES['bd~<elemento>~<foto>'].
    ============================================================ */
 const phKey = (elId, pid) => `bd~${elId}~${pid}`;
@@ -12,7 +12,7 @@ const photosOf = e => (refOf(e).ph || []).filter(x => frameHas(phKey(e.id, x.id)
 const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' kB';
 const lamEditable = box => !UI.readOnly && (typeof canEditArea !== 'function' || canEditArea(box));
 const CAM_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.2h2.6l1.2-1.8h4.4l1.2 1.8H14v7.6H2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8.9" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
-/* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP de unos 170 kB (imagenes.js);
+/* una foto subida (desglose, scouting, casting, hoja de llamado, gastos) → WebP con calidad 90 % (imagenes.js);
    un PNG transparente queda sobre blanco, como en el papel. top: otro tope (la hoja de script: 200 kB) */
 async function compressPhoto(file, top) {
   const r = imgEncode(await imgCanvas(file, { max: IMG_MAX }), top ? { top } : {});
@@ -147,7 +147,7 @@ async function openLamina(box, si) {
   const m = modal({
     title: `Lámina · ${B.name}`, wide: true,
     body: `<div class="lam-wrap"><div class="a4 lam" id="lamPage"></div></div>`,
-    foot: `<span class="hint lam-foot">${ed ? 'JPG, PNG o WebP. Se guardan en WebP de 1200 px, unos 175 kB cada una.' : 'Solo lectura.'}</span>
+    foot: `<span class="hint lam-foot">${ed ? 'JPG, PNG o WebP. Se guardan en WebP, calidad 90 %.' : 'Solo lectura.'}</span>
       <button class="btn" id="lamNo">PDF sin fotos</button><button class="btn" id="lamYes">PDF con fotos</button><button class="btn primary" data-close>Listo</button>`,
   });
   m.querySelector('.dlg').classList.add('lam-dlg');
@@ -240,10 +240,10 @@ function photoViewer(src, name, opt = {}) {
    documento, A4 o carta; el nombre de cada elemento en su cuadro, con sus escenas a la derecha) */
 function drawLamina(doc, title, sub, entries, photos) {
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  let y = docHeader(doc, title, sub, { x0: M });
+  let y = docHeader(doc, title, sub, { x0: M, box: true });
   if (!entries.length) { doc.setFontSize(10); doc.setTextColor(...MUTED); doc.text('Sin elementos.', M, y + 10); return; }
   if (!photos) {
-    doc.autoTable({ ...TBL, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
+    doc.autoTable({ ...TBLX, startY: y, margin: { left: M, right: M, bottom: 40 }, head: [['#', 'Elemento', 'Nota', 'Escenas']],
       body: entries.map((x, i) => [String(x.num || i + 1), { content: pdfSafe(x.label), styles: { fontStyle: 'bold' } }, pdfSafe(refOf(x.e).note || ''), pdfSafe(x.scenes || '')]),
       columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 150 }, 3: { cellWidth: 90 } } });
     return;
@@ -255,14 +255,14 @@ function drawLamina(doc, title, sub, entries, photos) {
     const noteL = note ? doc.splitTextToSize(pdfSafe(note), W - M * 2) : [];
     const rows = Math.ceil(ph.length / cols);
     const need = 18 + noteL.length * 10 + (rows ? rows * (bh + gap) : 14) + 10;
-    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
-    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6 } });
+    if (y + Math.min(need, 18 + bh + gap + 24) > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M, box: true }); }
+    y = pdfSec(doc, y, `${x.num || i + 1}. ${x.label}`, { x0: M, right: x.scenes ? 'Escenas ' + x.scenes : '', need: 0, st: { fs: 11, pad: 5, after: 6, box: true } });
     if (noteL.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...INK); doc.text(noteL, M, y + 6); y += noteL.length * 8.5 * doc.getLineHeightFactor() + 2; }
     if (!ph.length) { doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text('Sin fotos.', M, y + 8); y += 14; }
     ph.forEach((p, j) => {
       const c = j % cols;
       if (c === 0 && j) y += bh + gap;
-      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M }); }
+      if (c === 0 && y + bh > H - 40) { doc.addPage('a4', 'portrait'); y = docHeader(doc, title, sub, { x0: M, box: true }); }
       const url = photoForPdf(phKey(x.e.id, p.id));
       let w = p.w || 4, h = p.h || 3;
       try { if (!p.w) { const pr = doc.getImageProperties(url); w = pr.width; h = pr.height; } } catch (e) { }

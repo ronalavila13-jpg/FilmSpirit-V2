@@ -508,7 +508,7 @@ function pdfArgumento(opts = {}) {
   const tl = doc.splitTextToSize(pdfSafe(P.meta.title || 'Proyecto'), TW);
   let y = H * .38;
   doc.text(tl, W / 2, y, { align: 'center' }); y += tl.length * 32 + 6;
-  doc.setDrawColor(...PT.deep); doc.setLineWidth(2); doc.line(W / 2 - 26, y, W / 2 + 26, y); y += 26;
+  doc.setDrawColor(...V2K.yellow); doc.setLineWidth(2); doc.line(W / 2 - 26, y, W / 2 + 26, y); y += 26;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...MUTED);
   doc.text(pdfSafe(parts.map(p => p[1]).join('  ·  ')), W / 2, y, { align: 'center' }); y += 40;
   doc.setTextColor(...INK);
@@ -522,7 +522,7 @@ function pdfArgumento(opts = {}) {
     if (y > M && y + 90 > H - M) { doc.addPage('letter', 'portrait'); y = M; }
     if (y > M) y += 18;
     doc.setFont('title', 'bold'); doc.setFontSize(16); doc.setTextColor(...INK); doc.text(pdfSafe(name), M, y + 12);
-    doc.setDrawColor(...PT.deep); doc.setLineWidth(1.6); doc.line(M, y + 20, M + 32, y + 20);
+    doc.setDrawColor(...V2K.yellow); doc.setLineWidth(1.6); doc.line(M, y + 20, M + 32, y + 20);
     y += 38;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5); doc.setTextColor(...INK);
     const paras = A[k].replace(/\r/g, '').split(/\n+/).map(t => t.trim()).filter(Boolean);

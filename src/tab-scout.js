@@ -306,9 +306,9 @@ function pdfCandBlock(doc, y, c, keyOf, rows, opts, title, tag) {
       const url = photoForPdf(keyOf(p.id));
       let w = p.w || 4, h = p.h || 3;
       const k = Math.min(bw / w, bh / h), iw = w * k, ih = h * k, x0 = M + col * (bw + gap);
-      doc.setFillColor(...PT.soft); doc.rect(x0, y, bw, bh, 'F');
+      doc.setFillColor(...V2K.soft); doc.rect(x0, y, bw, bh, 'F');
       try { doc.addImage(url, 'JPEG', x0 + (bw - iw) / 2, y + (bh - ih) / 2, iw, ih, undefined, 'FAST'); } catch (e) { if (typeof PDF_MISS !== 'undefined') PDF_MISS++; }
-      doc.setDrawColor(...PDF_RULE); doc.setLineWidth(GRID.cell); doc.rect(x0, y, bw, bh);
+      doc.setDrawColor(...V2K.line); doc.setLineWidth(.6); doc.rect(x0, y, bw, bh);
     });
     y += bh;
   }

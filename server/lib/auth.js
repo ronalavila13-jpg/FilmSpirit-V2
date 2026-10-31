@@ -27,7 +27,7 @@ function makeAuth(S, cfg) {
       id: u.id, email: u.email, name: u.name, picture: u.picture, plan, proUntil: u.pro_until || null,
       limits: { projects: L.projects, scripts: L.scripts, members: L.members, writers: L.writers, photos: L.photos, gastos: !!L.gastos, storageMB: L.storageMB }, own, scripts, archived,
       plans: Object.fromEntries(Object.entries(PLANS).map(([k, x]) => [k, { projects: x.projects, scripts: x.scripts, members: x.members, writers: x.writers, storageMB: x.storageMB, archived: x.archived, gastos: !!x.gastos }])),
-      admin: cfg.adminEmails.includes(u.email), lang: u.lang === 'en' || u.lang === 'es' ? u.lang : null,
+      admin: cfg.adminEmails.includes(u.email), lang: u.lang === 'en' || u.lang === 'es' ? u.lang : null, ia: { key: !!u.ia_key },
     };
   }
 

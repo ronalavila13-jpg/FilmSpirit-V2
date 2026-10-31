@@ -40,6 +40,8 @@ const { makeMail } = require('./lib/mail');
 const { parseCookies, cookie, addCookie, normEmail } = require('./lib/util');
 const { LANGS, countryOf, regionOf, langOf } = require('./lib/geo');
 const { makeMapas } = require('./lib/mapas');
+const { makeIa, IA_MODELS, IA_DEFAULT } = require('./lib/ia');
+const { planOf } = require('./lib/perm');
 
 /* textos de la web pública en cinco idiomas (server/i18n/*.json) */
 const I18N = Object.fromEntries(LANGS.map(l => { try { return [l, JSON.parse(fs.readFileSync(path.join(__dirname, 'i18n', l + '.json'), 'utf8'))]; } catch (e) { return [l, {}]; } }));
@@ -95,6 +97,7 @@ function createServer(over) {
   // con https, el navegador recuerda usar siempre https
   if (/^https:/.test(cfg.baseUrl)) SEC_HEADERS['Strict-Transport-Security'] = 'max-age=31536000';
   const S = open(cfg.dataDir);
+  const ia = makeIa(cfg.dataDir);
   const mail = makeMail(cfg, S);
   const auth = makeAuth(S, cfg);
   const live = makeLive();
@@ -331,6 +334,47 @@ function createServer(over) {
         const list = temas.cleanThemes(b && b.themes);
         S.run('UPDATE users SET themes=? WHERE id=?', JSON.stringify(list), u.id);
         return sendJSON(res, 200, { themes: list });
+      }
+      // imágenes con IA (Studio): la key de Google de la persona vive aquí, cifrada, y nunca vuelve al navegador (lib/ia.js)
+      if (p === '/api/me/ia' && ['GET', 'PUT', 'DELETE'].includes(req.method)) {
+        const u = auth.requireUser(req);
+        const info = () => {
+          const r = S.one('SELECT ia_key, ia_model FROM users WHERE id=?', u.id), k = r.ia_key && ia.unseal(r.ia_key);
+          return { studio: planOf(u) === 'studio', hasKey: !!k, last4: k ? k.slice(-4) : '', model: IA_MODELS.some(m => m.id === r.ia_model) ? r.ia_model : IA_DEFAULT, models: IA_MODELS };
+        };
+        if (req.method === 'GET') return sendJSON(res, 200, info());
+        auth.checkWrite(req);
+        rateLimit('iacfg:' + u.id, 20, 600e3);
+        if (req.method === 'DELETE') { S.run('UPDATE users SET ia_key=NULL, ia_model=NULL WHERE id=?', u.id); return sendJSON(res, 200, info()); }
+        if (planOf(u) !== 'studio') return sendJSON(res, 403, { error: 'Las imágenes con IA son parte de FilmSpirit Studio.', code: 'plan_studio' });
+        const b = await readJSON(req, 2048);
+        let listed = null;
+        if (b.key != null) {
+          const key = String(b.key).trim();
+          if (!/^[\w-]{20,200}$/.test(key)) return sendJSON(res, 400, { error: 'Esa key no tiene el formato de una key de Google.', code: 'ia_key' });
+          listed = await ia.iaModels(key);   // Google rechaza la key si no sirve; de paso dice qué modelos ve
+          S.run('UPDATE users SET ia_key=? WHERE id=?', ia.seal(key), u.id);
+        }
+        if (b.model != null) {
+          if (!IA_MODELS.some(m => m.id === b.model)) return sendJSON(res, 400, { error: 'Modelo no válido.', code: 'bad_model' });
+          S.run('UPDATE users SET ia_model=? WHERE id=?', b.model, u.id);
+        }
+        return sendJSON(res, 200, { ...info(), ...(listed ? { models: listed } : {}) });
+      }
+      // genera la imagen con la key de quien la pide (que además debe tener el plan Studio); guardarla es cosa del cliente
+      if (p === '/api/ia/imagen' && req.method === 'POST') {
+        const u = auth.requireUser(req);
+        auth.checkWrite(req);
+        if (planOf(u) !== 'studio') return sendJSON(res, 403, { error: 'Las imágenes con IA son parte de FilmSpirit Studio.', code: 'plan_studio' });
+        const row = S.one('SELECT ia_key, ia_model FROM users WHERE id=?', u.id), key = row && row.ia_key && ia.unseal(row.ia_key);
+        if (!key) return sendJSON(res, 409, { error: 'Primero guarda tu key de Google en los ajustes de IA.', code: 'ia_nokey' });
+        rateLimit('ia:' + u.id, 12, 60e3);
+        const b = await readJSON(req, 18e6);
+        const prompt = String(b.prompt || '').trim(), refs = Array.isArray(b.refs) ? b.refs : [];
+        if (!prompt || prompt.length > 4000) return sendJSON(res, 400, { error: 'La descripción debe tener entre 1 y 4000 caracteres.', code: 'bad_prompt' });
+        if (refs.length > 6 || refs.some(d => typeof d !== 'string' || !/^data:image\/[\w+.-]+;base64,/.test(d))) return sendJSON(res, 400, { error: 'Máximo 6 imágenes de referencia.', code: 'bad_refs' });
+        if (refs.some(d => d.length > 2.8e6)) return sendJSON(res, 413, { error: 'Una imagen de referencia pesa más de 2 MB.', code: 'too_large' });
+        return sendJSON(res, 200, { image: await ia.iaImage(key, row.ia_model, { prompt, refs, aspect: b.aspect }) });
       }
       // contadores de escritura y racha de la persona (lib/escritura.js): el navegador manda lo que sumó y aquí se suma
       if (p === '/api/me/writing' && (req.method === 'GET' || req.method === 'POST')) {

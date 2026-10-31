@@ -111,15 +111,13 @@ test('la paleta elegida se limpia al abrir un proyecto', () => {
   assert.strictEqual(Py.meta.pal, undefined);
 });
 
-test('«Grafito» (sin color) en las etapas: el dibujo de Suaves con la marca de grises, y se recuerda', () => {
+test('(lote AJ) el color de las etapas ya no se elige: siempre «Vivos», aunque haya otro guardado', () => {
   const c = ctx();
   run(c, "screenSet('sec', 'neutro')");
-  assert.strictEqual(run(c, 'screenGet().sec'), 'neutro');
+  assert.strictEqual(run(c, 'screenGet().sec'), 'solido');
   const marca = "[document.documentElement.dataset.sec || '', document.documentElement.dataset.secn || '']";
-  assert.deepStrictEqual(run(c, marca), ['pastel', 'neutro']);
+  assert.deepStrictEqual(run(c, marca), ['', '']);
   run(c, "screenSet('sec', 'pastel')");
-  assert.deepStrictEqual(run(c, marca), ['pastel', '']);
-  run(c, "screenSet('sec', 'solido')");
   assert.deepStrictEqual(run(c, marca), ['', '']);
 });
 
@@ -132,7 +130,7 @@ test('(lote W) «Volver a lo de siempre (solo tu pantalla)» también muestra to
   assert.deepStrictEqual(run(c, "[ls.get('theme'), ls.get('tabsHidden'), screenGet().sec, screenGet().font, screenGet().bars]"), ['auto', [], 'solido', 'archivo', 'gris']);
   assert.strictEqual(acts.length, 1, 'el aviso trae «Deshacer»');
   acts[0].fn();
-  assert.deepStrictEqual(run(c, "[ls.get('theme'), ls.get('tabsHidden'), screenGet().sec, screenGet().font, screenGet().bars]"), ['dark', ['casting', 'budget'], 'neutro', 'sobria', 'blanca']);
+  assert.deepStrictEqual(run(c, "[ls.get('theme'), ls.get('tabsHidden'), screenGet().sec, screenGet().font, screenGet().bars]"), ['dark', ['casting', 'budget'], 'solido', 'sobria', 'blanca']);
 });
 
 test('las letras de Apariencia: cada una con su archivo para la pantalla, la web y el PDF', () => {

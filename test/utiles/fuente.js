@@ -4,7 +4,7 @@
    las «const» pasan a «var» para que se vean desde afuera */
 const fs = require('fs'), path = require('path'), assert = require('assert');
 const R = path.join(__dirname, '..', '..');
-const leer = f => fs.readFileSync(path.join(R, f.includes('/') ? f : 'src/' + f), 'utf8');
+const leer = f => fs.readFileSync(path.join(R, f.includes('/') ? f : 'src/' + f), 'utf8').replace(/\r\n/g, '\n');   // en Windows el árbol viene con CRLF
 function pieza(archivo, comienzo, fin) {
   const s = leer(archivo), a = s.indexOf(comienzo); assert(a >= 0, `${archivo}: no está «${comienzo}»`);
   const marca = fin || (comienzo.startsWith('function') ? '\n}\n' : comienzo.startsWith('const') && /=>\s*\{?\s*$|\{\s*$/.test(s.slice(a, s.indexOf('\n', a))) ? '\n};\n' : ';\n');

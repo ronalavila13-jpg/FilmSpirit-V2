@@ -112,6 +112,9 @@ const MIGRATIONS = [
   `ALTER TABLE waitlist ADD COLUMN notified INTEGER;
    DELETE FROM devices;
    DELETE FROM gone;`,
+  // 13 · imágenes con IA de Studio: la key de Google de cada persona (cifrada, lib/ia.js) y el modelo que eligió
+  `ALTER TABLE users ADD COLUMN ia_key TEXT;
+   ALTER TABLE users ADD COLUMN ia_model TEXT;`,
 ];
 
 function open(dataDir) {

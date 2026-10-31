@@ -52,6 +52,8 @@ function openFicha(id, done) {
   // el modelo 3D importado (personajes-3d.js): queda en FRAMES para verlo; se guarda con «Guardar»
   const k3 = m3Key('c', id), f3old = FRAMES[k3];
   let m3busy = '', m3pose = 'pie';
+  // la pestaña «IA» (ia.js, solo en el servidor): descripción y fotos de referencia para las imágenes de las viñetas
+  const IA = typeof iaFicha === 'function' ? iaFicha(el, ed, () => paint()) : null;
   const cv = $('#fiC', ov), g = cv.getContext('2d');
   const s3 = { v: 1, set: 'vacio', aim: 'a0', shake: 0, objs: [{ id: 'a0', kind: 'actor', el: id, name: el.name }],
     keys: [{ t: 0, ease: 'suave', cam: { x: 0, z: 4, h: 1.2, yaw: 0, pitch: 0, roll: 0, lens: 35 }, o: { a0: { x: 0, z: 0, rot: 20, expr: 'neutral', pose: 'pie' } } }] };
@@ -119,7 +121,7 @@ function openFicha(id, done) {
     if (m3busy) return `<div class="fi-m3"><p class="fi-m3busy" role="status"><span class="spin" aria-hidden="true"></span>${esc(m3busy)}</p></div>`;
     if (!M) return `<div class="fi-m3"><p class="fi-m3t">Un modelo 3D con esqueleto toma el lugar del maniquí de ${who} en todos sus planos: se pone en las posturas, camina y se dobla como el maniquí.</p>
       ${ed ? `<button class="btn primary" data-f3="up">${ICO.plus}Subir modelo 3D…</button>` : ''}
-      <ul class="fi-m3l"><li>Archivos .glb, .gltf (un solo archivo), .vrm o .fbx.</li><li>Con esqueleto: Mixamo (gratis), VRoid, Character Creator, Blender… Uno sin esqueleto se puede riguear en Mixamo.</li><li>Se guarda una versión liviana, con las texturas en WebP; el archivo original no.</li></ul></div>`;
+      <ul class="fi-m3l"><li>Archivos .glb, .gltf (un solo archivo), .vrm o .fbx. Si el modelo trae las texturas aparte (MakeHuman), elígelas junto con él (Ctrl + clic) o comprime el modelo y su carpeta «textures» en un .zip y sube el .zip.</li><li>Con esqueleto: Mixamo (gratis), VRoid, Character Creator, Blender… Uno sin esqueleto se puede riguear en Mixamo.</li><li>Se guarda una versión liviana, con las texturas en WebP; el archivo original no.</li></ul></div>`;
     const t = M3.tpl.get(k3) && M3.tpl.get(k3).t, bones = t ? t.H.bones : null, map = M.map || {}, miss = ch3Missing(map), n = CH3_MAIN.filter(j => map[j] != null).length;
     const opts = j => bones ? `<option value="">—</option>${bones.map((b, i) => `<option value="${i}" ${map[j] === i ? 'selected' : ''}>${esc(b.n || 'hueso ' + (i + 1))}</option>`).join('')}` : '';
     const sel = j => `<label class="fi-m3j${ea(CH3_NEED.includes(j) && map[j] == null ? ' miss' : '')}"><span>${esc(ch3Label(j))}</span><select data-f3map="${ea(j)}" ${dis}>${opts(j)}</select></label>`;
@@ -138,13 +140,13 @@ function openFicha(id, done) {
   };
   const m3Up = () => {
     if (!proGate('modelo3d')) return;
-    const fi = document.createElement('input'); fi.type = 'file'; fi.accept = M3_FILES;
+    const fi = document.createElement('input'); fi.type = 'file'; fi.multiple = true; fi.accept = M3_FILES + ',.png,.jpg,.jpeg,.webp,.bmp,.tga';   // el modelo y, con él, sus texturas
     fi.onchange = async () => {
-      const f = fi.files[0]; if (!f) return;
+      const all = [...fi.files], f = m3Main(all); if (!f) { if (all.length) toast('Falta el modelo (.glb, .gltf, .vrm o .fbx) entre los archivos elegidos.', 5000); return; }
       m3busy = 'Leyendo el modelo…'; paint();
       try {
-        const R = await m3Read(f), st = m3Stats(R.root);
-        if (!st.skinned) throw new Error('El modelo no tiene esqueleto. Súbelo a Mixamo (gratis), deja que lo riguee y descárgalo en FBX o GLB.');
+        const R = await m3Read(f, all.filter(x => x !== f)), st = m3Stats(R.root);
+        if (!st.skinned) throw new Error('El modelo no tiene esqueleto. En MakeHuman, elige uno en Pose/Animate › Skeleton (Default) antes de exportar; si no, súbelo a Mixamo (gratis), deja que lo riguee y descárgalo en FBX o GLB.');
         m3busy = 'Aligerando y guardando las texturas…'; paint();
         const pk = await m3Pack(R.root, { kind: 'char' });
         if (pk.gz.length > M3_MAX) throw new Error(M3_BIG);
@@ -161,9 +163,10 @@ function openFicha(id, done) {
   const paint = () => {
     const lk = lookOf({ kind: 'actor', el: id }), sz = (el.look && el.look.sizes) || {}, has = photoSlots(id), ph = el.look && el.look.photo;
     const hex = /^#[0-9a-f]{6}$/i.test(lk.color || '') ? lk.color : '#808080';
-    const tabs = `<div class="seg fi-tabs" role="tablist" aria-label="Ficha">${[['body', 'Cuerpo'], ['expr', 'Expresión'], ['model', 'Modelo 3D']].map(([k, n]) => `<button role="tab" data-ftab="${k}" aria-selected="${ea(tab === k)}" aria-pressed="${ea(tab === k)}">${n}</button>`).join('')}</div>`;
+    const tabs = `<div class="seg fi-tabs" role="tablist" aria-label="Ficha">${[['body', 'Cuerpo'], ['expr', 'Expresión'], ['model', 'Modelo 3D'], ...(IA ? [['ia', 'IA']] : [])].map(([k, n]) => `<button role="tab" data-ftab="${k}" aria-selected="${ea(tab === k)}" aria-pressed="${ea(tab === k)}">${n}</button>`).join('')}</div>`;
     if (tab === 'expr') { $('#fiCtl', ov).innerHTML = tabs + exprTab(lk); return; }
     if (tab === 'model') { $('#fiCtl', ov).innerHTML = tabs + modelTab(lk); return; }
+    if (tab === 'ia') { $('#fiCtl', ov).innerHTML = tabs + IA.html(); return; }
     const dis = ed ? '' : 'disabled', lk0 = el.look || {}, propsOn = S3_PROP.some(([f]) => lk0[f] != null && +lk0[f] !== 100) || lk0.bw != null;
     const photos = has.length
       ? `<div class="phthumbs">${has.map(k => `<img src="${ea(FRAMES['ph~' + id + '~' + k])}" alt="${k}">`).join('')}</div>${chips([['maniqui', 'Maniquí con su rostro'], ['recorte', 'Recorte fotográfico']], 'phm', ph ? ph.mode : 'maniqui')}`
@@ -199,7 +202,7 @@ function openFicha(id, done) {
   };
   const close = () => {
     removeEventListener('keydown', onEsc, true);
-    if (!saved) { if (look0) el.look = look0; else delete el.look; if (f3old) FRAMES[k3] = f3old; else delete FRAMES[k3]; }
+    if (!saved) { if (look0) el.look = look0; else delete el.look; if (f3old) FRAMES[k3] = f3old; else delete FRAMES[k3]; if (IA) IA.cancel(); }
     ov.remove();
     if (typeof THUMB3 !== 'undefined') THUMB3.clear();
     if (done) done(saved);
@@ -219,6 +222,7 @@ function openFicha(id, done) {
     if (fe && fe.dataset.fe === 'pick') { ex = fe.dataset.v; paint(); draw(); return; }
     const f3 = e.target.closest('[data-f3]');
     if (f3 && f3.dataset.f3 === 'pose') { m3pose = f3.dataset.v; paint(); draw(); return; }
+    if (IA && tab === 'ia') IA.click(e);
     if (!ed) return;
     if (fe) { exprAct(fe); return; }
     if (f3 && f3.dataset.f3 === 'up') { m3Up(); return; }
@@ -229,6 +233,7 @@ function openFicha(id, done) {
         const u = (el.look || {}).model ? FRAMES[k3] : null;
         (u ? m3Save(k3, u) : (delete FRAMES[k3], Store.saveFrame(P.id, k3, null))).catch(err => problem('No se pudo guardar el modelo 3D: ' + ((err && err.message) || 'inténtalo de nuevo') + '.'));
       }
+      if (IA) IA.save();
       saved = true; changed('data'); close(); if (!done) render(); toast(`Ficha de ${titleCase(el.name)} guardada.`); return;
     }
     const k = e.target.closest('[data-fk]');
@@ -249,6 +254,7 @@ function openFicha(id, done) {
   ov.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('fi-more')) { more = e.target.open; ls.set('fi-more', more); } }, true);
   ov.addEventListener('input', e => {
     const x = e.target;
+    if (IA && tab === 'ia') { IA.input(x); return; }
     if (x.dataset.fkc) { x.parentElement.style.setProperty('--sw', x.value); set('color', x.value); draw(); return; }
     if (x.dataset.fr) {
       const v = +x.value;

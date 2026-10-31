@@ -59,7 +59,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
     echo '<script src="lib/three.min.js"></script>'
   else
     v2forma < src/shell.html
-    echo '<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>'
+    echo '<script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js" integrity="sha384-Lwojr+0fOVR25P8bdL6E0T2dv0q0ZT4Yy2Ia1dGOz6b5jLSzWZkdqlw0cKTQYKzT" crossorigin="anonymous"></script>'
   fi
   # versión 2: el sistema visual nuevo va después de todo el CSS de la v1 (solo cambia la forma)
   echo '<style>'; cat src/v2.css src/v2-pant.css; echo '</style>'
@@ -73,7 +73,7 @@ if [ "$TARGET" = server ]; then mkdir -p $LIBD; rm -f $LIBD/pdf-fuentes*.js $LIB
   if [ -f i18n/en.json ]; then node i18n/hacer.js; else echo 'const I18N_EN = { x: {}, p: [], f: {} };'; fi
   FILES="i18n core areas marca recorte-fuente iconos sample ui imagenes ventanas cabecera pestanas proyectos importar arranque historial barra leyenda arrastre tab-script fecha guion-editor guion-revision guion-formato guion-cierre guion-margen guion-anotar guion-racha tab-project tab-breakdown tab-board s3d-model s3d-figs expresiones s3d-figuras-datos s3d-figuras s3d-render s3d-luz s3d-entornos s3d-accesorios s3d-vehiculos s3d-cabinas s3d-animales s3d-objetos s3d-interiores s3d-vestuario s3d-pelo s3d-gente s3d-plan glb-lib modelos personajes-3d escenarios-3d escenarios-escala escenarios-sobre planta-general floorplan charphoto shot-editor s2d-editor ficha tab-animatic tab-plan plan-columnas plan-dood tab-cal cal-meses tab-call tab-budget tab-gastos tab-sup sup-partes xlsx pdf-fuente pdf-fuente-x pdf pdf-llamado pdf-rango pdf-vista laminas tab-build historia-previa tab-scout mapa-enlace scout-mapa tab-casting archivo notas inicio series"
   # equipo: en escritorio viaja por la carpeta compartida; en la web, por la base de datos de la página
-  if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes"; else FILES="$FILES share share-web"; fi
+  if [ "$TARGET" = desktop ]; then FILES="$FILES desktop share"; elif [ "$TARGET" = server ]; then FILES="$FILES share share-api cuenta planes ia"; else FILES="$FILES share share-web"; fi
   # versión 2: la barra lateral y la cabecera (envuelve funciones de la v1; va al final, antes de boot)
   FILES="$FILES v2 v2-guion v2-plan v2-desglose v2-presupuesto v2-storyboard v2-llamado v2-inicio v2-sup v2-pestanas v2-ejemplo"
   # la huella de las letras de los PDF y de los lectores 3D (en el servidor, parte del nombre de su archivo en lib/)
@@ -97,6 +97,7 @@ if [ "$TARGET" = desktop ] || [ "$TARGET" = server ]; then
   # en escritorio y en el servidor el código va en app.js (archivo aparte, no en línea)
   python3 - "$OUT" <<'PY'
 import sys
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p=sys.argv[1]; h=open(p).read()
 head,rest=h.split("<script>\n",1)
 js,tail=rest.rsplit("</script>",1)
@@ -109,6 +110,7 @@ fi
 if [ -z "$FS_NOMIN" ] && [ -d node_modules/esbuild ]; then
   python3 - "$OUT" <<'PY'
 import sys, subprocess
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p = sys.argv[1]
 esb = ['node', 'tools/compactar.js']
 def mini(js):
@@ -132,6 +134,7 @@ fi
 CHK="${TMPDIR:-/tmp}/filmspirit-chk-$$.js"
 python3 - "$OUT" "$CHK" <<'PY'
 import re,sys,os
+import functools, builtins; open = functools.partial(builtins.open, newline='\n')   # en Windows open() escribiría CRLF
 p=sys.argv[1]; h=open(p).read()
 js=open(p.replace('index.html','app.js')).read() if p.endswith('index.html') else h.split("<script>\n",1)[1].rsplit("</script>",1)[0]
 open(sys.argv[2],'w').write(js)

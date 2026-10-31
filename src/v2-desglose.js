@@ -13,12 +13,12 @@ const v2BdEd = () => !UI.readOnly && (typeof canEditSec !== 'function' || canEdi
 const v2BdCan = cat => v2BdEd() && (typeof canEditCat !== 'function' || canEditCat(cat));
 const v2BdCanBox = id => { const b = V2_BD.find(x => x.id === id); return b ? b.cats.some(v2BdCan) : v2BdCan(id); };
 const V2_BD = [
-  { id: 'cast', name: 'Reparto', color: '#212121', cats: ['cast'] },
-  { id: 'props', name: 'Utilería', color: '#F08A24', cats: ['props', 'weapons'] },
-  { id: 'setdress', name: 'Escenografía', color: '#857A6F', cats: ['setdress'] },
-  { id: 'wardrobe', name: 'Vestuario', color: '#5C5852', cats: ['wardrobe', 'makeup'] },
-  { id: 'light', name: 'Iluminación', color: '#FFBE0B', cats: ['equip'], sub: 'light' },
-  { id: 'sound', name: 'Sonido', color: '#BDB8B1', cats: ['sound'] },
+  { id: 'cast', name: 'Reparto', get color() { return CAT.cast.color; }, cats: ['cast'] },
+  { id: 'props', name: 'Utilería', get color() { return CAT.props.color; }, cats: ['props', 'weapons'] },
+  { id: 'setdress', name: 'Escenografía', get color() { return CAT.setdress.color; }, cats: ['setdress'] },
+  { id: 'wardrobe', name: 'Vestuario', get color() { return CAT.wardrobe.color; }, cats: ['wardrobe', 'makeup'] },
+  { id: 'light', name: 'Iluminación', get color() { return CAT.equip.color; }, cats: ['equip'], sub: 'light' },
+  { id: 'sound', name: 'Sonido', get color() { return CAT.sound.color; }, cats: ['sound'] },
 ];
 /* la tarjeta v2 de un elemento de la v1 */
 function v2BdOf(el) {
@@ -26,42 +26,52 @@ function v2BdOf(el) {
   if (el.cat === 'equip') return el.sub === 'light' ? V2_BD[4] : null;
   return V2_BD.find(b => b.cats.includes(el.cat)) || null;
 }
-const v2BdColor = el => { const b = v2BdOf(el); return b ? b.color : (CAT[el.cat] || {}).color || '#999'; };
+const v2BdColor = el => (CAT[el.cat] || {}).color || '#999';
 const v2BdName = el => { const b = v2BdOf(el); return b ? b.name : (CAT[el.cat] || {}).name || el.cat; };
 
-V2_ACTS.breakdown = () => {
-  const n = D.sc.scenes.length, i = UI.scene;
-  return `<div class="v2-step"><button type="button" data-v2a="bdstep" data-d="-1" ${i <= 0 ? 'disabled' : ''} aria-label="Escena anterior">${v2I('prev')}</button><span>Escena ${i + 1} de ${n}</span><button type="button" data-v2a="bdstep" data-d="1" ${i >= n - 1 ? 'disabled' : ''} aria-label="Escena siguiente">${v2I('next')}</button></div>`
-    + v2Hist() + v2Export();
-};
-V2_DO.bdstep = b => { UI.scene = clamp(UI.scene + +b.dataset.d, 0, D.sc.scenes.length - 1); render(); };
+V2_ACTS.breakdown = () => v2Hist() + v2Export();
+/* (lote AJ) la barra de la página, entre el encabezado de la escena y la página del guion: el marcador y anotar a mano.
+   Son los del guion rayado (data-act «mk» e «ink»: tab-script.js y guion-anotar.js), con la forma de la v2 */
+function v2BdToolsHTML() {
+  const ed = v2BdEd(), c = typeof MK !== 'undefined' && MK.cat && CAT[MK.cat];
+  const mk = ed && typeof mkCats === 'function' && mkCats().length ? `<button type="button" class="v2-btn v2-mk${c ? ' on' : ''}" data-act="mk" aria-haspopup="menu" aria-pressed="${ea(!!c)}" style="--mkc:${ea(c ? c.color : 'transparent')};--mkink:${ea(c ? mkInk(c.color) : 'inherit')}" title="Marcador: elige una categoría y cada selección queda etiquetada">${MK_SVG}<span>${c ? esc(c.name) : 'Marcador'}</span></button>` : '';
+  const ink = typeof anoCan === 'function' && anoCan() && typeof anoIco === 'function' ? `<button type="button" class="v2-btn ink-btn" data-act="ink" aria-pressed="${ea(!!ANOT.on)}" title="Anotar a mano: lápiz, marcador, flechas y texto sobre el guion">${anoIco('pen')}<span>Anotar a mano</span></button>` : '';
+  if (!mk && !ink) return '';
+  return `<div class="v2-bdtools">${mk}${ink}${ed ? '<span class="v2-bdhint">Selecciona una palabra para marcarla, o usa el marcador.</span>' : ''}</div>`;
+}
+// el marcador elegido se ve en su botón (anotar a mano lo pinta guion-anotar.js · anoBtnPaint, por la clase ink-btn)
+{ const _mp = mkPaint; mkPaint = function () { const r = _mp.apply(this, arguments); const t = UI.tab === 'breakdown' && $('#view .v2-bdtools'); if (t) t.outerHTML = v2BdToolsHTML(); return r; }; }
 
-/* el texto de la escena con sus elementos subrayados (sin el encabezado). Cada párrafo es una línea que se reacomoda al
-   ancho de la tarjeta (como en el PDF); data-p y data-o sirven para marcar con el mouse (pointToPO, tab-script.js) */
-function v2BdTextHTML(s) {
-  const tbp = new Map();
-  for (const t of P.tags) { if (t.p <= s.p0 || t.p >= s.p1 || !P.elements[t.el]) continue; if (!tbp.has(t.p)) tbp.set(t.p, []); tbp.get(t.p).push(t); }
-  let out = '', prev = '';
-  for (let i = s.p0 + 1; i < s.p1; i++) {
-    const par = P.paras[i]; if (!par || !par.x.trim()) continue;
-    const x = par.x, tags = tbp.get(i) || [];
-    let html = '';
-    if (!tags.length) html = esc(x);
-    else {
-      const pts = [...new Set([0, x.length, ...tags.flatMap(t => [clamp(t.s, 0, x.length), clamp(t.e, 0, x.length)])])].sort((a, b) => a - b);
-      for (let k = 0; k < pts.length - 1; k++) {
-        const a = pts[k], b = pts[k + 1]; if (b <= a) continue;
-        const cov = tags.filter(t => t.s <= a && t.e >= b), seg = esc(x.slice(a, b));
-        if (!cov.length) { html += seg; continue; }
-        const el = P.elements[cov[0].el];
-        html += `<span class="v2-tg${cov.every(t => t.auto) ? ' sug' : ''}" style="--c:${ea(v2BdColor(el))}" data-t="${ea(cov.map(t => t.id).join(','))}" title="${esc(v2BdName(el) + ': ' + el.name)}">${seg}</span>`;
-      }
-    }
-    const tight = (par.t === 'd' || par.t === 'p') && (prev === 'c' || prev === 'p' || prev === 'd');
-    out += `<div class="ln v2-ln t-${ea(par.t)}${prev && !tight ? ' gap' : ''}" data-p="${ea(i)}" data-o="0">${html}</div>`;
-    prev = par.t;
-  }
-  return out;
+/* (lote AJ) la escena se ve en sus páginas del guion (el ancho y los márgenes estándar): las páginas que toca, con lo que
+   queda fuera de la escena atenuado. Sobre ellas van las etiquetas, el marcador y las anotaciones a mano (las mismas
+   piezas del guion rayado: tab-script.js y guion-anotar.js). */
+const v2BdRange = s => { const a = s && D.pos[s.p0], b = s && D.pos[Math.max(s.p0, s.p1 - 1)]; return a && b ? [a.pg0, b.pg1] : [0, D.pages.length - 1]; };
+/* la hoja al ancho de la tarjeta (51 em = 8,5 in: el ancho estándar del guion), sin el zoom del guion rayado */
+function v2BdFit() {
+  const sc = $('#scroller'), pg = $('#pages');
+  if (UI.tab !== 'breakdown' || !sc || !pg) return;
+  pg.style.setProperty('--fs', clamp(Math.floor(sc.clientWidth / 51 * 100) / 100, 6.5, 16) + 'px');
+}
+{ const _fp = fitPages; fitPages = function () { const r = _fp.apply(this, arguments); v2BdFit(); return r; }; }
+/* la escena que empieza más abajo en su página: se abre en su encabezado (render · restoreScroll lo deja donde estaba si es
+   la misma escena) */
+function v2BdToScene(s) {
+  const sc = $('#scroller'), h = s && $(`#pages .ln[data-p="${s.p0}"]`); if (!sc || !h) return;
+  if ((D.pos[s.p0] || {}).li0 < 12) { sc.scrollTop = 0; return; }
+  const em = parseFloat(getComputedStyle($('#pages')).fontSize) || 12;
+  sc.scrollTop = Math.max(0, sc.scrollTop + h.getBoundingClientRect().top - sc.getBoundingClientRect().top - 2.5 * em);
+}
+function v2BdDim() {
+  const s = D.sc.scenes[UI.scene]; if (!s) return;
+  for (const l of $$('#pages .ln[data-p]')) { const p = +l.dataset.p; l.classList.toggle('bd-out', p < s.p0 || p >= s.p1); }
+}
+/* fotos por elemento, como en la v1: el botón de la cámara abre la lámina de la caja (laminas.js) */
+function v2BdPhBtn(id, name, list) {
+  if (!list.length || typeof openLamina !== 'function') return '';
+  const b = V2_BD.find(x => x.id === id), cat = b ? b.cats[0] : id, sh = SHEET.find(x => x.cats.includes(cat));
+  if (!sh || sh.id === 'notes') return '';
+  const n = list.reduce((a, e) => a + photosOf(e).length, 0);
+  return `<button type="button" class="v2-bdph${n ? ' has' : ''}" data-act="bd-lam" data-box="${ea(sh.id)}" title="Fotos de ${ea(name.toLowerCase())}: una lámina con una foto por elemento" aria-label="Fotos de ${ea(name)}">${CAM_SVG}${n ? `<b>${n}</b>` : ''}</button>`;
 }
 /* los elementos de la escena, por tarjeta */
 function v2BdCards(s) {
@@ -80,7 +90,7 @@ function v2BdCards(s) {
     ? `<button type="button" class="v2-chip2" data-act="ficha" data-id="${ea(e.id)}" title="Ficha del personaje">${D.castNum[e.id] ? D.castNum[e.id] + ' · ' : ''}${esc(e.name)}</button>`
     : `<button type="button" class="v2-chip2${e.auto ? ' sug' : ''}" data-v2tags="${ea(tagIds(e))}" title="${esc(v2BdName(e))}">${esc(e.name)}</button>`;
   const card = (id, name, color, list, add) => `<section class="v2-card v2-bdc" data-box="${ea(id)}">
-      <h3><i style="background:${ea(color)}"></i>${esc(name)}<span>${list.length || 'vacío'}</span></h3>
+      <h3><i style="background:${ea(color)}"></i>${esc(name)}<span>${list.length || 'vacío'}</span>${v2BdPhBtn(id, name, list)}</h3>
       <div class="v2-bdchips">${list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name)).map(chip).join('')}${add && !ro && v2BdCanBox(id) ? `<button type="button" class="v2-add" data-v2add="${ea(id)}" aria-label="Añadir a ${ea(name)}" title="Añadir a ${ea(name.toLowerCase())}">${v2I('plus')}</button>` : ''}</div>
     </section>`;
   const sorted = list => list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name));
@@ -100,6 +110,7 @@ function v2BdTable() {
     }).join('')}</tbody></table></div>`;
 }
 
+Object.assign(ACT, { 'bd-goto': b => { UI.scene = +b.dataset.i; render(); } });
 RENDER.breakdown = (orig => function () {
   if (!V2.on) return orig.apply(this, arguments);
   const v = $('#view');
@@ -109,20 +120,23 @@ RENDER.breakdown = (orig => function () {
   const day = dayOfScene(s.key);
   const dt = day && day.date ? `${V2_WD[day.date.getDay()]} ${day.date.getDate()} ${day.date.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '').toLowerCase()}` : '';
   const ed = v2BdEd();
-  v.innerHTML = `<div class="v2-pg v2-bd" data-keep="bd">
-    <section class="v2-card v2-strip">
-      <div><span>Escena ${esc(s.key)}</span><b class="sc">${esc(s.heading)}</b></div>
-      <div><span>Largo</span><b>${esc(fmtEighths(D.metrics.eighths[s.idx]))} pág.</b></div>
-      <div><span>Momento</span><b>${esc(v2Moment(s))}</b></div>
-      <div><span>Jornada</span><b>${day ? esc(day.n + (dt ? ' · ' + dt : '')) : '—'}</b></div>
-    </section>
-    <div class="v2-bdgrid">
-      <section class="v2-card v2-bdtx"><div id="v2bdText" class="v2-bdlines">${v2BdTextHTML(s)}</div>
-        ${ed ? '<p class="v2-bdhint">Selecciona una palabra para marcarla como elemento.</p>' : ''}</section>
+  // (lote AJ) las marcas ya vienen confirmadas (también las de proyectos anteriores)
+  if (ed && (P.tags.some(t => t.auto) || Object.values(P.elements).some(e => e.auto))) { P.tags.forEach(t => { t.auto = false; }); Object.values(P.elements).forEach(e => { e.auto = false; }); changed('data'); }
+  // como el guion rayado: las escenas a la izquierda, la hoja al centro y, a un costado, la escena y sus etiquetas
+  v.innerHTML = `<div class="v2-g3 v2-bd3" data-keep="bd">
+    <aside class="v2-col v2-scenes" id="side">
+      <div class="v2-colh"><h2>Escenas</h2><span>${D.pages.length} ${D.pages.length === 1 ? 'pág.' : 'págs.'}</span></div>
+      <ul class="v2-sclist" id="slist">${v2SceneCards('bd-goto')}</ul>
+    </aside>
+    <section class="v2-bdtx v2-col">${v2BdToolsHTML()}<div class="scroller" id="scroller" data-keep="bdpg-${ea(s.idx)}"><div class="pages" id="pages">${pagesHTML(v2BdRange(s))}</div></div></section>
+    <div class="v2-col v2-rcol v2-bdside">
+      <section class="v2-card v2-bdinfo"><div class="h"><div><span>Escena ${esc(s.key)}</span><b class="sc">${esc(s.heading)}</b></div></div>
+        <dl><div><dt>Largo</dt><dd>${esc(fmtEighths(D.metrics.eighths[s.idx]))} pág.</dd></div><div><dt>Momento</dt><dd>${esc(v2Moment(s))}</dd></div><div><dt>Jornada</dt><dd>${day ? esc(day.n + (dt ? ' · ' + dt : '')) : '—'}</dd></div></dl></section>
       <div class="v2-bdcards">${v2BdCards(s)}</div>
     </div>
-    ${v2BdTable()}
   </div>`;
+  fitPages(); v2BdDim(); v2BdToScene(s);
+  if (typeof anoBind === 'function') anoBind($('#pages'));   // anotar a mano, aquí también
   bindView();
   v2BdBind();
 })(RENDER.breakdown);
@@ -133,7 +147,9 @@ function v2BdBind() {
   v.addEventListener('click', e => {
     const tr = e.target.closest('tr[data-v2sc]');
     if (tr && UI.tab === 'breakdown') { UI.scene = +tr.dataset.v2sc; render(); return; }
-    const tg = e.target.closest('#v2bdText .v2-tg');
+    const sn = e.target.closest('[data-v2sn]');
+    if (sn && !sn.disabled) { UI.scene = clamp(UI.scene + +sn.dataset.v2sn, 0, D.sc.scenes.length - 1); render(); return; }
+    const tg = e.target.closest('#pages .tg');
     if (tg) { const sel = getSelection(); if (sel && !sel.isCollapsed && sel.toString().trim()) return; tagPopover(tg, tg.dataset.t.split(',')); return; }
     const ch = e.target.closest('[data-v2tags]');
     if (ch && ch.dataset.v2tags) { tagPopover(ch, ch.dataset.v2tags.split(',')); return; }
@@ -180,7 +196,8 @@ function v2BdAdd(box, name) {
 /* elegir texto en la escena: el menú de las categorías (como el marcador del guion rayado) */
 function v2BdSel() {
   if (UI.tab !== 'breakdown' || !v2BdEd()) return;
-  const box = $('#v2bdText'), s = getSelection();
+  const box = $('#pages'), s = getSelection();
+  if (typeof ANOT !== 'undefined' && ANOT.on) return;
   if (!box || !s || s.isCollapsed || !s.rangeCount) { $$('.v2-bdpick').forEach(x => x.remove()); return; }
   const r = s.getRangeAt(0); if (!box.contains(r.commonAncestorContainer)) return;
   let a = pointToPO(r.startContainer, r.startOffset), b = pointToPO(r.endContainer, r.endOffset);
@@ -192,6 +209,7 @@ function v2BdSel() {
   if (b.o <= a.o) return;
   SEL = { a, b, text: x.slice(a.o, b.o) };
   $$('.v2-bdpick').forEach(el => el.remove());
+  if (typeof MK !== 'undefined' && MK.cat && v2BdCan(MK.cat)) { addTagFromSel(MK.cat); return; }   // con el marcador elegido, queda etiquetado al soltar
   const rc = r.getBoundingClientRect();
   const extra = CATS.filter(c => !['cast', 'props', 'setdress', 'wardrobe', 'sound', 'extras'].includes(c.id) && v2BdCan(c.id));
   const pk = document.createElement('div'); pk.className = 'v2-bdpick';

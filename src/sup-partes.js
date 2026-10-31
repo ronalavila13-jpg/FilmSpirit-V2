@@ -416,7 +416,7 @@ function pdfTakeReport(f) {
   const { days } = scheduleDays(P, D.sc);
   const dates = shootDates(P, days.length);
   const scope = UI.supDay === -1 ? 'Todas las escenas' : UI.supDay === -2 ? 'Sin programar' : supDayLabel(UI.supDay, dates);
-  let y = docHeader(doc, cam ? 'Reporte de cámara' : 'Reporte de sonido', scope);
+  let y = docHeader(doc, cam ? 'Reporte de cámara' : 'Reporte de sonido', scope, { box: true });
   const rows = supTakeRows(f);
   const groups = new Map();
   for (const r of rows) {
@@ -438,10 +438,10 @@ function pdfTakeReport(f) {
   const body = [];
   for (const g of order) {
     const L = groups.get(g), n = L.filter(r => r.sh).length;
-    body.push([pdfRich([{ segs: [{ t: names(g), st: 'bold' }, { t: `   ${n} ${n === 1 ? 'toma' : 'tomas'}  ·  ${L.filter(r => r.t.st === 'bn').length} buenas${L.length > n ? `  ·  ${L.length - n} wild` : ''}`, col: MUTED }] }], { colSpan: 8, fillColor: PDF_GROUP })]);
+    body.push([pdfRich([{ segs: [{ t: names(g), st: 'bold' }, { t: `   ${n} ${n === 1 ? 'toma' : 'tomas'}  ·  ${L.filter(r => r.t.st === 'bn').length} buenas${L.length > n ? `  ·  ${L.length - n} wild` : ''}`, col: MUTED }] }], { colSpan: 8, fillColor: PT.fill })]);
     for (const { k, sh, t } of L) body.push([k, sh ? D.code[sh.id] || '' : 'Wild', sh ? 'T' + t.n : t.n, t.t || '', t.d || '', cam ? (sh && sh.lens ? sh.lens + 'mm' : '') : (t.r || ''), ST[t.st] || '', pdfSafe([t.note, sh && (P.sup.obs || {})[sh.id] && t.st === 'bn' ? (P.sup.obs || {})[sh.id] : ''].filter(Boolean).join(' · '))]);
   }
-  if (body.length) doc.autoTable({ ...TBL, startY: y + 4, head: [['Esc.', 'Plano', 'Toma', 'Hora', 'Dur.', cam ? 'Lente' : 'Tarjeta', 'Estado', 'Nota']], body,
+  if (body.length) doc.autoTable({ ...TBLX, startY: y + 4, head: [['Esc.', 'Plano', 'Toma', 'Hora', 'Dur.', cam ? 'Lente' : 'Tarjeta', 'Estado', 'Nota']], body,
     columnStyles: { 0: { cellWidth: 34, fontStyle: 'bold' }, 1: { cellWidth: 42 }, 2: { cellWidth: 34 }, 3: { cellWidth: 40 }, 4: { cellWidth: 36 }, 5: { cellWidth: 50 }, 6: { cellWidth: 44 } },
     didParseCell: c => { if (c.section === 'body' && c.column.index === 6) { if (c.cell.raw === 'BUENA') { c.cell.styles.textColor = OKC; c.cell.styles.fontStyle = 'bold'; } else if (c.cell.raw === 'NG') c.cell.styles.textColor = [176, 52, 64]; } } });
   pageNumbers(doc, (cam ? 'Reporte de cámara · ' : 'Reporte de sonido · ') + scope);

@@ -9,7 +9,7 @@ applyPlugin(jsPDF);
 const R = path.join(__dirname, '..');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message, (e.stack.split('\n').find(l => l.includes('plan-ah')) || '').trim()); } };
-const SRC = f => fs.readFileSync(R + '/' + f, 'utf8');
+const SRC = f => fs.readFileSync(R + '/' + f, 'utf8').replace(/\r\n/g, '\n');
 const fn = (src, name) => { const m = new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n}\\n`).exec(src); assert.ok(m, name + ' está'); return m[0]; };
 const line = (src, re) => { const m = re.exec(src); assert.ok(m, String(re)); return m[0]; };
 const J = x => JSON.parse(JSON.stringify(x));

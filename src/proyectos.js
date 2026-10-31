@@ -659,6 +659,7 @@ function proGate(f) {
    Lo usan otras partes de la app (con guardas typeof): studioFeat(k), studioLockHTML(k) y studioAsk(k) ---------- */
 const STUDIO_FEATS = {
   mapas: { lead: 'Los mapas en Scouting son parte de FilmSpirit Studio.', what: 'El enlace al mapa de cada candidata y el «Mapa general», con todas las locaciones en un mapa, su estado y cómo llegar.' },
+  ia: { lead: 'Las imágenes con IA son parte de FilmSpirit Studio.', what: 'Generar la imagen de las viñetas del storyboard con el modelo de imagen de Google, con tu propia key y con la descripción y las fotos de referencia de cada personaje.', own: true },
   set3d: { lead: 'Los escenarios 3D importados son parte de FilmSpirit Studio.', what: 'Importar el modelo 3D de una locación (de SketchUp, Blender…) como escenario de los planos, ajustarlo y hacer su versión liviana.' },
 };
 /* ¿el proyecto abierto puede usar esa función? */
@@ -680,7 +681,8 @@ function studioAsk(k) {
   const F = STUDIO_FEATS[k] || STUDIO_FEATS.mapas, api = typeof Store !== 'undefined' && Store.kind === 'api';
   // alguien del equipo (no quien administra): en este proyecto lo decide el plan de quien lo administra
   const team = api && P && P._shared && typeof SHARE !== 'undefined' && SHARE && SHARE.pid === P.id && !SHARE.admin;
-  const why = DESK ? 'Se activan con una licencia de FilmSpirit Studio.'
+  const why = F.own ? 'Es de tu cuenta: la usas en cualquier proyecto con tu plan Studio y tu propia key de Google (Google cobra a tu cuenta).'
+    : DESK ? 'Se activan con una licencia de FilmSpirit Studio.'
     : team ? 'En este proyecto los habilita el plan de quien lo administra: si tiene Studio, todo el equipo los usa.'
       : 'Con Studio los usa todo tu equipo en tus proyectos, aunque cada persona tenga otro plan.';
   const m = modal({

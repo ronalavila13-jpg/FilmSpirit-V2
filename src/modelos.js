@@ -35,7 +35,7 @@ function m3Msg(e) {
   if (/m3:zip/.test(s)) return 'El .zip no trae un modelo: tiene que tener un .dae, .obj, .glb o .kmz.';
   if (/m3:dae/.test(s)) return 'Ese .dae no se puede leer. Expórtalo de nuevo como Collada (.dae) o, mejor, como .kmz o .glb.';
   if (/zip data|invalid zip|unexpected EOF|invalid (block|distance|length)/i.test(s)) return 'El archivo comprimido (.kmz o .zip) está dañado o incompleto. Vuelve a exportarlo.';
-  return 'No se pudo leer el modelo. Prueba exportarlo de nuevo como .glb.';
+  return 'No se pudo leer el modelo. Prueba exportarlo de nuevo como .glb.' + (s ? ' (' + s.slice(0, 120) + ')' : '');   // el detalle técnico, para saber qué falló
 }
 /* los lectores de modelos (src/glb-lib.js, unos 260 kB): en la web con servidor van aparte (lib/glb-lib-<huella>.js, build.sh) y
    se bajan al importar el primer modelo; en escritorio y en Claude vienen dentro */
@@ -80,7 +80,7 @@ async function m3Read(file, extra) {
     mgr.setURLModifier(url => { if (/^(blob|data):/.test(url)) return url; const f = res.get(m3Base(decodeURIComponent(String(url).split(/[?#]/)[0]))); if (!f) return 'data:,'; const u = URL.createObjectURL(f); urls.push(u); return u; });
     const ext = m3Ext(name), text = () => new TextDecoder().decode(buf);
     let root, fmt = 'gltf', vrm = 0;
-    if (ext === 'fbx') { root = new L.FBXLoader().parse(buf, ''); fmt = 'fbx'; }
+    if (ext === 'fbx') { root = new L.FBXLoader(mgr).parse(buf, ''); fmt = 'fbx'; }
     else if (ext === 'dae') { const r = new L.ColladaLoader(mgr).parse(text(), ''); if (!r || !r.scene) throw new Error(ext0 === 'kmz' ? 'm3:kmz' : 'm3:dae'); root = r.scene; fmt = ext0 === 'kmz' ? 'kmz' : 'dae'; }
     else if (ext === 'obj') {
       const ol = new L.OBJLoader(mgr), mf = [...res.keys()].find(k => k.endsWith('.mtl'));

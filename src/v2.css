@@ -104,17 +104,14 @@ input::placeholder,textarea::placeholder{font-style:normal}
 
   #tabs.tabs{width:233px;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;gap:0;padding:0 14px 0;background:var(--chrome);border:0;border-right:1px solid var(--line);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-webkit-mask-image:none;mask-image:none}
   #tabs .v2-sb-head{display:block;padding:0;position:static;background:none}
-  #tabs .v2-back{display:flex;align-items:center;gap:8px;height:30px;margin:23px 0 0 0;padding:0 10px 0 9px;border:0;background:none;color:var(--ink);font:500 13px/1 var(--font-ui);cursor:pointer;border-radius:3px}
-  #tabs .v2-back:hover{background:var(--fill)}
-  #tabs .v2-back svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;margin-left:-1px}
-  #tabs #projBtn.proj{display:flex;align-items:center;gap:12px;width:100%;max-width:none;height:40px;padding:0;margin:21px 0 0 8px;border:0;border-radius:3px;background:none;text-align:left;color:var(--ink);cursor:pointer;box-sizing:border-box}
+  #tabs #projBtn.proj{display:flex;flex-direction:column;align-items:flex-start;gap:14px;width:100%;max-width:none;height:auto;padding:0;margin:26px 0 0 12px;border:0;border-radius:3px;background:none;text-align:left;color:var(--ink);cursor:pointer;box-sizing:border-box}
   #tabs #projBtn.proj:hover{background:none}
   #tabs #projBtn.proj:hover .t{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
-  #tabs #projBtn .v2-tile{width:40px;height:40px;flex:none;border-radius:3px;background:#CE0C1C;display:grid;place-items:center;overflow:hidden}
-  #tabs #projBtn .v2-tile .logo-mark{display:block;width:40px;height:40px;border-radius:0}
+  #tabs #projBtn .v2-tile{width:64px;height:64px;flex:none;border-radius:3px;background:#CE0C1C;display:grid;place-items:center;overflow:hidden}
+  #tabs #projBtn .v2-tile .logo-mark{display:block;width:64px;height:64px;border-radius:0}
   #tabs #projBtn .v2-tile img{width:100%;height:100%;object-fit:cover}
-  #tabs #projBtn .v2-pt{display:grid;min-width:0;gap:2px}
-  #tabs #projBtn .t{display:block;font:700 16px/1.15 var(--v2-disp);letter-spacing:-.005em;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+  #tabs #projBtn .v2-pt{display:grid;min-width:0;max-width:100%;gap:3px}
+  #tabs #projBtn .t{display:block;font:700 18px/1.15 var(--v2-disp);letter-spacing:-.005em;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
   #tabs #projBtn .v2-ps{font:400 12px/1.25 var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #tabs #projBtn .proj-ic{display:none}
 
@@ -156,13 +153,25 @@ input::placeholder,textarea::placeholder{font-style:normal}
   body:not(.home) .bar-tn{display:none !important}
 
   /* ---------- la cabecera de la pestaña (94 px): la etapa con su punto, el título y las acciones de la pestaña ---------- */
-  body:not(.home) .topbar{display:flex;align-items:flex-start;gap:12px;height:94px;box-sizing:border-box;padding:26px 32px 0;background:transparent;border:0;min-height:0}
-  body:not(.home) .topbar>*:not(.v2-ttl):not(.v2-acts){display:none !important}
+  body:not(.home) .topbar{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;min-height:94px;box-sizing:border-box;padding:26px 32px 10px;background:transparent;border:0;min-height:0}
+  body:not(.home) .topbar>*:not(.v2-ttl):not(.v2-right){display:none !important}
+  /* la nota que se arrastra (lote AJ): a la vista en todas las pestañas del proyecto, junto a las acciones */
+  body:not(.home) .topbar .v2-ttl{order:1}
+  body:not(.home) .topbar .v2-right{order:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:12px;flex:0 1 auto;margin-left:auto}
+  body:not(.home) .topbar .tb-notes{display:flex;order:2;margin:0}
+  body:not(.home) .topbar .v2-acts{order:1}
+  body:not(.home) .topbar .v2-me{order:3}
+
+  body:not(.home) .topbar #noteAdd{width:44px;height:44px;padding:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+  body:not(.home) .topbar #noteAdd:hover{background:var(--fill)}
+  /* el mismo ícono de campana que usa «Notas y avisos» en Inicio, a línea y del color del texto */
+  body:not(.home) .topbar #noteAdd .nt-tb{display:none}
+  body:not(.home) .topbar #noteAdd::before{content:"";width:22px;height:22px;background:var(--ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z'/%3E%3Cpath d='M10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z'/%3E%3Cpath d='M10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center/contain no-repeat}
   body:not(.home) .topbar .v2-ttl{display:block;min-width:0;margin:-7px auto 0 0}
   body:not(.home) .topbar .v2-crumb{display:flex;align-items:center;gap:8px;height:18px;margin-top:1px;font:400 12px/1 var(--font-ui);color:var(--muted)}
   body:not(.home) .topbar .v2-crumb .v2-dot{--v2-dc:var(--v2-gc,var(--muted))}
   body:not(.home) .topbar .v2-h1{margin:1px 0 0;font:700 31px/36px var(--v2-disp);letter-spacing:-.008em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  body:not(.home) .topbar .v2-acts{display:flex;align-items:center;gap:12px;flex:none}
+  body:not(.home) .topbar .v2-acts{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:0 1 auto}
 
   /* la barra de herramientas de las pestañas que usan la de la v1: sobre el fondo, alineada con el título */
   body:not(.home) #view .bar{background:transparent;border-bottom:0;padding-inline:32px;padding-block:0 12px}
@@ -195,7 +204,14 @@ input::placeholder,textarea::placeholder{font-style:normal}
 .v2-mback,.v2-msub{display:none}
 @media (max-width:760px){
   body:not(.home) .topbar{display:flex;align-items:center;gap:8px;height:62px;box-sizing:border-box;padding:13px 14px 0 14px;background:var(--bg);border:0}
-  body:not(.home) .topbar>*:not(.v2-mback):not(.v2-ttl):not(#moreBtn){display:none !important}
+  body:not(.home) .topbar>*:not(.v2-mback):not(.v2-ttl):not(#moreBtn):not(.v2-right){display:none !important}
+  body:not(.home) .topbar .v2-right{display:contents}
+  body:not(.home) .topbar .v2-right>:not(.tb-notes){display:none !important}
+  body:not(.home) .topbar .tb-notes{display:flex;order:2;margin:0}
+  body:not(.home) .topbar #moreBtn{order:3}
+  body:not(.home) .topbar #noteAdd{width:40px;height:40px;padding:0;display:grid;place-items:center;border:0;background:none}
+  body:not(.home) .topbar #noteAdd .nt-tb{display:none}
+  body:not(.home) .topbar #noteAdd::before{content:"";width:24px;height:24px;background:var(--ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z'/%3E%3Cpath d='M10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z'/%3E%3Cpath d='M10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center/contain no-repeat}
   body:not(.home) .topbar .v2-mback{display:grid;place-items:center;width:40px;height:40px;flex:none;border:0;background:none;color:var(--ink);border-radius:3px;cursor:pointer}
   body:not(.home) .topbar .v2-mback svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   body:not(.home) .topbar .v2-ttl{display:grid;gap:2px;flex:1;min-width:0;cursor:pointer}

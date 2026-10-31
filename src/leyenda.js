@@ -297,7 +297,7 @@ function screenGet() {
   // las barras: desde la versión 2 de este ajuste, en gris por defecto (antes se guardaba «color» aunque no se eligiera)
   if ((ls.get('screen', {}) || {}).v !== 2 && s.bars === 'color') s.bars = 'gris';
   if (!['gris', 'blanca'].includes(s.bars)) s.bars = 'gris';   // («color» y «suave» eran el color de la pestaña)
-  if (!['solido', 'pastel', 'neutro'].includes(s.sec)) s.sec = 'solido';
+  s.sec = 'solido';   // (lote AJ) el color de las etapas ya no se elige: siempre «Vivos» (se ignora lo que haya guardado)
   return { bars: s.bars, lines: s.lines, font: s.font, sec: s.sec, ...LINES[s.lines] };
 }
 const inkNow = () => '#222222';
@@ -609,7 +609,7 @@ function themeApply(th) {
 /* ---------- «Personalización» (antes «Apariencia…»): una columna a la derecha, sin tapar el programa ----------
    (en el teléfono, una hoja abajo, sobre la pantalla). Dos pestañas: «Tu pantalla» (solo para ti) y «Colores del
    proyecto» (para todo el equipo y los PDF) */
-const LK = { tab: ls.get('lookTab', 'me') === 'proj' ? 'proj' : 'me', naming: false };
+const LK = { tab: ls.get('lookTab', 'me') === 'proj' ? 'proj' : 'me', naming: false, tabsOpen: false };
 const LK_ICO = {
   me: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
   pj: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c.8-3 3.2-5 6-5s5.2 2 6 5M15 14.5c2.6 0 4.6 1.6 5.3 4.5"/></svg>',
@@ -629,6 +629,7 @@ function lookPanel(tab) {
     pn.setAttribute('aria-label', 'Personalización');
     document.body.appendChild(pn);
     pn.addEventListener('click', lookClick);
+    pn.addEventListener('toggle', e => { if (e.target.matches('details.lk-tabsv')) LK.tabsOpen = e.target.open; }, true);
     pn.addEventListener('change', e => { const c = e.target.closest('[data-tabv]'); if (c) tabsPickSet(c.dataset.tabv, c.checked); });   // barra.js
     pn.addEventListener('keydown', e => { const n = e.target.closest('.lk-new input'); if (n && e.key === 'Enter') { e.preventDefault(); lookSaveNew(n.value); } if (n && e.key === 'Escape') { e.preventDefault(); LK.naming = false; lookPanelPaint(); return; } if (e.key === 'Escape' && !$('.pop')) lookClose(); });
   }
@@ -668,20 +669,20 @@ function lookPanelPaint() {
 function lookMeHTML() {
   const S = screenGet(), mode = ls.get('theme', 'auto');
   const seg = (k, opts, cur, attr = 'scr') => `<div class="seg" role="group">${opts.map(([v, n]) => `<button type="button" data-${attr}="${ea(k)}" data-v="${ea(v)}" aria-pressed="${ea(cur === v)}">${n}</button>`).join('')}</div>`;
-  const card = (v, n, sub) => `<button type="button" class="lk-card" data-scr="sec" data-v="${ea(v)}" aria-pressed="${ea(S.sec === v)}"><b>${n}</b><span class="lk-chips">${LK_SEC[v].map(c => `<i style="--c:${ea(c)}"></i>`).join('')}</span><small>${sub}</small></button>`;
-  const where = typeof TARGET !== 'undefined' && TARGET === 'desktop' ? 'en esta computadora' : 'en este navegador';
-  return `<p class="lk-scope me">${LK_ICO.me}<span>Solo para ti, ${where}. Nadie más lo ve y el proyecto no cambia.</span></p>
-    <section><h5>Modo</h5>${seg('theme', [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']], mode, 'mode')}</section>
-    ${$('#tabs .stg') ? `<section class="lk-tabsv"><h5>Pestañas visibles</h5>${tabsPickHTML()}
-      <p class="hint">Ocultar una pestaña no borra nada: vuelve a marcarla para verla.</p></section>` : ''}
-    <section><h5>Color de las etapas</h5><div class="lk-cards">${card('solido', 'Vivos', 'Barras de color entero')}${card('pastel', 'Suaves', 'Tonos claros')}${card('neutro', 'Grafito', 'Sin color, solo grises')}</div></section>
-    <section><h5>Letra</h5>
-      <div class="lk-fonts" role="group" aria-label="Letra, de la más formal a la más informal">${FONTS.map(([v, n, ui]) => `<button type="button" data-scr="font" data-v="${ea(v)}" aria-pressed="${ea(S.font === v)}" style="${ui ? `font-family:${ea(ui)}` : ''}"><b>Aa</b><span>${esc(n)}</span></button>`).join('')}</div></section>
-    <section><h5>Barras y líneas</h5>
+  // (lote AJ) más corta: cada ajuste en una fila (nombre y control), «Pestañas visibles» plegada y sin textos repetidos
+  const where = typeof TARGET !== 'undefined' && TARGET === 'desktop' ? 'esta computadora' : 'este navegador';
+  const hidden = tabsHidden().size;
+  return `<p class="lk-scope me">Solo para ti, en ${where}: el proyecto no cambia.</p>
+    <section class="lk-rows">
+      <div class="lk-opt"><span>Modo</span>${seg('theme', [['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Oscuro']], mode, 'mode')}</div>
       <div class="lk-opt"><span>Barras</span>${seg('bars', [['gris', 'Grises'], ['blanca', 'Blancas']], S.bars)}</div>
       <div class="lk-opt"><span>Líneas</span>${seg('lines', [['fina', 'Finas'], ['normal', 'Normales'], ['gruesa', 'Gruesas']], S.lines)}</div>
-      <p class="hint">La letra, las barras y las líneas también se usan en los PDF que tú exportas.</p></section>
-    <button type="button" class="linkbtn lk-reset" data-lk="reset-me">Volver a lo de siempre (solo tu pantalla)</button>`;
+    </section>
+    <section><h5>Letra</h5>
+      <div class="lk-fonts" role="group" aria-label="Letra, de la más formal a la más informal">${FONTS.map(([v, n, ui]) => `<button type="button" data-scr="font" data-v="${ea(v)}" aria-pressed="${ea(S.font === v)}" style="${ui ? `font-family:${ea(ui)}` : ''}">${esc(n)}</button>`).join('')}</div>
+      <p class="hint">La letra, las barras y las líneas también salen en tus PDF.</p></section>
+    ${$('#tabs .stg') ? `<details class="lk-tabsv"${LK.tabsOpen ? ' open' : ''}><summary>Pestañas visibles${hidden ? ` <small>${hidden} oculta${hidden === 1 ? '' : 's'}</small>` : ''}</summary>${tabsPickHTML()}</details>` : ''}
+    <button type="button" class="linkbtn lk-reset" data-lk="reset-me">Volver a lo de siempre</button>`;
 }
 /* «Colores del proyecto»: la paleta, color por color y Mis paletas */
 function lookProjHTML() {

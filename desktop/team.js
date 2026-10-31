@@ -330,21 +330,34 @@ class Team {
     // primera vez en esta computadora: no hay de dónde partir (como entrar al proyecto por primera vez)
     if (!ok.size && !seenId) return;
     const who = (S.manifest.members.find(x => x.id === o.by) || {}).name || 'alguien';
+    // la versión que tiene esta computadora: [llave, versión, huella] (al volver a entrar, la última que vio)
+    const head = S.plain[s] != null ? [(S.vgen || {})[s] || 0, S.vers[s] || 0, (S.envh || {})[s]] : (S.minVers || {})[s] || [];
     const chain = [{ o, json }];
-    let cur = o, before = null;
+    let cur = o, before = null, stale = false;
     for (let n = 0; ; n++) {
       if (!cur.prev) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}: no dice de qué versión parte.`);
-      if (ok.has(cur.prev)) { before = ok.get(cur.prev); if (before == null) { const h = await this.readHist(S, s, cur.prev); if (!h) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}.`); before = h.json; } break; }
+      if (ok.has(cur.prev)) { stale = cur.prev !== head[2]; before = ok.get(cur.prev); if (before == null) { const h = await this.readHist(S, s, cur.prev); if (!h) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}.`); before = h.json; } break; }
       if (n >= HIST_MAX) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}: parte de una versión demasiado antigua.`);
       const h = await this.readHist(S, s, cur.prev);
       if (!h) throw teamErr('pending', `La versión de la que parte el cambio de ${who} aún no llega.`);
       // punto de partida de confianza: la última versión que vimos, una propia, o una de alguien sin límites
-      if (cur.prev === seenId || h.o.by === S.me.id || !this.constrained(S, s, h.o.by)) { before = h.json; break; }
+      if (cur.prev === seenId || h.o.by === S.me.id || !this.constrained(S, s, h.o.by)) {
+        stale = cur.prev !== head[2] && !(h.o.gen > head[0] || (h.o.gen === head[0] && h.o.ver > head[1]));
+        before = h.json; break;
+      }
       chain.unshift(h); cur = h.o;
     }
     for (const c of chain) {
       if (c.o.by !== S.me.id && this.constrained(S, s, c.o.by)) { const err = this.stepErr(S, s, c.o.by, before, c.json); if (err) throw teamErr('violation', err); }
       before = c.json;
+    }
+    // el «prev» lo elige quien firma: si parte de una versión más vieja que la que ya hay aquí, el cambio también tiene
+    // que valer contra la actual (si no, desharía el cierre del guion o lo que otras áreas cambiaron después)
+    if (stale) {
+      const now = S.plain[s] != null ? S.plain[s] : ((await this.readHist(S, s, head[2])) || {}).json;
+      if (now == null) throw teamErr('unverified', `No se pudo comprobar el cambio de ${who} en ${s}.`);
+      const err = this.stepErr(S, s, o.by, now, json);
+      if (err) throw teamErr('violation', err);
     }
   }
   /* las últimas versiones aceptadas (dos personas pueden partir de la misma) */

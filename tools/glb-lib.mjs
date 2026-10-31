@@ -6,6 +6,7 @@
      node tools/glb-lib.mjs          (necesita esbuild, three 0.159.0 y meshoptimizer 1.1.1 en node_modules) */
 import { build } from 'esbuild';
 import { writeFileSync, readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 const entry = `
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -21,7 +22,15 @@ const globalThree = { name: 'three-global', setup(b) {
   b.onResolve({ filter: /^three$/ }, () => ({ path: 'three', namespace: 'three-global' }));
   b.onLoad({ filter: /.*/, namespace: 'three-global' }, () => ({ contents: 'module.exports = THREE;', loader: 'js' }));
 } };
-const r = await build({ stdin: { contents: entry, resolveDir: process.cwd(), loader: 'js' }, bundle: true, minify: true, format: 'iife', globalName: '__GLB', write: false, plugins: [globalThree], target: ['es2020'], legalComments: 'none' });
+// el .fbx de MakeHuman trae la textura solo con su ruta relativa (FileName vacío) y el lector se cae al leerla
+const fbxFix = { name: 'fbx-filename', setup(b) {
+  b.onLoad({ filter: /FBXLoader\.js$/ }, a => {
+    const src = readFileSync(a.path, 'utf8'), from = 'textureNode.FileName.slice( - 3 )';
+    if (!src.includes(from)) throw new Error('FBXLoader cambió: revisa el arreglo del FileName vacío (tools/glb-lib.mjs)');
+    return { contents: src.replace(from, "( textureNode.FileName || textureNode.RelativeFilename || '' ).slice( - 3 )"), loader: 'js', resolveDir: dirname(a.path) };
+  });
+} };
+const r = await build({ stdin: { contents: entry, resolveDir: process.cwd(), loader: 'js' }, bundle: true, minify: true, format: 'iife', globalName: '__GLB', write: false, plugins: [fbxFix, globalThree], target: ['es2020'], legalComments: 'none' });
 let js = r.outputFiles[0].text.trim();
 if (/<\/script/i.test(js)) js = js.replace(/<\/script/gi, '<\\/script');
 const ver = n => JSON.parse(readFileSync(`node_modules/${n}/package.json`, 'utf8')).version;

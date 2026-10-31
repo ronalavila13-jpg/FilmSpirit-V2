@@ -377,7 +377,7 @@ function sbImgMenu(sh) {
     + (bl ? '<button data-m="unblank">Volver a la escena 3D</button>' : img ? '' : '<button data-m="blank">Dejar en blanco</button>');
 }
 const sbBlankBtn = sh => UI.readOnly || sh.ws === '2d' || !shotBlank(sh) || sbHasImg(sh) ? ''
-  : `<span class="sb-blank"><button type="button" data-act="sb-img1" data-id="${ea(sh.id)}" title="Subir una imagen para este plano (también puedes soltarla aquí)">${SB_IMG_IC}<span>Subir imagen</span></button></span>`;
+  : `<span class="sb-blank"><button type="button" data-act="sb-img1" data-id="${ea(sh.id)}" title="Subir una imagen para este plano (también puedes soltarla aquí)">${SB_IMG_IC}<span>Subir imagen</span></button>${typeof iaBlankBtn === 'function' ? iaBlankBtn(sh) : ''}</span>`;
 function sbBlank(sh, on) {
   if (UI.readOnly || !sh) return;
   histNote(`${on ? 'Dejar en blanco' : 'Volver a la escena 3D en'} el plano ${D.code[sh.id] || ''}`.trim(), null, 'board');
@@ -440,14 +440,26 @@ function boardPanelsHTML(scenes) {
         ${UI.readOnly ? '' : `<div class="sb-addc" data-i="${ea(s.idx)}"><button class="panel add" data-act="shot-scene" data-i="${ea(s.idx)}"><span class="hd-pl">${ICO.plus}</span>Nuevo plano</button>${sbImgBtn(s)}</div>`}</div></section>`;
   }).join('');
 }
+/* (lote AK) guion técnico con los grupos de color (los planos que se graban de una vez, como en las viñetas). «Un plano» deja de
+   cada grupo solo su plano más bajo, con «+N» (un clic lo abre), para contar menos planos. UI.sbCol: '1' = un plano */
+const sbColOn = () => (UI.sbCol === undefined ? (UI.sbCol = ls.get('sbCol', '')) : UI.sbCol) === '1';
+const sbOpenSet = () => UI.sbOpen || (UI.sbOpen = new Set());
+const sbColHidden = (sh, G) => { const g = G.get(sh.id); return !!g && sbColOn() && g.lead !== sh && !sbOpenSet().has(g.lead.id); };
+function sbGrpChip(sh, G) {
+  const g = G.get(sh.id); if (!g) return '';
+  const lead = g.lead === sh, n = g.members.length - 1, t = 'Se graba de una vez con ' + g.members.filter(x => x !== sh).map(x => D.code[x.id]).join(', ');
+  if (lead && sbColOn()) { const o = sbOpenSet().has(sh.id); return ` <button type="button" class="v2-gt" style="--gc:${g.color};border:0;cursor:pointer" data-act="sb-grp" data-id="${ea(sh.id)}" title="${ea(t + (o ? ' · Un clic los esconde' : ' · Un clic los muestra'))}">+${n} ${o ? '▾' : '▸'}</button>`; }
+  return ` <span class="v2-gt" style="--gc:${g.color}" title="${ea(t)}">${lead ? '+' + n : 'con ' + esc(D.code[g.lead.id])}</span>`;
+}
 function shotTableHTML(scenes) {
+  const G = shotGroups();
   const opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
   const cuts = typeof callShotCuts === 'function' ? callShotCuts() : {};   // (lote AH) quitados en una hoja de llamado
   return `<div class="tbl-wrap" style="max-width:1400px;margin:0 auto"><table class="tbl"><thead><tr><th>Plano</th><th>Tamaño</th><th>Ángulo</th><th>Movimiento</th><th>Lente</th><th>Soporte</th><th>Sonido</th><th>Dur. (s)</th><th style="min-width:240px">Descripción</th><th></th></tr></thead><tbody>
     ${scenes.map(s => {
-    const shots = D.shotsBy[s.key] || [];
+    const all = D.shotsBy[s.key] || [], shots = all.filter(sh => !sbColHidden(sh, G));
     return `<tr class="grp"><td colspan="10">Esc. ${esc(s.key)} · <span class="sch">${esc(s.heading)}</span> <span class="count">· ${fmtEighths(D.metrics.eighths[s.idx])} págs.</span> <button class="btn sm" style="float:right" data-act="shot-scene" data-i="${ea(s.idx)}">+ Plano</button></td></tr>` +
-      shots.map((sh, i) => `<tr data-id="${ea(sh.id)}"><td style="white-space:nowrap"><b>${esc(D.code[sh.id])}</b>${sh.done ? ' <span class="badge ok">Rodado</span>' : ''}${cuts[sh.id] ? ` <span class="badge cut" title="El plano sigue en el storyboard: se quitó en esa hoja de llamado">${esc(callCutLabel(cuts[sh.id]))}</span>` : ''}</td>
+      shots.map(sh => { const i = all.indexOf(sh), g = G.get(sh.id); return `<tr data-id="${ea(sh.id)}"><td style="white-space:nowrap${g ? ';box-shadow:inset 4px 0 0 ' + g.color : ''}"><b>${esc(D.code[sh.id])}</b>${sh.done ? ' <span class="badge ok">Rodado</span>' : ''}${cuts[sh.id] ? ` <span class="badge cut" title="El plano sigue en el storyboard: se quitó en esa hoja de llamado">${esc(callCutLabel(cuts[sh.id]))}</span>` : ''}${sbGrpChip(sh, G)}</td>
         <td><select class="w-sm" data-bind="sh" data-f="size" data-id="${ea(sh.id)}">${SIZES.map(([k, n]) => `<option value="${k}" ${k === sh.size ? 'selected' : ''} title="${n}">${k}</option>`).join('')}</select></td>
         <td><select class="w-md" data-bind="sh" data-f="angle" data-id="${ea(sh.id)}">${opt(ANGLES, sh.angle)}</select></td>
         <td><select class="w-md" data-bind="sh" data-f="move" data-id="${ea(sh.id)}">${opt(MOVES, sh.move)}${MOVES.includes(sh.move) ? '' : `<option selected>${esc(sh.move)}</option>`}</select></td>
@@ -456,7 +468,7 @@ function shotTableHTML(scenes) {
         <td><select class="w-sm" data-bind="sh" data-f="snd" data-id="${ea(sh.id)}" title="Sonido: directo, ambiente o MOS">${SND_OPTS.map(([k, t]) => `<option value="${k}" ${(sh.snd || '') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
         <td><input class="w-sm" type="number" min="0" value="${esc(sh.dur)}" data-bind="sh" data-f="dur" data-id="${ea(sh.id)}"></td>
         <td><input type="text" value="${esc(sh.desc)}" data-bind="sh" data-f="desc" data-id="${ea(sh.id)}" placeholder="${esc(shotTextExcerpt(sh, 60))}"></td>
-        <td style="white-space:nowrap"><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="1" ${i < shots.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="btn ghost sm" data-act="shot" data-id="${ea(sh.id)}">Abrir</button></td></tr>`).join('');
+        <td style="white-space:nowrap"><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn ghost sm" data-act="sh-move" data-id="${ea(sh.id)}" data-d="1" ${i < all.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="btn ghost sm" data-act="shot" data-id="${ea(sh.id)}">Abrir</button></td></tr>`; }).join('');
   }).join('')}</tbody></table></div>`;
 }
 /* el menú del título: todas las escenas o una */
@@ -467,6 +479,7 @@ function sbSceneMenu(b) {
 }
 Object.assign(ACT, {
   'sb-scene-menu': b => sbSceneMenu(b),
+  'sb-grp': b => { const S = sbOpenSet(), id = b.dataset.id; if (S.has(id)) S.delete(id); else S.add(id); render(); },
   'sb-view': b => { UI.sbView = b.dataset.v; render(); },
   'sb-ws': b => { ls.set('boardWs', b.dataset.v); },
   // las viñetas automáticas (las que nadie armó en 3D): la escena 3D sola o en blanco
@@ -494,7 +507,65 @@ Object.assign(ACT, {
   // menú ⋯ de una viñeta (también con clic derecho sobre ella)
   'sb-more': b => sbMoreMenu(b, P.shots[b.dataset.id]),
   'sb-sel-clear': () => sbSelClear(),
+  'sb-sel-del': () => deleteShots(sbSelList().map(x => x.id)),
+  'sb-sel-join': () => sbJoinSelected(),
+  'sb-sel-unjoin': () => sbUnjoinSelected(),
+  'sb-sel-copy': () => { const src = P.shots[sbSelLast()], to = sbSelList().filter(x => src && x.id !== src.id); if (src && to.length) sbCloneDialog(src, to); },
 });
+/* (lote AJ) planos que se graban de una vez, con un solo tiro de cámara: sh.tog apunta a otro plano de la misma escena.
+   Los planos unidos forman un grupo; su número de claqueta es el del más bajo (el primero en el guion) y cada grupo
+   tiene su color en el storyboard. Los vínculos se leen sin dirección: da igual cuál apunte a cuál. */
+const SHOT_GRP_COLORS = ['#2F80ED', '#E5484D', '#2F9E64', '#9B59D0', '#E8730C', '#0EA5A5'];
+function shotGroups() {
+  const all = shotOrder(), par = {};
+  const find = a => { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+  for (const s of all) par[s.id] = s.id;
+  for (const s of all) if (s.tog && par[s.tog] && s.tog !== s.id) par[find(s.id)] = find(s.tog);
+  const by = {}; for (const s of all) (by[find(s.id)] = by[find(s.id)] || []).push(s);
+  const out = new Map(); let n = 0;
+  for (const s of all) {
+    const m = by[find(s.id)];
+    if (m.length < 2 || out.has(s.id)) continue;
+    const g = { lead: m[0], members: m, color: SHOT_GRP_COLORS[n++ % SHOT_GRP_COLORS.length] };
+    for (const x of m) out.set(x.id, g);
+  }
+  return out;
+}
+/* une «sh» al grupo de «targetId» (o la saca del grupo con ''); quien dependía de «sh» pasa a depender de otro del grupo */
+function setTogether(sh, targetId) {
+  const others = Object.values(P.shots).filter(o => o.tog === sh.id && o.id !== sh.id);
+  if (!targetId) {
+    delete sh.tog;
+    if (others.length) { const r = others[0]; delete r.tog; for (const o of others.slice(1)) o.tog = r.id; }
+  } else if (targetId !== sh.id && P.shots[targetId]) sh.tog = targetId;
+}
+/* los elegidos, por escena: solo cuentan las escenas con dos o más (los que se pueden grabar juntos) */
+function sbJoinGroups() {
+  const by = {};
+  for (const x of sbSelList()) (by[x.sc] = by[x.sc] || []).push(x);
+  return Object.values(by).filter(a => a.length > 1);
+}
+function sbJoinSelected() {
+  const gs = sbJoinGroups(); if (!gs.length) return;
+  histNote(`Grabar juntos ${gs.map(a => sbCodes(a)).join(' · ')}`);
+  for (const a of gs) for (const x of a.slice(1)) setTogether(x, a[0].id);   // el más bajo es el de la claqueta
+  sbSelClear(); changed('data'); derive(); render();
+  toastUndo(`Se graban juntos: ${gs.map(a => sbCodes(a)).join(' · ')}. Claqueta ${gs.map(a => D.code[a[0].id]).join(' · ')}.`);
+}
+function sbUnjoinSelected() {
+  const G = shotGroups(), list = sbSelList().filter(x => G.has(x.id)); if (!list.length) return;
+  histNote(`Dejar de grabar juntos ${sbCodes(list)}`);
+  for (const x of list) setTogether(x, '');
+  sbSelClear(); changed('data'); derive(); render();
+}
+function sbTogMenu(anchor, sh) {
+  const list = (D.shotsBy[sh.sc] || []).filter(x => x.id !== sh.id), G = shotGroups(), mine = G.get(sh.id);
+  popover(anchor, `<div class="menu"><h5>Se graba junto con…</h5>${list.map(x => `<button data-t="${ea(x.id)}"${mine && G.get(x.id) === mine ? ' aria-current="true"' : ''}><b>${esc(D.code[x.id] || '')}</b> <span>${esc(String(x.desc || x.size || '').slice(0, 40))}</span>${mine && G.get(x.id) === mine ? ' ✓' : ''}</button>`).join('')}${mine ? '<hr><button data-t="">Dejar de grabarlo junto con otros</button>' : ''}${list.length ? '' : '<p class="hint">No hay otros planos en esta escena.</p>'}</div>`, p => p.addEventListener('click', e => {
+    const b = e.target.closest('[data-t]'); if (!b) return; closePop();
+    histNote(`Grabar el plano ${D.code[sh.id] || ''} junto con otro`.trim());
+    setTogether(sh, b.dataset.t); changed('data'); derive(); render();
+  }));
+}
 function sbMoreMenu(anchor, sh) {
   if (!sh || UI.readOnly) return;
   const list = D.shotsBy[sh.sc] || [], i = list.indexOf(sh), picked = sbSel().has(sh.id);
@@ -502,18 +573,32 @@ function sbMoreMenu(anchor, sh) {
   const to = sbSelList().filter(x => x.id !== sh.id);
   const clone = to.length ? `<button data-m="clone" class="sb-cl-m" title="Elige qué pasa del ${ea(D.code[sh.id] || '')} a ${ea(sbCodes(to))}: tamaño, ángulo, lente, la cámara 3D…">${esc(to.length <= 3 ? `Clonar sus atributos en ${sbCodes(to)}…` : `Clonar sus atributos en los ${to.length} elegidos…`)}</button><hr>` : '';
   const pick = `<button data-m="pick" title="${ea(`También con ${MOD_KEY === 'Meta' ? '⌘' : 'Ctrl'}+clic en la viñeta. Luego, en el plano que quieres copiar: «Clonar sus atributos…»`)}">${picked ? 'Quitar de los elegidos' : 'Elegir para clonar'}</button>`;
-  popover(anchor, `<div class="menu">${clone}<button data-m="open">Abrir</button>${pick}<button data-m="dup">Duplicar</button>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}<button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}<button data-m="del" style="color:var(--bad)">Eliminar</button></div>`, p => p.addEventListener('click', e => {
-    const x = e.target.closest('[data-m]'); if (!x) return; closePop();
+  // lo esencial arriba; lo que se usa poco, plegado en «Más opciones»; Eliminar, al final
+  const many = picked && sbSelList().length > 1;
+  const join = sbJoinGroups().length && picked ? `<button data-m="join" title="Comparten color y la claqueta del plano más bajo">Grabar juntos los elegidos de la escena</button>` : '';
+  popover(anchor, `<div class="menu sb-menu">${clone}${join}<button data-m="open">Abrir</button><button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="tog" title="Varios planos con un solo tiro de cámara: comparten color y la claqueta del más bajo">Se graba junto con…</button><button data-m="dup">Duplicar</button>${typeof iaMenuHTML === 'function' ? iaMenuHTML(sh) : ''}<button data-m="more" aria-expanded="false" class="sb-more">Más opciones</button><div class="sb-more-b" hidden>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}${pick}<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}</div><hr><button data-m="del" style="color:var(--bad)">${many ? `Eliminar los ${sbSelList().length} elegidos` : 'Eliminar'}</button></div>`, p => p.addEventListener('click', e => {
+    const x = e.target.closest('[data-m]'); if (!x) return;
+    if (x.dataset.m === 'more') {   // despliega o pliega lo menos usado sin cerrar el menú
+      const b = $('.sb-more-b', p); b.hidden = !b.hidden; x.setAttribute('aria-expanded', String(!b.hidden)); x.textContent = b.hidden ? 'Más opciones' : 'Menos opciones';
+      if (typeof popPlace === 'function') popPlace(p, anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : anchor);
+      return;
+    }
+    closePop();
     const m = x.dataset.m;
+    if (m === 'tog') setTimeout(() => sbTogMenu(anchor, sh), 0);
     if (m === 'clone') sbCloneDialog(sh, to);
     if (m === 'pick') sbSelToggle(sh.id);
     if (m === 'open') openShotEditor(sh.id);
     if (m === 'prev' || m === 'next') { histNote(`Mover el plano ${D.code[sh.id] || ''}`.trim()); moveShot(sh.id, m === 'prev' ? -1 : 1); toastUndo(`Plano movido: ahora es el ${D.code[sh.id]}.`); }
-    if (m === 'done') { histNote(sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'); if (sh.done) delete sh.done; else sh.done = true; changed('data'); render(); }
-    if (m === 'del') deleteShot(sh.id);
+    if (m === 'done') { histNote(sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'); setShotDone(sh, !sh.done); changed('data'); render(); }
+    if (m === 'del') { if (many) deleteShots(sbSelList().map(y => y.id)); else deleteShot(sh.id); }
+    if (m === 'join') sbJoinSelected();
     if (m === 'dup') duplicateShot(sh.id);
     if (m === 'img') sbPickImg(sh);
     if (m === 'noimg') sbClearImg(sh);
+    if (m === 'iagen') iaShotDialog(sh);
+    if (m === 'iatog') iaShotToggle(sh);
+    if (m === 'iadel') iaShotClear(sh);
     if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
     if (m === 'master') sbMaster(sh);
     if (m === 'stgupd') stageUpdate([sh]);
@@ -569,6 +654,13 @@ function sbCodes(list) {
   if (c.length > 4) return `${c.slice(0, 3).join(', ')} y ${c.length - 3} más`;
   return c.length < 2 ? c.join('') : `${c.slice(0, -1).join(', ')} y ${c[c.length - 1]}`;
 }
+/* el último plano elegido (el orden en que se eligieron): de ese se copian los atributos a los demás */
+const sbSelLast = () => { let l = ''; for (const id of sbSel()) l = id; return l; };
+/* (lote AJ) «Rodado» de un plano: si se graba de una vez con otros (shotGroups), todos quedan igual */
+function setShotDone(sh, val) {
+  const g = typeof shotGroups === 'function' ? shotGroups().get(sh.id) : null;
+  for (const x of g ? g.members : [sh]) { if (val) x.done = true; else delete x.done; }
+}
 function sbSelToggle(id) {
   if (UI.readOnly || !P.shots[id]) return;
   const S = sbSel();
@@ -585,7 +677,7 @@ function sbSelPaint() {
   bar.hidden = !list.length;
   if (!list.length) { bar.innerHTML = ''; return; }
   const how = TOUCHY ? 'Toca «⋯» en el plano que quieres copiar' : 'Clic derecho en el plano que quieres copiar';
-  bar.innerHTML = `<span class="sb-sel-n"><b>${esc(list.length === 1 ? '1 plano elegido' : `${list.length} planos elegidos`)}</b> <span class="tnum">${esc(sbCodes(list))}</span></span><span class="hint">${esc(how)} › Clonar sus atributos</span><button class="btn ghost sm" data-act="sb-sel-clear" title="Quitar la selección (Esc)">Quitar</button>`;
+  bar.innerHTML = `<span class="sb-sel-n"><b>${esc(list.length === 1 ? '1 plano elegido' : `${list.length} planos elegidos`)}</b> <span class="tnum">${esc(sbCodes(list))}</span></span>${list.length > 1 ? `<button class="btn primary sm" data-act="sb-sel-copy" title="Elige qué pasa: tamaño, ángulo, lente, la cámara 3D…">Copiar atributos de ${esc(D.code[sbSelLast()] || '')} a ${esc(sbCodes(list.filter(x => x.id !== sbSelLast())))}</button><span class="hint">El último que elegiste es el de origen</span>` : `<span class="hint">${esc(how)} › Clonar sus atributos</span>`}${(() => { const gs = sbJoinGroups(), G = shotGroups(); return (gs.length ? `<button class="btn sm" data-act="sb-sel-join" title="Comparten color y la claqueta del plano más bajo">Grabar juntos${gs.length === 1 ? ' ' + esc(sbCodes(gs[0])) : ' (por escena)'}</button>` : '') + (list.some(x => G.has(x.id)) ? '<button class="btn ghost sm" data-act="sb-sel-unjoin" title="Los saca del grupo en que se graban juntos">Separar</button>' : ''); })()}<button class="btn ghost sm sb-sel-del" data-act="sb-sel-del" title="Eliminar los planos elegidos (se pueden recuperar con Deshacer)">${esc(list.length === 1 ? 'Eliminar' : `Eliminar ${list.length}`)}</button><button class="btn ghost sm" data-act="sb-sel-clear" title="Quitar la selección (Esc)">Quitar</button>`;
 }
 function bindBoardSel() {
   const v = $('#view .scroller'); if (!v) return;
@@ -606,6 +698,12 @@ function bindBoardSel() {
   });
 }
 deselectOn('board', sbSelClear, '.pcell, #sbSelBar');
+// Supr o Retroceso con planos elegidos: los elimina (con «Deshacer»), salvo al escribir o con una ventana abierta
+addEventListener('keydown', e => {
+  if ((e.key !== 'Delete' && e.key !== 'Backspace') || e.defaultPrevented || UI.tab !== 'board' || !P || UI.readOnly || !sbSel().size) return;
+  if ($('#modal') || $('#pop') || $('#ask') || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '') || (document.activeElement || {}).isContentEditable) return;
+  e.preventDefault(); deleteShots(sbSelList().map(x => x.id));
+}, true);
 // Esc suelta la selección solo si no hay un menú o una ventana que cerrar primero (se mira antes de que Esc los cierre)
 addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && UI.tab === 'board' && !$('#modal') && !$('#pop') && !$('#ask') && P && sbSel().size) sbSelClear(); }, true);
 

@@ -6,7 +6,7 @@ let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 
 // solo la función: el resto de la hoja necesita la app entera
-const src = fs.readFileSync(R + '/src/tab-call.js', 'utf8');
+const src = fs.readFileSync(R + '/src/tab-call.js', 'utf8').replace(/\r\n/g, '\n');
 const m = /function shotOffsets\([\s\S]*?\n}\n/.exec(src);
 assert.ok(m, 'shotOffsets está en tab-call.js');
 const c = { Math, isFinite }; vm.createContext(c); vm.runInContext(m[0] + '\nthis.shotOffsets = shotOffsets;', c);
@@ -52,7 +52,7 @@ test('datos raros no rompen el reparto', () => {
 });
 
 test('el editor de plano no repite ids (las flechas de la cámara dejaron de andar por un id repetido)', () => {
-  const ed = fs.readFileSync(R + '/src/shot-editor.js', 'utf8');
+  const ed = fs.readFileSync(R + '/src/shot-editor.js', 'utf8').replace(/\r\n/g, '\n');
   const ids = [...ed.matchAll(/\bid="([A-Za-z][\w-]*)"/g)].map(x => x[1]);
   const dup = ids.filter((x, i) => ids.indexOf(x) !== i);
   assert.deepStrictEqual(dup, []);

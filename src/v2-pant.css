@@ -20,7 +20,7 @@
 /* ============ GUION: escenas · editor · escena y notas ============ */
 .v2-g3{display:grid;grid-template-columns:220px minmax(0,1fr) 260px;gap:24px;padding:1px 32px 0;height:100%;box-sizing:border-box;min-height:0}
 .v2-col{min-width:0;min-height:0}
-.v2-scenes{overflow:auto;padding-bottom:24px;scrollbar-width:thin}
+.v2-scenes{overflow:auto;padding-bottom:24px;}
 .v2-colh{display:flex;align-items:flex-start;justify-content:space-between;height:35px;box-sizing:border-box;padding:3px 6px 0 5px}
 .v2-colh h2{margin:0;font:700 17px/20px var(--v2-disp);color:var(--ink)}
 .v2-colh span{font:400 11.7px/20px var(--font-ui);color:var(--muted)}
@@ -28,7 +28,7 @@
 .v2-sclist li[hidden]{display:none}
 .v2-sc{display:flex;align-items:flex-start;gap:12px;width:100%;box-sizing:border-box;padding:10px 10px 9px;border:1px solid transparent;border-radius:3px;background:none;text-align:left;color:var(--ink);cursor:pointer}
 .v2-sc:hover{background:color-mix(in srgb,var(--surface) 55%,transparent)}
-.v2-sc[aria-current="true"]{background:var(--surface);border-color:var(--v2-black)}
+.v2-sc[aria-current="true"]{background:var(--surface);border-color:var(--line)}
 .v2-sc[aria-current="true"] .v2-sq{background:var(--v2-yellow);color:var(--v2-black)}
 .v2-sct{display:grid;min-width:0}
 .v2-sct b{font:700 12px/14px var(--font-ui);text-transform:uppercase;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -54,7 +54,7 @@
 .v2-types>button[aria-pressed="true"]{font-weight:700;font-size:12.2px}
 :root[data-theme="dark"] .v2-types{background:var(--fill)}
 .v2-pinfo{margin:10px 0 12px;font:400 12.5px/18px var(--font-ui);color:var(--muted)}
-.v2-edscroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;padding-bottom:40px}
+.v2-edscroll{flex:1;min-height:0;overflow:auto;padding-bottom:40px}
 /* la hoja: una página carta con las medidas del guion estándar (las de LAYOUT, core.js, que usan la cuenta de páginas
    y el PDF): Courier de 10 caracteres por pulgada, acción y encabezados de 60 caracteres, personaje a 22, acotación a
    16 (26 de ancho), diálogo a 10 (35 de ancho); márgenes de 1,5" a la izquierda y 1" a la derecha. La letra va de
@@ -66,7 +66,7 @@
 .v2-edscroll{container-type:inline-size}
 .v2-ed #edHost .ed-cover{display:none}
 .v2-ed #edHost .ed-page{--fs:14px;--ez:1;font-size:clamp(11px,calc(100cqw / 40.2),14px);line-height:1.286;--v2W:min(85.3ch,100cqw);--v2pl:max(3.7ch,calc((var(--v2W) - 60.3ch) * .6));--v2pr:max(2.3ch,calc((var(--v2W) - 60.3ch) * .4));
-  box-sizing:border-box;width:var(--v2W);margin:0;padding:4em var(--v2pr) 5.7em var(--v2pl);border:1px solid var(--line);outline:0;border-radius:3px;box-shadow:none;background:var(--page)}
+  box-sizing:border-box;width:var(--v2W);margin:0 auto;padding:4em var(--v2pr) 5.7em var(--v2pl);border:1px solid var(--line);outline:0;border-radius:3px;box-shadow:none;background:var(--page)}
 .v2-ed #edHost .ed-page::before{content:"1.";position:absolute;top:1.8em;right:var(--v2pr);font:400 .93em/1 var(--font-script);color:var(--page-ink)}
 .v2-ed #edHost .ed-pb span{right:var(--v2pr)}
 .v2-ed .ed-doc{caret-color:var(--page-ink)}
@@ -85,7 +85,7 @@
 .v2-ed .ed-doc .ep.v2-cur{background:var(--v2-soft);box-shadow:-10px -5px 0 0 var(--v2-soft),10px -5px 0 0 var(--v2-soft),-10px 5px 0 0 var(--v2-soft),10px 5px 0 0 var(--v2-soft),0 -5px 0 0 var(--v2-soft),0 5px 0 0 var(--v2-soft);border-radius:1px}
 .v2-ed .ed-doc .ep.t-h.v2-cur{background:none;box-shadow:none}
 
-.v2-side{display:flex;flex-direction:column;gap:14px;overflow:auto;padding-bottom:24px;scrollbar-width:thin}
+.v2-side{display:flex;flex-direction:column;gap:14px;overflow:auto;padding-bottom:24px;}
 .v2-scard{padding:21px 18px 20px}
 .v2-syn{margin:15px 0 0;font:400 14px/21px var(--font-ui);color:var(--ink)}
 .v2-dl{display:grid;grid-template-columns:105px minmax(0,1fr);gap:8px 0;margin:14px 0 0;font:400 13px/18px var(--font-ui)}
@@ -124,8 +124,7 @@
 .v2-tiras h2{margin:0 3px 0 0;font:700 17.5px/1 var(--v2-disp);color:var(--ink)}
 .v2-sw{display:inline-flex;align-items:center;gap:8px;font:400 11.5px/1 var(--font-ui);color:var(--ink)}
 .v2-sw i{width:14px;height:14px;border:1px solid var(--v2k-d9d9d3);border-radius:2px;box-sizing:border-box}
-.v2-grow{flex:1}
-.v2-chk{display:inline-flex;align-items:center;gap:10px;font:500 12.6px/1 var(--font-ui);color:var(--ink);cursor:pointer}
+.v2-chk{align-items:center;color:var(--ink);cursor:pointer}
 .v2-chk input{position:absolute;opacity:0;width:1px;height:1px}
 .v2-chk i{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--line);box-sizing:border-box;background:var(--surface);display:grid;place-items:center}
 .v2-chk input:checked+i{background:var(--v2-black);border-color:var(--v2-black)}
@@ -133,11 +132,9 @@
 .v2-chk input:focus-visible+i{outline:2px solid var(--ink);outline-offset:2px}
 .v2-hint{font:400 12px/1 var(--font-ui);color:var(--muted)}
 .v2-tiras .v2-hint{margin:0 3px 0 13px}
-.v2-btn.sm2{width:40px;height:40px}
 :root[data-v2] .pl-scroll{overflow:visible}
-:root[data-v2][data-tab="plan"] #board.pl{display:block;min-width:0;width:auto;--v2cols:63px 49px 58px 100px minmax(0,1fr) 63px 86px 83px}
-:root[data-v2][data-tab="plan"] #board .v2-plh{display:grid;grid-template-columns:var(--v2cols);align-items:start;padding:0 11px;margin:0 0 29px;background:none;border:0;position:static;font:600 11px/17px var(--font-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-:root[data-v2][data-tab="plan"] #board .v2-plh.noth,:root[data-v2][data-tab="plan"] #board .v2-prow.noth{--v2cols:49px 58px 100px minmax(0,1fr) 63px 86px 83px}
+:root[data-v2][data-tab="plan"] #board.pl{display:block;min-width:0;width:auto}
+:root[data-v2][data-tab="plan"] #board .v2-plh{display:grid;grid-template-columns:var(--v2cols);align-items:start;padding:0 11px;margin:0 0 29px;background:none;border:0;position:relative;font:600 11px/17px var(--font-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 :root[data-v2][data-tab="plan"] #board .v2-plh>span{white-space:normal;padding:0;background:none}
 :root[data-v2][data-tab="plan"] #board .pday{display:block;margin:0 0 26px;background:none;border:0;box-shadow:none;padding:0}
 :root[data-v2][data-tab="plan"] #board .pday-rows{display:grid;gap:5px;background:none;border:0}
@@ -147,14 +144,13 @@
 :root[data-v2][data-tab="plan"] #board .v2-prow{display:grid;grid-template-columns:var(--v2cols);align-items:start;min-height:58px;box-sizing:border-box;padding:10px 10px 10px;border:1px solid var(--line);border-radius:3px;background:var(--v2rc);color:var(--v2-black);cursor:grab;box-shadow:none}
 :root[data-v2][data-tab="plan"] #board .v2-prow.sel{outline:2px solid var(--v2-black);outline-offset:-1px}
 :root[data-v2][data-tab="plan"] #board .v2-prow>span{min-width:0;padding:0;background:none;border:0}
-.v2-prow .v2-shot{display:inline-grid;place-items:center;width:44px;height:26px;margin-top:-3px;border:1px solid #D6D7D1;border-radius:3px;background:#E2E3DE;font:600 10px/1 var(--font-ui);color:var(--muted)}
 .v2-prow .v2-pe{font:700 16px/22px var(--font-ui)}
 .v2-prow .v2-pi,.v2-prow .v2-pm{font:600 13px/22px var(--font-ui);white-space:nowrap}
 /* «AMANECER (…)» y otros momentos largos: en dos líneas dentro de su columna, sin pisar la locación */
 .v2-prow .v2-pm{white-space:normal;overflow-wrap:break-word;line-height:18px;padding:2px 6px 0 0 !important}
 .v2-prow .v2-ps{display:grid;gap:3px;padding-right:20px !important}
 .v2-prow .v2-ps b{font:700 13px/18px var(--font-ui);text-transform:uppercase}
-.v2-prow .v2-ps small{font:400 12.5px/17px var(--font-ui);color:var(--v2k-4a4a46)}
+.v2-prow .v2-ps small{font:400 12.5px/17px var(--font-ui)}
 .v2-prow .v2-ppg{font:700 14px/22px var(--font-ui)}
 .v2-prow .v2-pr{font:400 14px/22px var(--font-ui)}
 .v2-prow .v2-pt input.dur{width:100%;height:22px;padding:0;border:0;background:transparent;font:700 14px/22px var(--font-ui);color:var(--v2-black)}
@@ -165,8 +161,6 @@
    PDF: las columnas y las filas con líneas bien visibles, sin esquinas redondeadas */
 :root[data-v2][data-tab="plan"] #board.xl .v2-pbrk,:root[data-v2][data-tab="plan"] #board.xl .prow{border-radius:0}
 @media (min-width:761px){
-  :root[data-v2][data-tab="plan"] #board.pl.xl{--v2cols:63px 49px 58px 108px minmax(0,1fr) 63px 86px 83px}
-  :root[data-v2][data-tab="plan"] #board.xl :is(.v2-plh,.v2-prow).noth{--v2cols:49px 58px 108px minmax(0,1fr) 63px 86px 83px}
   :root[data-v2][data-tab="plan"] #board.xl .v2-plh{margin-bottom:18px;padding:0;border:1.5px solid var(--xl-ln);background:color-mix(in srgb,var(--ink) 7%,var(--surface));color:var(--ink)}
   :root[data-v2][data-tab="plan"] #board.xl .v2-plh>span{padding:7px 8px;box-shadow:inset -1px 0 0 var(--xl-ln)}
   :root[data-v2][data-tab="plan"] #board.xl .pday-rows{gap:0;border:1.5px solid var(--xl-ln)}
@@ -175,19 +169,13 @@
   :root[data-v2][data-tab="plan"] #board.xl .v2-prow{padding:0;align-items:stretch;min-height:0}
   :root[data-v2][data-tab="plan"] #board.xl .v2-prow>span{padding:9px 8px !important;box-shadow:inset -1px 0 0 var(--xl-ln)}
   :root[data-v2][data-tab="plan"] #board.xl .v2-prow>span.v2-pm{padding:11px 8px 9px !important}
-  :root[data-v2][data-tab="plan"] #board.xl :is(.v2-plh,.v2-prow)>span:last-child{box-shadow:none}
+  :root[data-v2][data-tab="plan"] #board.xl :is(.v2-plh,.v2-prow)>span:last-of-type{box-shadow:none}
   :root[data-v2][data-tab="plan"] #board.xl .pday-rows>.v2-pbrk{margin-top:0;border-top:1px solid var(--xl-ln)}
 }
 :root[data-v2][data-tab="plan"] #board .v2-pbrk b{font:700 14px/1 var(--font-ui)}
 :root[data-v2][data-tab="plan"] #board .v2-pbrk span{font:400 13.5px/1 var(--font-ui);color:var(--v2-yellow)}
-:root[data-v2][data-tab="plan"] #board .pl-rz{display:none}
 
 /* ============ DESGLOSE ============ */
-.v2-step{display:inline-flex;align-items:center;height:44px;box-sizing:border-box;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
-.v2-step>button{display:grid;place-items:center;width:44px;height:42px;border:0;background:none;color:var(--ink);cursor:pointer}
-.v2-step>button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.v2-step>button[disabled]{opacity:.3;cursor:default}
-.v2-step>span{min-width:101px;text-align:center;font:600 13px/1 var(--font-ui);color:var(--ink)}
 .v2-bd{padding-top:1px}
 .v2-strip{display:grid;grid-template-columns:497px 197px 196px minmax(0,1fr);height:75px;box-sizing:border-box;margin:0 0 20px}
 .v2-strip>div{display:grid;align-content:center;gap:6px;padding:0 20px;border-left:1px solid var(--line)}
@@ -195,17 +183,8 @@
 .v2-strip span{font:400 12.5px/16px var(--font-ui);color:var(--muted)}
 .v2-strip b{font:700 14px/18px var(--font-ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v2-strip b.sc{font:700 14px/18px var(--font-script);text-transform:uppercase}
-.v2-bdgrid{display:grid;grid-template-columns:607px minmax(0,1fr);gap:20px;align-items:start}
+.v2-bdgrid{display:grid;gap:20px;align-items:start}
 .v2-bdtx{padding:26px 32px 30px;min-height:120px}
-.v2-bdlines{font:400 14px/22px var(--font-script);color:var(--page-ink)}
-.v2-bdlines .ln{height:auto;line-height:22px;padding-left:0;white-space:pre-wrap;overflow-wrap:break-word}
-.v2-bdlines .ln.gap{margin-top:14px}
-.v2-bdlines .ln.t-c{padding-left:19.6ch;text-transform:uppercase}
-.v2-bdlines .ln.t-d{padding-left:10.3ch;max-width:calc(10.3ch + 42ch)}
-.v2-bdlines .ln.t-p{padding-left:15ch;max-width:calc(15ch + 30ch)}
-.v2-bdlines .ln.t-tr{text-align:right;text-transform:uppercase}
-.v2-tg{background:color-mix(in srgb,var(--c) 16%,transparent);box-shadow:inset 0 -2px 0 var(--c);padding:1px 2px;margin:0 -2px;cursor:pointer}
-.v2-tg.sug{box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--c) 45%,transparent);background:none}
 .v2-bdhint{margin:20px 0 0;font:400 12px/16px var(--font-ui);color:var(--muted)}
 .v2-bdcards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .v2-bdc{padding:16px 16px 18px;min-width:0}
@@ -299,11 +278,9 @@
 .v2-fb.on{background:var(--v2-black);border-color:var(--v2-black);color:#fff;font-weight:700}
 .v2-fb[data-v2sc=""]{width:62px;margin-right:5px}
 .v2-sbst{font:400 13px/1 var(--font-ui);color:var(--muted)}
-.v2-sbwrap{display:grid;grid-template-columns:minmax(0,1fr) 312px;gap:22px;align-items:start}
 .v2-sbgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 15px;align-items:start}
 .v2-sbc{position:relative;min-width:0}
 .v2-sbb{display:flex;flex-direction:column;width:100%;min-height:235px;box-sizing:border-box;padding:8px 8px 14px;border:1px solid var(--line);border-radius:3px;background:var(--surface);text-align:left;color:var(--ink);cursor:pointer}
-.v2-sbc.on .v2-sbb{border:2px solid var(--v2-black);padding:7px 7px 13px}
 .v2-sbf{position:relative;display:block;aspect-ratio:var(--ar,1.778);background:var(--v2k-e9e6df);border-radius:2px;overflow:hidden}
 .v2-sbf img.fr,.v2-sbf .fr-ab{width:100%;height:100%;object-fit:cover;display:block}
 .v2-ok{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:3px;background:var(--v2-black);display:grid;place-items:center}
@@ -319,31 +296,13 @@
 .v2-sbd.mut{color:var(--muted);font:400 12px/16px var(--font-script)}
 .v2-sbch{margin-top:11px;font:700 12px/1 var(--font-ui)}
 .v2-sbgrid .nb{display:none !important}
-.v2-sbp{position:sticky;top:0;padding:18px 16px 18px}
-.v2-sbp header{display:flex;align-items:center;gap:10px;margin:0 0 12px}
-.v2-sbp h2{margin:0;font:700 19px/1 var(--v2-disp);color:var(--ink)}
-.v2-done{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:3px;background:var(--v2-black);color:#fff;font:700 12.5px/1 var(--font-ui)}
-.v2-done svg{width:13px;height:13px;fill:none;stroke:var(--v2-yellow);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-.v2-sbbig{aspect-ratio:var(--ar,1.778);background:var(--v2k-e9e6df);border-radius:2px;overflow:hidden}
-.v2-sbbig img.fr,.v2-sbbig .fr-ab{width:100%;height:100%;object-fit:cover;display:block}
-.v2-sbk{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 0}
-.v2-sbk span{font:400 12.5px/17px var(--font-ui);color:var(--muted);max-width:150px}
-.v2-sbk .v2-btn{height:38px;gap:8px;padding:0 14px;font-size:13.5px}
-.v2-sbk .v2-btn svg{width:16px;height:16px}
-.v2-sbdesc{margin:16px 0 0;font:400 14px/20px var(--font-ui);color:var(--ink)}
-.v2-sbg{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px;margin:18px 0 0}
-.v2-sbg div{display:grid;gap:4px}
-.v2-sbg span{font:400 12.5px/1 var(--font-ui);color:var(--muted)}
-.v2-sbg b{font:700 13.5px/1.2 var(--font-ui);color:var(--ink)}
-.v2-sbn{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
-.v2-sbn h3{margin:0 0 14px;font:700 16px/1 var(--v2-disp)}
 /* el ícono Excel (sistema visual): en reposo, la grilla sola; elegido, negro con la grilla amarilla */
 .v2-xl{display:grid;place-items:center;width:40px;height:40px;box-sizing:border-box;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);cursor:pointer}
 .v2-xl svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7}
 .v2-xl.on{background:var(--v2-black);border-color:var(--v2-black);color:var(--v2-yellow)}
 
 /* ============ HOJA DE LLAMADO ============ */
-.v2-cl{padding-top:0;max-width:1039px}
+.v2-cl{padding-top:0;max-width:1039px;margin-inline:auto}   /* (lote AJ) centrada: en pantallas anchas ya no queda todo el vacío a la derecha */
 .v2-cltabs{display:flex;gap:8px;margin:-1px 0 19px}
 .v2-clt{display:inline-flex;align-items:center;gap:8px;height:40px;box-sizing:border-box;padding:0 16px;border:1px solid var(--line);border-radius:3px;background:var(--surface);font:500 13px/1 var(--font-ui);color:var(--ink);cursor:pointer}
 .v2-clt.on{background:var(--v2-black);border-color:var(--v2-black);color:#fff;font-weight:700}
@@ -356,22 +315,14 @@
 .v2-cltop .v2-btn.sm{height:34px;gap:8px;padding:0 12px;font:600 12.5px/1 var(--font-ui)}
 .v2-ok2{font:600 12.5px/1 var(--font-ui);color:var(--ok-text)}
 .v2-clhead{display:grid;grid-template-columns:455px 297px minmax(0,1fr);grid-template-rows:153px 61px;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:0 0 34px}
-.v2-clh1{padding:18px 22px 0}
 .v2-cllogo{display:block;height:28px;margin:0 0 10px}
 .v2-cllogo svg{height:28px;width:auto;display:block}
 img.v2-cllogo{max-width:160px;object-fit:contain;object-position:left}
-.v2-clh1 h2{margin:0 0 9px;font:700 26px/30px var(--v2-disp);color:var(--ink)}
-.v2-clh1 p{margin:0 0 10px;font:400 13.5px/1.2 var(--font-ui);color:var(--ink)}
-.v2-clh1 p+p{color:var(--muted)}
 .v2-clcall{display:grid;align-content:center;gap:4px;padding:0 21px;background:var(--v2-yellow);color:var(--v2-black)}
 .v2-clcall span{font:700 12px/1 var(--font-ui);letter-spacing:.1em;text-transform:uppercase}
 .v2-clcall b,.v2-clbig{font:700 50px/56px var(--v2-disp);letter-spacing:-.01em;color:var(--v2-black)}
 .v2-clbig{width:100%;padding:0;border:0 !important;background:transparent !important;box-shadow:none !important}
-.v2-clends{display:grid;grid-template-rows:1fr 1fr;border-left:1px solid var(--line)}
-.v2-clends>div{display:grid;align-content:center;gap:6px;padding:0 18px}
-.v2-clends>div+div{border-top:1px solid var(--line)}
-.v2-clends span{font:400 12.5px/1 var(--font-ui);color:var(--muted)}
-.v2-clends b,.v2-clmid{font:700 22px/24px var(--font-ui);color:var(--ink)}
+.v2-clmid{font:700 22px/24px var(--font-ui);color:var(--ink)}
 .v2-clmid{width:100%;padding:0;border:0 !important;background:transparent !important;box-shadow:none !important}
 .v2-clloc{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 20px 0 22px;border-top:1px solid var(--line);background:var(--v2k-fafaf8)}
 .v2-clloc>svg{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:1.8}
@@ -446,7 +397,7 @@ body.home #app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1
 .v2-hplan .v2-bar{background:#3A3A38;margin:0 0 14px}
 .v2-hplan button{border:0;background:none;padding:0;color:var(--v2-yellow);font:700 14px/1 var(--font-ui);cursor:pointer}
 .v2-hfoot{display:grid;gap:3px;margin:24px 0 0}
-.v2-hmain{min-width:0;min-height:0;overflow:auto;padding:24px 55px 60px 40px;scrollbar-width:thin}
+.v2-hmain{min-width:0;min-height:0;overflow:auto;padding:24px 55px 60px 40px;}
 .v2-hhead{display:flex;align-items:center;gap:12px;margin:0 0 39px}
 .v2-hq{display:flex;align-items:center;gap:10px;width:520px;height:44px;box-sizing:border-box;padding:0 14px 0 16px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
 .v2-hq svg{width:17px;height:17px;flex:none;fill:none;stroke:var(--ink);stroke-width:1.8;stroke-linecap:round}
@@ -457,7 +408,7 @@ body.home #app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1
 .v2-hhead .v2-btn.ic svg{width:19px;height:19px;fill:none;stroke:var(--ink);stroke-width:1.7}
 .v2-dotb{position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:50%;background:var(--v2-red);border:1.5px solid var(--surface)}
 .v2-hhead .v2-btn.y{height:44px;padding:0 20px;gap:10px;font:700 15px/1 var(--font-ui)}
-.v2-hgrid{display:grid;grid-template-columns:minmax(0,780px) 300px;gap:32px;align-items:start;max-width:1112px}
+.v2-hgrid{display:grid;gap:32px;align-items:start}
 .v2-hleft{min-width:0}
 .v2-hdate{margin:0 0 14px;font:600 13px/1 var(--font-ui);color:var(--v2k-4b4b47)}
 .v2-hhi{margin:0 0 10px;font:700 58px/1 var(--v2-disp);letter-spacing:-.025em;color:var(--ink)}
@@ -495,7 +446,7 @@ body.home #app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1
 .v2-hfeat .stg .past i{background:#8C8C88}
 .v2-hfeat .stg .on{color:#fff;font-weight:600}
 .v2-hfeat .stg .on i{background:var(--v2-yellow)}
-.v2-hcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 17px;margin:16px 0 0}
+.v2-hcards{display:grid;gap:16px 17px;margin:16px 0 0}
 .v2-hcard{position:relative;min-height:239px;box-sizing:border-box;padding:20px 20px 18px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
 .v2-hcard header{display:flex;align-items:center;justify-content:space-between;margin:0 0 30px}
 .v2-more{display:grid;place-items:center;width:28px;height:24px;border:0;border-radius:3px;background:none;color:var(--muted);cursor:pointer}
@@ -508,7 +459,7 @@ body.home #app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1
 .v2-hco .v2-bar{height:5px;margin:0 0 22px}
 .v2-hco .ft{display:flex;align-items:center;justify-content:space-between;font:400 13px/1 var(--font-ui);color:var(--muted)}
 .v2-hempty{display:flex;gap:10px;margin:16px 0 0}
-.v2-hscripts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:17px}
+.v2-hscripts{display:grid;gap:17px}
 .v2-hscr{display:grid;gap:0;padding:0;border:0;background:none;text-align:left;color:var(--ink);cursor:pointer}
 .v2-hscr .pg{display:block;height:235px;box-sizing:border-box;padding:16px 14px;border:1px solid var(--line);border-radius:3px;background:var(--page,#fff);overflow:hidden;font:400 7.6px/1.35 var(--font-script);color:#212121}
 .v2-hscr .pg p{margin:0 0 7px;white-space:pre-wrap}
@@ -828,11 +779,10 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-tiras .v2-hint{display:none}
   :root[data-v2][data-tab="plan"] #board .v2-plh{display:none}
   :root[data-v2][data-tab="plan"] #board .v2-pst{flex-wrap:wrap;gap:2px 10px}
-  :root[data-v2][data-tab="plan"] #board .v2-prow,:root[data-v2][data-tab="plan"] #board .v2-prow.noth{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"pe pi pm pc pg" "ps ps ps ps ps" "pr pr pr pr pt";gap:6px 10px;padding:10px 12px}
-  .v2-prow .v2-pc{grid-area:pc;justify-self:end}.v2-prow .v2-pe{grid-area:pe}.v2-prow .v2-pi{grid-area:pi}.v2-prow .v2-pm{grid-area:pm}
+  :root[data-v2][data-tab="plan"] #board .v2-prow{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"pe pi pm . pg" "ps ps ps ps ps" "pr pr pr pr pt" "pn pn pn pn pn";gap:6px 10px;padding:10px 12px}
+  .v2-prow .v2-pn{grid-area:pn}.v2-prow .v2-pe{grid-area:pe}.v2-prow .v2-pi{grid-area:pi}.v2-prow .v2-pm{grid-area:pm}
   .v2-prow .v2-ps{grid-area:ps;padding-right:0 !important}.v2-prow .v2-ppg{grid-area:pg;text-align:right}.v2-prow .v2-pr{grid-area:pr;font-size:13px !important}.v2-prow .v2-pt{grid-area:pt;width:72px}
   .v2-prow .v2-pt input.dur{text-align:right}
-  .v2-prow .v2-shot{margin-top:-2px}
   /* desglose */
   .v2-strip{grid-template-columns:repeat(2,minmax(0,1fr));height:auto}
   .v2-strip>div{padding:12px 14px}
@@ -840,13 +790,8 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-strip>div:nth-child(2){border-left:0}
   .v2-strip>div:nth-child(n+2){border-top:1px solid var(--line)}
   .v2-strip b{white-space:normal}
-  .v2-bdgrid{grid-template-columns:minmax(0,1fr);gap:12px}
+  .v2-bdgrid{grid-template-columns:minmax(0,1fr)}
   .v2-bdtx{padding:18px 14px 20px}
-  .v2-bdlines{font-size:12px;line-height:19px}
-  .v2-bdlines .ln.t-c{padding-left:12ch}
-  .v2-bdlines .ln.t-d{padding-left:5ch;max-width:none}
-  .v2-bdlines .ln.t-p{padding-left:8ch;max-width:none}
-  .v2-bdcards{grid-template-columns:minmax(0,1fr)}
   .v2-tbl{overflow-x:auto}
   .v2-tbl table{min-width:640px}
   /* presupuesto */
@@ -856,27 +801,20 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-bdet{overflow-x:auto}
   .v2-bdet header{flex-wrap:wrap;height:auto;padding:14px;gap:8px 12px}
   .v2-btbl{min-width:640px}
-  /* storyboard: dos columnas; el plano elegido, en una hoja */
+  /* storyboard: dos columnas */
   .v2-sbfil{flex-wrap:wrap;height:auto;gap:6px}
   .v2-sbst{width:100%;margin-top:4px}
-  .v2-sbwrap{grid-template-columns:minmax(0,1fr)}
-  .v2-sbwrap>.v2-sbp{display:none}
   .v2-sbgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .v2-sbb{min-height:0;padding:6px 6px 10px}
-  .v2-sbc.on .v2-sbb{padding:5px 5px 9px}
   .v2-sbm{flex-wrap:wrap;gap:5px}
-  .v2-sheet .v2-sbp{position:static;border:0;padding:0}
   /* hoja de llamado */
   .v2-cl{max-width:none}
   .v2-cltabs{flex-wrap:wrap}
   .v2-clsheet{padding:14px 12px 18px}
   .v2-cltop{flex-wrap:wrap}
   .v2-clhead{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto}
-  .v2-clh1{grid-column:1/-1;padding:16px 16px 6px}
-  .v2-clh1 h2{font-size:22px;line-height:26px}
   .v2-clcall{padding:14px 16px}
   .v2-clcall b,.v2-clbig{font-size:38px;line-height:42px}
-  .v2-clends>div{padding:10px 14px}
   .v2-clloc{flex-wrap:wrap;padding:10px 14px;gap:8px}
   .v2-clloc .v2-btn.k{margin-left:0}
   .v2-cltbl{overflow-x:auto}
@@ -885,13 +823,21 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
   .v2-cladvl{grid-template-columns:minmax(0,1fr)}
   .v2-cladv header{flex-wrap:wrap}
 }
-/* la revisión del guion de la v1 (resumen, carátula, buscar y reemplazar, revisiones, guion final): un panel a la derecha */
-#view>.insp.v2-insp{display:none;position:fixed;z-index:40;right:0;top:0;bottom:0;width:min(380px,100vw);box-sizing:border-box;border-left:1px solid var(--line);background:var(--surface);box-shadow:-12px 0 32px rgba(0,0,0,.12);overflow:auto}
-#view>.insp.v2-insp.open{display:flex}
-#view>.insp.v2-insp .drawer-close{display:inline-flex}
-#view>.insp.v2-insp .rv-top h2{font:700 18px/24px var(--v2-disp)}
-.v2-sheet .v2-sbp header h2{display:none}
-.v2-sheet .v2-sbp header:not(:has(.v2-done)){display:none}
+/* la revisión del guion de la v1 (resumen, carátula, buscar y reemplazar, revisiones, guion final, personajes, notas).
+   (lote AJ) En la computadora, siempre a la vista: en la columna de la derecha, debajo de la escena y sus notas (las dos
+   se desplazan juntas). En el teléfono, el panel que se abre desde «⋯» */
+.v2-guion>.v2-rcol{display:flex;flex-direction:column;gap:14px;overflow:auto;padding-bottom:24px;}
+.v2-rcol>.v2-side{flex:none;overflow:visible;padding-bottom:0}
+.v2-rcol>.insp.v2-insp{flex:none;display:flex;position:static;width:auto;box-sizing:border-box;padding:14px 0 18px;border:1px solid var(--line);border-radius:3px;background:var(--surface);box-shadow:none;overflow:visible}
+.v2-rcol>.insp.v2-insp .drawer-close{display:none}
+.insp.v2-insp .rv-top h2{font:700 18px/24px var(--v2-disp)}
+@media (max-width:760px){
+  .v2-g3>.v2-rcol{display:contents}
+  .v2-rcol>.v2-side{display:none}
+  .v2-rcol>.insp.v2-insp{display:none;position:fixed;z-index:40;right:0;top:0;bottom:0;width:min(380px,100vw);padding:14px 0 24px;border:0;border-left:1px solid var(--line);border-radius:0;box-shadow:-12px 0 32px rgba(0,0,0,.12);overflow:auto}
+  .v2-rcol>.insp.v2-insp.open{display:flex}
+  .v2-rcol>.insp.v2-insp .drawer-close{display:inline-flex}
+}
 
 /* ============ LAS PESTAÑAS QUE NO ESTÁN EN EL PDF: las piezas de la v1 con la forma v2 ============ */
 /* Exportar y los ajustes de la barra de la v1 ya están en la cabecera (Exportar y «⋯») */
@@ -920,9 +866,7 @@ b.v2-hshv.ph{color:var(--muted);font-weight:500}
 :root[data-v2] #view .slist .e{font:400 11.5px/16px var(--font-ui)}
 /* alineadas a la izquierda, como las pantallas del PDF (a 32 px del borde, bajo el título) */
 @media (min-width:761px){
-  :root[data-v2] #view .b-hd{margin-left:0}
-  :root[data-v2] #view .b-argw{justify-content:start}
-  :root[data-v2] #view .pj{margin-left:0}
+  :root[data-v2] #view .b-argw{justify-content:center}   /* (lote AJ) Historia y Proyecto, centradas en pantallas anchas */
   :root[data-v2] #view .cm-sc{padding-left:32px;padding-right:32px}
   :root[data-v2] #view>.ws:not(.ws-1)>.center>:is(.scroller.pad,.bar){padding-left:0;padding-right:0}
 }
@@ -942,3 +886,615 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .v2-prow .v2-ps small{color:#4A4A46}
 :root[data-theme="dark"] .v2-btn.k{background:#EDEDEA;border-color:#EDEDEA;color:#212121}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .v2-btn.k{background:#EDEDEA;border-color:#EDEDEA;color:#212121} }
+
+/* (lote AJ) el guion centrado en su columna: la hoja, las herramientas y «Página 1 de 3» comparten el mismo eje */
+.v2-ed .v2-edbar{justify-content:center}
+.v2-ed .v2-pinfo{width:min(716px,100%);margin-inline:auto;box-sizing:border-box}
+
+/* (lote AJ) planos que se graban de una vez: franja y etiqueta del color de su grupo, y la leyenda con la claqueta */
+.v2-sbc.v2-grp .v2-sbb{border-top:4px solid var(--gc)}
+.v2-gt{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:3px;background:var(--gc);color:#fff;font:700 11px/1 var(--font-ui);white-space:nowrap}
+.v2-sbleg{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:-4px 0 14px;font:400 13px/1.2 var(--font-ui);color:var(--muted)}
+.v2-sbleg .lab{font-weight:600}
+.v2-lg{display:inline-flex;align-items:center;gap:7px}
+.v2-lg i{width:12px;height:12px;border-radius:2px;background:var(--gc);flex:none}
+.v2-lg b{color:var(--ink);font-weight:700}
+/* (lote AJ) la barra de planos elegidos (Ctrl+clic) en el storyboard v2, y su marca en la tarjeta */
+.v2-sbc.sel .v2-sbb{outline:2px solid var(--v2-yellow);outline-offset:2px}
+.v2-sb .sb-selbar{position:sticky;bottom:14px;z-index:5;margin-top:18px}
+
+/* (lote AJ) el orden de las viñetas (número o color) y el botón de eliminar de la barra de elegidos */
+.v2-ord{display:inline-flex;align-items:center;gap:2px;margin-right:16px;padding:2px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+.v2-ord .lab{padding:0 8px;font:600 12.5px/1 var(--font-ui);color:var(--muted)}
+.v2-ord button{height:28px;padding:0 11px;border:0;border-radius:2px;background:none;color:var(--ink);font:500 13px/1 var(--font-ui);cursor:pointer}
+.v2-ord button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:700}
+.sb-sel-del{color:var(--bad)}
+
+/* (lote AJ) el menú de la tarjeta: «Más opciones» pliega lo que se usa poco */
+.pop .menu.sb-menu .sb-more{color:var(--muted);font-size:13px}
+.pop .menu.sb-menu .sb-more-b{display:grid;margin:2px 0 2px 8px;padding-left:8px;border-left:2px solid var(--line)}
+.pop .menu.sb-menu .sb-more-b[hidden]{display:none}
+
+/* (lote AJ) el cambio de plano en el centro del pie del editor 3D: dos flechas y el plano, con ← → en el teclado */
+.dlg>footer .ed-nav{display:flex;align-items:center;margin-right:auto;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+.ed-nav .ed-arr{display:grid;place-items:center;width:38px;height:36px;border:0;background:none;color:var(--ink);cursor:pointer}
+.ed-nav .ed-arr:hover:not(:disabled){background:var(--fill)}
+.ed-nav .ed-arr:disabled{opacity:.3;cursor:default}
+.ed-nav .ed-arr svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ed-nav .ed-pos{display:flex;gap:6px;min-width:84px;justify-content:center;padding:0 6px;border-inline:1px solid var(--line);align-self:stretch;align-items:center;font:700 14px/1 var(--font-ui);color:var(--ink)}
+.ed-nav .ed-pos small{font:500 12px/1 var(--font-ui);color:var(--muted)}
+
+/* (lote AJ) la columna «Notas» de las tiras (Observaciones de la escena): se escribe en la tira, sin marco */
+.v2-prow .v2-pn{font:400 13px/18px var(--font-ui)}
+.v2-prow .v2-pn textarea{display:block;width:100%;min-height:22px;padding:2px 0;border:0;background:transparent;resize:none;overflow:hidden;font:inherit;color:var(--v2-black);field-sizing:content}
+.v2-prow .v2-pn textarea::placeholder{color:var(--muted);opacity:.6}
+.v2-prow .v2-pn textarea:focus{background:var(--surface);outline:1px solid var(--ink)}
+:root[data-v2][data-tab="plan"] #board .pl-head>.pl-rz{display:block}
+
+/* (lote AJ) idioma, personalización y avatar a la derecha de la cabecera (proyecto e Inicio) */
+.v2-me{display:flex;align-items:center;flex:none;margin-left:6px;padding-left:16px;border-left:1px solid var(--line)}
+.v2-meav{display:grid;place-items:center;width:44px;height:44px;flex:none;padding:0;border:0;border-radius:50%;background:var(--v2-yellow);color:var(--v2-black);font:700 14px/1 var(--font-ui);cursor:pointer}
+.v2-meav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.v2-meav:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--v2-yellow) 40%,transparent)}
+.v2-meav:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.v2-hhead .v2-me{margin-left:4px}
+@media (max-width:760px){.v2-hhead .v2-me{padding-left:10px}}
+/* el menú del avatar: Ver perfil, Personalizar e Idioma */
+.v2-memenu{min-width:230px}
+.v2-memenu button{display:flex;align-items:center;gap:12px;width:100%}
+.v2-memenu button svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.v2-memenu button span{display:grid;gap:1px;min-width:0;flex:1;text-align:left}
+.v2-memenu button small{font-size:12px;font-weight:400;color:var(--muted)}
+.v2-memenu button[data-k="lang"]{padding-left:42px}
+.v2-memenu button[data-k="lang"] svg{margin-left:auto}
+.v2-memenu h6{margin:8px 12px 2px;font:700 11px/1 var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.v2-memenu hr{margin:6px 0;border:0;border-top:1px solid var(--line)}
+.v2-acts .v2-btn.ic svg.ic{width:19px;height:19px}
+
+/* (lote AJ) «Personalización» · Tu pantalla, más corta */
+.lk-body .lk-scope.me{margin:4px 0 0;padding:0;background:none;color:var(--muted);font-size:var(--fs-2)}
+:root[data-tone="dark"] .lk-body .lk-scope.me{background:none;color:var(--muted)}
+.lk-body section.lk-rows{gap:8px;padding:12px 0 14px}
+.lk-body .lk-cards .lk-card{display:flex;flex-direction:column-reverse;gap:6px;padding:8px 8px 7px;align-items:stretch;text-align:center}
+.lk-body .lk-cards .lk-card b{font-size:var(--fs-2)}
+.lk-body .lk-cards .lk-chips i{height:12px}
+.lk-body .lk-fonts{display:flex;flex-wrap:wrap;gap:6px}
+.lk-body .lk-fonts button{display:inline-block;padding:6px 11px;border:var(--l1) solid var(--line);border-radius:999px;background:var(--surface);font-size:var(--fs-3);line-height:1.1;white-space:nowrap}
+.lk-body .lk-fonts button:hover{border-color:var(--muted);background:var(--surface)}
+.lk-body .lk-fonts button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:var(--surface);font-weight:650}
+.lk-body details.lk-tabsv{padding:12px 0 8px;border-bottom:var(--l1) solid var(--line-2)}
+.lk-body details.lk-tabsv>summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--fs-1);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);list-style:none}
+.lk-body details.lk-tabsv>summary::-webkit-details-marker{display:none}
+.lk-body details.lk-tabsv>summary::after{content:"";width:7px;height:7px;margin-left:auto;border:solid currentColor;border-width:0 1.6px 1.6px 0;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.lk-body details.lk-tabsv[open]>summary::after{transform:rotate(-135deg)}
+.lk-body details.lk-tabsv>summary small{font-size:var(--fs-2);font-weight:500;letter-spacing:0;text-transform:none}
+.lk-body details.lk-tabsv .tabs-pick{margin-top:10px}
+.lk-body .lk-reset{margin-top:14px}
+
+/* (lote AJ) Inicio: la página ocupa el ancho (antes quedaba un vacío a la derecha en pantallas grandes) */
+.v2-hgrid{grid-template-columns:minmax(0,1fr) 320px;max-width:none}
+.v2-hcards{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.v2-hscripts{grid-template-columns:repeat(auto-fill,minmax(172px,1fr))}
+@media (max-width:1180px){.v2-hgrid{grid-template-columns:minmax(0,1fr) 280px;gap:24px}}
+
+/* (lote AJ) «Agregar» jornada o etapa, junto al ícono de las columnas */
+.v2-tiras .v2-agr{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:600 13.5px/1 var(--font-ui);cursor:pointer}
+.v2-tiras .v2-agr:hover{background:var(--fill)}
+.v2-tiras .v2-agr svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.v2-addm{min-width:270px}
+.pop .v2-addm button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left}
+.v2-addm b{font-weight:650}
+.v2-addm small{font-size:12px;font-weight:400;color:var(--muted);white-space:normal}
+
+/* (lote AJ) editor 3D: lo que ocupan la cabecera, la barra y el pie (con el cambio de plano) a lo alto; antes 246 px y la viñeta pisaba la barra de animar */
+.sx-modal{--sxc:262px}
+
+/* (lote AJ) Guion rayado: al pasar el mouse por una raya se resalta el texto que cubre su plano; los grupos de grabación, con su color */
+.cv .cvb{display:none;position:absolute;pointer-events:none;top:0;bottom:0;left:calc(.5em - 36.72em * (var(--lane) + 1) / (var(--n) + 1));width:36.72em;background:color-mix(in srgb,var(--cvc) 15%,transparent);box-shadow:inset 0 -.1em 0 var(--cvc),inset 0 .1em 0 var(--cvc)}
+.cv.hov .cvb{display:block}
+.cv.hov::before{border-left-width:calc(var(--l2) + 2px);opacity:1}
+.cv.hov .cvl{background:var(--cvc);color:var(--page);opacity:1}
+.v2-rayam{min-width:250px}
+.pop .v2-rayam h5{margin:2px 10px 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pop .v2-rayam hr{margin:4px 0;border:0;border-top:1px solid var(--line)}
+.pop .v2-rayam button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%}
+.pop .v2-rayam button small{font-size:11.5px;font-weight:400;color:var(--muted)}
+.pop .v2-rayam button.dng span{color:var(--danger,#C8271D)}
+
+/* (lote AJ) Desglose: la escena en sus páginas del guion, con el ancho estándar un 10 % más grande y su propia barra de
+   desplazamiento; arriba de la página, el marcador y anotar a mano; al lado, las categorías siempre a la vista */
+.v2-bdgrid{grid-template-columns:684px minmax(0,1fr)}
+.v2-bdgrid .v2-bdtx{min-width:0;padding:0;background:none;border:0;box-shadow:none}
+.v2-bdtx .scroller{container-type:inline-size;flex:none;height:calc(100dvh - 262px);min-height:420px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
+.v2-bdtx .pages{padding:0 0 14px}
+.pages .ln.bd-out{opacity:.38}
+.v2-bdtools{display:flex;align-items:center;gap:10px;min-width:0;margin:0 0 10px}
+.v2-bdtools .v2-btn{flex:none;height:40px;gap:8px;padding:0 14px;font:600 13.5px/1 var(--font-ui)}
+.v2-bdtools .v2-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.v2-bdtools .v2-mk.on{background:var(--mkc);border-color:var(--mkc);color:var(--mkink)}
+.v2-bdtools .ink-btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.v2-bdtools .v2-bdhint{margin-left:auto;min-width:0;font:400 12.5px/1.35 var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-strip>.v2-sn{display:flex;align-items:center;gap:14px}
+.v2-sn .v2-sntx{display:grid;gap:5px;min-width:0;flex:1}
+.v2-snav{display:flex;gap:6px;flex:none}
+.v2-snav button{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);cursor:pointer}
+.v2-snav button:hover:not(:disabled){background:var(--fill)}
+.v2-snav button:disabled{opacity:.35;cursor:default}
+.v2-snav svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media (min-width:761px){
+  .v2-bdcards{position:sticky;top:8px;max-height:calc(100dvh - 120px);overflow:auto;align-content:start}
+}
+/* pantallas medianas: la página arriba y las categorías debajo */
+@media (min-width:761px) and (max-width:1180px){
+  .v2-bdgrid{grid-template-columns:minmax(0,684px)}
+  .v2-bdcards{position:static;max-height:none}
+}
+/* teléfono: las categorías arriba y la página debajo, cada una con su desplazamiento; la hoja al ancho de la pantalla
+   (39,5 em: sin los márgenes anchos, como en el guion rayado) */
+@media (max-width:760px){
+  .v2-bdgrid{display:flex;flex-direction:column;align-items:stretch;height:calc(100dvh - 300px);min-height:400px;gap:10px}
+  .v2-bdcards{order:1;flex:0 0 auto;max-height:36%;overflow:auto;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .v2-bdcards .v2-bdc{padding:11px 12px 13px}
+  .v2-bdgrid .v2-bdtx{order:2;flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+  .v2-bdtx .scroller{flex:1 1 0;height:auto;min-height:0}
+  .v2-bdtx .pages:not(.av-pages){--fs:calc(100cqw / 39.5) !important}
+  .v2-bdtools{margin-bottom:8px}
+  .v2-bdtools .v2-btn{height:36px;padding:0 11px}
+  .v2-bdtools .v2-bdhint{display:none}
+}
+
+/* en el teléfono: la tira de tipos empieza en «Escena» y se desliza (centrada se cortaba a los dos lados, sin poder volver
+   al principio); las herramientas, centradas en su fila; «Página 1 de 3», con su margen */
+@media (max-width:760px){
+  .v2-ed .v2-edbar{justify-content:flex-start}
+  .v2-ed .v2-types{flex:1 1 100%;min-width:0}
+  .v2-ed .v2-edtools{margin-inline:auto}
+  .v2-ed .v2-pinfo{width:auto;margin:8px 16px}
+}
+
+/* (lote AJ) Guion en pantallas grandes (≥ 1500 px): los tipos de párrafo, un menú con ícono y atajo a la izquierda de la hoja,
+   dentro del área que se desplaza (queda fijo arriba); así la barra de desplazamiento va al borde de la columna del centro,
+   junto a la de la derecha, y no pegada a la hoja. La columna de la derecha, 15 % más ancha (299 px) */
+.v2-types .v2-ti,.v2-types kbd{display:none}
+.v2-types-side{display:none}
+@media (min-width:1500px){
+  .v2-g3.v2-guion{grid-template-columns:220px minmax(0,1fr) 299px}
+  .v2-guion{--mw:158px;--mg:18px;--sh:calc(77px + (var(--mw) + var(--mg)) / 2);--spare:calc(100vw - 864px - var(--mw) - var(--mg) - 716px);--P:max(0px,min(calc(2 * var(--sh)),var(--spare)))}
+  body.np-on .v2-guion{--P:0px}
+  .v2-guion .v2-types-top{display:none}
+  .v2-guion .v2-edscroll{scrollbar-gutter:stable both-edges}
+  .v2-guion .v2-edrow{display:flex;justify-content:center;align-items:flex-start;gap:var(--mg);padding-right:var(--P)}
+  .v2-guion #edHost{flex:1 1 736px;min-width:0;max-width:736px;container-type:inline-size}
+  .v2-guion .v2-types-side{display:flex;flex-direction:column;position:sticky;top:0;flex:none;width:var(--mw);height:auto;align-self:flex-start;box-sizing:border-box;padding:6px;gap:1px;border:1px solid var(--line);border-radius:4px;background:var(--surface);box-shadow:0 6px 18px rgba(0,0,0,.07)}
+  .v2-guion .v2-types-side>button{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:0;border-radius:3px;background:none;font:500 13.5px/1 var(--font-ui);color:var(--ink);text-align:left;white-space:nowrap;cursor:pointer}
+  .v2-guion .v2-types-side>button:hover{background:var(--fill)}
+  .v2-guion .v2-types-side>button[aria-pressed="true"]{background:var(--fill);font-weight:600}
+  .v2-guion .v2-types-side .v2-ti{display:block;width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .v2-guion .v2-types-side .v2-tn{flex:1;min-width:0}
+  /* la herramientas y «Página 1 de 3» sobre la hoja (la hoja queda a la derecha del menú) */
+  .v2-guion .v2-ed .v2-edbar{padding-left:calc(var(--mw) + var(--mg));padding-right:var(--P)}
+  .v2-guion .v2-ed .v2-pinfo{--rw:calc(100% - var(--mw) - var(--mg) - var(--P));width:min(716px,var(--rw));margin-inline:calc(var(--mw) + var(--mg) + (var(--rw) - min(716px,var(--rw))) / 2) 0}
+}
+@media (min-width:1760px){
+  .v2-guion{--mw:232px}
+  .v2-guion .v2-types-side kbd{display:block;font:500 11px/1 var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+}
+
+/* (lote AJ) la revisión del guion, compacta: todo a la vista sin desplazar y sin amontonar. En la columna de la derecha:
+   la escena, la revisión y, debajo, las notas (esta se ajusta al alto que quede y se desplaza por dentro) */
+@media (min-width:761px){
+  .v2-guion>.v2-rcol{gap:10px;padding-bottom:6px}
+  .v2-rcol>.v2-side{display:contents}
+  .v2-rcol>.v2-side>.v2-scard{order:1;flex:none}
+  .v2-rcol>.insp.v2-insp{order:2;padding:10px 0 4px}
+  .v2-rcol>.v2-side>.v2-ncard{order:3;flex:1 1 170px;min-height:140px;overflow:auto}
+  .v2-rcol .rv-top{padding:0 14px 6px}
+  .v2-rcol .rv-top h2{font-size:16px}
+  .v2-rcol details.rv>summary{padding:6px 14px;font-size:12.5px}
+  .v2-rcol .rv-b{gap:6px;padding:0 14px 8px}
+  .v2-rcol .rv-b .hint{margin:0;font-size:11.5px;line-height:1.35}
+  /* Resumen: las cuatro cifras en una fila; del texto, solo el largo en octavos */
+  .v2-rcol .rv-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;background:none}
+  .v2-rcol .rv-stats>div{padding:6px 4px;border-radius:3px;background:var(--fill);text-align:center;justify-items:center}
+  .v2-rcol .rv-stats b{font-size:15px}
+  .v2-rcol .rv-stats span{font-size:9.5px;letter-spacing:.02em}
+  #rv-sum .hint{display:none}   /* el largo en octavos, en la ayuda de las cifras (title) */
+  /* Carátula: la muestra baja y el interruptor, en una línea */
+  .v2-rcol .rv-cov{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 10px}
+  .v2-rcol .rv-cov span{display:none}
+  .v2-rcol .rv-cov small{margin:0}
+  .v2-rcol #rv-cover .opt-in{font-size:12px;font-weight:500;justify-content:space-between;flex-direction:row-reverse}
+  /* Buscar y reemplazar: dos líneas */
+  .v2-rcol .rv-find{flex-wrap:nowrap}
+  .v2-rcol .rv-find input#rvR{flex:1 1 auto;min-width:0;height:30px}
+  .v2-rcol .rv-find>.btn{flex:none;padding:0 10px;height:30px}
+  /* Revisiones y Guion final: el control, sin el párrafo que lo explica */
+  #rv-rev>.hint,#rv-lock>.hint{display:none}
+  .v2-rcol #rv-rev .rv-row{display:flex;flex-wrap:nowrap;align-items:center;gap:10px}
+  .v2-rcol #rv-rev .rv-row .opt-in{flex:none;width:auto;gap:10px}
+  .v2-rcol #rv-rev .rv-row select{flex:1;width:auto;min-width:0;height:28px}
+  .v2-rcol .rv-list,.v2-rcol .rv-notes,.v2-rcol .rv-chars{max-height:150px}
+}
+/* las barras de desplazamiento de las zonas principales se ven siempre (el resto aparece al pasar el puntero) */
+.v2-edscroll::-webkit-scrollbar-thumb,.v2-rcol::-webkit-scrollbar-thumb,.v2-ncard::-webkit-scrollbar-thumb,.v2-bdtx .scroller::-webkit-scrollbar-thumb,.v2-bdcards::-webkit-scrollbar-thumb,.v2-scenes::-webkit-scrollbar-thumb,.v2-hmain::-webkit-scrollbar-thumb{background-color:var(--sb)}
+
+/* (lote AJ) la hoja en el centro de la pantalla (no el de la columna): la barra de la izquierda (233 px) y las columnas de
+   cada pestaña la corrían a la derecha. Solo cuando cabe (si no, queda lo más cerca posible) y con ningún panel abierto. */
+@media (min-width:1500px){
+  /* Hoja de llamado */
+  body:not(.np-on) .v2-cl{margin-left:max(0px,calc((100vw - 233px - 1039px) / 2 - 116.5px));margin-right:auto}
+}
+@media (min-width:1560px){
+  /* Historia: Argumento, Premisa y mundo y Estructura */
+  body:not(.np-on) #view .scroller:has(>.b-hd){padding-right:calc(32px + 233px)}
+}
+@media (min-width:1800px){
+  /* Argumento y Premisa y mundo: la hoja (no la lista de la izquierda) en el centro: se corre media lista más */
+  body:not(.np-on) #view .scroller:has(>.b-argw:not(.b-premw)){padding-right:calc(32px + 233px + 218px)}
+  body:not(.np-on) #view .scroller:has(>.b-premw){padding-right:calc(32px + 233px + 238px)}
+  /* Guion rayado */
+  :root[data-tab="lined"] body:not(.np-on) #view .pages{padding-right:calc(12px + 193px)}
+}
+
+/* (lote AJ) hoja de llamado: el llamado general centrado en su recuadro amarillo; los contactos, la nota (con su título y su
+   texto al centro) y la frase del día; el avance, al final de todo */
+.v2-clcall{justify-items:center;text-align:center}
+.v2-clcall .v2-clbig{width:100%;text-align:center}
+.v2-clnote,.v2-clquote{text-align:center}
+.v2-clnote h3,.v2-clquote h3{text-align:center}
+.v2-clnote{border-color:color-mix(in srgb,var(--v2-yellow) 60%,var(--line))}
+.v2-clnote textarea,.v2-clquote textarea{width:100%;box-sizing:border-box;text-align:center;resize:none;field-sizing:content;min-height:2.4em}
+.v2-clnote p,.v2-clquote p{margin:0;font:400 14px/22px var(--font-ui);white-space:pre-wrap}
+.v2-clquote p,.v2-clquote textarea{font-style:italic;font-size:16px;line-height:24px}
+.v2-clquote small{display:block;margin-top:6px;font:400 12px/16px var(--font-ui);color:var(--muted)}
+.v2-clnote,.v2-clquote{margin-top:16px}
+.v2-clquote{margin-bottom:16px}
+.v2-clnote{background:color-mix(in srgb,var(--v2-yellow) 10%,transparent)}
+
+/* (lote AJ) cabecera de la hoja de llamado en tres columnas, en el orden del PDF */
+.v2-clhead.v2-ch3{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);grid-template-rows:auto}
+.v2-chl,.v2-chr{padding:18px 22px;display:grid;align-content:start;gap:14px}
+.v2-chc{display:grid;border-inline:1px solid var(--line);align-content:start}
+.v2-chk{display:grid;gap:2px;font:400 13px/18px var(--font-ui)}
+.v2-chk span,.v2-clloc span:first-child{font:600 11.5px/16px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.v2-chk b{font:700 14px/20px var(--font-ui);color:var(--ink)}
+.v2-chk b.miss{font-weight:500;color:var(--muted)}
+.v2-chk a{color:var(--muted);text-decoration:none}
+.v2-cht{display:grid;gap:6px;justify-items:center;text-align:center;padding:18px 16px 14px}
+.v2-cht h2{margin:0;font:700 26px/30px var(--v2-disp);color:var(--ink)}
+.v2-cht p{margin:0;font:600 12.5px/1.2 var(--font-ui);color:var(--muted)}
+.v2-cht p.d{font:700 16px/22px var(--font-ui);color:var(--ink)}
+.v2-chc .v2-clcall{padding:14px 21px;justify-items:center;text-align:center}
+.v2-ch4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.v2-ch4>div{display:grid;gap:5px;justify-items:center;text-align:center;padding:10px 6px}
+.v2-ch4>div+div{border-left:1px solid var(--line)}
+.v2-ch4 span{font:400 12px/1 var(--font-ui);color:var(--muted)}
+.v2-ch4 b,.v2-ch4 .v2-clmid{font:700 18px/22px var(--font-ui);text-align:center;color:var(--ink)}
+.v2-chs{margin:0;padding:9px 12px;border-top:1px solid var(--line);text-align:center;font:400 12.5px/1 var(--font-ui);color:var(--muted)}
+.v2-chr .v2-clloc{grid-column:auto;display:grid;grid-template-columns:20px minmax(0,1fr);align-items:start;border:0;background:none}
+.v2-chr .v2-clloc>div{display:grid;justify-items:start}
+.v2-chr .v2-clloc>b{margin:0}
+.v2-chr .v2-clloc .v2-btn.k{margin:8px 0 0}
+@media (max-width:1100px){.v2-clhead.v2-ch3{grid-template-columns:minmax(0,1fr)}.v2-chc{border-inline:0;border-block:1px solid var(--line)}}
+.v2-clnote{margin-bottom:20px}
+
+/* (lote AJ) las escenas como la hoja exportada; las opciones de miniaturas; el estilo Cuadrícula en el programa */
+.v2-clhr{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.v2-clhr .v2-clh{margin-right:auto}
+.v2-clopts{display:flex;gap:16px;font:500 12.5px/1 var(--font-ui);color:var(--ink)}
+.v2-clopts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.v2-clsc td,.v2-clsc th{vertical-align:top}
+.v2-clsc .c-he{width:74px}
+.v2-clsc .c-ie{width:48px}
+.v2-clsc .c-m{width:120px}
+.v2-clsc .c-p{width:96px;text-align:right}
+.v2-clsc small{display:block;margin-top:2px;font:400 11.5px/15px var(--font-ui);color:var(--muted)}
+.v2-clsc tr.sc td{background:var(--sc,var(--fill));color:var(--sci,var(--ink))}
+.v2-clsc tr.sc small,.v2-clsc tr.sc .syn{color:inherit}
+.v2-clsc tr.sc .syn{display:block;margin:3px 0}
+.v2-clsc tr.sc .cs{display:block;font-weight:700}
+.v2-clsc tr.sc .c-he b{font:700 17px/22px var(--v2-disp)}
+.v2-clsc tr.h2 th{font-weight:400;color:var(--muted)}
+.v2-clsc tr.sh td{font-size:12.5px;line-height:18px}
+.v2-clsc tr.sh .c-p{font-size:12.5px}
+.v2-clsc tr.sh span,.v2-clsc tr.sh .act{color:var(--muted)}
+.v2-clsc tr.ev.mv td{background:#ddeffc;color:#111}
+.v2-clsc tr.wr td{border-top:1px solid var(--ink)}
+.v2-shg{display:flex;gap:10px;align-items:flex-start}
+.v2-shg .cl-th{flex:none;object-fit:cover;border-radius:2px;background:var(--fill)}
+.v2-clx .v2-clhead,.v2-clx .v2-cltbl,.v2-clx .v2-clbox,.v2-clx .v2-cladv,.v2-clx .v2-clquote{border:1px solid var(--ink);border-radius:0}
+.v2-clx .v2-clhead{overflow:visible}
+.v2-clx .v2-chc,.v2-clx .v2-ch4,.v2-clx .v2-ch4>div+div,.v2-clx .v2-chs{border-color:var(--ink)}
+.v2-clx .v2-cltbl table{border-collapse:collapse}
+.v2-clx .v2-cltbl th,.v2-clx .v2-cltbl td{border:1px solid var(--ink)}
+.v2-clx .v2-cltbl thead th{background:var(--fill)}
+.v2-clx .v2-clbox>h3{margin:-16px -16px 12px;padding:6px 16px;background:var(--fill);border-bottom:1px solid var(--ink)}
+.v2-clx .v2-clnote>h3,.v2-clx .v2-clquote>h3{text-align:center}
+.v2-shg .cl-th{position:static;left:auto;top:auto;aspect-ratio:16/9;width:64px;height:auto}
+
+/* (lote AJ) cabecera: dos cuadros a la izquierda, la locación más grande y el centro de salud; la franja del clima; el blanco, limpio */
+.v2-chl{padding:0;gap:0;grid-template-rows:auto 1fr}
+.v2-chl>div{padding:18px 22px;display:grid;gap:14px;align-content:start}
+.v2-chl>div+div{border-top:1px solid var(--line)}
+.v2-chl h3{margin:0;font:700 15px/20px var(--v2-disp);color:var(--ink)}
+.v2-chr{padding:0;gap:0;grid-template-rows:1fr auto}
+.v2-chr .v2-clloc{padding:20px 22px}
+.v2-chr .v2-clloc>div{gap:6px}
+.v2-chr .v2-clloc .n{font:700 22px/28px var(--v2-disp);color:var(--ink)}
+.v2-chr .v2-claddr input{font-size:15px;height:24px}
+.v2-chr .v2-clloc ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;width:100%}
+.v2-chr .v2-clloc li{display:grid;gap:1px;font:400 13px/18px var(--font-ui)}
+.v2-chr .v2-clloc li b{font:700 14px/20px var(--font-ui)}
+.v2-chh{display:grid;gap:3px;padding:14px 22px 16px;border-top:1px solid var(--line);font:400 13px/18px var(--font-ui);color:var(--ink)}
+.v2-chh>span:first-child{font:600 11.5px/16px var(--font-ui);letter-spacing:.04em;text-transform:uppercase}
+.v2-chh input{width:100%;height:20px;padding:0;border:0 !important;background:none !important;box-shadow:none !important;font:400 13px/18px var(--font-ui);color:var(--ink)}
+.v2-chh input:first-of-type{font-weight:700}
+.v2-clwx b,.v2-clwx input{font:700 16px/22px var(--font-ui);color:var(--ink);text-align:center}
+.v2-clwx input{width:100%;min-width:0;padding:0;border:0 !important;background:none !important;box-shadow:none !important}
+.v2-wu{display:inline-flex;align-items:baseline;justify-content:center;gap:1px;width:100%}
+.v2-wu input{width:auto;min-width:2ch;field-sizing:content}
+.v2-wu i{font:700 14px/22px var(--font-ui);font-style:normal;color:var(--ink)}
+@media (max-width:1100px){.v2-clwx{grid-template-columns:repeat(4,minmax(0,1fr))}.v2-clwx>div:nth-child(n+5){border-top:1px solid var(--line)}.v2-clwx>div:nth-child(5){border-left:0}}
+.v2-clsheet{--muted:var(--ink)}
+.v2-clsheet .v2-cltbl thead th,.v2-clx .v2-cltbl thead th,.v2-clx .v2-clbox>h3{background:var(--surface)}
+.v2-clsc tr.ev td{background:var(--surface)}
+.v2-clsc tr.sc small,.v2-clsc tr.sc .syn{opacity:1}
+.v2-clsheet ::placeholder{color:var(--ink);opacity:1}
+
+/* (lote AJ) el clima, en el recuadro del centro: la primera fila, el clima; después de cuatro y de tres */
+.v2-clwx{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border:0;border-top:1px solid var(--line);border-radius:0;margin:0}
+.v2-clwx>div{display:grid;gap:3px;justify-items:center;text-align:center;padding:9px 4px;border-left:0}
+.v2-clwx>div+div{border-left:0}
+.v2-clwx .c12{grid-column:span 12;grid-template-columns:none}
+.v2-clwx .c3{grid-column:span 3;border-top:1px solid var(--line)}
+.v2-clwx .c4{grid-column:span 4;border-top:1px solid var(--line)}
+.v2-clwx .c3+.c3,.v2-clwx .c4+.c4,.v2-clwx .c3+.c4{border-left:1px solid var(--line)}
+.v2-clwx span:first-child{display:inline-flex;align-items:center;gap:5px;font:600 11px/14px var(--font-ui);letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+.v2-clwx .c12 span:first-child{display:none}
+.v2-clwx .c12 .v2-wu input,.v2-clwx .c12 b{font:700 15px/22px var(--font-ui)}
+.v2-clwx .c3 b,.v2-clwx .c3 input,.v2-clwx .c4 b,.v2-clwx .c4 input{font:700 15px/20px var(--font-ui)}
+
+/* (lote AK) Inicio sin deslizador: todo cabe en la pantalla. El saludo arriba; a la izquierda los proyectos, a su lado los
+   guiones y «Colaboro en», y a la derecha el perfil, la agenda y las notas. Los tamaños siguen el alto de la ventana (vh);
+   si la ventana es muy chica, la página se desliza como antes. */
+#home.v2-home .v2-hmain{padding:clamp(10px,2vh,24px) clamp(18px,2.4vw,48px) clamp(10px,2vh,24px) clamp(18px,2vw,40px)}
+#home.v2-home .v2-hhead{margin:0 0 clamp(8px,2vh,22px)}
+#home.v2-home .v2-hgrid{grid-template-columns:minmax(0,1fr) clamp(270px,21vw,320px);gap:clamp(16px,1.6vw,32px)}
+#home.v2-home .v2-hleft{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);grid-template-areas:"greet greet" "proj side";gap:0 clamp(16px,1.6vw,32px);align-items:start}
+#home.v2-home .v2-hleft>.pj-empty{grid-column:1/-1}
+#home.v2-home .v2-hgreet{grid-area:greet;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:end;gap:0 24px}
+#home.v2-home .v2-hgreet .v2-hdate{grid-column:1/-1;margin:0 0 clamp(4px,1vh,10px)}
+#home.v2-home .v2-hhi{margin:0;font-size:clamp(32px,5vh,52px)}
+#home.v2-home .v2-hsum{max-width:none;margin:0 0 4px;font-size:14px;line-height:20px}
+#home.v2-home .v2-hproj{grid-area:proj;min-width:0}
+#home.v2-home .v2-hside{grid-area:side;min-width:0}
+#home.v2-home .v2-hsec{margin:clamp(12px,2.6vh,28px) 0 clamp(8px,1.6vh,14px)}
+#home.v2-home .v2-hsec h2{font-size:clamp(17px,2.4vh,22px)}
+#home.v2-home .v2-hsec .v2-seg{height:34px}
+#home.v2-home .v2-hside .v2-hsec:first-child{margin-top:clamp(8px,1.6vh,16px)}
+#home.v2-home .v2-hfeat{grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:28px;min-height:0;padding:clamp(14px,3vh,28px) 24px clamp(12px,2.2vh,19px)}
+#home.v2-home .v2-hfeat .m{margin:0 0 clamp(8px,2vh,20px)}
+#home.v2-home .v2-hfeat h3{font-size:clamp(24px,3.6vh,34px);line-height:1.1;margin:0 0 clamp(6px,1.2vh,10px)}
+#home.v2-home .v2-hfeat .lg{margin:0 0 clamp(10px,2vh,20px)}
+#home.v2-home .v2-hfeat .v2-btn.y{height:clamp(36px,4.4vh,44px)}
+#home.v2-home .v2-hfeat .v2-bar{margin:0 0 clamp(10px,2vh,22px)}
+#home.v2-home .v2-hcards{grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.6vh,16px) 14px;margin:clamp(8px,1.6vh,16px) 0 0}
+#home.v2-home .v2-hcard{min-height:0;padding:clamp(10px,1.8vh,18px) 16px clamp(10px,1.6vh,16px)}
+#home.v2-home .v2-hcard header{margin:0 0 clamp(6px,1.4vh,18px)}
+#home.v2-home .v2-hco h3{font-size:clamp(15px,2.1vh,19px);margin:0 0 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#home.v2-home .v2-hco p{margin:0 0 clamp(8px,1.8vh,22px)}
+#home.v2-home .v2-hco .pr{margin:0 0 7px}
+#home.v2-home .v2-hco .v2-bar{margin:0 0 clamp(7px,1.4vh,14px)}
+#home.v2-home .v2-hscripts{grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(8px,1.6vh,14px) 14px}
+#home.v2-home .v2-hscr .pg{height:clamp(58px,10.5vh,118px);padding:10px 12px}
+#home.v2-home .v2-hscr b{margin:8px 0 4px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#home.v2-home .v2-hcoll{max-height:clamp(150px,36vh,330px);overflow:auto}
+#home.v2-home .v2-hcr{grid-template-columns:36px minmax(0,1fr) auto 16px;grid-template-areas:"av t chip chev" "av ro pm chev";height:auto;gap:2px 12px;padding:10px 14px 10px 14px}
+#home.v2-home .v2-hcr>.v2-av{grid-area:av;width:36px;height:36px}
+#home.v2-home .v2-hcr .t{grid-area:t;gap:3px;min-width:0}
+#home.v2-home .v2-hcr .t b,#home.v2-home .v2-hcr .t small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#home.v2-home .v2-hcr>.v2-stc{grid-area:chip;justify-self:end}
+#home.v2-home .v2-hcr .ro{grid-area:ro;font-size:12.5px}
+#home.v2-home .v2-hcr .pm{grid-area:pm;justify-self:end;font-size:12px}
+#home.v2-home .v2-hcr>svg{grid-area:chev}
+/* la columna de la derecha */
+#home.v2-home .v2-hright{gap:clamp(8px,1.6vh,16px);padding-top:0}
+#home.v2-home .v2-hstats{height:clamp(52px,7vh,68px);margin-bottom:0}
+#home.v2-home .v2-hme{grid-template-columns:48px minmax(0,1fr);justify-items:stretch;align-items:center;gap:0 14px;padding:clamp(10px,1.8vh,18px) 18px;text-align:left}
+#home.v2-home .v2-hme .v2-av{grid-row:1/3;width:48px;height:48px;font-size:16px}
+#home.v2-home .v2-hme h3{margin:0 0 5px;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#home.v2-home .v2-hme p{margin:0;font-size:12.5px}
+#home.v2-home .v2-hme>div{grid-column:1/-1;margin-top:clamp(8px,1.6vh,14px)}
+#home.v2-home .v2-hme .v2-btn{height:clamp(32px,4.2vh,38px)}
+#home.v2-home .v2-hnext{padding:clamp(12px,2vh,20px) 20px}
+#home.v2-home .v2-hnext header{margin:0 0 clamp(8px,1.6vh,16px)}
+#home.v2-home .v2-hnext h3{font-size:clamp(18px,2.6vh,22px)}
+#home.v2-home .v2-hnext p{margin:0 0 clamp(8px,1.6vh,14px)}
+#home.v2-home .v2-hnext ul{margin:0 0 clamp(8px,1.6vh,14px);gap:8px}
+#home.v2-home .v2-hcall{height:clamp(38px,4.6vh,46px)}
+#home.v2-home .v2-hcal{padding:clamp(12px,2vh,20px) 18px clamp(10px,1.8vh,18px)}
+#home.v2-home .v2-hcal header{margin:0 0 clamp(6px,1.4vh,14px)}
+#home.v2-home .v2-hweek{margin:0 0 clamp(8px,1.6vh,16px)}
+#home.v2-home .v2-hweek span{padding:5px 0 4px;gap:4px}
+#home.v2-home .v2-hagenda{gap:10px}
+#home.v2-home .v2-hnotes{padding:clamp(12px,2vh,20px) 18px clamp(8px,1.4vh,16px)}
+#home.v2-home .v2-hnotes h3{margin:0 0 clamp(8px,1.6vh,14px)}
+#home.v2-home .v2-hn{margin:0 0 clamp(8px,1.4vh,14px)}
+#home.v2-home .v2-hco .v2-bar{display:block}
+#home.v2-home .v2-hagenda li:nth-child(n+4),#home.v2-home .v2-hn:nth-of-type(n+3){display:none}
+#home.v2-home .v2-hn q{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-height:1100px){
+  #home.v2-home .v2-hnext ul{grid-template-columns:1fr 1fr;gap:8px 12px}
+  #home.v2-home .v2-hnext li.miss{grid-column:1/-1}
+  #home.v2-home .v2-hagenda li:nth-child(n+3){display:none}
+}
+@media (max-height:900px){
+  #home.v2-home .v2-hstats{display:none}
+  #home.v2-home .v2-hscripts{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #home.v2-home .v2-hscr .pg{height:46px;padding:6px 7px}
+  #home.v2-home .v2-hscr small{display:none}
+  #home.v2-home .v2-hagenda li:nth-child(n+2),#home.v2-home .v2-hn:nth-of-type(n+2){display:none}
+  #home.v2-home .v2-hcoll{max-height:210px}
+  #home.v2-home .v2-hfeat .lg,#home.v2-home .v2-hfeat .stg{display:none}
+  #home.v2-home .v2-hfeat .r{padding-top:0}
+  #home.v2-home .v2-hco p{display:none}
+  #home.v2-home .v2-hhead .v2-btn,#home.v2-home .v2-hq{height:38px}
+}
+@media (max-height:760px){
+  #home.v2-home .v2-hstats{display:none}
+  #home.v2-home .v2-hn q{display:none}
+}
+/* el proyecto destacado ocupa todo el ancho; debajo, las tarjetas y a su lado los guiones y «Colaboro en» */
+@media (min-width:1101px){
+  #home.v2-home .v2-hleft{grid-template-areas:"greet greet" "sec sec" "feat feat" "cards side"}
+  #home.v2-home .v2-hproj{display:contents}
+  #home.v2-home .v2-hproj>.v2-hsec{grid-area:sec}
+  #home.v2-home .v2-hproj>.v2-hfeat{grid-area:feat}
+  #home.v2-home .v2-hproj>.v2-hcards,#home.v2-home .v2-hproj>.v2-hempty{grid-area:cards}
+}
+@media (max-width:1100px){
+  #home.v2-home .v2-hleft{grid-template-columns:minmax(0,1fr);grid-template-areas:"greet" "proj" "side"}
+}
+@media (max-height:800px){
+  #home.v2-home .v2-hmain{padding-top:8px;padding-bottom:8px}
+  #home.v2-home .v2-hhead{margin-bottom:8px}
+}
+
+/* planta general: «Todos / Grupos» y el ojo de cada plano */
+.pg-view{margin:0}
+.pg-leg li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+.pg-leg li>.pg-open{grid-column:1/-1}
+.pg-eye{display:grid;place-items:center;width:32px;height:32px;margin:3px 2px 0 0;border:0;border-radius:3px;background:none;color:var(--muted);cursor:pointer}
+.pg-eye:hover{background:var(--fill);color:var(--ink)}
+.pg-eye svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pg-leg li.pg-off .pg-row{opacity:.5}
+
+/* editor de plano: el ajuste a mano del agarre de un objeto sostenido */
+.fp-grip{display:grid;gap:0;margin-top:6px}
+.fp-grip summary{cursor:pointer;padding:8px 0;font:600 13px/1 var(--font-ui);color:var(--ink)}
+.fp-grip .linkbtn{justify-self:start;margin-top:4px}
+
+/* Storyboard · vista «Plantas»: la planta de cámara de cada plano con su viñeta en una esquina; cada escena con su encabezado */
+.v2-plf{background:var(--v2k-e9e6df)}
+.v2-plf img.v2-plm{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#F6F5F1}
+.v2-plf img.v2-plm.wait{opacity:.35}
+.v2-plf .v2-plm.none{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;font:400 12px/16px var(--font-ui);color:var(--muted);background:#F6F5F1}
+.v2-pli{position:absolute;right:6px;bottom:6px;width:38%;aspect-ratio:var(--ar,1.778);border:2px solid var(--surface);border-radius:3px;overflow:hidden;background:var(--v2k-e9e6df);box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.v2-plsc{display:grid;gap:12px;margin:0 0 26px}
+.v2-plsc>header{display:flex;align-items:center;gap:12px;min-width:0}
+.v2-plsc h3{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0;min-width:0;font:700 17px/22px var(--v2-disp);color:var(--ink)}
+.v2-plsc h3 .no{white-space:nowrap}
+.v2-plsc h3 .sch{font:700 13px/18px var(--font-ui);text-transform:uppercase;letter-spacing:.01em}
+.v2-plsc h3 .v2-mut{font:400 12.5px/18px var(--font-ui)}
+.v2-plgi{display:inline-flex;align-items:center;gap:8px;flex:none;height:34px;padding:0 13px 0 10px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:700 13.5px/1 var(--font-ui);cursor:pointer}
+.v2-plgi:hover{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
+.v2-plgi svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* planta a pantalla completa del editor de plano: todo fuera del dibujo. Arriba, en la barra, los controles (medir, alejar, acercar,
+   ver todo, cerrar; shot-editor.js · planFull los pasa ahí); a la derecha, la miniatura del encuadre. En pantallas angostas, la
+   miniatura queda dentro, arriba a la derecha */
+.sx-plan.full .pl-pvb{top:8px}
+.sx-plan.full{--plsz:min(calc(100vw - 20px),calc(100dvh - 164px))}   /* deja lugar a la barra de animar de abajo */
+.sx-plan.full .sx-tl{width:var(--plsz);flex:none}
+.sx-plan.full .pl-add{flex-wrap:wrap}
+.sx-plan.full .pl-add .pl-ov{position:static;margin-left:auto;background:var(--surface);border:1px solid var(--line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.sx-plan.full .pl-add .pl-ov button{display:grid;place-items:center;width:30px;height:30px;min-height:0;padding:0;border:0;background:none;border-radius:var(--r-xs);font:600 16px/1 var(--font-ui)}
+.sx-plan.full .pl-add .pl-ov button:hover{background:var(--fill)}
+.sx-plan.full .pl-add .pl-ov button[aria-pressed="true"]{background:#0E7C66;color:#fff}
+@media (min-width:900px){
+  .sx-plan.full{--thw:clamp(180px,19vw,300px);--plsz:min(calc(100vw - 44px - var(--thw)),calc(100dvh - 164px))}
+  .sx-plan.full .pl-add,.sx-plan.full .sx-stage,.sx-plan.full .sx-tl{margin-right:calc(var(--thw) + 14px)}
+  .sx-plan.full .pl-pvb{left:calc(100% + 14px);right:auto;top:0;width:var(--thw)}
+}
+
+/* planta a pantalla completa: altura y tilt de la cámara, junto a su icono (doble toque en la cámara) */
+.pl-cp{position:absolute;z-index:6;width:236px;padding:10px 12px 8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 6px 22px rgba(0,0,0,.2)}
+.pl-cph{display:flex;align-items:center;justify-content:space-between;margin:0 0 4px;font:700 13px/1 var(--font-ui);color:var(--ink)}
+.pl-cpx{display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:var(--r-xs);background:none;color:var(--muted);font:600 14px/1 var(--font-ui);cursor:pointer}
+.pl-cpx:hover{background:var(--fill);color:var(--ink)}
+
+/* Inicio: la barra lateral y los números de arriba abren su sección en grande (v2-inicio.js · V2H.sec); «Inicio» las junta.
+   Una sección en grande tiene su propio encabezado (volver, título, cuántos, acciones) y su contenido, sin la grilla de Inicio */
+#home.v2-home .v2-hleft.v2-hfoc{display:block;min-width:0}
+.v2-hfh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin:0 0 clamp(14px,2.6vh,26px)}
+.v2-hfh>div:first-child{min-width:0}
+.v2-hfh h1{margin:10px 0 6px;font:700 clamp(28px,4.2vh,40px)/1.05 var(--v2-disp);color:var(--ink)}
+.v2-hfh p{margin:0;font:400 14px/20px var(--font-ui);color:var(--muted)}
+.v2-hback{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 6px 0 0;border:0;background:none;color:var(--muted);font:600 12.5px/1 var(--font-ui);cursor:pointer}
+.v2-hback:hover{color:var(--ink)}
+.v2-hback svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.v2-hfa{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.v2-hfa .v2-seg{height:40px}
+.v2-hfa .v2-btn{height:40px}
+#home.v2-home .v2-hfoc .v2-hcards{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin:0}
+#home.v2-home .v2-hfoc .v2-hscripts{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px 18px}
+#home.v2-home .v2-hfoc .v2-hscr .pg{height:clamp(150px,22vh,235px)}
+#home.v2-home .v2-hfoc .v2-hscr small{display:block}
+#home.v2-home .v2-hfoc .v2-hcoll{max-height:none;max-width:860px}
+#home.v2-home .v2-hfoc .v2-hcal,#home.v2-home .v2-hfoc .v2-hnotes{max-width:860px;padding:22px 24px}
+#home.v2-home .v2-hfoc .v2-hagenda li:nth-child(n){display:grid}
+#home.v2-home .v2-hfoc .v2-hagenda li.v2-mut{display:block}
+#home.v2-home .v2-hfoc .v2-hn:nth-of-type(n){display:grid}
+#home.v2-home .v2-hfoc .v2-hn q{display:block;white-space:normal}
+/* cuando una sección no tiene nada: qué es y cómo empezar */
+.v2-hfe{display:grid;justify-items:start;gap:8px;max-width:640px;box-sizing:border-box;padding:24px 26px}
+.v2-hfe h3{margin:0;font:700 19px/1.25 var(--v2-disp);color:var(--ink)}
+.v2-hfe p{margin:0;font:400 13.5px/20px var(--font-ui);color:var(--muted)}
+.v2-hfe .a{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.v2-hfe .a .v2-btn{height:40px}
+#home.v2-home .v2-hempty.v2-hfe{display:grid;max-width:none;margin:clamp(8px,1.6vh,16px) 0 0}
+/* «Ver los N restantes» junto al título de cada bloque de Inicio */
+#home.v2-home .v2-hsec h2+.v2-link2{margin-right:auto;margin-left:14px;color:var(--muted);font-size:13px}
+#home.v2-home .v2-hsec h2+.v2-link2:hover{color:var(--ink)}
+/* los números de arriba: botones que abren su sección (con el aspecto de siempre) */
+#home.v2-home .v2-hstats>button{display:grid;align-content:center;justify-items:start;gap:6px;min-width:0;padding:0 0 0 18px;border:0;border-left:1px solid var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#home.v2-home .v2-hstats>button:first-child{border-left:0}
+#home.v2-home .v2-hstats>button:hover b,#home.v2-home .v2-hstats>button[aria-pressed="true"] b{text-decoration:underline;text-decoration-color:var(--v2-yellow);text-decoration-thickness:3px;text-underline-offset:4px}
+/* el calendario: días que se eligen; la agenda y las notas se abren */
+#home.v2-home .v2-hweek span[data-v2day]{cursor:pointer;border-radius:3px}
+#home.v2-home .v2-hweek span[data-v2day]:hover{background:var(--fill)}
+#home.v2-home .v2-hweek span.sel{outline:2px solid var(--v2-yellow);outline-offset:-2px}
+#home.v2-home .v2-hcal header .v2-link2{margin-left:auto;margin-right:8px;font-size:13px}
+#home.v2-home .v2-hagenda li[data-open],#home.v2-home .v2-hn[data-open]{cursor:pointer;border-radius:3px}
+#home.v2-home .v2-hagenda li[data-open]:hover,#home.v2-home .v2-hn[data-open]:hover{background:var(--fill)}
+
+/* Desglose como el guion rayado: escenas a la izquierda, la hoja al centro y a un costado la escena con sus etiquetas */
+.v2-g3.v2-bd3{grid-template-columns:220px minmax(0,1fr) 300px}
+.v2-bd3>.v2-bdtx{padding:0;min-width:0;display:flex;flex-direction:column;min-height:0}
+.v2-bd3 .v2-bdtx .scroller{flex:1 1 0;height:auto;min-height:0}
+.v2-bdside{display:flex;flex-direction:column;gap:12px;overflow:auto;padding-bottom:24px;min-height:0}
+.v2-bdside .v2-bdcards{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;position:static;max-height:none;overflow:visible}
+.v2-bdinfo{padding:14px 16px}
+.v2-bdinfo .h span{display:block;font:400 12px/1 var(--font-ui);color:var(--muted);margin:0 0 6px}
+.v2-bdinfo .h b{font:700 14px/18px var(--font-ui)}
+.v2-bdinfo dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0 0}
+.v2-bdinfo dl>div{display:contents}
+.v2-bdinfo dt{font:400 12.5px/1.3 var(--font-ui);color:var(--muted)}
+.v2-bdinfo dd{margin:0;font:600 12.5px/1.3 var(--font-ui);text-align:right}
+@media (max-width:1100px){.v2-g3.v2-bd3{grid-template-columns:minmax(0,1fr) 270px}.v2-bd3>.v2-scenes{display:none}}
+.v2-bdc h3 span{margin-left:auto}
+.v2-bdph{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 6px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);cursor:pointer}
+.v2-bdph:hover{background:var(--fill);color:var(--ink)}
+.v2-bdph.has{color:var(--ink);border-color:var(--ink)}
+.v2-bdph svg{width:15px;height:15px}
+.v2-bdph b{font:700 11.5px/1 var(--font-ui)}
+
+/* imágenes con IA (ia.js): pastilla de la tarjeta, ventana de generar, ajustes y pestaña de la ficha */
+.v2-ia{position:absolute;top:8px;left:8px;z-index:2;height:22px;padding:0 8px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);font:700 11.5px/1 var(--font-ui);letter-spacing:.04em;cursor:pointer}
+.v2-ia.on{background:var(--v2-black);border-color:var(--v2-black);color:var(--v2-yellow)}
+.v2-ia:disabled{cursor:default;opacity:.6}
+.v2-ord button:disabled{opacity:.5;cursor:default}
+.ia-d{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+.ia-cur img{display:block;width:100%;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+.ia-f{display:grid;gap:12px}
+.ia-l{display:grid;gap:4px;font-weight:600}
+.ia-l select,.ia-l textarea,.ia-row input,.ia-row select,.ia-fi textarea{width:100%;font:400 13.5px/1.4 var(--font-ui)}
+.ia-chk{display:flex;align-items:center;gap:8px;font-weight:500}
+.ia-warn p{margin:0 0 6px;padding:8px 10px;border-left:3px solid var(--v2-yellow);background:var(--surface);font-size:13px}
+.ia-set{display:grid;gap:10px;max-width:520px}.ia-set p{margin:0}
+.ia-row{display:grid;gap:4px}.ia-row label{font-weight:600}
+.ia-slots{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ia-slot{width:96px;min-height:96px;display:grid;gap:4px;align-content:start;justify-items:center}
+.ia-slot img{width:96px;height:96px;object-fit:cover;border:1px solid var(--line);border-radius:3px}
+.ia-slot.empty{align-content:center;border:1px dashed var(--line);border-radius:3px;height:96px}
+@media (max-width:720px){.ia-d{grid-template-columns:1fr}}

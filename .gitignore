@@ -13,6 +13,7 @@ __pycache__/
 .env
 .env.*
 *.env
+*.env.*
 !server/deploy/filmspirit.env.ejemplo
 *.pem
 *.key
@@ -30,6 +31,7 @@ out/
 *.zip
 *.log
 # herramientas locales
+.claude/
 graphify-out/
 .impeccable/
 .DS_Store

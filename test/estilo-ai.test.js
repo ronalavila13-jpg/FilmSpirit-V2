@@ -9,7 +9,7 @@ let fail = 0;
 const tests = [];
 const test = (n, f) => tests.push([n, f]);
 const has = (s, re, msg) => assert.ok(re.test(s), msg || String(re));
-const SRC = f => fs.readFileSync(R + f, 'utf8');
+const SRC = f => fs.readFileSync(R + f, 'utf8').replace(/\r\n/g, '\n');
 const LIB = ['desktop/app/lib/', 'server/public/app/lib/', 'node_modules/'].map(d => R + d).find(d => fs.existsSync(d + 'jspdf.umd.min.js') && fs.existsSync(d + 'jspdf.plugin.autotable.min.js'))
   || (fs.existsSync(R + 'node_modules/jspdf/dist/jspdf.umd.min.js') ? 'nm' : null);
 const LIBF = LIB === 'nm' ? [R + 'node_modules/jspdf/dist/jspdf.umd.min.js', R + 'node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js'] : LIB ? [LIB + 'jspdf.umd.min.js', LIB + 'jspdf.plugin.autotable.min.js'] : [];
@@ -62,7 +62,7 @@ function app() {
   c.window = c; c.globalThis = c; c.self = c;
   vm.createContext(c);
   vm.runInContext(js, c, { filename: 'src' });
-  for (const f of LIBF) vm.runInContext(fs.readFileSync(f, 'utf8'), c, { filename: f });
+  for (const f of LIBF) vm.runInContext(fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n'), c, { filename: f });
   const run = s => vm.runInContext(s, c);
   if (LIBF.length) run(`if (!window.jspdf.jsPDF.API.autoTable && typeof applyPlugin === 'function') applyPlugin(window.jspdf.jsPDF);`);
   run(`globalThis.__pops = []; popover = (anchor, html, onMount) => { __pops.push(html); }; confirmBox = (t, x, ok, fn) => fn();`);
@@ -204,7 +204,9 @@ test('el PDF de la hoja en Apple: sin rejilla ni marcos negros; secciones con su
   const all = t.join(' ').replace(/\s+/g, ' ');
   for (const s of ['Cierre de set', 'Wrap', 'Hora · Esc.', 'Nota para el equipo', 'Ropa oscura', 'Centro de salud', 'Canales de radio', 'Hospital Belén', '1 Producción']) assert.ok(all.includes(s), s);
   const ix = s => t.findIndex(x => x === s);
-  assert.ok(ix('Jefes de área') < ix('Hora · Esc.') && ix('Hora · Esc.') < ix('Talentos') && ix('Talentos') < ix('Equipo técnico') && ix('Equipo técnico') < ix('Utilería especial') && ix('Utilería especial') < ix('Centro de salud'), 'el orden');
+  assert.ok(ix('Jefes de área') < ix('Hora · Esc.') && ix('Hora · Esc.') < ix('Talentos') && ix('Talentos') < ix('Equipo técnico') && ix('Equipo técnico') < ix('Utilería especial') && ix('Utilería especial'), 'el orden');
+  // (lote AJ) el centro de salud va en la cabecera, antes de los bloques del cuerpo
+  assert.ok(ix('Centro de salud') >= 0 && ix('Centro de salud') < ix('Jefes de área'), 'el centro de salud, en la cabecera');
   // la cabecera sin marco: ningún rectángulo de contorno (solo los rellenos: la tira, la nota)
   assert.ok(!J(`__RECT.filter(r => r[4] === 'S').length`), 'sin marcos');
   // A4 también
@@ -229,7 +231,7 @@ test('el PDF de la hoja en Excel: como en el lote AH (la rejilla negra, los cuad
   // en el código: las dos formas, lado a lado
   const src = SRC('src/pdf-llamado.js');
   has(src, /const AP = !\(typeof callXL === 'function' && callXL\(\)\)/); has(src, /function pdfCallHR\(doc, X, y, draw = true\)/);
-  has(src, /CL_SEC = \{ font: 'helvetica', fs: CLF\.h3, rfs: CLF\.ft, rcol: K\.c2, line: INK, lw: \.6, gap: 6, after: 10, box: false \}/);
+  has(src, /CL_SEC = \{ font: 'helvetica', fs: CLF\.h3, rfs: CLF\.ft, rcol: K\.c2, line: AP \? V2K\.line : INK, lw: AP \? \.8 : \.6, gap: 6, after: 10, box: false \}/);
 });
 
 /* ---------- el plan de rodaje y el DOOD ---------- */
@@ -238,13 +240,13 @@ test('el PDF del plan en Apple: la línea fina abajo de cada fila, sin rejilla; 
   const d = pdfOf('plan');
   const main = J(`__AT.filter(o => o.head && o.head[0] && o.head[0].length === 12).map(o => [o.styles.lineWidth, o.headStyles.lineWidth])`);
   assert.ok(main.length >= 1);
-  for (const [lw, hl] of main) { assert.deepStrictEqual(lw, { top: 0, right: 0, bottom: .6, left: 0 }); assert.strictEqual(hl, 0); }
+  for (const [lw, hl] of main) { assert.deepStrictEqual(lw, { top: 0, right: 0, bottom: .6, left: 0 }); assert.deepStrictEqual(hl, { top: 0, right: 0, bottom: .9, left: 0 }, 'los títulos de las columnas, sobre una línea fina'); }
   assert.strictEqual(J(`__AT[__AT.length - 1].styles.lineWidth`), 0, 'el reparto sin cuadro');
   const t = J('__T');
   assert.ok(t.includes('Plan de rodaje') && t.includes('Tiempo aprox.'));
   assert.ok(t.some(x => /^Página 1 de \d+$/.test(x)), 'el número de página, en la cabecera');
   assert.ok(!t.some(x => /de octubre|de noviembre de 20/.test(x) && !/Jornada/.test(x)), 'sin la fecha de creación');
-  assert.strictEqual(d._pg[1].al, 'right', 'la cabecera sin cuadro (docHeader flat)');
+  assert.strictEqual(d._pg[1].al, 'right', 'la cabecera de la versión 2, sin cuadro');
   assert.ok(!J(`__RECT.filter(r => r[4] === 'S' && r[2] > 40).length`), 'sin el cuadro de la cabecera ni el de la leyenda (solo el borde de la muestra blanca)');
   // con miniaturas: los planos debajo de cada escena, con su viñeta; sin ellas, el plan de siempre
   run(`globalThis.__tg = THUMB3.get; THUMB3.get = () => '${PNG}';`);   // (las viñetas, como si ya estuvieran listas)
@@ -267,8 +269,8 @@ test('el DOOD va con el estilo del plan: Apple, la rejilla fina y los códigos e
   if (!LIBF.length) return;
   let d = pdfOf('dood');
   let at = J(`__AT.map(o => [o.styles.lineColor, o.styles.lineWidth, o.headStyles && o.headStyles.lineColor])`);
-  assert.strictEqual(at.length, 1, 'una tabla: los códigos van en una línea'); assert.strictEqual(at[0][1], .4); assert.deepStrictEqual(at[0][0], J('PDF_LINE'));
-  assert.deepStrictEqual(at[0][2], [255, 255, 255]);
+  assert.strictEqual(at.length, 1, 'una tabla: los códigos van en una línea'); assert.strictEqual(at[0][1], .5); assert.deepStrictEqual(at[0][0], J('V2K.line2'));
+  assert.deepStrictEqual(at[0][2], J('V2K.line'), 'los títulos de las columnas, sobre la línea fina de la app');
   assert.ok(J('__T').some(x => /^I inicio/.test(x))); assert.strictEqual(d._pg[1].al, 'right');
   XL('P.schedule', 'excel');
   try {
@@ -277,22 +279,22 @@ test('el DOOD va con el estilo del plan: Apple, la rejilla fina y los códigos e
     assert.notStrictEqual(d._pg[1].al, 'right');
   } finally { XL('P.schedule'); }
 });
-test('docHeader: la opción flat (sin cuadro) da lo mismo que sigue; sin ella, el cuadro de siempre para los demás documentos', () => {
+test('docHeader (versión 2): sin cuadro de entrada; el cuadro de siempre solo con box', () => {
   if (!LIBF.length) return;
-  const r = J(`(() => { pdfTheme(); const a = newDoc(), b = newDoc(); __RECT = [];
-    const ya = docHeader(a, 'Presupuesto', 'Resumen'), ra = __RECT.length; __RECT = [];
-    const yb = docHeader(b, 'Plan de rodaje', '2 jornadas', { flat: true }), rb = __RECT.length;
+  const r = J(`(() => { pdfTheme(); PDF_KIND = 'plan'; const a = newDoc(), b = newDoc(); __RECT = [];
+    const ya = docHeader(a, 'Plan de rodaje', '2 jornadas'), ra = __RECT.filter(x => x[4] === 'S').length; __RECT = [];
+    const yb = docHeader(b, 'Hoja de desglose', '', { box: true }), rb = __RECT.filter(x => x[4] === 'S').length; PDF_KIND = '';
     pageNumbers(a); pageNumbers(b);
     return { ya, yb, ra, rb, pa: a._pg[1], pb: b._pg[1], la: a._label, lb: b._label, ha: [...a._hdr], hb: [...b._hdr] }; })()`);
   assert.strictEqual(r.ya, r.yb, 'lo que sigue empieza en el mismo lugar');
-  assert.ok(r.ra >= 1, 'el cuadro'); assert.strictEqual(r.rb, 0, 'sin cuadro');
-  assert.strictEqual(r.pa.al, undefined); assert.strictEqual(r.pb.al, 'right');
-  assert.strictEqual(r.lb, 'Plan de rodaje'); assert.deepStrictEqual(r.hb, [1]);
+  assert.strictEqual(r.ra, 0, 'sin cuadro'); assert.ok(r.rb >= 1, 'el cuadro');
+  assert.strictEqual(r.pa.al, 'right'); assert.strictEqual(r.pb.al, undefined);
+  assert.strictEqual(r.la, 'Plan de rodaje'); assert.deepStrictEqual(r.ha, [1]);
   const pdf = SRC('src/pdf.js');
-  has(pdf, /function docHeader\(doc, label, sub, o = \{\}\) \{\n  if \(o\.flat\) return docHeaderFlat\(doc, label, sub, o\);/);
-  // solo el plan y el DOOD la usan (y solo en Apple)
-  const uses = [...(pdf + SRC('src/plan-dood.js')).matchAll(/flat: true/g)].length;
-  assert.strictEqual(uses, 2);
+  has(pdf, /function docHeader\(doc, label, sub, o = \{\}\) \{\n  if \(!o\.box\) return docHeaderFlat\(doc, label, sub, o\);/);
+  // la cabecera en cuadro: la hoja de desglose, el guion técnico en AV y los reportes de la hoja de script, y el plan y la hoja de llamado en «Cuadrícula»
+  const uses = [...(pdf + SRC('src/plan-dood.js') + SRC('src/sup-partes.js') + SRC('src/laminas.js')).matchAll(/box: true/g)].length;
+  assert.ok(uses >= 6, 'los documentos que llevan su formato');
 });
 
 /* ---------- el stripboard y el DOOD en la pantalla ---------- */

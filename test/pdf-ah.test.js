@@ -4,7 +4,7 @@
    node test/pdf-ah.test.js */
 const fs = require('fs'), vm = require('vm'), path = require('path'), assert = require('assert');
 const R = path.join(__dirname, '..');
-const leer = f => fs.readFileSync(path.join(R, f), 'utf8');
+const leer = f => fs.readFileSync(path.join(R, f), 'utf8').replace(/\r\n/g, '\n');
 let fail = 0;
 const test = (n, f) => { try { f(); console.log('ok  ', n); } catch (e) { fail++; console.log('FALLA', n, '\n  ', e.message); } };
 
@@ -25,7 +25,7 @@ const c = {
 vm.createContext(c);
 // las partes por páginas (pdf-rango.js)
 vm.runInContext(/function pdfKeepPages\([\s\S]*?\n}\n/.exec(leer('src/pdf-rango.js'))[0], c);
-vm.runInContext(leer('src/pdf.js') + '\nthis.PDFAPI = { newDoc, docHeader, pageNumbers, pdfSec, pdfTheme, pdfMake, get TBL() { return TBL; }, setPaper: p => { PDF_PAPER = p; }, HDR, GRID, PDF_RULE, PDFX };', c);
+vm.runInContext(leer('src/pdf.js') + '\nthis.PDFAPI = { newDoc, docHeader, pageNumbers, pdfSec, pdfTheme, pdfMake, get TBL() { return TBL; }, get TBLX() { return TBLX; }, V2K, setPaper: p => { PDF_PAPER = p; }, HDR, GRID, PDF_RULE, PDFX };', c);
 const A = c.PDFAPI;
 const size = doc => [Math.round(doc.internal.pageSize.getWidth()), Math.round(doc.internal.pageSize.getHeight())];
 /* un documento que anota lo que se dibuja (texto, rectángulos y líneas, con su página y su color) */
@@ -80,7 +80,7 @@ test('pdfMake: arma con el papel pedido y lo suelta al terminar; una parte por p
 test('cabecera: un cuadro cerrado con líneas negras, sin la barra de color ni la fecha', () => {
   A.pdfTheme();
   const d = A.newDoc(), L = spy(d);
-  const y = A.docHeader(d, 'Presupuesto', '12 jornadas de rodaje');
+  const y = A.docHeader(d, 'Presupuesto', '12 jornadas de rodaje', { box: true });   // (versión 2) el cuadro, solo con box
   const W = d.internal.pageSize.getWidth();
   assert.ok(!L.some(o => o.k === 'rect' && o.x <= 0 && o.w >= W), 'sin la barra de borde a borde');
   const frame = L.find(o => o.k === 'rect' && o.st === 'S' && o.x === 36 && Math.abs(o.w - (W - 72)) < .01);
@@ -95,7 +95,7 @@ test('cabecera: un cuadro cerrado con líneas negras, sin la barra de color ni l
 });
 test('cabecera: el número de la hoja de desglose en su cuadro negro', () => {
   const d = A.newDoc(), L = spy(d);
-  A.docHeader(d, 'Hoja de desglose', '', { badge: '12A' });
+  A.docHeader(d, 'Hoja de desglose', '', { badge: '12A', box: true });
   assert.ok(L.some(o => o.k === 'text' && o.s === '12A'));
   assert.ok(L.some(o => o.k === 'rect' && o.st === 'F' && o.w >= 20), 'el cuadro negro');
 });
@@ -122,9 +122,9 @@ test('las páginas que llevan su cuadro (storyboard, lámina) llevan su número'
 });
 
 /* ---------- las tablas y los títulos de sección ---------- */
-test('tablas tipo Excel: rejilla negra en todos los bordes y cabecera gris claro con letra negra en negrita', () => {
+test('tablas tipo Excel (TBLX: la hoja de desglose, la hoja de script y el plan en «Cuadrícula»): rejilla negra en todos los bordes y cabecera gris claro con letra negra en negrita', () => {
   A.pdfTheme();
-  const T = A.TBL;
+  const T = A.TBLX;
   assert.deepStrictEqual(Array.from(T.styles.lineColor), [0, 0, 0]);
   assert.strictEqual(typeof T.styles.lineWidth, 'number', 'un número: los cuatro bordes (antes, solo el de abajo)');
   assert.ok(T.styles.lineWidth >= .5);
@@ -134,9 +134,23 @@ test('tablas tipo Excel: rejilla negra en todos los bordes y cabecera gris claro
   assert.strictEqual(T.headStyles.lineWidth, T.styles.lineWidth, 'la cabecera también con su rejilla');
   assert.strictEqual(T.margin.bottom, 36, 'sin pie, el margen de abajo como los de los lados');
 });
-test('títulos de sección dentro de un cuadro (y la regla de antes, si se pide box: false)', () => {
+test('tablas de la versión 2: sin rejilla, solo la línea fina de abajo; los títulos de las columnas en gris y en mayúsculas chicas', () => {
+  A.pdfTheme();
+  const T = A.TBL, K = A.V2K;
+  assert.deepStrictEqual(Array.from(T.styles.lineColor), Array.from(K.line2));
+  assert.deepStrictEqual(Object.assign({}, T.styles.lineWidth), { top: 0, right: 0, bottom: .5, left: 0 });
+  assert.strictEqual(T.headStyles._v2, true, 'pdfTableHooks los pasa a mayúsculas');
+  assert.deepStrictEqual(Array.from(T.headStyles.textColor), Array.from(K.text2));
+  assert.deepStrictEqual(Array.from(T.headStyles.lineColor), Array.from(K.line));
+  assert.strictEqual(T.margin.bottom, 36);
+});
+test('títulos de sección (versión 2): el título y una línea fina; con box: true, dentro de un cuadro como en la hoja de desglose', () => {
+  const d0 = A.newDoc(), L0 = spy(d0);
+  A.pdfSec(d0, 100, 'Elementos', { right: '3 elementos' });
+  assert.ok(!L0.some(o => o.k === 'rect') && L0.some(o => o.k === 'line'), 'la línea fina, sin cuadro');
+  assert.deepStrictEqual(L0.find(o => o.k === 'line').draw, Array.from(A.V2K.line));
   const d = A.newDoc(), L = spy(d);
-  const y = A.pdfSec(d, 100, 'Elementos del área', { right: '3 elementos' });
+  const y = A.pdfSec(d, 100, 'Elementos del área', { right: '3 elementos', st: { box: true } });
   const box = L.find(o => o.k === 'rect');
   assert.ok(box && box.st === 'S' && box.y === 100 && box.x === 36, 'el cuadro');
   assert.deepStrictEqual(box.draw, [0, 0, 0]);
@@ -144,7 +158,7 @@ test('títulos de sección dentro de un cuadro (y la regla de antes, si se pide 
   assert.ok(L.some(o => o.k === 'text' && o.s === '3 elementos'));
   const d2 = A.newDoc(), L2 = spy(d2);
   A.pdfSec(d2, 100, 'Cronograma', { st: { box: false } });
-  assert.ok(!L2.some(o => o.k === 'rect') && L2.some(o => o.k === 'line'), 'la regla de antes');
+  assert.ok(!L2.some(o => o.k === 'rect') && L2.some(o => o.k === 'line'), 'la regla');
 });
 
 /* ---------- la vista previa ---------- */

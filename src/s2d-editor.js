@@ -153,6 +153,25 @@ function deleteShot(id, loaded) {
   toastUndo(`Plano ${code} eliminado.`.replace('  ', ' '));
 }
 
+/* (lote AJ) borra varios planos de una vez (los elegidos con Ctrl+clic): un solo aviso y un solo «Deshacer» para todos */
+function deleteShots(ids, loaded) {
+  ids = ids.filter(i => P.shots[i]);
+  if (ids.length < 2) { if (ids.length) deleteShot(ids[0]); return; }
+  const keys = ids.flatMap(i => shotKeys(i));
+  if (!loaded && keys.some(k => !FRAMES[k])) { FR_HOLD++; framesNeed(keys).finally(() => { try { deleteShots(ids, true); } finally { FR_HOLD--; } }); return; }
+  if (loaded && keys.some(k => !FRAMES[k])) { problem('No se borraron los planos: sus dibujos no se pudieron leer para poder deshacerlo. Revisa tu conexión e inténtalo otra vez.'); return; }
+  const codes = ids.map(i => D.code[i] || '').filter(Boolean);
+  const frames = Object.fromEntries(keys.map(k => [k, FRAMES[k]]));
+  histNote(`Eliminar ${ids.length} planos (${codes.join(', ')})`, frames, 'board');
+  for (const id of ids) {
+    delete P.shots[id]; if (P.sup && P.sup.takes) delete P.sup.takes[id];
+    delShotFrames(id);
+  }
+  if (P.animatic) P.animatic.order = (P.animatic.order || []).filter(x => !ids.includes(x));
+  changed('data'); derive(); render();
+  toastUndo(`${ids.length} planos eliminados (${codes.join(', ')}).`);
+}
+
 /* ---------- herramientas ---------- */
 const D2_PAL = ['#16171B', '#4A4D55', '#8C9099', '#C9CCD2', '#FFFFFF', '#C8382C', '#E8622C', '#F2B63C', '#3E9A57', '#2E8FBF', '#2C47CF', '#7A4CC2', '#D9478F', '#7A4B2E', '#E9C7A5', '#B5835A'];
 const D2_TOOLS = [
@@ -469,7 +488,8 @@ async function openShot2D(id, isNew) {
   d.layers = d2Layers(d);   // las de fondo (detrás de las figuras) primero: el orden de la lista es el que se ve
   if (!D2_TOOLS.some(t => t[0] === E.tool)) E.tool = 'pencil';
   E.color = E.colors[E.tool === 'arrow' ? 'arrow' : 'draw'];
-  const list = D.shotsBy[sh.sc] || [];
+  // las flechas recorren todos los planos del proyecto (al terminar una escena siguen con la próxima)
+  const list = shotOrder();
   const idx = list.indexOf(sh);
   const ar = DW / DH;
   const ov = document.createElement('div');
@@ -482,7 +502,7 @@ async function openShot2D(id, isNew) {
       <span class="grow"></span>
       <div class="s2-grp"><button class="btn ghost sm s2-ib" data-s2="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">${d2Ico('undo')}</button><button class="btn ghost sm s2-ib s2-redo" data-s2="redo" title="Rehacer (Ctrl+Mayús+Z)" aria-label="Rehacer">${d2Ico('redo')}</button></div>
       <div class="s2-grp s2-zoom"><button class="btn ghost sm s2-ib" data-s2="zo" aria-label="Alejar">−</button><button class="btn ghost sm" data-s2="fit" id="s2Z" title="Ajustar a la ventana (0)">100 %</button><button class="btn ghost sm s2-ib" data-s2="zi" aria-label="Acercar">+</button></div>
-      <div class="s2-grp hide-sm"><button class="btn ghost sm s2-ib" data-s2="prev" ${idx > 0 ? '' : 'disabled'} title="Guardar e ir al plano anterior" aria-label="Plano anterior">◀</button><button class="btn ghost sm s2-ib" data-s2="next" ${idx >= 0 && idx < list.length - 1 ? '' : 'disabled'} title="Guardar e ir al plano siguiente" aria-label="Plano siguiente">▶</button></div>
+      <div class="s2-grp s2-nav hide-sm" role="group" aria-label="Planos"><button class="btn ghost sm s2-ib" data-s2="prev" ${idx > 0 ? '' : 'disabled'} title="${idx > 0 ? `Guardar e ir al plano ${esc(D.code[list[idx - 1].id] || 'anterior')} (← o Re Pág)` : 'Es el primer plano'}" aria-label="Plano anterior">◀</button><button class="btn ghost sm s2-jump" data-s2="jump" aria-haspopup="menu" title="Ir a otro plano del proyecto" aria-label="Elegir plano: ${esc(D.code[id] || '')}, ${idx + 1} de ${list.length}">Plano ${esc(D.code[id] || '')}<small>${idx + 1}/${list.length}</small></button><button class="btn ghost sm s2-ib" data-s2="next" ${idx >= 0 && idx < list.length - 1 ? '' : 'disabled'} title="${idx >= 0 && idx < list.length - 1 ? `Guardar e ir al plano ${esc(D.code[list[idx + 1].id] || 'siguiente')} (→ o Av Pág)` : 'Es el último plano'}" aria-label="Plano siguiente">▶</button></div>
       <button class="btn ghost sm s2-ib" data-s2="more" aria-label="Más opciones del plano" title="Más opciones">${ICO.more}</button>
       <button class="btn" data-s2="cancel" aria-label="Cancelar"><span class="s2-cl">Cancelar</span><span class="s2-x" aria-hidden="true">${ICO.close}</span></button><button class="btn primary" data-s2="save" ${E.ro ? 'disabled title="Solo lectura"' : ''}>Guardar</button>
     </header>
@@ -1798,6 +1818,14 @@ async function openShot2D(id, isNew) {
   /* ---------- teclado ---------- */
   const setAlt = on => { if (E.alt === on) return; E.alt = on; stage.classList.toggle('picking', on && ((D2_BRUSH.has(E.tool) && E.tool !== 'eraser') || E.tool === 'fill')); req(); };
   addEventListener('blur', () => setAlt(false));
+  /* el menú del plano: todos los planos del proyecto, escena por escena; el actual queda marcado */
+  const jumpMenu = b => {
+    const rows = D.sc.scenes.filter(sc => (D.shotsBy[sc.key] || []).length).map(sc => `<div class="s2-jh">Esc. ${esc(sc.key)} · ${esc(sc.heading)}</div>${D.shotsBy[sc.key].map(x => `<button data-go="${ea(x.id)}" ${x.id === id ? 'aria-current="true" class="on"' : ''}><b>${esc(D.code[x.id] || '')}</b><span>${esc(x.desc || (x.size ? `${x.size} · ${SIZE_NAME[x.size] || ''}` : ''))}</span>${x.d2 ? '<em>2D</em>' : ''}</button>`).join('')}`).join('');
+    popover(b, `<div class="menu s2-jmenu">${rows}</div>`, p => {
+      const cur = $('.on', p); if (cur) cur.scrollIntoView({ block: 'center' });
+      p.addEventListener('click', ev => { const g = ev.target.closest('[data-go]'); if (!g) return; closePop(); if (g.dataset.go !== id) save(() => openShot2D(g.dataset.go)); });
+    });
+  };
   const onKey = e => {
     if (!ov.isConnected || $('#modal')) return;
     const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '');
@@ -1823,6 +1851,7 @@ async function openShot2D(id, isNew) {
     else if (k === ' ') { e.preventDefault(); if (!E.space) { E.space = true; stage.classList.add('space'); } }
     else if (k === '[' || k === ']') { if (D2_BRUSH.has(E.tool)) { const T = E.T[E.tool]; T.size = clamp(Math.round(T.size * (k === ']' ? 1.2 : 1 / 1.2) + (k === ']' ? 1 : -1)), 1, D2_MAX[E.tool]); saveTools(); insp(); req(); } }
     else if (k === ',' || k === '.') goFrame(E.fi + (k === ',' ? -1 : 1));
+    else if (k === 'PageUp' || k === 'PageDown' || k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); const t = list[idx + (k === 'PageUp' || k === 'ArrowLeft' ? -1 : 1)]; if (t) save(() => openShot2D(t.id)); }
     else if (k === '0') fit();
     else if (k === '+' || k === '=') zoomAt(1.25);
     else if (k === '-') zoomAt(.8);
@@ -1842,8 +1871,9 @@ async function openShot2D(id, isNew) {
     else if (a === 'zi') zoomAt(1.25); else if (a === 'zo') zoomAt(.8); else if (a === 'fit') fit();
     else if (a === 'save') save();
     else if (a === 'cancel') cancel();
-    else if (a === 'prev' && list[idx - 1]) save(() => openShotEditor(list[idx - 1].id));
-    else if (a === 'next' && list[idx + 1]) save(() => openShotEditor(list[idx + 1].id));
+    else if (a === 'prev' && list[idx - 1]) save(() => openShot2D(list[idx - 1].id));
+    else if (a === 'next' && list[idx + 1]) save(() => openShot2D(list[idx + 1].id));
+    else if (a === 'jump') jumpMenu(b);
     else if (a === 'more') popover(b, `<div class="menu"><button data-m="dup">Duplicar plano</button><button data-m="del">Eliminar plano</button></div>`, p => p.addEventListener('click', ev => {
       const m = ev.target.closest('[data-m]'); if (!m) return; closePop();
       if (m.dataset.m === 'dup') save(async () => { const nsh = P.shots[id], next = (D.shotsBy[nsh.sc] || [])[(D.shotsBy[nsh.sc] || []).indexOf(nsh) + 1]; const copy = { ...JSON.parse(JSON.stringify(nsh)), id: uid('s'), ord: next ? (nsh.ord + next.ord) / 2 : nsh.ord + 1, done: false }; if (isMaster(nsh) || copy.master) copy.master = false; P.shots[copy.id] = copy; await copyShotFrames(id, copy.id); changed('data'); derive(); render(); openShotEditor(copy.id); toast('Plano duplicado.'); });
@@ -1872,7 +1902,7 @@ async function openShot2D(id, isNew) {
   /* ---------- guardar ---------- */
   async function blank(c) { const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < px.length; i += 4) if (px[i]) return false; return true; }
   async function save(after) {
-    if (E.ro) { close(); return; }
+    if (E.ro) { close(); if (after) after(); return; }   // en solo lectura, ir a otro plano igual funciona
     commitText(); applyFloat();
     if (E.playing) stopPlay();
     E.saved = true;

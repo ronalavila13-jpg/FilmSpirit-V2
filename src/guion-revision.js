@@ -204,7 +204,7 @@ function reviewHTML() {
 }
 function revSumHTML() {
   const s = scriptStats();
-  return `<div class="rv-stats"><div><b class="tnum">${s.pages}</b><span>${s.pages === 1 ? 'página' : 'páginas'}</span></div><div><b class="tnum">${s.scenes}</b><span>${s.scenes === 1 ? 'escena' : 'escenas'}</span></div>
+  return `<div class="rv-stats" title="${ea((s.e8 ? 'Largo en octavos: ' + fmtEighths(s.e8) + ' págs. ' : '') + 'Una página de guion equivale a cerca de un minuto en pantalla.')}"><div><b class="tnum">${s.pages}</b><span>${s.pages === 1 ? 'página' : 'páginas'}</span></div><div><b class="tnum">${s.scenes}</b><span>${s.scenes === 1 ? 'escena' : 'escenas'}</span></div>
     <div><b class="tnum">${s.words.toLocaleString('es-PE')}</b><span>palabras</span></div><div><b class="tnum">≈ ${s.mins} min</b><span>en pantalla</span></div></div>
     <p class="hint">${s.e8 ? `<span>Largo en octavos: ${fmtEighths(s.e8)} págs.</span> ` : ''}<span>Una página de guion equivale a cerca de un minuto en pantalla.</span></p>`;
 }

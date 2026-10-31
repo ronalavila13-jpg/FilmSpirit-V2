@@ -320,3 +320,19 @@ test('muchas fotos de recibos no traban la lista de imágenes', async () => {
   assert.equal(n, 30, 'solo las de su caja');
   assert.ok(Date.now() - t < 1000, `tardó ${Date.now() - t} ms`);
 });
+test('fotos de gastos que aún no se guardan: un tope por persona (no llenan el espacio de la cuenta)', async () => {
+  // Rosa sube fotos a recibos inventados de su caja hasta el tope; la que sobra queda en espera (429)
+  let r, n = 0;
+  for (; n < 60; n++) { r = await rosa.put(`/api/p/${pid}/f`, { k: 'ga~cj2~h' + n, url: jpeg(1) }); if (r.status !== 200) break; }
+  assert.equal(r.status, 429, r.text); assert.equal(r.json.code, 'rate_limited');
+  assert.ok(n > 40 && n <= 50, `entraron ${n}`);
+  // cambiar una foto que ya subió sí se puede, y el tope es de cada persona
+  assert.equal((await rosa.put(`/api/p/${pid}/f`, { k: 'ga~cj2~h0', url: jpeg(2) })).status, 200);
+  assert.equal((await ana.put(`/api/p/${pid}/f`, { k: 'ga~oc~nueva', url: jpeg(1) })).status, 200);
+  // al guardar el recibo, su foto deja de contar y vuelve a haber lugar
+  const { v, g } = await getG(rosa);
+  g.cajas.find(c => c.id === 'cj2').recibos.push({ id: 'h1', date: today(), shop: 'Ferretería', desc: 'Clavos', line: 'l-art', amount: 12, kind: 'boleta' });
+  assert.equal((await putG(rosa, v, g)).status, 200);
+  assert.ok((await getG(ana)).g.cajas.find(c => c.id === 'cj2').recibos.some(x => x.id === 'h1'));
+  assert.equal((await rosa.put(`/api/p/${pid}/f`, { k: 'ga~cj2~h' + n, url: jpeg(1) })).status, 200);
+});

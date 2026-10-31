@@ -12,7 +12,10 @@ const plCwClamp = (k, v) => Math.round(Math.min(PL_CW_MAX, Math.max(PL_CW_MIN[k]
 // dejan el lugar a su texto: la clase del tablero que lo hace
 const PL_NARROW = { set: [200, 'set-nt'], loc: [120, 'loc-np'] };
 /* las columnas de la pantalla, en orden (sin el menú ⋮ de las pantallas táctiles) */
-const plColKeys = c => PL_COLS.map(x => x[0]).filter(k => k !== 'more' && (k !== 'fig' || c.fig) && (k !== 'tech' || c.tech) && (k !== 'obs' || c.obs));
+/* (lote AJ) las tiras de la versión 2: Esc., I/E, Momento (dn), Locación y sinopsis (set), Págs., Reparto, Tiempo aprox. y Notas (obs) */
+const V2_PL_KEYS = ['esc', 'ie', 'dn', 'set', 'pgs', 'cast', 't', 'obs'];
+const plV2 = () => typeof v2PlanOn === 'function' && v2PlanOn();
+const plColKeys = c => plV2() ? V2_PL_KEYS : PL_COLS.map(x => x[0]).filter(k => k !== 'more' && (k !== 'fig' || c.fig) && (k !== 'tech' || c.tech) && (k !== 'obs' || c.obs));
 /* (lote AC) los anchos guardados se limpian una sola vez, al abrir el proyecto o al llegar el plan de otra persona
    (proyectos.js · normalizeProject): solo de columnas que existen, en número y dentro del mínimo y el máximo; sin
    ninguno, colW no va. Después se leen tal cual (plColW) y solo plColWPut los cambia */
@@ -26,6 +29,10 @@ const plColW = () => P.schedule.colW || {};
    guardados. Cada columna lleva su ancho guardado (en px) o el automático; min suma lo menos que ocupa la tabla (más
    que eso, se desplaza a lo ancho) */
 function plGrid(c, used, cw) {
+  if (plV2()) {
+    const a = { esc: ['49px', 49], ie: ['58px', 58], dn: ['100px', 100], set: ['minmax(0,1fr)', 160], pgs: ['63px', 63], cast: ['86px', 86], t: ['104px', 104], obs: ['minmax(120px,.6fr)', 120] };
+    return { keys: V2_PL_KEYS, cols: V2_PL_KEYS.map(k => cw[k] ? cw[k] + 'px' : a[k][0]), min: V2_PL_KEYS.reduce((n, k) => n + (cw[k] || a[k][1]), 0) };
+  }
   // las notas vacías en todo el plan ceden su ancho a la escena (siguen ahí para escribir)
   const note = f => [used[f] ? 'minmax(140px,1fr)' : 'minmax(130px,.45fr)', 130], th = c.thumb ? 280 : 220;
   // (lote AH) «Tiempo aprox.» entra entero en su título: 92 px (antes 68, para «Tiempo»)
@@ -44,7 +51,7 @@ function planColsCSS() {
   const c = planCols(), cw = plColW();
   // (lote W) sin la columna del menú ⋮: la suma el CSS solo en las pantallas táctiles (--pl-more)
   const G = plGrid(c, plNotesUsed(), cw);
-  return { cls: (c.fig ? '' : ' no-fig') + (c.tech ? '' : ' no-tech') + (c.obs ? '' : ' no-obs') + plCwCls(cw, G.keys), style: `--pl-cols:${G.cols.join(' ')};--pl-min:${G.min}px` };
+  return { cls: (c.fig ? '' : ' no-fig') + (c.tech ? '' : ' no-tech') + (c.obs ? '' : ' no-obs') + plCwCls(cw, G.keys), style: `--pl-cols:${G.cols.join(' ')};--pl-min:${G.min}px;--v2cols:${G.cols.join(' ')}` };
 }
 /* el asa para cambiar el ancho: en el borde derecho de cada título, fuera del botón que ordena (va aparte, ubicada sobre
    su columna de la grilla). Solo quien puede editar el plan (plHeadHTML), y el CSS la deja solo para el ratón */
@@ -71,6 +78,7 @@ function startColResize(e, h) {
     const cw = { ...cw0, [k]: w }, G = plGrid(c, used, cw);
     board.style.setProperty('--pl-cols', G.cols.join(' '));
     board.style.setProperty('--pl-min', G.min + 'px');
+    board.style.setProperty('--v2cols', G.cols.join(' '));
     // la primera vez, las celdas de la columna cortan su texto como con su ancho guardado
     if (!line.isConnected) for (const el of board.querySelectorAll('.c-' + k)) el.dataset.cw = '';
     for (const [cl, on] of plNarrow(cw, keys)) board.classList.toggle(cl, on);

@@ -102,6 +102,12 @@ const exportAll = run(`(async () => { const r = {}; UI.supDay = 0;
     }
     assert.deepStrictEqual([...new Set(bad)], []);
   });
+  // (versión 2) el diseño de la app: tarjetas de resumen arriba, y la jornada del plan con su barra de cierre
+  test('versión 2: el presupuesto y el plan abren con sus tarjetas de resumen y el plan cierra cada jornada en su barra', () => {
+    const t = k => out[k].seen.map(x => x.t).join(' | ');
+    for (const w of ['Total del proyecto', 'Subtotal', 'Por jornada de rodaje']) assert.ok(t('budget').includes(w), w);
+    for (const w of ['Jornadas', 'Páginas', 'Tiempo aprox.', 'Reparto', 'Fin de la jornada 1']) assert.ok(t('plan').includes(w), w);
+  });
   test('la hoja de llamado del ejemplo cabe en 2 páginas', () => {
     assert.ok(out.call && !out.call.err, 'no se exportó');
     assert.ok(out.call.pages <= 2, `${out.call.pages} páginas`);
