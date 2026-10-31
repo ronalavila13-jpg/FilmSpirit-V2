@@ -354,9 +354,9 @@ function inspectorHTML() {
       ${shots.map(sh => `<button class="shotrow${ea(sh.done ? ' done' : '')}" data-act="shot" data-id="${ea(sh.id)}"><span class="code">${esc(D.code[sh.id])}</span><span><span class="meta">${esc(shotLabel(sh))}${sh.lens ? ' · ' + esc(sh.lens) + 'mm' : ''}</span><span class="d">${esc(sh.desc || shotTextExcerpt(sh, 90) || 'Sin descripción')}</span></span>${sh.done ? '<span class="rod">Rodado</span>' : ''}</button>`).join('') || '<p class="hint" style="margin:0">Aún no hay planos. Selecciona texto y elige «Plano», o usa una de estas opciones.</p>'}
       <div style="display:flex;flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="shot-scene">+ Plano de toda la escena</button>${shots.length ? '' : '<button class="btn sm" data-act="suggest">Sugerir planos</button>'}</div>
     </section>
-    <section><h3 class="ih">Desglose <span class="count">${els.length}</span></h3>
+    ${UI.tab === 'lined' ? '' : `<section><h3 class="ih">Desglose <span class="count">${els.length}</span></h3>
       ${byCat.map(([c, list]) => `<div class="bdcat" style="--c:${ea(c.color)}"><div class="ttl"><span class="dot" style="--c:${ea(c.color)}"></span>${c.name}</div><div class="chips">${list.map(e => `<span class="chip${ea(e.auto ? ' sug' : '')}">${esc(e.name)}</span>`).join('')}</div></div>`).join('') || '<p class="hint" style="margin:0">Sin elementos marcados.</p>'}
-    </section>
+    </section>`}
     ${tipHTML('guion-sel', 'Selecciona texto en el guion para marcarlo o crear un plano. Toca una marca para cambiarla.')}`;
 }
 function ieBadge(s) {
@@ -546,7 +546,7 @@ function showSelTool(rect) {
     });
     document.body.appendChild(t);
   }
-  const cats = CATS.filter(c => canEditCat(c.id)).sort((x, y) => (y.id === MK.cat) - (x.id === MK.cat));   // jefe de área: solo sus categorías; la del marcador, primero
+  const cats = UI.tab === 'lined' ? [] : CATS.filter(c => canEditCat(c.id)).sort((x, y) => (y.id === MK.cat) - (x.id === MK.cat));   // jefe de área: solo sus categorías; la del marcador, primero   // el desglose se marca en su pestaña
   const sheet = selSheet();
   // una nota al margen que señala lo elegido (guion-margen.js)
   const nb = mnOn() && typeof canWriteNotes === 'function' && canWriteNotes() ? `<button class="btn ghost sm" data-mnote title="Una nota al margen, con la fecha, que señala lo elegido">${NOTE_BUBBLE} Nota</button>` : '';

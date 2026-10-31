@@ -65,6 +65,14 @@ function v2BdDim() {
   const s = D.sc.scenes[UI.scene]; if (!s) return;
   for (const l of $$('#pages .ln[data-p]')) { const p = +l.dataset.p; l.classList.toggle('bd-out', p < s.p0 || p >= s.p1); }
 }
+/* fotos por elemento, como en la v1: el botón de la cámara abre la lámina de la caja (laminas.js) */
+function v2BdPhBtn(id, name, list) {
+  if (!list.length || typeof openLamina !== 'function') return '';
+  const b = V2_BD.find(x => x.id === id), cat = b ? b.cats[0] : id, sh = SHEET.find(x => x.cats.includes(cat));
+  if (!sh || sh.id === 'notes') return '';
+  const n = list.reduce((a, e) => a + photosOf(e).length, 0);
+  return `<button type="button" class="v2-bdph${n ? ' has' : ''}" data-act="bd-lam" data-box="${ea(sh.id)}" title="Fotos de ${ea(name.toLowerCase())}: una lámina con una foto por elemento" aria-label="Fotos de ${ea(name)}">${CAM_SVG}${n ? `<b>${n}</b>` : ''}</button>`;
+}
 /* los elementos de la escena, por tarjeta */
 function v2BdCards(s) {
   const els = [...D.sem[s.idx]].map(id => P.elements[id]).filter(Boolean);
@@ -82,7 +90,7 @@ function v2BdCards(s) {
     ? `<button type="button" class="v2-chip2" data-act="ficha" data-id="${ea(e.id)}" title="Ficha del personaje">${D.castNum[e.id] ? D.castNum[e.id] + ' · ' : ''}${esc(e.name)}</button>`
     : `<button type="button" class="v2-chip2${e.auto ? ' sug' : ''}" data-v2tags="${ea(tagIds(e))}" title="${esc(v2BdName(e))}">${esc(e.name)}</button>`;
   const card = (id, name, color, list, add) => `<section class="v2-card v2-bdc" data-box="${ea(id)}">
-      <h3><i style="background:${ea(color)}"></i>${esc(name)}<span>${list.length || 'vacío'}</span></h3>
+      <h3><i style="background:${ea(color)}"></i>${esc(name)}<span>${list.length || 'vacío'}</span>${v2BdPhBtn(id, name, list)}</h3>
       <div class="v2-bdchips">${list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name)).map(chip).join('')}${add && !ro && v2BdCanBox(id) ? `<button type="button" class="v2-add" data-v2add="${ea(id)}" aria-label="Añadir a ${ea(name)}" title="Añadir a ${ea(name.toLowerCase())}">${v2I('plus')}</button>` : ''}</div>
     </section>`;
   const sorted = list => list.sort((a, b) => a.cat === 'cast' && b.cat === 'cast' ? (D.castNum[a.id] || 99) - (D.castNum[b.id] || 99) : a.name.localeCompare(b.name));
@@ -102,6 +110,7 @@ function v2BdTable() {
     }).join('')}</tbody></table></div>`;
 }
 
+Object.assign(ACT, { 'bd-goto': b => { UI.scene = +b.dataset.i; render(); } });
 RENDER.breakdown = (orig => function () {
   if (!V2.on) return orig.apply(this, arguments);
   const v = $('#view');
@@ -113,18 +122,18 @@ RENDER.breakdown = (orig => function () {
   const ed = v2BdEd();
   // (lote AJ) las marcas ya vienen confirmadas (también las de proyectos anteriores)
   if (ed && (P.tags.some(t => t.auto) || Object.values(P.elements).some(e => e.auto))) { P.tags.forEach(t => { t.auto = false; }); Object.values(P.elements).forEach(e => { e.auto = false; }); changed('data'); }
-  v.innerHTML = `<div class="v2-pg v2-bd" data-keep="bd">
-    <section class="v2-card v2-strip">
-      <div class="v2-sn"><div class="v2-sntx"><span>Escena ${esc(s.key)}</span><b class="sc">${esc(s.heading)}</b></div><span class="v2-snav"><button type="button" data-v2sn="-1" ${UI.scene <= 0 ? 'disabled' : ''} aria-label="Escena anterior" title="Escena anterior">${v2I('prev')}</button><button type="button" data-v2sn="1" ${UI.scene >= D.sc.scenes.length - 1 ? 'disabled' : ''} aria-label="Escena siguiente" title="Escena siguiente">${v2I('next')}</button></span></div>
-      <div><span>Largo</span><b>${esc(fmtEighths(D.metrics.eighths[s.idx]))} pág.</b></div>
-      <div><span>Momento</span><b>${esc(v2Moment(s))}</b></div>
-      <div><span>Jornada</span><b>${day ? esc(day.n + (dt ? ' · ' + dt : '')) : '—'}</b></div>
-    </section>
-    <div class="v2-bdgrid">
-      <section class="v2-bdtx">${v2BdToolsHTML()}<div class="scroller" id="scroller" data-keep="bdpg-${ea(s.idx)}"><div class="pages" id="pages">${pagesHTML(v2BdRange(s))}</div></div></section>
+  // como el guion rayado: las escenas a la izquierda, la hoja al centro y, a un costado, la escena y sus etiquetas
+  v.innerHTML = `<div class="v2-g3 v2-bd3" data-keep="bd">
+    <aside class="v2-col v2-scenes" id="side">
+      <div class="v2-colh"><h2>Escenas</h2><span>${D.pages.length} ${D.pages.length === 1 ? 'pág.' : 'págs.'}</span></div>
+      <ul class="v2-sclist" id="slist">${v2SceneCards('bd-goto')}</ul>
+    </aside>
+    <section class="v2-bdtx v2-col">${v2BdToolsHTML()}<div class="scroller" id="scroller" data-keep="bdpg-${ea(s.idx)}"><div class="pages" id="pages">${pagesHTML(v2BdRange(s))}</div></div></section>
+    <div class="v2-col v2-rcol v2-bdside">
+      <section class="v2-card v2-bdinfo"><div class="h"><div><span>Escena ${esc(s.key)}</span><b class="sc">${esc(s.heading)}</b></div></div>
+        <dl><div><dt>Largo</dt><dd>${esc(fmtEighths(D.metrics.eighths[s.idx]))} pág.</dd></div><div><dt>Momento</dt><dd>${esc(v2Moment(s))}</dd></div><div><dt>Jornada</dt><dd>${day ? esc(day.n + (dt ? ' · ' + dt : '')) : '—'}</dd></div></dl></section>
       <div class="v2-bdcards">${v2BdCards(s)}</div>
     </div>
-    ${v2BdTable()}
   </div>`;
   fitPages(); v2BdDim(); v2BdToScene(s);
   if (typeof anoBind === 'function') anoBind($('#pages'));   // anotar a mano, aquí también

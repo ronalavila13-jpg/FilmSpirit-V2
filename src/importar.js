@@ -136,10 +136,10 @@ async function onFile(file) {
     }
   };
 }
-/* importación lista: se abre el guion rayado para ver el resultado (escenas, reparto y elementos marcados) */
+/* importación lista: se abre el Desglose para ver el resultado (escenas, reparto y elementos marcados) */
 function importDone(msg, ms = 4600) {
   UI.scene = 0;
-  setTab('lined');
+  setTab('breakdown');
   toast('✓ Guion importado · ' + msg, ms);
   requestAnimationFrame(() => { const v = $('#view .center') || $('#view'); if (v) { v.classList.add('flash'); setTimeout(() => v.classList.remove('flash'), 1400); } });
 }

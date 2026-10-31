@@ -64,7 +64,9 @@ function v2SumSave() {
 { const _r = render; render = function () { const r = _r.apply(this, arguments); v2SumSave(); return r; }; }
 
 /* ---------- Inicio ---------- */
-const V2H = { seg: 'all', q: '', mseg: 'proj', msearch: false, phone: false };
+/* sec: la sección que se mira en grande («» = Inicio entero: no hay deslizador, así que la barra y los números abren la sección en vez de desplazar);
+   calw: semanas que se movió el calendario; day: el día elegido en él */
+const V2H = { seg: 'all', q: '', mseg: 'proj', msearch: false, phone: false, sec: '', calw: 0, day: '' };
 addEventListener('resize', debounce(() => { if (V2.on && document.body.classList.contains('home') && V2H.phone !== PHONE() && typeof homePaint === 'function') homePaint(); }, 200));
 const v2HomeName = () => { try { const me = typeof APITEAM !== 'undefined' && APITEAM.me; if (me && me.name) return String(me.name).trim(); } catch (e) { } try { const L = typeof LIC !== 'undefined' && LIC; if (L && L.name) return String(L.name).trim(); } catch (e) { } return ls.get('v2name', '') || ''; };
 const v2First = n => (n || '').split(/\s+/)[0] || '';
@@ -104,7 +106,7 @@ function v2HomeSide(H) {
   const me = typeof APITEAM !== 'undefined' && APITEAM.me, L = me && me.limits;
   const notes = H.own.reduce((a, o) => a + (H.sum(o).notes || []).filter(n => !n.mine && Date.now() - n.ts < 7 * 864e5).length, 0) + H.invites.length;
   const plan = L && L.projects ? `<div class="v2-hplan"><header><b>Plan ${esc(cap1(String(me.plan || '')))}</b><span>Activo</span></header><p>${me.own || 0} de ${L.projects} proyectos de producción en uso</p><div class="v2-bar"><i style="width:${Math.min(100, Math.round(100 * (me.own || 0) / L.projects))}%"></i></div><button type="button" data-act="plans-see">Ver planes</button></div>` : '';
-  const it = (k, ic, label, n, red) => `<button type="button" class="v2-hnav${k === 'home' ? ' on' : ''}" data-v2go="${k}">${v2HI(ic)}<span>${label}</span>${n != null && n !== '' ? `<b class="${red ? 'red' : ''}">${n}</b>` : ''}</button>`;
+  const it = (k, ic, label, n, red) => `<button type="button" class="v2-hnav${k === (V2H.sec || 'home') ? ' on' : ''}" data-v2go="${k}">${v2HI(ic)}<span>${label}</span>${n != null && n !== '' ? `<b class="${red ? 'red' : ''}">${n}</b>` : ''}</button>`;
   return `<aside class="v2-hsb">
     <div class="v2-hlogo">${typeof logoSVG === 'function' ? logoSVG() : 'FilmSpirit'}</div>
     <nav>${it('home', 'home', 'Inicio')}${it('proj', 'folder', 'Mis proyectos', H.projects.length)}${it('scripts', 'doc', 'Mis guiones', H.scripts.length)}${it('collab', 'people', 'Colaboro en', H.collab.length + H.invites.length)}${it('agenda', 'cal', 'Agenda')}${it('notes', 'chat', 'Notas y avisos', notes || '', true)}</nav>
@@ -144,6 +146,42 @@ function v2ScriptThumb(o, s) {
   const sub = [s.draft || (o.kind === 'guion' ? 'Guion' : ''), s.pages ? s.pages + ' págs.' : ''].filter(Boolean).join(' · ');
   return `<button type="button" class="v2-hscr" ${o.sample ? 'data-h="sample"' : `data-open="${ea(o.id)}"`}><span class="pg">${lines}<i></i><i></i><i></i></span><b>${esc(o.title || 'Sin título')}</b><small>${esc(sub)}</small></button>`;
 }
+/* una fila de «Colaboro en» (un proyecto de otra persona o una invitación) */
+function v2CollRow(o, H) { const s = H.sum(o); return `<button type="button" class="v2-hcr" ${o.invited ? `data-open="${ea(o.id)}"` : `data-open="${ea(o.id)}"`}><span class="v2-av lg ${v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 0 ? 'k' : v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 1 ? 'g' : 'y2'}">${esc(v2Ini(o.owner || o.title))}</span><span class="t"><b>${esc(o.title || 'Sin título')}</b><small>de ${esc(o.owner || 'otra persona')}</small></span>${v2Chip(s.stage || 'g')}<span class="ro">${esc(o.invited ? 'Invitación' : cap1(String(o.role || '')))}</span><span class="pm">${o.invited ? 'Responder' : /lect|ver|read/i.test(String(o.perm || o.role || '')) ? 'Solo ver' : 'Puede editar'}</span>${v2HI('chev')}</button>`; }
+/* botones que se repiten: crear, importar y el ejemplo */
+const v2HB = {
+  guion: () => `<button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button>`,
+  prod: (y) => `<button type="button" class="v2-btn${y ? ' y' : ''}" data-h="prod">${y ? v2I('plus') : ''}<span>Nuevo proyecto</span></button>`,
+  imp: () => `<button type="button" class="v2-btn" data-h="impg" title="Final Draft, Fountain o PDF; también abre un proyecto guardado (.${PROJ_EXT})">Importar guion</button>`,
+  sample: () => `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>`,
+};
+/* lo que se muestra cuando una sección no tiene nada: qué es y cómo empezar */
+const v2HEmpty = (cls, title, text, acts) => `<div class="v2-card v2-hfe${cls ? ' ' + cls : ''}"><h3>${esc(title)}</h3><p>${esc(text)}</p>${acts ? `<div class="a">${acts}</div>` : ''}</div>`;
+/* el encabezado de una sección vista en grande: volver a Inicio, el título, cuántos y sus acciones */
+const v2HHead = (title, sub, acts) => `<header class="v2-hfh"><div><button type="button" class="v2-hback" data-v2go="home">${v2HI('chevl')}<span>Inicio</span></button><h1>${esc(title)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</div>${acts ? `<div class="v2-hfa">${acts}</div>` : ''}</header>`;
+const v2N = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/* la agenda: la semana (con flechas, «Hoy» y días que se eligen) y lo que viene; big: la sección entera */
+function v2HomeCal(H, big) {
+  const t0 = v2Day0(), mon = new Date(t0); mon.setDate(t0.getDate() - ((t0.getDay() + 6) % 7));
+  const evsAll = H.own.flatMap(o => (H.sum(o).ev || []).map(e => ({ ...e, o }))).sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
+  const evs = V2H.day ? evsAll.filter(e => e.d === V2H.day) : evsAll.filter(e => v2FromIso(e.d) >= t0);   // con un día elegido, solo ese día
+  const base = new Date(mon); base.setDate(mon.getDate() + 7 * (V2H.calw || 0));
+  const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(base); d.setDate(base.getDate() + i); return d; });
+  const dots = d => evsAll.filter(e => e.d === v2Iso(d)).slice(0, 1).map(e => `<i style="background:${e.c === 'r' ? 'var(--v2-g4)' : 'var(--v2-red)'}"></i>`).join('');
+  const dayLab = d => { const k = Math.round((v2FromIso(d) - t0) / 864e5); const x = v2FromIso(d); return k === 0 ? 'Hoy' : v2Cap(V2_WD[x.getDay()]) + ' ' + x.getDate(); };
+  return `<section class="v2-card v2-hcal${big ? ' big' : ''}"${big ? '' : ' id="v2hAgenda"'}><header><h3>${esc(v2Cap(week[3].toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).replace(' de ', ' ')))}</h3>${V2H.calw || V2H.day ? '<button type="button" class="v2-link2" data-v2go="caltoday">Hoy</button>' : ''}<button type="button" class="v2-ib" data-v2go="calprev" aria-label="Semana anterior">${v2HI('chevl')}</button><button type="button" class="v2-ib" data-v2go="calnext" aria-label="Semana siguiente">${v2HI('chev')}</button></header>
+      <div class="v2-hweek">${week.map(d => `<span role="button" tabindex="0" data-v2day="${v2Iso(d)}" title="Ver lo de este día" class="${v2Iso(d) === v2Iso(t0) ? 'on' : ''}${V2H.day === v2Iso(d) ? ' sel' : ''}"><small>${['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'][(d.getDay() + 6) % 7]}</small><b>${d.getDate()}</b>${dots(d) || '<i class="no"></i>'}</span>`).join('')}</div>
+      <ul class="v2-hagenda">${evs.slice(0, big ? 40 : 5).map(e => `<li data-open="${ea(e.o.id)}" title="Abrir ${ea(e.o.title || 'el proyecto')}"><span class="w">${esc(dayLab(e.d))}<br>${esc(e.t || '')}</span><i style="background:${e.c === 'r' ? 'var(--v2-g4)' : 'var(--v2-red)'}"></i><span class="x"><b>${esc(e.title)}</b><small>${esc(e.sub || e.o.title)}</small></span></li>`).join('') || `<li class="v2-mut">${V2H.day ? 'Nada ese día.' : 'Nada en la agenda por ahora. Las jornadas del plan de rodaje y los eventos del calendario de tus proyectos aparecen aquí.'}</li>`}</ul></section>`;
+}
+/* notas de tu equipo e invitaciones; big: la sección entera */
+function v2HomeNotes(H, big) {
+  const notes = H.own.flatMap(o => (H.sum(o).notes || []).map(n => ({ ...n, o }))).sort((a, b) => b.ts - a.ts).slice(0, big ? 30 : 4);
+  const inv = H.invites.slice(0, big ? 30 : 2);
+  return `<section class="v2-card v2-hnotes${big ? ' big' : ''}"${big ? '' : ' id="v2hNotes"'}>${big ? '' : '<h3>Notas y avisos</h3>'}
+      ${inv.map(o => `<div class="v2-hn" data-open="${ea(o.id)}" title="Abrir"><span class="v2-av g">${esc(v2Ini(o.owner || ''))}</span><p><b>${esc(o.owner || 'Alguien')}</b> te invitó a ${esc(o.title || 'un proyecto')}${o.role ? ' como ' + esc(String(o.role).toLowerCase()) : ''}<small>${esc(o.updated ? v2Ago(o.updated) : '')}</small></p><i class="dot"></i></div>`).join('')}
+      ${notes.map(n => `<div class="v2-hn" data-open="${ea(n.o.id)}" title="Abrir ${ea(n.o.title || 'el proyecto')}"><span class="v2-av ${n.mine ? 'y' : 'k'}">${esc(v2Ini(n.who))}</span><p><b>${esc(n.mine ? 'Tú' : n.who)}</b> ${n.re ? 'respondió' : 'dejó una nota'}${n.lab ? ' en ' + esc(n.lab.charAt(0).toLowerCase() + n.lab.slice(1)) : ''}${n.text ? `<q>${esc(n.text)}</q>` : ''}<small>${esc(v2Ago(n.ts))}</small></p>${n.mine ? '' : '<i class="dot"></i>'}</div>`).join('')}
+      ${!inv.length && !notes.length ? '<p class="v2-mut">Las notas de tu equipo y las invitaciones aparecen aquí.</p>' : ''}</section>`;
+}
 function v2HomeMain(H) {
   const name = v2HomeName(), now = new Date();
   const q = deaccent(V2H.q || '').toLowerCase(), match = o => !q || deaccent(String(o.title || '')).toLowerCase().includes(q);
@@ -152,28 +190,56 @@ function v2HomeMain(H) {
   if (V2H.seg === 'arch') projs = projs.filter(o => H.arch(o));
   projs = homeSort(projs);
   const sample = typeof sampleName === 'function' ? { id: '__sample', title: sampleName(), sample: true, mine: true } : null;
-  const sampleSum = sample && SAMPLE_MEM && SAMPLE_MEM.P ? null : null;
+  const sampleFeat = () => v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: v2SampleProg().prog, next: v2SampleProg().next, team: [] });
+  const scriptsAll = homeSort(H.scripts.filter(match));
+  const coll = [...H.invites, ...H.collab].filter(match);
+  const seg = `<div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div>`;
+  const found = q ? ` · ${v2N(projs.length + scriptsAll.length, 'resultado', 'resultados')} para «${V2H.q.trim()}»` : '';
+  // una sección en grande (barra lateral o números de arriba): su encabezado y todo lo suyo, sin la grilla de Inicio
+  const sec = V2H.sec;
+  if (sec) {
+    let body = '';
+    if (sec === 'proj') {
+      const now_ = H.projects.filter(o => !H.arch(o)).length;
+      body = v2HHead('Mis proyectos', v2N(H.projects.length, 'proyecto', 'proyectos') + (H.projects.length ? ` · ${now_} en curso` : '') + found, seg + v2HB.prod(true))
+        + (projs.length ? `<div class="v2-hcards">${projs.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>`
+          : H.projects.length ? v2HEmpty('', 'Nada con este filtro', 'Prueba con «Todos» o con otra búsqueda.', '')
+          : v2HEmpty('', 'Todavía no tienes proyectos de producción', 'Un proyecto reúne el guion, el desglose, el storyboard, el plan de rodaje y las hojas de llamado. Crea uno o recorre el ejemplo.', v2HB.prod(true) + v2HB.guion().replace(' y"', '"') + (sample ? v2HB.sample() : '')));
+    } else if (sec === 'scripts') {
+      body = v2HHead('Mis guiones', v2N(H.scripts.length, 'guion', 'guiones') + found, v2HB.imp() + v2HB.guion())
+        + (scriptsAll.length ? `<div class="v2-hscripts">${scriptsAll.map(o => v2ScriptThumb(o, H.sum(o))).join('')}</div>`
+          : v2HEmpty('', H.scripts.length ? 'Ningún guion con esa búsqueda' : 'Todavía no tienes guiones', H.scripts.length ? 'Prueba con otra palabra.' : 'Escribe uno aquí o importa Final Draft, Fountain o PDF.', H.scripts.length ? '' : v2HB.guion() + v2HB.imp()));
+    } else if (sec === 'collab') {
+      body = v2HHead('Colaboro en', 'Proyectos de otras personas que te invitaron' + (coll.length ? ' · ' + coll.length : ''), '')
+        + (coll.length ? `<div class="v2-card v2-hcoll">${coll.map(o => v2CollRow(o, H)).join('')}</div>`
+          : v2HEmpty('', 'Nadie te invitó todavía', 'Cuando alguien te invite a su proyecto, aparece aquí con tu cargo y lo que puedes hacer en él.', ''));
+    } else if (sec === 'agenda') body = v2HHead('Agenda', 'Las jornadas y los eventos de tus proyectos', '') + v2HomeCal(H, true);
+    else if (sec === 'notes') body = v2HHead('Notas y avisos', 'Lo que comentó tu equipo y las invitaciones a otros proyectos', '') + v2HomeNotes(H, true);
+    return `<section class="v2-hleft v2-hfoc">${body}</section>`;
+  }
   const feat = projs.find(o => H.sum(o).stage === 'r') || projs[0];
   const rest = projs.filter(o => o !== feat).slice(0, 6);
+  const scripts = scriptsAll.slice(0, 4);
   const nxt = H.own.map(o => ({ o, n: H.sum(o).next })).filter(x => x.n).sort((a, b) => a.n.date.localeCompare(b.n.date))[0];
   let hello = '';
   if (nxt) { const d = v2FromIso(nxt.n.date), days = Math.round((d - v2Day0()) / 864e5); hello = `${nxt.o.title} rueda ${days === 0 ? 'hoy' : days === 1 ? 'mañana' : days < 7 ? 'este ' + d.toLocaleDateString('es-PE', { weekday: 'long' }) : 'el ' + d.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })}.${nxt.n.miss ? ` Te ${nxt.n.miss === 1 ? 'queda un dato' : 'quedan ' + (['', 'un', 'dos', 'tres', 'cuatro', 'cinco'][nxt.n.miss] || nxt.n.miss) + ' datos'} por completar en la hoja de llamado.` : ''}`; }
   else if (!H.own.length) hello = 'Empieza por tu guion: escríbelo aquí o importa Final Draft, Fountain o PDF.';
-  const scripts = homeSort(H.scripts.filter(match)).slice(0, 4);
-  const coll = [...H.invites, ...H.collab].filter(match);
+  const more = (n, k) => n ? `<button type="button" class="v2-link2" data-v2go="${k}">Ver ${n === 1 ? 'el otro' : 'los ' + n + ' restantes'} ›</button>` : '';
   // sin deslizador: el saludo arriba; los proyectos a la izquierda y los guiones y colaboraciones a su lado (v2-pant.css)
   return `<section class="v2-hleft">
     <div class="v2-hgreet"><p class="v2-hdate">${esc(v2Cap(now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')))}</p>
     <h1 class="v2-hhi">Hola${name ? ', ' + esc(v2First(name)) : ''}</h1>
     ${hello ? `<p class="v2-hsum">${esc(hello)}</p>` : ''}</div>
-    <div class="v2-hproj"><div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2><div class="v2-seg" role="group" aria-label="Filtrar proyectos">${[['all', 'Todos'], ['now', 'En curso'], ['arch', 'Archivados']].map(([k, n]) => `<button type="button" data-v2seg="${k}" aria-pressed="${ea(V2H.seg === k)}">${n}</button>`).join('')}</div></div>
-    ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? v2HomeFeatured(sample, { stage: 'r', kind: 'Cortometraje', logline: 'Un proyecto completo, del guion a la hoja de llamado. Lo que cambies en el ejemplo no se guarda.', prog: v2SampleProg().prog, next: v2SampleProg().next, team: [] }) : ''}
-    ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>` : !H.own.length ? `<div class="v2-hempty"><button type="button" class="v2-btn y" data-h="guion">${v2I('plus')}<span>Nuevo guion</span></button><button type="button" class="v2-btn" data-h="prod">Nuevo proyecto</button>${feat ? `<button type="button" class="v2-btn" data-h="sample">Ver el proyecto de ejemplo</button>` : ''}</div>` : ''}</div>
-    <div class="v2-hside"><div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2><button type="button" class="v2-link2" data-h="impg" title="También abre un proyecto guardado (.${PROJ_EXT})">Importar .fdx o .fountain</button></div>
+    <div class="v2-hproj"><div class="v2-hsec" id="v2hProj"><h2>Mis proyectos</h2>${more(Math.max(0, projs.length - 1 - rest.length), 'proj')}${H.projects.length ? seg : ''}</div>
+    ${feat ? v2HomeFeatured(feat, H.sum(feat)) : sample ? sampleFeat() : ''}
+    ${rest.length ? `<div class="v2-hcards">${rest.map(o => v2HomeCard(o, H.sum(o))).join('')}</div>`
+      : !H.projects.length ? v2HEmpty('v2-hempty', 'Todavía no tienes proyectos propios', sample ? 'Arriba está el proyecto de ejemplo: ábrelo y recórrelo, lo que cambies no se guarda. Cuando quieras, crea el tuyo.' : 'Crea un proyecto o empieza por el guion.', v2HB.guion() + v2HB.prod())
+      : H.projects.length === 1 ? '' : v2HEmpty('v2-hempty', 'Nada con este filtro', 'Prueba con «Todos» o con otra búsqueda.', '')}</div>
+    <div class="v2-hside"><div class="v2-hsc"><div class="v2-hsec" id="v2hScripts"><h2>Mis guiones</h2>${scriptsAll.length > scripts.length ? more(scriptsAll.length - scripts.length, 'scripts') : `<button type="button" class="v2-link2" data-h="impg" title="Final Draft, Fountain o PDF; también abre un proyecto guardado (.${PROJ_EXT})">Importar guion</button>`}</div>
     <div class="v2-hscripts">${scripts.length ? scripts.map(o => v2ScriptThumb(o, H.sum(o))).join('') : sample ? v2ScriptThumb(sample, { script: v2SampleScript(), draft: 'Versión de muestra' }) : ''}</div>
-    <div class="v2-hsec" id="v2hCollab"><h2>Colaboro en</h2><span class="v2-hsub">Proyectos de otras personas que te invitaron</span></div>
-    ${coll.length ? `<div class="v2-card v2-hcoll">${coll.map(o => { const s = H.sum(o); return `<button type="button" class="v2-hcr" ${o.invited ? `data-open="${ea(o.id)}"` : `data-open="${ea(o.id)}"`}><span class="v2-av lg ${v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 0 ? 'k' : v2Ini(o.owner || o.title).charCodeAt(0) % 3 === 1 ? 'g' : 'y2'}">${esc(v2Ini(o.owner || o.title))}</span><span class="t"><b>${esc(o.title || 'Sin título')}</b><small>de ${esc(o.owner || 'otra persona')}</small></span>${v2Chip(s.stage || 'g')}<span class="ro">${esc(o.invited ? 'Invitación' : cap1(String(o.role || '')))}</span><span class="pm">${o.invited ? 'Responder' : /lect|ver|read/i.test(String(o.perm || o.role || '')) ? 'Solo ver' : 'Puede editar'}</span>${v2HI('chev')}</button>`; }).join('')}</div>`
-      : `<div class="v2-card v2-hcoll empty"><p class="v2-mut">Cuando alguien te invite a su proyecto, aparece aquí.</p></div>`}</div>
+    </div><div class="v2-hcw"><div class="v2-hsec" id="v2hCollab"><h2>Colaboro en</h2>${coll.length > 4 ? more(coll.length - 4, 'collab') : '<span class="v2-hsub">Proyectos de otras personas</span>'}</div>
+    ${coll.length ? `<div class="v2-card v2-hcoll">${coll.slice(0, 4).map(o => v2CollRow(o, H)).join('')}</div>`
+      : `<div class="v2-card v2-hcoll empty"><p class="v2-mut">Cuando alguien te invite a su proyecto, aparece aquí.</p></div>`}</div></div>
   </section>`;
 }
 function v2HomeRight(H) {
@@ -187,26 +253,15 @@ function v2HomeRight(H) {
       <ul><li>${v2HI('clock')}<span>Llamado general</span><b>${esc(nxt.n.call || '--:--')}</b></li>${nxt.n.loc ? `<li>${v2I('pin')}<span>${esc(nxt.n.loc)}</span></li>` : ''}${nxt.n.miss ? `<li class="miss"><i></i><span>Faltan ${nxt.n.miss} ${nxt.n.miss === 1 ? 'dato' : 'datos'} para enviarla</span></li>` : ''}</ul>
       <button type="button" class="v2-hcall" data-v2call="${ea(nxt.o.id)}" data-day="${ea(nxt.n.day)}"><span>Ver hoja de llamado</span><i>${v2I('check')}</i></button></section>`;
   }
-  // la agenda: la semana de hoy y lo que viene
-  const t0 = v2Day0(), mon = new Date(t0); mon.setDate(t0.getDate() - ((t0.getDay() + 6) % 7));
-  const evs = H.own.flatMap(o => (H.sum(o).ev || []).map(e => ({ ...e, o }))).filter(e => v2FromIso(e.d) >= t0).sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
-  const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
-  const dots = d => evs.filter(e => e.d === v2Iso(d)).slice(0, 1).map(e => `<i style="background:${e.c === 'r' ? 'var(--v2-g4)' : 'var(--v2-red)'}"></i>`).join('');
-  const dayLab = d => { const k = Math.round((v2FromIso(d) - t0) / 864e5); const x = v2FromIso(d); return k === 0 ? 'Hoy' : v2Cap(V2_WD[x.getDay()]) + ' ' + x.getDate(); };
-  const notes = H.own.flatMap(o => (H.sum(o).notes || []).map(n => ({ ...n, o }))).sort((a, b) => b.ts - a.ts).slice(0, 4);
-  const inv = H.invites.slice(0, 2);
+  const stat = (k, n, label) => `<button type="button" data-v2go="${k}" aria-pressed="${ea(V2H.sec === k)}" title="Ver ${esc(label.toLowerCase())}"><b>${n}</b><span>${label}</span></button>`;
+  // la columna de la derecha es la misma en Inicio y en cada sección; la sección que está en grande no se repite aquí
   return `<aside class="v2-hright">
-    <div class="v2-card v2-hstats"><div><b>${H.projects.length}</b><span>Proyectos</span></div><div><b>${H.scripts.length}</b><span>Guiones</span></div><div><b>${H.collab.length + H.invites.length}</b><span>Colaboro en</span></div></div>
+    <div class="v2-card v2-hstats">${stat('proj', H.projects.length, 'Proyectos')}${stat('scripts', H.scripts.length, 'Guiones')}${stat('collab', H.collab.length + H.invites.length, 'Colaboro en')}</div>
     <section class="v2-card v2-hme"><span class="v2-av xl y">${name ? esc(v2Ini(name)) : v2HI('people')}</span><h3>${esc(name || 'Tu página')}</h3>${ls.get('v2role', '') ? `<p>${esc(ls.get('v2role', ''))}</p>` : '<p>Producción audiovisual</p>'}
       <div><button type="button" class="v2-btn" data-v2go="profile">Editar perfil</button><button type="button" class="v2-btn k" data-v2go="shareme">Compartir</button></div></section>
     ${nextHTML}
-    <section class="v2-card v2-hcal" id="v2hAgenda"><header><h3>${esc(v2Cap(t0.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).replace(' de ', ' ')))}</h3><button type="button" class="v2-ib" data-v2go="calprev" aria-label="Semana anterior">${v2HI('chevl')}</button><button type="button" class="v2-ib" data-v2go="calnext" aria-label="Semana siguiente">${v2HI('chev')}</button></header>
-      <div class="v2-hweek">${week.map(d => `<span class="${v2Iso(d) === v2Iso(t0) ? 'on' : ''}"><small>${['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'][(d.getDay() + 6) % 7]}</small><b>${d.getDate()}</b>${dots(d) || '<i class="no"></i>'}</span>`).join('')}</div>
-      <ul class="v2-hagenda">${evs.slice(0, 5).map(e => `<li><span class="w">${esc(dayLab(e.d))}<br>${esc(e.t || '')}</span><i style="background:${e.c === 'r' ? 'var(--v2-g4)' : 'var(--v2-red)'}"></i><span class="x"><b>${esc(e.title)}</b><small>${esc(e.sub || e.o.title)}</small></span></li>`).join('') || '<li class="v2-mut">Nada en la agenda por ahora.</li>'}</ul></section>
-    <section class="v2-card v2-hnotes" id="v2hNotes"><h3>Notas y avisos</h3>
-      ${inv.map(o => `<div class="v2-hn"><span class="v2-av g">${esc(v2Ini(o.owner || ''))}</span><p><b>${esc(o.owner || 'Alguien')}</b> te invitó a ${esc(o.title || 'un proyecto')}${o.role ? ' como ' + esc(String(o.role).toLowerCase()) : ''}<small>${esc(o.updated ? v2Ago(o.updated) : '')}</small></p><i class="dot"></i></div>`).join('')}
-      ${notes.map(n => `<div class="v2-hn"><span class="v2-av ${n.mine ? 'y' : 'k'}">${esc(v2Ini(n.who))}</span><p><b>${esc(n.mine ? 'Tú' : n.who)}</b> ${n.re ? 'respondió' : 'dejó una nota'}${n.lab ? ' en ' + esc(n.lab.charAt(0).toLowerCase() + n.lab.slice(1)) : ''}${n.text ? `<q>${esc(n.text)}</q>` : ''}<small>${esc(v2Ago(n.ts))}</small></p>${n.mine ? '' : '<i class="dot"></i>'}</div>`).join('')}
-      ${!inv.length && !notes.length ? '<p class="v2-mut">Las notas de tu equipo y las invitaciones aparecen aquí.</p>' : ''}</section>
+    ${V2H.sec === 'agenda' ? '' : v2HomeCal(H)}
+    ${V2H.sec === 'notes' ? '' : v2HomeNotes(H)}
   </aside>`;
 }
 /* ---------- Inicio en el celular (PDF, página Inicio del celular) ----------
@@ -336,7 +391,7 @@ function v2SampleScript() {
       <header class="v2-hhead"><label class="v2-hq">${v2HI('search')}<input type="search" id="v2HomeQ" placeholder="Buscar proyectos, guiones o personas" value="${esc(V2H.q)}" autocomplete="off" aria-label="Buscar"><kbd>Ctrl K</kbd></label>
         <span class="v2-grow"></span><button type="button" class="v2-btn ic" data-v2go="notes" aria-label="Notas y avisos">${v2HI('bell')}${H.invites.length || H.own.some(o => (H.sum(o).notes || []).some(n => !n.mine)) ? '<i class="v2-dotb"></i>' : ''}</button>
         <button type="button" class="v2-btn y" data-v2go="new">${v2I('plus')}<span>Nuevo proyecto</span></button>${v2MeHTML(true)}</header>
-      ${loading ? '<p class="v2-mut" style="padding:40px">Cargando proyectos…</p>' : `<div class="v2-hgrid">${v2HomeMain(H)}${v2HomeRight(H)}</div>`}
+      ${loading ? '<p class="v2-mut" style="padding:40px">Cargando proyectos…</p>' : `<div class="v2-hgrid" data-sec="${ea(V2H.sec)}">${v2HomeMain(H)}${v2HomeRight(H)}</div>`}
     </div>`;
     if (HOME.err) { const b = $('.v2-hleft', h); if (b) b.insertAdjacentHTML('afterbegin', '<p class="pj-empty bad">No se pudo cargar la lista de proyectos. <button class="btn sm" data-h="retry">Reintentar</button></p>'); }
   };
@@ -349,21 +404,19 @@ function v2HomeBind(h) {
     if (e.target.closest('[data-h="impg"]')) { pickFile(`${SCRIPT_ACCEPT},${PROJ_ACCEPT}`, 'import'); return; }
     const g = e.target.closest('[data-v2go]');
     if (g) {
-      const k = g.dataset.v2go, scrollTo = id => { const el = $('#' + id, h); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-      $$('.v2-hnav', h).forEach(x => x.classList.toggle('on', x === g && g.closest('nav')));
-      if (k === 'home') h.querySelector('.v2-hmain').scrollTo({ top: 0, behavior: 'smooth' });
-      else if (k === 'proj') scrollTo('v2hProj');
-      else if (k === 'scripts') scrollTo('v2hScripts');
-      else if (k === 'collab') scrollTo('v2hCollab');
-      else if (k === 'agenda') scrollTo('v2hAgenda');
-      else if (k === 'notes') scrollTo('v2hNotes');
-      else if (k === 'new') newMenu(g);
+      const k = g.dataset.v2go;
+      // Inicio ya no se desplaza (todo cabe en la pantalla): cada opción abre su sección en grande; «Inicio» vuelve a verlo todo
+      if (['home', 'proj', 'scripts', 'collab', 'agenda', 'notes'].includes(k)) { V2H.sec = k === 'home' ? '' : k; if (k === 'agenda') { V2H.calw = 0; V2H.day = ''; } homePaint(); return; }
+      if (k === 'calprev' || k === 'calnext') { V2H.calw = (V2H.calw || 0) + (k === 'calnext' ? 1 : -1); V2H.day = ''; homePaint(); return; }
+      if (k === 'caltoday') { V2H.calw = 0; V2H.day = ''; homePaint(); return; }
+      if (k === 'new') newMenu(g);
       else if (k === 'settings') { if (typeof lookPanel === 'function') lookPanel('me'); }
       else if (k === 'help') { if (typeof helpMenu === 'function') helpMenu(g); }
       else if (k === 'profile') { if (typeof accountMenu === 'function' && typeof APITEAM !== 'undefined' && APITEAM.me) accountMenu(g); else v2NameDialog(); }
       else if (k === 'shareme') { const u = location.origin + location.pathname; if (navigator.share) navigator.share({ title: 'FilmSpirit', url: u }).catch(() => { }); else if (navigator.clipboard) navigator.clipboard.writeText(u).then(() => toast('Enlace copiado.')); }
       return;
     }
+    const dy = e.target.closest('[data-v2day]'); if (dy) { V2H.day = V2H.day === dy.dataset.v2day ? '' : dy.dataset.v2day; homePaint(); return; }
     const sg = e.target.closest('[data-v2seg]'); if (sg) { V2H.seg = sg.dataset.v2seg; homePaint(); return; }
     const ms = e.target.closest('[data-v2mseg]'); if (ms) { V2H.mseg = ms.dataset.v2mseg; homePaint(); return; }
     const mn = e.target.closest('[data-v2m]');

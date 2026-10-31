@@ -1373,3 +1373,108 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .fp-grip{display:grid;gap:0;margin-top:6px}
 .fp-grip summary{cursor:pointer;padding:8px 0;font:600 13px/1 var(--font-ui);color:var(--ink)}
 .fp-grip .linkbtn{justify-self:start;margin-top:4px}
+
+/* Storyboard · vista «Plantas»: la planta de cámara de cada plano con su viñeta en una esquina; cada escena con su encabezado */
+.v2-plf{background:var(--v2k-e9e6df)}
+.v2-plf img.v2-plm{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:#F6F5F1}
+.v2-plf img.v2-plm.wait{opacity:.35}
+.v2-plf .v2-plm.none{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;font:400 12px/16px var(--font-ui);color:var(--muted);background:#F6F5F1}
+.v2-pli{position:absolute;right:6px;bottom:6px;width:38%;aspect-ratio:var(--ar,1.778);border:2px solid var(--surface);border-radius:3px;overflow:hidden;background:var(--v2k-e9e6df);box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.v2-plsc{display:grid;gap:12px;margin:0 0 26px}
+.v2-plsc>header{display:flex;align-items:center;gap:12px;min-width:0}
+.v2-plsc h3{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0;min-width:0;font:700 17px/22px var(--v2-disp);color:var(--ink)}
+.v2-plsc h3 .no{white-space:nowrap}
+.v2-plsc h3 .sch{font:700 13px/18px var(--font-ui);text-transform:uppercase;letter-spacing:.01em}
+.v2-plsc h3 .v2-mut{font:400 12.5px/18px var(--font-ui)}
+.v2-plgi{display:inline-flex;align-items:center;gap:8px;flex:none;height:34px;padding:0 13px 0 10px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:700 13.5px/1 var(--font-ui);cursor:pointer}
+.v2-plgi:hover{background:var(--v2-yellow);border-color:var(--v2-yellow);color:var(--v2-black)}
+.v2-plgi svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* planta a pantalla completa del editor de plano: todo fuera del dibujo. Arriba, en la barra, los controles (medir, alejar, acercar,
+   ver todo, cerrar; shot-editor.js · planFull los pasa ahí); a la derecha, la miniatura del encuadre. En pantallas angostas, la
+   miniatura queda dentro, arriba a la derecha */
+.sx-plan.full .pl-pvb{top:8px}
+.sx-plan.full{--plsz:min(calc(100vw - 20px),calc(100dvh - 164px))}   /* deja lugar a la barra de animar de abajo */
+.sx-plan.full .sx-tl{width:var(--plsz);flex:none}
+.sx-plan.full .pl-add{flex-wrap:wrap}
+.sx-plan.full .pl-add .pl-ov{position:static;margin-left:auto;background:var(--surface);border:1px solid var(--line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.sx-plan.full .pl-add .pl-ov button{display:grid;place-items:center;width:30px;height:30px;min-height:0;padding:0;border:0;background:none;border-radius:var(--r-xs);font:600 16px/1 var(--font-ui)}
+.sx-plan.full .pl-add .pl-ov button:hover{background:var(--fill)}
+.sx-plan.full .pl-add .pl-ov button[aria-pressed="true"]{background:#0E7C66;color:#fff}
+@media (min-width:900px){
+  .sx-plan.full{--thw:clamp(180px,19vw,300px);--plsz:min(calc(100vw - 44px - var(--thw)),calc(100dvh - 164px))}
+  .sx-plan.full .pl-add,.sx-plan.full .sx-stage,.sx-plan.full .sx-tl{margin-right:calc(var(--thw) + 14px)}
+  .sx-plan.full .pl-pvb{left:calc(100% + 14px);right:auto;top:0;width:var(--thw)}
+}
+
+/* planta a pantalla completa: altura y tilt de la cámara, junto a su icono (doble toque en la cámara) */
+.pl-cp{position:absolute;z-index:6;width:236px;padding:10px 12px 8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 6px 22px rgba(0,0,0,.2)}
+.pl-cph{display:flex;align-items:center;justify-content:space-between;margin:0 0 4px;font:700 13px/1 var(--font-ui);color:var(--ink)}
+.pl-cpx{display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:var(--r-xs);background:none;color:var(--muted);font:600 14px/1 var(--font-ui);cursor:pointer}
+.pl-cpx:hover{background:var(--fill);color:var(--ink)}
+
+/* Inicio: la barra lateral y los números de arriba abren su sección en grande (v2-inicio.js · V2H.sec); «Inicio» las junta.
+   Una sección en grande tiene su propio encabezado (volver, título, cuántos, acciones) y su contenido, sin la grilla de Inicio */
+#home.v2-home .v2-hleft.v2-hfoc{display:block;min-width:0}
+.v2-hfh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin:0 0 clamp(14px,2.6vh,26px)}
+.v2-hfh>div:first-child{min-width:0}
+.v2-hfh h1{margin:10px 0 6px;font:700 clamp(28px,4.2vh,40px)/1.05 var(--v2-disp);color:var(--ink)}
+.v2-hfh p{margin:0;font:400 14px/20px var(--font-ui);color:var(--muted)}
+.v2-hback{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 6px 0 0;border:0;background:none;color:var(--muted);font:600 12.5px/1 var(--font-ui);cursor:pointer}
+.v2-hback:hover{color:var(--ink)}
+.v2-hback svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.v2-hfa{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.v2-hfa .v2-seg{height:40px}
+.v2-hfa .v2-btn{height:40px}
+#home.v2-home .v2-hfoc .v2-hcards{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin:0}
+#home.v2-home .v2-hfoc .v2-hscripts{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px 18px}
+#home.v2-home .v2-hfoc .v2-hscr .pg{height:clamp(150px,22vh,235px)}
+#home.v2-home .v2-hfoc .v2-hscr small{display:block}
+#home.v2-home .v2-hfoc .v2-hcoll{max-height:none;max-width:860px}
+#home.v2-home .v2-hfoc .v2-hcal,#home.v2-home .v2-hfoc .v2-hnotes{max-width:860px;padding:22px 24px}
+#home.v2-home .v2-hfoc .v2-hagenda li:nth-child(n){display:grid}
+#home.v2-home .v2-hfoc .v2-hagenda li.v2-mut{display:block}
+#home.v2-home .v2-hfoc .v2-hn:nth-of-type(n){display:grid}
+#home.v2-home .v2-hfoc .v2-hn q{display:block;white-space:normal}
+/* cuando una sección no tiene nada: qué es y cómo empezar */
+.v2-hfe{display:grid;justify-items:start;gap:8px;max-width:640px;box-sizing:border-box;padding:24px 26px}
+.v2-hfe h3{margin:0;font:700 19px/1.25 var(--v2-disp);color:var(--ink)}
+.v2-hfe p{margin:0;font:400 13.5px/20px var(--font-ui);color:var(--muted)}
+.v2-hfe .a{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.v2-hfe .a .v2-btn{height:40px}
+#home.v2-home .v2-hempty.v2-hfe{display:grid;max-width:none;margin:clamp(8px,1.6vh,16px) 0 0}
+/* «Ver los N restantes» junto al título de cada bloque de Inicio */
+#home.v2-home .v2-hsec h2+.v2-link2{margin-right:auto;margin-left:14px;color:var(--muted);font-size:13px}
+#home.v2-home .v2-hsec h2+.v2-link2:hover{color:var(--ink)}
+/* los números de arriba: botones que abren su sección (con el aspecto de siempre) */
+#home.v2-home .v2-hstats>button{display:grid;align-content:center;justify-items:start;gap:6px;min-width:0;padding:0 0 0 18px;border:0;border-left:1px solid var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#home.v2-home .v2-hstats>button:first-child{border-left:0}
+#home.v2-home .v2-hstats>button:hover b,#home.v2-home .v2-hstats>button[aria-pressed="true"] b{text-decoration:underline;text-decoration-color:var(--v2-yellow);text-decoration-thickness:3px;text-underline-offset:4px}
+/* el calendario: días que se eligen; la agenda y las notas se abren */
+#home.v2-home .v2-hweek span[data-v2day]{cursor:pointer;border-radius:3px}
+#home.v2-home .v2-hweek span[data-v2day]:hover{background:var(--fill)}
+#home.v2-home .v2-hweek span.sel{outline:2px solid var(--v2-yellow);outline-offset:-2px}
+#home.v2-home .v2-hcal header .v2-link2{margin-left:auto;margin-right:8px;font-size:13px}
+#home.v2-home .v2-hagenda li[data-open],#home.v2-home .v2-hn[data-open]{cursor:pointer;border-radius:3px}
+#home.v2-home .v2-hagenda li[data-open]:hover,#home.v2-home .v2-hn[data-open]:hover{background:var(--fill)}
+
+/* Desglose como el guion rayado: escenas a la izquierda, la hoja al centro y a un costado la escena con sus etiquetas */
+.v2-g3.v2-bd3{grid-template-columns:220px minmax(0,1fr) 300px}
+.v2-bd3>.v2-bdtx{padding:0;min-width:0;display:flex;flex-direction:column;min-height:0}
+.v2-bd3 .v2-bdtx .scroller{flex:1 1 0;height:auto;min-height:0}
+.v2-bdside{display:flex;flex-direction:column;gap:12px;overflow:auto;padding-bottom:24px;min-height:0}
+.v2-bdside .v2-bdcards{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;position:static;max-height:none;overflow:visible}
+.v2-bdinfo{padding:14px 16px}
+.v2-bdinfo .h span{display:block;font:400 12px/1 var(--font-ui);color:var(--muted);margin:0 0 6px}
+.v2-bdinfo .h b{font:700 14px/18px var(--font-ui)}
+.v2-bdinfo dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0 0}
+.v2-bdinfo dl>div{display:contents}
+.v2-bdinfo dt{font:400 12.5px/1.3 var(--font-ui);color:var(--muted)}
+.v2-bdinfo dd{margin:0;font:600 12.5px/1.3 var(--font-ui);text-align:right}
+@media (max-width:1100px){.v2-g3.v2-bd3{grid-template-columns:minmax(0,1fr) 270px}.v2-bd3>.v2-scenes{display:none}}
+.v2-bdc h3 span{margin-left:auto}
+.v2-bdph{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 6px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);cursor:pointer}
+.v2-bdph:hover{background:var(--fill);color:var(--ink)}
+.v2-bdph.has{color:var(--ink);border-color:var(--ink)}
+.v2-bdph svg{width:15px;height:15px}
+.v2-bdph b{font:700 11.5px/1 var(--font-ui)}

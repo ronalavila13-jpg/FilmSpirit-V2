@@ -175,7 +175,7 @@ function openShotEditor(id, isNew, from2d, waited) {
             <button type="button" class="pl-x" data-pa="gen" title="Las cámaras de todos los planos de la escena en una sola planta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 7.5l9 4.5 9-4.5z"/><path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg><span>Planta general</span></button>
             <button type="button" class="pl-x" data-pa="exp" aria-haspopup="menu" title="Exportar solo la planta: PDF o imagen PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg><span>Exportar</span></button>
           </div>
-          <div class="sx-stage"><canvas id="plC" class="pl-c" title="Planta: arrastra figuras, objetos y la cámara; el círculo blanco gira. Mayúsculas ajusta a 25 cm y 15°. Doble toque: pantalla completa."></canvas><button type="button" id="plPvB" class="pl-pvb" title="Volver al editor (Esc)" aria-label="Volver al editor"><canvas id="plPv" class="pl-pv" aria-hidden="true"></canvas></button>
+          <div class="sx-stage"><canvas id="plC" class="pl-c" title="Planta: arrastra figuras, objetos y la cámara; el círculo blanco gira. Mayúsculas ajusta a 25 cm y 15°. Doble toque: pantalla completa; ya en ella, doble toque en la cámara: su altura y su tilt."></canvas><button type="button" id="plPvB" class="pl-pvb" title="Volver al editor (Esc)" aria-label="Volver al editor"><canvas id="plPv" class="pl-pv" aria-hidden="true"></canvas></button>
             <div class="pl-mh" id="plMh" hidden><span>Arrastra entre dos puntos. De la cámara a una figura da la distancia de foco (hasta los ojos) y lo que queda nítido. Toca una medida para quitarla.</span><button type="button" id="plMclr" hidden>Borrar todas</button></div>
             <div class="pl-ov" role="toolbar" aria-label="Planta">
               <button id="plMed" aria-pressed="false" title="Medir distancias en la planta (Esc para terminar)" aria-label="Medir distancias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 15.5 12-12 5 5-12 12z"/><path d="m7 12 2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5 16 6"/></svg></button>
@@ -385,7 +385,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     if (EDT !== E) return;
     const all = rafAll; rafAll = false;
     if (E.boot) bootDraw(); else drawViewportNow();
-    if (all) { plan.draw(); drawTimeline(); if (E.pv) E.pv(); if (E.paintPad) E.paintPad(); paintTop(); coachEd(); }
+    if (all) { plan.draw(); if (E.cpOpen) cpPlace(); drawTimeline(); if (E.pv) E.pv(); if (E.paintPad) E.paintPad(); paintTop(); coachEd(); }
   }
   /* avisos de la primera vez: doblar el cuerpo al elegir una figura; el cubo en la vista libre */
   function coachEd() {
@@ -1207,16 +1207,58 @@ function openShotEditor(id, isNew, from2d, waited) {
 
   /* ---------- planta a pantalla completa (doble toque o ⤢) ---------- */
   const plBox = $m('.sx-plan'), plC = $m('#plC'), plPv = $m('#plPv');
+  let tlHome = null;   // dónde estaba la barra de animar antes de subir a la planta
   function planFull(on = !plBox.classList.contains('full')) {
     clearTimeout(E.deselT);
     plBox.classList.toggle('full', on);
     E.full = on;
+    if (!on && E.cpOpen) cpToggle(false);
     $m('#plFull').textContent = on ? '✕' : '⤢';
     $m('#plFull').setAttribute('aria-label', on ? 'Cerrar la planta a pantalla completa' : 'Planta a pantalla completa');
     $m('#plFull').title = on ? 'Volver al editor (Esc)' : 'Ver la planta sola, a pantalla completa (doble toque en la planta)';
+    // los controles (medir, alejar, acercar, ver todo, cerrar) van en la barra de arriba, fuera del dibujo; al volver, en su esquina
+    const ov = $m('.pl-ov'), bar = $m('.pl-add'); if (ov && bar) (on ? bar : $m('.sx-stage')).append(ov);
+    // la barra de animar y reproducir (▶, tiempo, línea de tiempo, claves) sube debajo de la planta; al volver, a su lugar
+    const tl = $m('.sx-tl');
+    if (tl) { if (on) { if (!tlHome) tlHome = { p: tl.parentNode, n: tl.nextSibling }; plBox.append(tl); } else if (tlHome) { tlHome.p.insertBefore(tl, tlHome.n); tlHome = null; } }
     requestAnimationFrame(() => { plan.fit(); redraw(); });
   }
   E.planFull = planFull;
+  /* altura y tilt de la cámara sobre la planta a pantalla completa: un doble toque en su icono los abre junto a ella (no están siempre a la
+     vista); se cierran con su ✕, Esc, otro doble toque en la cámara o al volver al editor. Usan los mismos deslizadores del panel Cámara */
+  const camNow = () => (stCache || (stCache = s3At(E.s3, E.t))).cam;
+  const camTap = e => { const r = plC.getBoundingClientRect(), c = camNow(), [sx, sy] = plan.toScreen(c.x, c.z); return Math.hypot(e.clientX - r.left - sx, e.clientY - r.top - sy) < 26; };
+  function cpToggle(on = !E.cpOpen) {
+    let cp = $m('.pl-cp');
+    if (!on) { if (cp) cp.remove(); E.cpOpen = false; return; }
+    if (!cp) {
+      cp = document.createElement('div'); cp.className = 'pl-cp'; cp.setAttribute('role', 'group'); cp.setAttribute('aria-label', 'Altura e inclinación de la cámara');
+      const c = camNow();
+      cp.innerHTML = `<div class="pl-cph"><b>Cámara${s3HasB(E.s3) ? ' ' + (E.cam === 'b' ? 'B' : 'A') : ''}</b><button type="button" class="pl-cpx" aria-label="Cerrar" title="Cerrar (Esc)">✕</button></div>`
+        + rangeRow('Altura', 'h', round2(c.h), .1, 20, .05, ' m')
+        + (E.s3.aim ? rangeRow('Ajuste de tilt', 'aimTilt', E.s3.aimTilt || 0, -30, 30, 1, '°') : rangeRow('Tilt', 'pitch', Math.round(c.pitch), -89, 89, 1, '°'));
+      cp.addEventListener('input', onPanelInput); cp.addEventListener('change', e => onPanelChange(e.target));
+      cp.addEventListener('click', e => { if (e.target.closest('.pl-cpx')) cpToggle(false); });
+      cp.addEventListener('pointerdown', e => e.stopPropagation());
+      $m('.sx-stage').append(cp);
+    }
+    E.cpOpen = true; cpPlace();
+  }
+  function cpPlace() {
+    const cp = $m('.pl-cp'); if (!cp || !E.cpOpen) return;
+    if (!plBox.classList.contains('full')) { cpToggle(false); return; }
+    const c = camNow(), [sx, sy] = plan.toScreen(c.x, c.z), stg = $m('.sx-stage'), w = cp.offsetWidth || 230, h = cp.offsetHeight || 120;
+    cp.style.left = Math.round(clamp(sx + 24, 6, stg.clientWidth - w - 6)) + 'px'; cp.style.top = Math.round(clamp(sy - h - 16, 6, stg.clientHeight - h - 6)) + 'px';
+    // lo que cambia fuera de aquí (el tiempo, otra clave, el panel Cámara): se refleja sin tocar el que se está moviendo
+    for (const i of cp.querySelectorAll('input[type=range]')) {
+      if (document.activeElement === i) continue;
+      const v = i.dataset.k === 'h' ? round2(c.h) : i.dataset.k === 'pitch' ? Math.round(c.pitch) : (E.s3.aimTilt || 0);
+      if (+i.value === v) continue;
+      i.value = v; i.style.setProperty('--p', rangePct(v, +i.min, +i.max) + '%');
+      const o = i.parentElement.querySelector('output'); if (o) o.textContent = (i.step < 1 ? v.toFixed(i.step < .1 ? 2 : 1) : v) + (i.dataset.u || '');
+    }
+  }
+  if (UI.edPlan) { UI.edPlan = false; requestAnimationFrame(() => planFull(true)); }   // desde la vista «Plantas» del Storyboard: se abre con la planta a pantalla completa
   const vView = $m('.sx-view');
   const insp = $m('.sx-insp'), inspHome = insp && insp.parentNode;
   function vpFull(on = !vView.classList.contains('full')) {
@@ -1272,7 +1314,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     const now = e.timeStamp;   // la hora del toque (no la de procesarlo: dibujar la escena puede demorar)
     // doble toque: abre la planta completa; dentro de ella no la cierra (se sale con la viñeta, la ✕ o Esc)
     if (E.measure) { tapAt = 0; return; }   // midiendo, dos toques seguidos son dos medidas (no la planta completa)
-    if (now - tapAt < 340 && tapXY && Math.hypot(e.clientX - tapXY[0], e.clientY - tapXY[1]) < 36) { tapAt = 0; if (!plBox.classList.contains('full')) planFull(true); return; }
+    if (now - tapAt < 340 && tapXY && Math.hypot(e.clientX - tapXY[0], e.clientY - tapXY[1]) < 36) { tapAt = 0; if (!plBox.classList.contains('full')) planFull(true); else if (camTap(e)) cpToggle(); return; }
     tapAt = now; tapXY = [e.clientX, e.clientY];
   });
   // vista previa del plano en una esquina de la planta completa
@@ -1315,7 +1357,8 @@ function openShotEditor(id, isNew, from2d, waited) {
   const escFull = e => {
     if (e.key !== 'Escape' || EDT !== E || m.hidden) return;
     if (document.querySelector('#pop')) return;   // con un menú abierto (Exportar, Luz…), Esc cierra solo el menú
-    if (plBox.classList.contains('full')) { e.preventDefault(); e.stopImmediatePropagation(); planFull(false); }
+    if (E.cpOpen) { e.preventDefault(); e.stopImmediatePropagation(); cpToggle(false); }   // primero se cierra el panel de la cámara
+    else if (plBox.classList.contains('full')) { e.preventDefault(); e.stopImmediatePropagation(); planFull(false); }
     else if (vView.classList.contains('full') && !E.part) { e.preventDefault(); e.stopImmediatePropagation(); vpFull(false); }
   };
   addEventListener('keydown', escFull, true);
@@ -2061,7 +2104,7 @@ function openShotEditor(id, isNew, from2d, waited) {
     stCache = null; panel(); redraw();
   }
   panelEl.addEventListener('toggle', e => { const c = e.target.classList; if (!c) return; if (e.target.dataset.more === 'cam') E.camMore = e.target.open; else if (c.contains('lx-eq')) E.eqOpen = e.target.open; else if (c.contains('figlook')) E.lookOpen = e.target.open; else if (c.contains('joints')) E.jointsOpen = e.target.open; }, true);
-  panelEl.addEventListener('input', e => {
+  const onPanelInput = e => {
     const el = e.target;
     if (el.dataset.lkc) { const ob = selOb(); if (ob) { el.parentElement.style.setProperty('--sw', el.value); setLook(ob, el.dataset.lkc, el.value, true); } return; }
     if (el.dataset.opc) { const ob = selOb(); if (ob) { el.parentElement.style.setProperty('--sw', el.value); ob.paint = el.value; redraw(); } return; }
@@ -2091,7 +2134,8 @@ function openShotEditor(id, isNew, from2d, waited) {
     else if (key === 'rot') k.o[E.sel].rot = v;
     else k.cam[key] = v;
     edited();
-  });
+  };
+  panelEl.addEventListener('input', onPanelInput);
   panelEl.addEventListener('change', e => onPanelChange(e.target));
   function onPanelChange(el) {
     if (el.dataset.c === 'lensp') { const k = editKey(); k.cam.lens = +el.value; edited(); commit(); return; }

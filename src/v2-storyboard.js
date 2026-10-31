@@ -25,7 +25,7 @@ const v2SbList = () => { const sc = UI.sbScene ? [sceneOfKey(UI.sbScene)].filter
 const v2Secs = s => { s = Math.round(s); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ' ' + (s % 60) + ' s' : ''}`; };
 
 V2_ACTS.board = () => `<div class="v2-seg" role="group" aria-label="Vista del storyboard">
-    <button type="button" data-v2a="sbv" data-v="panels" aria-pressed="${ea(UI.sbView !== 'table')}">Cuadros</button><button type="button" data-v2a="sbv" data-v="table" aria-pressed="${ea(UI.sbView === 'table')}">Lista</button></div>`
+    <button type="button" data-v2a="sbv" data-v="panels" aria-pressed="${ea(UI.sbView !== 'table' && UI.sbView !== 'plantas')}">Cuadros</button><button type="button" data-v2a="sbv" data-v="plantas" aria-pressed="${ea(UI.sbView === 'plantas')}" title="La planta de cámara de cada plano, con su viñeta en miniatura">Plantas</button><button type="button" data-v2a="sbv" data-v="table" aria-pressed="${ea(UI.sbView === 'table')}">Lista</button></div>`
   + `<button type="button" class="v2-btn" data-v2a="export">Exportar PDF</button>`
   + (!v2SbEd() ? '' : `<button type="button" class="v2-btn y" data-v2a="sbnew">${v2I('plus')}<span>Nuevo plano</span></button>`);
 V2_DO.sbv = b => { UI.sbView = b.dataset.v; render(); };
@@ -34,18 +34,41 @@ V2_DO.sbnew = () => {
   if (s) newShot(s, s.p0 + 1 < s.p1 ? s.p0 + 1 : s.p0, s.p1 - 1, { size: 'PG' }, true);
 };
 
-function v2SbCard(sh, G) {
+function v2SbCard(sh, G, plan) {
   const nn = typeof notesAt === 'function' ? notesAt('shot:' + sh.id).reduce((a, n) => a + 1 + noteReplies(n.id).length, 0) : 0;
   const chars = (sh.chars || []).map(id => P.elements[id]).filter(Boolean).map(e => titleCase(e.name)).join(', ');
   const g = G && G.get(sh.id), lead = g && g.lead.id === sh.id;
   return `<div class="pcell v2-sbc${sbSel().has(sh.id) ? ' sel' : ''}${g ? ' v2-grp' : ''}" data-sid="${ea(sh.id)}" data-note="shot:${ea(sh.id)}"${g ? ` style="--gc:${g.color}"` : ''}>
     <button type="button" class="v2-sbb" data-v2pick="${ea(sh.id)}" aria-label="Plano ${esc(D.code[sh.id])}">
-      <span class="v2-sbf">${sbFrames(sh)}${sh.done ? `<i class="v2-ok" title="Rodado">${v2I('check')}</i>` : ''}${nn ? `<i class="v2-nn">${v2I('note')}${nn}</i>` : ''}</span>
+      <span class="v2-sbf${plan ? ' v2-plf' : ''}">${plan ? v2PlImg(sh) + `<span class="v2-pli">${sbFrames(sh)}</span>` : sbFrames(sh)}${sh.done ? `<i class="v2-ok" title="Rodado">${v2I('check')}</i>` : ''}${nn ? `<i class="v2-nn">${v2I('note')}${nn}</i>` : ''}</span>
       <span class="v2-sbm"><b>${esc(D.code[sh.id])}</b>${g ? `<span class="v2-gt" title="Se graba de una vez con ${esc(g.members.filter(x => x !== sh).map(x => D.code[x.id]).join(', '))}: claqueta ${esc(D.code[g.lead.id])}">${lead ? '+' + (g.members.length - 1) : 'con ' + esc(D.code[g.lead.id])}</span>` : ''}<span class="v2-sz">${esc(sh.size || '—')}</span>${sh.lens ? `<span class="l">${esc(String(sh.lens))} mm</span>` : ''}<span class="d">${sh.dur ? esc(String(sh.dur)) + ' s' : ''}</span></span>
       ${sh.desc ? `<span class="v2-sbd">${esc(sh.desc)}</span>` : `<span class="v2-sbd mut">${esc(shotTextExcerpt(sh, 90))}</span>`}
       ${chars ? `<span class="v2-sbch">${esc(chars)}</span>` : ''}
     </button></div>`;
 }
+/* la vista «Plantas»: la planta de cámara de cada plano (planta-general.js · plantaShotCanvas), con su viñeta en una esquina.
+   Se dibujan de a poco, sin frenar la pantalla, y se guardan por plano y firma de su escena 3D */
+const PL_IMG = new Map();
+const v2PlImg = sh => shot3D(sh) ? `<img class="v2-plm wait" data-plsh="${ea(sh.id)}" alt="Planta de cámara del plano ${ea(D.code[sh.id])}" src="${ea(BLANK)}" draggable="false">` : `<span class="v2-plm none">Dibujado a mano: sin planta de cámara</span>`;
+function v2PlKey(sh, s3) { const j = JSON.stringify(s3); let h = 5381; for (let i = 0; i < j.length; i++) h = (h * 33 ^ j.charCodeAt(i)) >>> 0; return sh.id + ':' + h; }
+function v2PlHydrate() {
+  const imgs = $$('#view img.v2-plm[data-plsh]'); let i = 0;
+  const step = () => {
+    const t0 = performance.now();
+    while (i < imgs.length && performance.now() - t0 < 24) {
+      const im = imgs[i++], sh = im.isConnected && P.shots[im.dataset.plsh]; if (!sh) continue;
+      try {
+        const s3 = s3Of(sh), k = v2PlKey(sh, s3); let u = PL_IMG.get(k);
+        if (!u) { u = plantaShotCanvas(s3, 320, 2, Math.round(320 * 9 / 16)).toDataURL(IMG_WEBP ? 'image/webp' : 'image/png', .9); PL_IMG.set(k, u); }
+        im.src = u; im.classList.remove('wait');
+      } catch (e) { }
+    }
+    if (i < imgs.length) setTimeout(step, 16);
+  };
+  step();
+}
+V2_ICO.layers = '<path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>';
+V2_ICO.plant = '<path d="M4 4h16v16H4zM4 10h7M11 10v10M15 4v6h5"/><circle cx="15.5" cy="15" r="1.6"/>';
 V2_ICO.check = '<path d="m5 12.5 4.5 4.5L19 7"/>';
 V2_ICO.note = '<path d="M5 5h14v10H10l-4 4v-4H5z"/>';
 
@@ -60,18 +83,30 @@ RENDER.board = (orig => function () {
   ensureFrames('index');
   if (UI.sbScene && !sceneOfKey(UI.sbScene)) UI.sbScene = '';
   const list = v2SbList();
-  const ar = (ASPECTS[P.meta.aspect] || 16 / 9), G = shotGroups();
+  const ar = (ASPECTS[P.meta.aspect] || 16 / 9), G = shotGroups(), plan = UI.sbView === 'plantas';
   v.innerHTML = `<div class="v2-pg v2-sb" style="--ar:${ea(ar)}">
     ${v2SbFilter()}${v2SbLegend(G)}
-    <div class="v2-sbgrid sb-grid"${UI.sbScene ? ` data-sc="${esc(UI.sbScene)}"` : ''}>${list.map(sh => v2SbCard(sh, G)).join('') || `<p class="v2-mut">Sin planos todavía. Usa «Nuevo plano».</p>`}</div>
+    ${plan ? v2SbPlans(G) : `<div class="v2-sbgrid sb-grid"${UI.sbScene ? ` data-sc="${esc(UI.sbScene)}"` : ''}>${list.map(sh => v2SbCard(sh, G)).join('') || `<p class="v2-mut">Sin planos todavía. Usa «Nuevo plano».</p>`}</div>`}
     ${v2SbEd() ? '<div class="sb-selbar" id="sbSelBar" role="status" hidden></div>' : ''}
   </div>`;
   bindView();
   hydrateThumbs();
+  if (plan) v2PlHydrate();
   v2SbBind();
   sbSelPaint();
 })(RENDER.board);
 
+/* «Plantas»: cada escena con su encabezado (y el icono de su planta general) y, debajo, las tarjetas de sus planos */
+function v2SbPlans(G) {
+  const scenes = UI.sbScene ? [sceneOfKey(UI.sbScene)].filter(Boolean) : D.sc.scenes;
+  const out = scenes.map(s => {
+    const shots = v2SbOrd(D.shotsBy[s.key] || []); if (!shots.length) return '';
+    const n = shots.length, has3d = shots.some(sh => shot3D(sh));
+    return `<section class="v2-plsc"><header><h3><span class="no">Esc. ${esc(s.key)}</span><span class="sch">${esc(s.heading)}</span><span class="v2-mut">· ${n} ${n === 1 ? 'plano' : 'planos'}</span></h3>${has3d ? `<button type="button" class="v2-plgi" data-sc="${ea(s.key)}" title="Planta general de la escena: las cámaras de todos sus planos" aria-label="Planta general de la escena ${ea(s.key)}">${v2I('layers')}<span>Planta general</span></button>` : ''}</header>
+      <div class="v2-sbgrid sb-grid"${UI.sbScene ? ` data-sc="${esc(UI.sbScene)}"` : ''}>${shots.map(sh => v2SbCard(sh, G, true)).join('')}</div></section>`;
+  }).join('');
+  return out || `<p class="v2-mut">Sin planos todavía. Usa «Nuevo plano».</p>`;
+}
 function v2SbOrdBtn() {
   if (!shotGroups().size) return '';
   const o = v2SbSort();
@@ -118,12 +153,19 @@ function v2SbBind() {
   v.addEventListener('click', e => {
     if (UI.tab !== 'board') return;
     const cg = e.target.closest('[data-v2col]'); if (cg) { UI.sbCol = cg.dataset.v2col; ls.set('sbCol', UI.sbCol); UI.sbOpen = new Set(); render(); return; }
+    // el botón «Planta general» del encabezado de cada escena (vista «Plantas»): planta-general.js
+    const gp = e.target.closest('.v2-plgi'); if (gp) { plantaGeneral(gp.dataset.sc); return; }
     const od = e.target.closest('[data-v2ord]'); if (od) { UI.sbSort = od.dataset.v2ord; ls.set('sbSort', UI.sbSort); render(); return; }
     const f = e.target.closest('[data-v2sc]'); if (f && f.closest('.v2-sbfil')) { UI.sbScene = f.dataset.v2sc; render(); return; }
     // un clic elige solo ese plano (amarillo); Ctrl/Mayús+clic, arriba, suma o suelta
     const p = e.target.closest('[data-v2pick]'), id = p && p.dataset.v2pick;
     if (id && !UI.readOnly && P.shots[id]) { const S = sbSel(); if (!(S.size === 1 && S.has(id))) { S.clear(); S.add(id); sbSelPaint(); } }
   });
-  v.addEventListener('dblclick', e => { const p = e.target.closest('[data-v2pick]'); if (p && UI.tab === 'board' && !!v2SbEd()) openShot(p.dataset.v2pick); });
+  // doble clic: el editor del plano; en «Plantas», con la planta de cámara a pantalla completa (en «Cuadros» abre el encuadre)
+  v.addEventListener('dblclick', e => {
+    const p = e.target.closest('[data-v2pick]'); if (!p || UI.tab !== 'board' || !v2SbEd()) return;
+    const sh = P.shots[p.dataset.v2pick]; UI.edPlan = !!(sh && UI.sbView === 'plantas' && shot3D(sh));
+    openShot(p.dataset.v2pick);
+  });
   v.addEventListener('contextmenu', e => { const c = e.target.closest('.v2-sbc'); if (!c || UI.tab !== 'board' || !v2SbEd()) return; e.preventDefault(); sbMoreMenu(c, P.shots[c.dataset.sid]); });
 }

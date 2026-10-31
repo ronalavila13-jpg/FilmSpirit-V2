@@ -552,9 +552,9 @@ function plantaGeneral(scKey, opts = {}) {
 /* ---------- exportar: solo la planta (PDF de una página horizontal o imagen PNG) ---------- */
 /* la planta de un plano (sus dos cámaras, si tiene B), cuadrada, en px */
 /* (px: el tamaño de dibujo; dpr: cuántos píxeles por cada uno, para que letras y trazos queden a escala al exportar) */
-function plantaShotCanvas(s3, px, dpr = 2.5) {
+function plantaShotCanvas(s3, px, dpr = 2.5, h = px) {   // h: otro alto (las viñetas de planta del Storyboard son 16:9)
   const c = document.createElement('canvas');
-  const pl = makePlan(c, { s3, sel: null, state: () => s3At(s3, 0), camLetter: () => s3HasB(s3) ? 'A' : '', other: () => s3HasB(s3) ? planOther(s3, 0, 'B') : null }, { w: px, h: px, static: true, dpr });
+  const pl = makePlan(c, { s3, sel: null, state: () => s3At(s3, 0), camLetter: () => s3HasB(s3) ? 'A' : '', other: () => s3HasB(s3) ? planOther(s3, 0, 'B') : null }, { w: px, h, static: true, dpr });
   pl.fit();
   return c;
 }
