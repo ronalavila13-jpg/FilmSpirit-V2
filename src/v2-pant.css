@@ -1498,3 +1498,4 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .ia-slot img{width:96px;height:96px;object-fit:cover;border:1px solid var(--line);border-radius:3px}
 .ia-slot.empty{align-content:center;border:1px dashed var(--line);border-radius:3px;height:96px}
 @media (max-width:720px){.ia-d{grid-template-columns:1fr}}
+.v2-ia.gen{color:var(--ink)}

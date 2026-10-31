@@ -143,7 +143,7 @@ test('solo en la versión con servidor: ia.js entra al armar el servidor y nada 
 test('la pastilla y el interruptor solo aparecen si hay imagen de IA; «3D» general los deja en 3D', () => {
   const { c } = make();
   const sh = sh0(); c.P.shots.s1 = sh;
-  assert.strictEqual(c.iaPillHTML(sh), ''); assert.strictEqual(c.iaSwitchHTML(), '');
+  assert.ok(/data-v2iagen="s1"/.test(c.iaPillHTML(sh)), 'sin imagen: el botón para generarla'); assert.strictEqual(c.iaSwitchHTML(), '');
   c.FRAMES['s1~ia'] = 'ia'; sh.ia = true;
   assert.ok(/class="v2-ia on"/.test(c.iaPillHTML(sh))); assert.ok(/data-v2iaall="1" aria-pressed="true"/.test(c.iaSwitchHTML()));
   c.P.meta.iaOff = true;

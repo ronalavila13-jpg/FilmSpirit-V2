@@ -219,7 +219,9 @@ function iaMenuHTML(sh) {
 const iaBlankBtn = sh => TARGET !== 'server' ? '' : `<button type="button" data-act="ia-gen" data-id="${ea(sh.id)}" title="Generar la imagen de este plano con IA (Studio)"><span>Generar con IA</span></button>`;
 /* la pastilla «IA» de la tarjeta: aparece solo si el plano tiene imagen de IA; encendida, la muestra */
 function iaPillHTML(sh) {
-  if (TARGET !== 'server' || !frameHas(sh.id + '~ia')) return '';
+  if (TARGET !== 'server') return '';
+  // sin imagen de IA todavía: el botón para generarla (si no, nadie encontraría la función)
+  if (!frameHas(sh.id + '~ia')) return UI.readOnly || sh.ws === '2d' ? '' : `<button type="button" class="v2-ia gen" data-v2iagen="${ea(sh.id)}" title="Generar la imagen de este plano con IA (Studio)">✦ IA</button>`;
   const on = !!shotIaKey(sh), off = !!P.meta.iaOff;
   return `<button type="button" class="v2-ia${on ? ' on' : ''}" data-v2ia="${ea(sh.id)}" aria-pressed="${on}" ${UI.readOnly ? 'disabled' : ''} title="${ea(off ? 'Las viñetas están en 3D para todo el proyecto («Viñetas: 3D | IA»)' : on ? 'Muestra la imagen de IA. Un clic: ver la viñeta 3D' : 'Muestra la viñeta 3D. Un clic: ver la imagen de IA')}">IA</button>`;
 }

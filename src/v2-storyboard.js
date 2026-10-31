@@ -152,6 +152,7 @@ function v2SbBind() {
   }, true);
   v.addEventListener('click', e => {
     if (UI.tab !== 'board') return;
+    const iaG = e.target.closest('[data-v2iagen]'); if (iaG) { e.stopPropagation(); iaShotDialog(P.shots[iaG.dataset.v2iagen]); return; }
     const ia1 = e.target.closest('[data-v2ia]'); if (ia1) { e.stopPropagation(); iaShotToggle(P.shots[ia1.dataset.v2ia]); return; }
     const iaA = e.target.closest('[data-v2iaall]'); if (iaA) { iaAllSet(iaA.dataset.v2iaall === '1'); return; }
     const cg = e.target.closest('[data-v2col]'); if (cg) { UI.sbCol = cg.dataset.v2col; ls.set('sbCol', UI.sbCol); UI.sbOpen = new Set(); render(); return; }
