@@ -148,7 +148,7 @@ async function accountMenu(anchor) {
       ${sub && sub.portal ? '<button data-a="portal">Recibos y medio de pago</button>' : ''}
       ${sub && sub.status === 'authorized' ? '<button data-a="cancel">Cancelar la suscripción…</button>' : ''}
       ${me.admin ? '<button data-a="admin">Panel de administración</button>' : ''}
-      <button data-a="plans">Planes y precios</button><hr><button data-a="out">Cerrar sesión</button>
+      <button data-a="ia">Inteligencia artificial (Studio)…</button><button data-a="plans">Planes y precios</button><hr><button data-a="out">Cerrar sesión</button>
       <button data-a="outall">Cerrar sesión en todos los equipos</button><button data-a="del" class="danger">Eliminar mi cuenta…</button></div>`,
     p => p.addEventListener('click', async e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -157,6 +157,7 @@ async function accountMenu(anchor) {
       const PL = me.plans || PLAN_DEFAULTS;
       if (a === 'plan') licenseDialog(me.plan === 'indie' ? T$('upPro', PL.pro) : me.plan === 'pro' ? T$('upStudio', PL.studio) : '', nextPlan(me.plan));
       if (a === 'sample') sampleExplore();
+      if (a === 'ia') iaSettings();
       if (a === 'portal') {
         if (sub.portal !== 'paddle') { window.open(sub.portal, '_blank', 'noopener'); return; }
         // Paddle: un enlace de un solo uso al portal del cliente (se abre la pestaña antes, para que el navegador no la bloquee)

@@ -614,7 +614,7 @@ function r3Viewport(W, H) {
 function r3ShadowSig(s3, st) {
   const { keys, objs, aim, shake, ...scene } = s3;     // todo lo del escenario (set, atmósfera, sol, habitación, plano, luz) menos la cámara
   let k = JSON.stringify(scene) + '|' + (typeof sceneEsc === 'function' ? sceneEsc(s3) : 1) + '|' + (typeof ENVB !== 'undefined' ? ENVB.fb : '') + '|' + (typeof FIG3D !== 'undefined' ? Object.keys(FIG3D.tpl).length : 0) + JSON.stringify(st.o);
-  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.sc ? 's' + o.sc : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(P.elements[o.el].look || 0) : JSON.stringify(o.look || 0));
+  for (const o of s3.objs) k += '|' + o.id + o.kind + (o.type || '') + (o.model || '') + (o.kind === 'gente' ? genteKey(o) : '') + (o.sc ? 's' + o.sc : '') + (o.el && typeof P !== 'undefined' && P.elements[o.el] ? JSON.stringify(lookNoAi(P.elements[o.el].look) || 0) : JSON.stringify(o.look || 0));
   return k;
 }
 function r3Draw(ctx, s3, t, W, H, opts = {}) {
@@ -860,6 +860,16 @@ const TH_BASE = 480;
 const thBase = b => Math.max(TH_BASE, b || TH_BASE);
 /* viñeta del plano en el tiempo t: referencia o escena 3D, con la capa de dibujo encima */
 function drawShotFrame(ctx, sh, t, W, H, opts = {}) {
+  const iaK = shotIaKey(sh);
+  if (iaK) {
+    if (!FRAMES[iaK]) framesNeed([iaK]);
+    const im = cachedImg(iaK);
+    if (im) ctx.drawImage(im, 0, 0, W, H); else { ctx.fillStyle = '#E4E2DD'; ctx.fillRect(0, 0, W, H); }
+    if (frameHas(sh.id + '~a') && !FRAMES[sh.id + '~a']) framesNeed([sh.id + '~a']);
+    const an0 = FRAMES[sh.id + '~a'] ? cachedImg(sh.id + '~a') : null;
+    if (an0) ctx.drawImage(an0, 0, 0, W, H);
+    return;
+  }
   // un dibujo 2D sin la Viñeta 3D: su cuadro ya compuesto. Con ella, el dibujo y la escena 3D juntos (s2d-editor.js):
   // el papel, las fotos de fondo, la escena (sin su entorno si hay una foto detrás) y encima el dibujo
   const two = typeof d2On === 'function' && d2On(sh);
@@ -888,7 +898,11 @@ function drawShotFrame(ctx, sh, t, W, H, opts = {}) {
   const an = FRAMES[sh.id + '~a'] ? cachedImg(sh.id + '~a') : null;
   if (an) ctx.drawImage(an, 0, 0, W, H);
 }
-const looksKey = sh => JSON.stringify((sh.s3 ? sh.s3.objs : sh.chars || []).map(o => { const id = typeof o === 'string' ? o : o.el; return id && P.elements[id] ? P.elements[id].look || 0 : 0; }));
+/* lo de la IA de la ficha (look.ai: descripción y fotos de referencia) no cambia cómo se ve el muñeco: no rehace miniaturas */
+const lookNoAi = lk => lk && lk.ai ? { ...lk, ai: undefined } : lk;
+const looksKey = sh => JSON.stringify((sh.s3 ? sh.s3.objs : sh.chars || []).map(o => { const id = typeof o === 'string' ? o : o.el; return id && P.elements[id] ? lookNoAi(P.elements[id].look) || 0 : 0; }));
+/* la imagen de IA de la viñeta (FRAMES[id~ia], aparte de la escena 3D y de la imagen subida): se ve con sh.ia y sin P.meta.iaOff */
+const shotIaKey = sh => sh && sh.ia && !(P && P.meta && P.meta.iaOff) && frameHas(sh.id + '~ia') ? sh.id + '~ia' : '';
 /* cuerpos articulados ya cargados para las figuras del plano: si cambia, la miniatura se rehace (solo esa) */
 // (y los modelos 3D importados: el del personaje y el del escenario, modelos.js)
 const figSig = sh => {
@@ -926,12 +940,12 @@ function framePSig(k) {
 function thumbKeys(sh, t = 0, base = TH_BASE) {
   const s3 = s3Of(sh);
   // (lo que dibuja la escena 3D solo cuenta si se ve: un dibujo 2D sobre papel no cambia si se mueve el máster)
-  const common = [sh.id, P.meta.aspect, t, thBase(base), looksKey(sh), shot3D(sh) ? JSON.stringify(s3) : '2d', sh.noNames ? 'nn' : '', sh.refBack ? 'rb' : '', atmKey(sh), P.meta.hair || '', typeof set3dSig === 'function' ? set3dSig(s3) : '', shotBlank(sh) ? 'bl' : ''].join('|');
+  const common = [sh.id, P.meta.aspect, t, thBase(base), looksKey(sh), shot3D(sh) ? JSON.stringify(s3) : '2d', sh.noNames ? 'nn' : '', sh.refBack ? 'rb' : '', atmKey(sh), P.meta.hair || '', typeof set3dSig === 'function' ? set3dSig(s3) : '', shotBlank(sh) ? 'bl' : '', shotIaKey(sh) ? 'ia' : ''].join('|');
   const d2 = typeof d2Sig === 'function' ? d2Sig(sh, t) : '';
-  const fk = common + '|' + [planSig(sh), figSig(sh), frameSig(sh.id), frameSig(sh.id + '~a'), !!cachedImg(sh.id), !!cachedImg(sh.id + '~a'), d2].join('|');
+  const fk = common + '|' + [planSig(sh), figSig(sh), frameSig(sh.id), frameSig(sh.id + '~a'), !!cachedImg(sh.id), !!cachedImg(sh.id + '~a'), d2, ...(shotIaKey(sh) ? [frameSig(sh.id + '~ia'), !!cachedImg(sh.id + '~ia')] : [])].join('|');
   let pk = null;
   if (P && FR_KNOWN === P.id) {
-    const ks = [sh.id, sh.id + '~a'];
+    const ks = [sh.id, sh.id + '~a', ...(shotIaKey(sh) ? [sh.id + '~ia'] : [])];
     // el dibujo 2D: su cuadro compuesto o, con la Viñeta 3D, las capas de ese cuadro (s2d-editor.js)
     const two = d2On(sh);
     if (two) { if (shot3D(sh)) ks.push(...d2ViewKeys(sh, t)); else ks.push(d2CKey(sh.id, d2FrameAt(sh.d2, t).id)); }
@@ -948,7 +962,7 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAI
 /* figuras articuladas que necesita la miniatura: se pide su carga y se espera (si no, se dibujaría primero el
    maniquí simple y después otra vez) */
 function thumbFigsReady(sh) {
-  if (typeof FIG3D === 'undefined' || FIG3D.failed || !shot3D(sh) || (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref')))) return null;
+  if (typeof FIG3D === 'undefined' || FIG3D.failed || !shot3D(sh) || shotIaKey(sh) || (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref')))) return null;
   const pend = [];
   for (const o of s3Of(sh).objs) if (o.kind === 'actor') {
     const b = fig3dBody(lookOf(o).body);
@@ -1174,6 +1188,7 @@ function shotThumb(sh, t = 0, base = TH_BASE) {
 }
 /* ¿lo dibujado es la versión final? (figuras articuladas y planta cargadas, 3D disponible) */
 function thumbFinal(sh) {
+  if (shotIaKey(sh)) return true;                           // la imagen de IA tapa la escena
   if (d2On(sh) && !shot3D(sh)) return true;                 // dibujo 2D sobre papel: su cuadro compuesto
   if (frameHas(sh.id) && !sh.refBack && !(d2On(sh) && d2Imp(sh.d2, 'ref'))) return true;   // la foto tapa la escena
   if (!R3.r) return false;                                  // sin 3D: el boceto de respaldo no se guarda

@@ -52,6 +52,8 @@ function openFicha(id, done) {
   // el modelo 3D importado (personajes-3d.js): queda en FRAMES para verlo; se guarda con «Guardar»
   const k3 = m3Key('c', id), f3old = FRAMES[k3];
   let m3busy = '', m3pose = 'pie';
+  // la pestaña «IA» (ia.js, solo en el servidor): descripción y fotos de referencia para las imágenes de las viñetas
+  const IA = typeof iaFicha === 'function' ? iaFicha(el, ed, () => paint()) : null;
   const cv = $('#fiC', ov), g = cv.getContext('2d');
   const s3 = { v: 1, set: 'vacio', aim: 'a0', shake: 0, objs: [{ id: 'a0', kind: 'actor', el: id, name: el.name }],
     keys: [{ t: 0, ease: 'suave', cam: { x: 0, z: 4, h: 1.2, yaw: 0, pitch: 0, roll: 0, lens: 35 }, o: { a0: { x: 0, z: 0, rot: 20, expr: 'neutral', pose: 'pie' } } }] };
@@ -161,9 +163,10 @@ function openFicha(id, done) {
   const paint = () => {
     const lk = lookOf({ kind: 'actor', el: id }), sz = (el.look && el.look.sizes) || {}, has = photoSlots(id), ph = el.look && el.look.photo;
     const hex = /^#[0-9a-f]{6}$/i.test(lk.color || '') ? lk.color : '#808080';
-    const tabs = `<div class="seg fi-tabs" role="tablist" aria-label="Ficha">${[['body', 'Cuerpo'], ['expr', 'Expresión'], ['model', 'Modelo 3D']].map(([k, n]) => `<button role="tab" data-ftab="${k}" aria-selected="${ea(tab === k)}" aria-pressed="${ea(tab === k)}">${n}</button>`).join('')}</div>`;
+    const tabs = `<div class="seg fi-tabs" role="tablist" aria-label="Ficha">${[['body', 'Cuerpo'], ['expr', 'Expresión'], ['model', 'Modelo 3D'], ...(IA ? [['ia', 'IA']] : [])].map(([k, n]) => `<button role="tab" data-ftab="${k}" aria-selected="${ea(tab === k)}" aria-pressed="${ea(tab === k)}">${n}</button>`).join('')}</div>`;
     if (tab === 'expr') { $('#fiCtl', ov).innerHTML = tabs + exprTab(lk); return; }
     if (tab === 'model') { $('#fiCtl', ov).innerHTML = tabs + modelTab(lk); return; }
+    if (tab === 'ia') { $('#fiCtl', ov).innerHTML = tabs + IA.html(); return; }
     const dis = ed ? '' : 'disabled', lk0 = el.look || {}, propsOn = S3_PROP.some(([f]) => lk0[f] != null && +lk0[f] !== 100) || lk0.bw != null;
     const photos = has.length
       ? `<div class="phthumbs">${has.map(k => `<img src="${ea(FRAMES['ph~' + id + '~' + k])}" alt="${k}">`).join('')}</div>${chips([['maniqui', 'Maniquí con su rostro'], ['recorte', 'Recorte fotográfico']], 'phm', ph ? ph.mode : 'maniqui')}`
@@ -199,7 +202,7 @@ function openFicha(id, done) {
   };
   const close = () => {
     removeEventListener('keydown', onEsc, true);
-    if (!saved) { if (look0) el.look = look0; else delete el.look; if (f3old) FRAMES[k3] = f3old; else delete FRAMES[k3]; }
+    if (!saved) { if (look0) el.look = look0; else delete el.look; if (f3old) FRAMES[k3] = f3old; else delete FRAMES[k3]; if (IA) IA.cancel(); }
     ov.remove();
     if (typeof THUMB3 !== 'undefined') THUMB3.clear();
     if (done) done(saved);
@@ -219,6 +222,7 @@ function openFicha(id, done) {
     if (fe && fe.dataset.fe === 'pick') { ex = fe.dataset.v; paint(); draw(); return; }
     const f3 = e.target.closest('[data-f3]');
     if (f3 && f3.dataset.f3 === 'pose') { m3pose = f3.dataset.v; paint(); draw(); return; }
+    if (IA && tab === 'ia') IA.click(e);
     if (!ed) return;
     if (fe) { exprAct(fe); return; }
     if (f3 && f3.dataset.f3 === 'up') { m3Up(); return; }
@@ -229,6 +233,7 @@ function openFicha(id, done) {
         const u = (el.look || {}).model ? FRAMES[k3] : null;
         (u ? m3Save(k3, u) : (delete FRAMES[k3], Store.saveFrame(P.id, k3, null))).catch(err => problem('No se pudo guardar el modelo 3D: ' + ((err && err.message) || 'inténtalo de nuevo') + '.'));
       }
+      if (IA) IA.save();
       saved = true; changed('data'); close(); if (!done) render(); toast(`Ficha de ${titleCase(el.name)} guardada.`); return;
     }
     const k = e.target.closest('[data-fk]');
@@ -249,6 +254,7 @@ function openFicha(id, done) {
   ov.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('fi-more')) { more = e.target.open; ls.set('fi-more', more); } }, true);
   ov.addEventListener('input', e => {
     const x = e.target;
+    if (IA && tab === 'ia') { IA.input(x); return; }
     if (x.dataset.fkc) { x.parentElement.style.setProperty('--sw', x.value); set('color', x.value); draw(); return; }
     if (x.dataset.fr) {
       const v = +x.value;

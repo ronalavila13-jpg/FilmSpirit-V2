@@ -1478,3 +1478,23 @@ input.v2-cin,textarea.v2-cin,input.v2-clbig,input.v2-clmid,input.v2-hshv{padding
 .v2-bdph.has{color:var(--ink);border-color:var(--ink)}
 .v2-bdph svg{width:15px;height:15px}
 .v2-bdph b{font:700 11.5px/1 var(--font-ui)}
+
+/* imágenes con IA (ia.js): pastilla de la tarjeta, ventana de generar, ajustes y pestaña de la ficha */
+.v2-ia{position:absolute;top:8px;left:8px;z-index:2;height:22px;padding:0 8px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted);font:700 11.5px/1 var(--font-ui);letter-spacing:.04em;cursor:pointer}
+.v2-ia.on{background:var(--v2-black);border-color:var(--v2-black);color:var(--v2-yellow)}
+.v2-ia:disabled{cursor:default;opacity:.6}
+.v2-ord button:disabled{opacity:.5;cursor:default}
+.ia-d{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+.ia-cur img{display:block;width:100%;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+.ia-f{display:grid;gap:12px}
+.ia-l{display:grid;gap:4px;font-weight:600}
+.ia-l select,.ia-l textarea,.ia-row input,.ia-row select,.ia-fi textarea{width:100%;font:400 13.5px/1.4 var(--font-ui)}
+.ia-chk{display:flex;align-items:center;gap:8px;font-weight:500}
+.ia-warn p{margin:0 0 6px;padding:8px 10px;border-left:3px solid var(--v2-yellow);background:var(--surface);font-size:13px}
+.ia-set{display:grid;gap:10px;max-width:520px}.ia-set p{margin:0}
+.ia-row{display:grid;gap:4px}.ia-row label{font-weight:600}
+.ia-slots{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ia-slot{width:96px;min-height:96px;display:grid;gap:4px;align-content:start;justify-items:center}
+.ia-slot img{width:96px;height:96px;object-fit:cover;border:1px solid var(--line);border-radius:3px}
+.ia-slot.empty{align-content:center;border:1px dashed var(--line);border-radius:3px;height:96px}
+@media (max-width:720px){.ia-d{grid-template-columns:1fr}}

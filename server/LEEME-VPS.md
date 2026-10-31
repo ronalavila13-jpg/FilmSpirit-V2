@@ -237,6 +237,17 @@ chown filmspirit: /var/lib/filmspirit/filmspirit.db
 sudo systemctl start filmspirit
 ```
 
+## Imágenes con IA (plan Studio): la key de Google de cada persona
+
+Cada persona con plan Studio guarda en su cuenta (menú de la cuenta › «Inteligencia artificial (Studio)…») su **propia key de Google**; Google le cobra a ella. El servidor la guarda **cifrada** (AES-256-GCM) en la base de datos y solo la usa para llamar a Google desde la VPS: no vuelve al navegador ni se escribe en los registros.
+
+El cifrado usa un secreto de 32 bytes que el servidor crea solo la primera vez en `/var/lib/filmspirit/ia-secreto.key` (permiso 600), o el que pongas tú en `IA_KEY_SECRET` en `/etc/filmspirit/filmspirit.env`.
+
+- **Respáldalo junto con la base de datos.** Los respaldos diarios solo copian la base: sin `ia-secreto.key` (o sin el mismo `IA_KEY_SECRET`), una base restaurada no puede abrir las keys guardadas y cada persona tendría que pegar la suya otra vez. Nada se pierde más que eso. Cópialo con: `scp root@IP_DE_TU_VPS:/var/lib/filmspirit/ia-secreto.key .`
+- No lo subas a ningún repositorio (el `.gitignore` ya excluye `*.key`).
+- La VPS sale a `generativelanguage.googleapis.com` (HTTPS). Cada imagen tarda de 10 a 40 s: nginx ya da 120 s a `/`.
+- Límite: 12 imágenes por minuto por persona.
+
 ## Seguridad de la VPS
 
 - Entra por SSH con una **llave** y desactiva la contraseña de root (Hostinger › VPS › Configuración › Llaves SSH).

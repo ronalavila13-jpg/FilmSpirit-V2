@@ -44,7 +44,7 @@ function v2SbCard(sh, G, plan) {
       <span class="v2-sbm"><b>${esc(D.code[sh.id])}</b>${g ? `<span class="v2-gt" title="Se graba de una vez con ${esc(g.members.filter(x => x !== sh).map(x => D.code[x.id]).join(', '))}: claqueta ${esc(D.code[g.lead.id])}">${lead ? '+' + (g.members.length - 1) : 'con ' + esc(D.code[g.lead.id])}</span>` : ''}<span class="v2-sz">${esc(sh.size || '—')}</span>${sh.lens ? `<span class="l">${esc(String(sh.lens))} mm</span>` : ''}<span class="d">${sh.dur ? esc(String(sh.dur)) + ' s' : ''}</span></span>
       ${sh.desc ? `<span class="v2-sbd">${esc(sh.desc)}</span>` : `<span class="v2-sbd mut">${esc(shotTextExcerpt(sh, 90))}</span>`}
       ${chars ? `<span class="v2-sbch">${esc(chars)}</span>` : ''}
-    </button></div>`;
+    </button>${typeof iaPillHTML === 'function' ? iaPillHTML(sh) : ''}</div>`;
 }
 /* la vista «Plantas»: la planta de cámara de cada plano (planta-general.js · plantaShotCanvas), con su viñeta en una esquina.
    Se dibujan de a poco, sin frenar la pantalla, y se guardan por plano y firma de su escena 3D */
@@ -124,7 +124,7 @@ function v2SbFilter() {
   const done = all.filter(x => x.done).length, secs = every.reduce((a, x) => a + (num(x.dur) || 0), 0);
   return `<div class="v2-sbfil"><span class="lab">Escena</span>
     <button type="button" class="v2-fb${UI.sbScene ? '' : ' on'}" data-v2sc="">Todas</button>${withShots.map(s => `<button type="button" class="v2-fb${UI.sbScene === s.key ? ' on' : ''}" data-v2sc="${ea(s.key)}">${esc(s.key)}</button>`).join('')}
-    <span class="v2-grow"></span>${UI.sbView === 'table' ? v2SbColBtn() : v2SbOrdBtn()}<span class="v2-sbst">${all.length} ${all.length === 1 ? 'plano' : 'planos'}${all.length < every.length ? ` (${every.length} con sus grupos)` : ''} · ${done} ${done === 1 ? 'rodado' : 'rodados'}${secs ? ' · ' + v2Secs(secs) : ''}</span></div>`;
+    <span class="v2-grow"></span>${typeof iaSwitchHTML === 'function' ? iaSwitchHTML() : ''}${UI.sbView === 'table' ? v2SbColBtn() : v2SbOrdBtn()}<span class="v2-sbst">${all.length} ${all.length === 1 ? 'plano' : 'planos'}${all.length < every.length ? ` (${every.length} con sus grupos)` : ''} · ${done} ${done === 1 ? 'rodado' : 'rodados'}${secs ? ' · ' + v2Secs(secs) : ''}</span></div>`;
 }
 /* la leyenda de los planos que se graban de una vez: un color por grupo y la claqueta del más bajo */
 function v2SbLegend(G) {
@@ -152,6 +152,8 @@ function v2SbBind() {
   }, true);
   v.addEventListener('click', e => {
     if (UI.tab !== 'board') return;
+    const ia1 = e.target.closest('[data-v2ia]'); if (ia1) { e.stopPropagation(); iaShotToggle(P.shots[ia1.dataset.v2ia]); return; }
+    const iaA = e.target.closest('[data-v2iaall]'); if (iaA) { iaAllSet(iaA.dataset.v2iaall === '1'); return; }
     const cg = e.target.closest('[data-v2col]'); if (cg) { UI.sbCol = cg.dataset.v2col; ls.set('sbCol', UI.sbCol); UI.sbOpen = new Set(); render(); return; }
     // el botón «Planta general» del encabezado de cada escena (vista «Plantas»): planta-general.js
     const gp = e.target.closest('.v2-plgi'); if (gp) { plantaGeneral(gp.dataset.sc); return; }

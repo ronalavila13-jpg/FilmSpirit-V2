@@ -377,7 +377,7 @@ function sbImgMenu(sh) {
     + (bl ? '<button data-m="unblank">Volver a la escena 3D</button>' : img ? '' : '<button data-m="blank">Dejar en blanco</button>');
 }
 const sbBlankBtn = sh => UI.readOnly || sh.ws === '2d' || !shotBlank(sh) || sbHasImg(sh) ? ''
-  : `<span class="sb-blank"><button type="button" data-act="sb-img1" data-id="${ea(sh.id)}" title="Subir una imagen para este plano (también puedes soltarla aquí)">${SB_IMG_IC}<span>Subir imagen</span></button></span>`;
+  : `<span class="sb-blank"><button type="button" data-act="sb-img1" data-id="${ea(sh.id)}" title="Subir una imagen para este plano (también puedes soltarla aquí)">${SB_IMG_IC}<span>Subir imagen</span></button>${typeof iaBlankBtn === 'function' ? iaBlankBtn(sh) : ''}</span>`;
 function sbBlank(sh, on) {
   if (UI.readOnly || !sh) return;
   histNote(`${on ? 'Dejar en blanco' : 'Volver a la escena 3D en'} el plano ${D.code[sh.id] || ''}`.trim(), null, 'board');
@@ -576,7 +576,7 @@ function sbMoreMenu(anchor, sh) {
   // lo esencial arriba; lo que se usa poco, plegado en «Más opciones»; Eliminar, al final
   const many = picked && sbSelList().length > 1;
   const join = sbJoinGroups().length && picked ? `<button data-m="join" title="Comparten color y la claqueta del plano más bajo">Grabar juntos los elegidos de la escena</button>` : '';
-  popover(anchor, `<div class="menu sb-menu">${clone}${join}<button data-m="open">Abrir</button><button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="tog" title="Varios planos con un solo tiro de cámara: comparten color y la claqueta del más bajo">Se graba junto con…</button><button data-m="dup">Duplicar</button><button data-m="more" aria-expanded="false" class="sb-more">Más opciones</button><div class="sb-more-b" hidden>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}${pick}<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}</div><hr><button data-m="del" style="color:var(--bad)">${many ? `Eliminar los ${sbSelList().length} elegidos` : 'Eliminar'}</button></div>`, p => p.addEventListener('click', e => {
+  popover(anchor, `<div class="menu sb-menu">${clone}${join}<button data-m="open">Abrir</button><button data-m="done">${sh.done ? 'Quitar «Rodado»' : 'Marcar como rodado'}</button><button data-m="tog" title="Varios planos con un solo tiro de cámara: comparten color y la claqueta del más bajo">Se graba junto con…</button><button data-m="dup">Duplicar</button>${typeof iaMenuHTML === 'function' ? iaMenuHTML(sh) : ''}<button data-m="more" aria-expanded="false" class="sb-more">Más opciones</button><div class="sb-more-b" hidden>${i > 0 ? '<button data-m="prev">Mover antes</button>' : ''}${i < list.length - 1 ? '<button data-m="next">Mover después</button>' : ''}${pick}<button data-m="master" title="Los demás planos de la escena toman de este la ubicación de los personajes y el escenario">${isMaster(sh) ? 'Dejar de usar como máster' : 'Usar como máster'}</button>${stageStale(sh) ? '<button data-m="stgupd" title="Trae del máster el decorado, los objetos, las luces del set, la hora y la lluvia; la cámara y las figuras no cambian">Actualizar escenario</button><button data-m="stgkeep">Mantener su escenario</button>' : ''}${sbImgMenu(sh)}</div><hr><button data-m="del" style="color:var(--bad)">${many ? `Eliminar los ${sbSelList().length} elegidos` : 'Eliminar'}</button></div>`, p => p.addEventListener('click', e => {
     const x = e.target.closest('[data-m]'); if (!x) return;
     if (x.dataset.m === 'more') {   // despliega o pliega lo menos usado sin cerrar el menú
       const b = $('.sb-more-b', p); b.hidden = !b.hidden; x.setAttribute('aria-expanded', String(!b.hidden)); x.textContent = b.hidden ? 'Más opciones' : 'Menos opciones';
@@ -596,6 +596,9 @@ function sbMoreMenu(anchor, sh) {
     if (m === 'dup') duplicateShot(sh.id);
     if (m === 'img') sbPickImg(sh);
     if (m === 'noimg') sbClearImg(sh);
+    if (m === 'iagen') iaShotDialog(sh);
+    if (m === 'iatog') iaShotToggle(sh);
+    if (m === 'iadel') iaShotClear(sh);
     if (m === 'blank' || m === 'unblank') sbBlank(sh, m === 'blank');
     if (m === 'master') sbMaster(sh);
     if (m === 'stgupd') stageUpdate([sh]);
