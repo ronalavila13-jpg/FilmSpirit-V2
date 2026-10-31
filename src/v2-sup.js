@@ -9,7 +9,6 @@
      de la v1, con las jornadas en pestañas y el avance en tarjetas, como el plan y la hoja de llamado.
    Los datos y las acciones son los de la v1 (tab-sup.js): REC, «+ Toma», marcar, MOS y «Rodado · siguiente».
    ============================================================ */
-const v2SupOn = () => V2.on && UI.tab === 'sup';
 const V2_SUPP = { Mano: 'Cámara en mano' };
 /* las fichas del plano: tamaño, ángulo, lente, movimiento y soporte (sin «Normal» ni «Fijo») */
 const v2SupChips = sh => [...new Set([sh.size, sh.angle && sh.angle !== 'Normal' ? sh.angle : '', sh.lens ? String(sh.lens).replace(/\s*mm$/i, '') + ' mm' : '',

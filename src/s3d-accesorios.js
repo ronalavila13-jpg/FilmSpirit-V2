@@ -525,6 +525,13 @@ function accClothGeo(acc, tp) {
     }
   }
   if (!idx.length) return null;
+  const geo = clothGeo(P, N, SI, SW, IN, BX, idx);
+  geo.userData.cloth = true;
+  geo.userData.det = accDetTex(accDetailMaps(acc));
+  return geo;
+}
+/* la malla de una prenda con piel: posiciones, normales, huesos y pesos, influencia (aInfl) y caja (aBox) */
+function clothGeo(P, N, SI, SW, IN, BX, idx) {
   const T = THREE, geo = new T.BufferGeometry();
   geo.setAttribute('position', new T.Float32BufferAttribute(P, 3));
   geo.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
@@ -534,8 +541,6 @@ function accClothGeo(acc, tp) {
   geo.setAttribute('aBox', new T.Float32BufferAttribute(BX, 3));
   geo.setAttribute('aBN', new T.Float32BufferAttribute(N, 3));
   geo.setIndex(idx);
-  geo.userData.cloth = true;
-  geo.userData.det = accDetTex(accDetailMaps(acc));
   return geo;
 }
 /* la prenda en una figura: malla con piel (los mismos huesos), su color y el contorno de la figura */

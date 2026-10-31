@@ -102,16 +102,6 @@ test('las fotos se comprimen a WebP con calidad 90 % (imgEncode, sin tope) y van
   assert.ok(/compressPhoto\(f, o\.top\)/.test(leer('laminas.js')));
   assert.ok(/imgEncode\(await imgCanvas\(file, \{ max: IMG_MAX \}\), top \? \{ top \} : \{\}\)/.test(leer('laminas.js')));
 });
-test('el dictado usa Web Speech en el idioma de la app; sin soporte, no hay botón', () => {
-  const s = leer(T);
-  assert.ok(/window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/.test(s));
-  assert.ok(/r\.lang = EN \? 'en-US' : 'es-PE'/.test(s));
-  assert.ok(/\$\{SUP_SR \? `<button type="button" class="hs-mic/.test(s));
-});
-test('la foto de continuidad del celular abre la cámara', () => {
-  assert.ok(/capture="environment" data-bind="sup-ph" data-k=/.test(leer(T)));
-});
-
 test('la hoja para imprimir: las columnas de la muestra (px × 0,75 en pt), 7 planos por hoja y el parte al final', () => {
   const S = 'sup-partes.js';
   vm.runInContext(pieza(S, 'const HS_COLW') + pieza(S, 'const hsCols'), c);

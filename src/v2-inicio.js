@@ -88,7 +88,6 @@ const v2HI = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${V2_HI[k]}</svg>
 const v2Cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const v2Chip = (k, dark) => { const s = v2StageOf(k); return `<span class="v2-stc${dark ? ' dk' : ''}"><i style="background:${s[2]}"></i>${esc(s[1])}</span>`; };
 const v2Avs = (names, max = 2) => { const cls = ['y', 'k', '']; return names.length ? `<span class="v2-avs2">${names.slice(0, max).map((n, i) => `<span class="v2-av ${cls[i] || ''}" title="${ea(n)}">${esc(v2Ini(n))}</span>`).join('')}${names.length > max ? `<span class="v2-av m">+${names.length - max}</span>` : ''}</span>` : ''; };
-const v2Ago2 = ts => { const s = v2Ago(ts); return s; };
 
 function v2HomeData() {
   const S = v2SumAll(), list = HOME.list || [];

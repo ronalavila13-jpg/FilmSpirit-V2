@@ -615,8 +615,6 @@ const LK_ICO = {
   pj: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c.8-3 3.2-5 6-5s5.2 2 6 5M15 14.5c2.6 0 4.6 1.6 5.3 4.5"/></svg>',
   ro: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
 };
-/* el color de las etapas, en muestra: Vivos (de color entero) y Suaves (tonos claros) */
-const LK_SEC = { solido: ['#222222', '#CE0C1C', '#6B6259', '#FFBE0B', '#E8730C'], pastel: ['#E3DFD9', '#F4CACD', '#E2E0DD', '#FFF1C9', '#FCE3CB'], neutro: ['#2A2A2A', '#6E6E6E', '#BDBDBD', '#E6E6E6', '#F5F5F5'] };
 /* color por color: los nombres cortos de las entradas fijas */
 const LK_CC = [['Plan de rodaje', [['plan', 'di', 'Día interior'], ['plan', 'd', 'Día'], ['plan', 'n', 'Noche'], ['plan', 'ne', 'Noche exterior'], ['plan', 'dd', 'Amanecer o atardecer'], ['plan', 'brk', 'Jornada'], ['plan', 'ev', 'Evento']]],
   ['Calendario', [['cal', 'pre', 'Preproducción'], ['cal', 'rod', 'Rodaje'], ['cal', 'post', 'Posproducción'], ['cal', 'otro', 'Otras']]],

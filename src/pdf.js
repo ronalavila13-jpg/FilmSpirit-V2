@@ -61,7 +61,6 @@ let PDF_KIND = '';   // el documento que se está armando (pdfMake)
 const stripRGB = s => rgb(s && s.dn === 'N' ? lgCol('plan', 'n') : lgCol('plan', 'd'));
 const pdfHl = x => { const c = hlc(x); return c ? rgb(c) : null; };   // lo resaltado con un color de la leyenda
 const mixc = (a, b, t) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
-const SUP_DONE = [233, 244, 236];   // lo rodado, en un verde muy suave (como la fila marcada en la app)
 /* ---------- la letra y el aire de los PDF (lote K) ----------
    Un solo sistema para todos los documentos: el cuerpo en 8,8 pt con interlineado 1,3; lo secundario en 7,9 pt y en
    gris legible; las cabeceras de tabla en 7,4 pt; celdas con 5 pt arriba y abajo y 6 a los lados; solo líneas
@@ -562,33 +561,6 @@ function pageNumbers(doc, label) {
   doc.setTextColor(...INK);
 }
 
-/* celda «encabezado + sinopsis»: el encabezado en letra normal y la sinopsis en cursiva (autoTable dibuja todo en un
-   estilo; aquí la celda se dibuja a mano con las mismas líneas que ya calculó) */
-function pdfSynHooks(doc, col) {
-  return {
-    willDrawCell: d => {
-      if (d.section !== 'body' || d.column.index !== col || !d.cell.raw || !d.cell.raw._hd) return;
-      const c = d.cell;
-      doc.setFont('helvetica', c.styles.fontStyle || 'normal'); doc.setFontSize(c.styles.fontSize);
-      const n = doc.splitTextToSize(c.raw._hd, c.width - c.padding('horizontal')).length;
-      c._lines = c.text; c._nh = n; c.text = [];
-    },
-    didDrawCell: d => {
-      const c = d.cell; if (!c._lines) return;
-      const fs = c.styles.fontSize, lh = fs * doc.getLineHeightFactor(), H = c._lines.length * lh;
-      let y = c.styles.valign === 'middle' ? c.y + (c.height - H) / 2 : c.styles.valign === 'bottom' ? c.y + c.height - c.padding('bottom') - H : c.y + c.padding('top');
-      const x = c.x + c.padding('left'), col0 = c.styles.textColor;
-      doc.setFontSize(fs);
-      c._lines.forEach((ln, k) => {
-        const syn = k >= c._nh;
-        doc.setFont('helvetica', syn ? 'italic' : c.styles.fontStyle || 'normal');
-        if (Array.isArray(col0)) doc.setTextColor(...(syn ? col0.map(v => Math.round(v + (255 - v) * .2)) : col0));
-        doc.text(ln, x, y + k * lh, { baseline: 'top' });
-      });
-      c._lines = null;
-    },
-  };
-}
 /* ---------- guion (limpio) y guion rayado ---------- */
 function pdfScreenplay() { return edFormat() === 'av' ? pdfAV(false) : pdfScript({ clean: true }); }
 function pdfScript(opts = {}) {

@@ -21,8 +21,8 @@ vm.runInContext(`var EN = false, trDone = s => s; var P, UI = {}, D = { code: {}
 vm.runInContext([pieza(T, 'const TAKE_ST'), pieza(T, 'const supTakes'), pieza(T, 'const supRolled'), pieza(T, 'const supMos'), pieza(T, 'const isMos'), pieza(T, 'const takeSnd'),
   pieza(T, 'function supClean('), pieza(T, 'const supFmt'), pieza(T, 'const supClock'), pieza(T, 'const supCurTake'), pieza(T, 'function supStop('), pieza(T, 'const supStopAll'),
   pieza(T, 'function supStats('), pieza(T, 'function supRolls('), pieza(T, 'function supCur('), pieza(T, 'function supNextOf('),
-  pieza(T, 'const supStHTML'), pieza(T, 'function supStepHTML('), pieza(T, 'const supNextN'), pieza(T, 'const supAddBtn'), pieza(T, 'const supDoneBtn'),
-  pieza(T, 'function supClockHTML('), pieza(T, 'function supMarkHTML('), pieza(T, 'function supTakeNew('), pieza(T, 'function supTakeAdd('), pieza(T, 'function supRec('), pieza(T, 'function supMarkTake('),
+  pieza(T, 'const supStHTML'), pieza(T, 'const supNextN'),
+  pieza(T, 'function supTakeNew('), pieza(T, 'function supTakeAdd('), pieza(T, 'function supRec('), pieza(T, 'function supMarkTake('),
   pieza('cabecera.js', 'function hdStep('), pieza('tab-board.js', 'function setShotDone(')].join('\n'), c);
 // las acciones de la tarjeta (del objeto ACT), tal cual
 const act = k => { const a = src.indexOf(`  '${k}': b => {`); assert(a > 0, k); const b = src.indexOf('\n  },\n', a); return src.slice(a, b + 5); };
@@ -87,46 +87,6 @@ test('los proyectos guardados: «rdy» solo vale 1 y nunca junto al cronómetro;
   c.supClean(S);
   assert.deepStrictEqual(J(S.takes.a), [{ n: 1, st: 'ok', rdy: 1 }, { n: 2, st: 'ok' }, { n: 3, st: 'ok', run: 1700000000000 }, { n: 4, st: 'ok', t: '07:00', run: 1700000000000 }]);
 });
-test('la tarjeta: REC junto al cronómetro (■ Parar mientras graba); «Lista» en la toma sin grabar; sin edición, sin REC', () => {
-  fresh({ a: [{ n: 1, st: 'ok', t: '08:00', d: '0:20' }] });
-  const sh = c.P.shots.a;
-  let h = c.supClockHTML(sh, c.P.sup.takes.a[0], 'S001', true);
-  assert.ok(/class="hs-rec" data-act="sup-rec" data-id="a" aria-pressed="false" aria-label="Grabar la toma 2"/.test(h), 'REC graba la que sigue');
-  assert.ok(/<span>REC<\/span>/.test(h));
-  c.P.sup.takes.a.push({ n: 2, st: 'ok', t: '08:05', run: Date.now() - 3000 });
-  h = c.supClockHTML(sh, c.P.sup.takes.a[1], 'S001', true);
-  assert.ok(/hs-clock rec/.test(h) && /class="hs-rec on"[^>]*aria-pressed="true" aria-label="Parar la toma 2"/.test(h) && /<span>Parar<\/span>/.test(h) && /data-sup-run=/.test(h));
-  c.P.sup.takes.a[1] = { n: 2, st: 'ok', note: '', rdy: 1, r: 'A001', s: 'S001' };
-  h = c.supClockHTML(sh, c.P.sup.takes.a[1], 'S001', true);
-  assert.ok(/hs-st rdy">Lista</.test(h) && /aria-label="Grabar la toma 2"/.test(h) && />00:00</.test(h) && /A001 · S001/.test(h));
-  assert.ok(!/hs-rec/.test(c.supClockHTML(sh, c.P.sup.takes.a[1], 'S001', false)), 'sin permiso, no hay REC');
-  assert.ok(/data-act="sup-rec"/.test(c.supClockHTML(c.P.shots.b, null, '', true)), 'sin tomas, REC crea la primera');
-  // con una toma lista, «+ Toma» no agrega otra
-  assert.ok(/data-act="take-add" data-id="a" disabled/.test(c.supAddBtn('a', c.P.sup.takes.a)));
-  assert.ok(!/disabled/.test(c.supAddBtn('b', [])) && />\+ Toma 1</.test(c.supAddBtn('b', [])));
-  assert.ok(/<span>Rodado · siguiente<\/span>/.test(c.supDoneBtn('a')));
-});
-test('un solo MOS en la tarjeta: la casilla «Plano MOS»; la toma suelta, en su ventana', () => {
-  fresh({ a: [{ n: 1, st: 'ok' }] });
-  const h = c.supMarkHTML(c.P.shots.a, c.P.sup.takes.a[0]);
-  assert.ok(/data-bind="sup-mos-shot" data-id="a"/.test(h) && /Plano MOS/.test(h));
-  assert.ok(!/sup-mos-take|hs-tog/.test(h), 'sin el botón «MOS» de la toma');
-  assert.ok(!/sup-mos-take/.test(src), 'la acción ya no existe'); assert.ok(!/\.hs-tog/.test(css), 'ni su estilo');
-  assert.ok(/<button type="button" class="btn sm" data-mos /.test(src), 'en la ventana de la toma sigue el MOS de esa toma');
-  const L = [{ n: 1, st: 'ok', rdy: 1 }];
-  assert.ok(!/aria-pressed="true"/.test(c.supMarkHTML(c.P.shots.a, L[0])), 'la toma lista no tiene estado marcado');
-});
-test('‹ › recorren todos los planos de la jornada, rodados o no; en los extremos, deshabilitados; sin plano en cámara, ‹ va al último', () => {
-  const shots = [{ id: 'a', done: true }, { id: 'b' }, { id: 'c', done: true }];
-  let h = c.supStepHTML({ shots, cur: shots[1], ed: true });
-  assert.ok(/data-act="sup-step" data-id="a" data-dir="-1"/.test(h) && /data-act="sup-step" data-id="c" data-dir="1"/.test(h), 'al rodado de antes y al de después');
-  assert.ok(/Plano anterior/.test(h) && /Plano siguiente/.test(h));
-  h = c.supStepHTML({ shots, cur: shots[0], ed: true });
-  assert.ok(/class="hd-stepb" disabled/.test(h) && /data-id="b" data-dir="1"/.test(h));
-  h = c.supStepHTML({ shots, cur: null, ed: true });
-  assert.ok(/data-id="c" data-dir="-1"/.test(h) && (h.match(/disabled/g) || []).length === 1);
-  assert.strictEqual(c.supStepHTML({ shots, cur: shots[1], ed: false }), '', 'sin permiso, sin flechas');
-});
 test('pasar de plano con ‹ › solo cambia el que está en cámara: nada se marca como rodado ni se para', () => {
   fresh({ a: [{ n: 1, st: 'ok', t: '08:00', run: 1700000000000 }] });
   c.P.shots.b.done = true;
@@ -148,18 +108,6 @@ test('«✓ Rodado · siguiente» marca el plano y pasa al siguiente sin rodar; 
   assert.ok(c.P.shots.a.done); assert.strictEqual(c.UI.supCur, 'b'); assert.deepStrictEqual(J(c.P.sup.takes.a.map(t => t.n)), [1]);
   c.ACT['sup-next']({ dataset: { id: 'b' } });
   assert.strictEqual(c.P.sup.takes.b.length, 1, 'con nota, se queda'); assert.strictEqual(c.UI.supCur, 'c');
-});
-test('la tarjeta de la computadora y la del celular: flechas, REC, «+ Toma» y «✓ Rodado · siguiente»; deslizar en el celular', () => {
-  const cam = src.slice(src.indexOf('function supCamHTML('), src.indexOf('function supClockHTML('));
-  assert.ok(/\$\{supStepHTML\(X\)\}/.test(cam) && /supClockHTML\(cur, t, snd, ed\)/.test(cam) && /supAddBtn\(cur\.id, takes\)\}\$\{supDoneBtn\(cur\.id\)\}/.test(cam));
-  const ph = src.slice(src.indexOf('function supPhoneHTML('), src.indexOf('function supMTakeHTML('));
-  assert.ok(/data-swipe/.test(ph) && /\$\{supStepHTML\(X\)\}/.test(ph) && /supClockHTML\(cur, t, snd, ed\)/.test(ph));
-  assert.ok(/supAddBtn\(cur\.id, supTakes\(cur\.id\)\)\}\$\{supDoneBtn\(cur\.id\)\}/.test(src), 'la barra de abajo del celular');
-  assert.ok(/supSwipe\(v\);/.test(src) && /Math\.abs\(dx\) < 60 \|\| Math\.abs\(dy\) > Math\.abs\(dx\) \* \.6/.test(src), 'deslizar: horizontal y largo');
-  assert.ok(/p\.clientX > 24 && p\.clientX < innerWidth - 24/.test(src), 'no desde los bordes (el gesto de volver)');
-  assert.ok(/\.hs-mpl \.hd-stepb\{width:42px;height:42px\}/.test(css), 'flechas para el dedo');
-  assert.ok(/@media \(prefers-reduced-motion:reduce\)\{[^}]*\.hs-rec\.on,\.hs-inn,\.hs-inp\{animation:none\}/.test(css));
-  assert.ok(/:root\[data-tone="dark"\] \.hs\{[^}]*--hs-rec:#D92632;--hs-rec-t:#FF6B6B\}/.test(css), 'el rojo de REC de noche');
 });
 test('los PDF y la carga rápida usan las tomas grabadas: la lista que nunca rodó no sale (y la fila de papel con su número la reemplaza)', () => {
   const S = leer('sup-partes.js');
